@@ -1,5 +1,8 @@
+// (c) Roel Kluin 2022 GPL v3
+
 use ranting::Ranting;
 use ranting_derive::*;
+use std::collections::HashMap;
 
 #[derive(Ranting)]
 struct Object {
@@ -20,6 +23,7 @@ impl Object {
 struct Person {
     name: String,
     pronoun: String,
+    inventory: HashMap<String, usize>,
 }
 
 impl Person {
@@ -27,6 +31,7 @@ impl Person {
         Person {
             name: name.to_string(),
             pronoun: pronoun.to_string(),
+            inventory: HashMap::new(),
         }
     }
     fn pronoun(&self) -> &str {
@@ -49,11 +54,19 @@ impl Person {
             }
             ("give", Some((nr, coin))) if coin.name() == "coin" => match nr {
                 0 => nay!("{actor don't:S} seem able to give zero {coin}s to {self}."),
-                1 => ack!("{self thank:S} {actor} for {the coin}."),
-                n => ack!("{self thank:S} {actor} for the {n} {coin}s."),
+                1 => {
+                    let ent = self.inventory.entry(coin.name().to_string()).or_default();
+                    *ent += nr;
+                    ack!("{self thank:S} {0:o}, {0}, for {0:p} {coin}.", actor)
+                }
+                n => {
+                    let ent = self.inventory.entry(coin.name().to_string()).or_default();
+                    *ent += nr;
+                    ack!("{self thank:S} {actor} for the {n} {coin}s.")
+                }
             },
             (act, Some((nr, item))) => nay!("{actor can:S} not {act} {nr} {item}s to {self}"),
-            (act, None) => nay!("{actor may:S} not {act} {self}"),
+            (act, None) => nay!("{actor shouldn't:S} {act} {self}."),
         }
     }
 }
@@ -90,8 +103,11 @@ fn male_female_and_object() {
     );
 
     let ret = bob.respond_to(&anna, "give", Some((1, &coin)));
-    assert_eq!(ret, Ok("He thanks Anna for the coin.".to_string()));
+    assert_eq!(ret, Ok("He thanks me, Anna, for my coin.".to_string()));
 
     let ret = anna.respond_to(&bob, "give", Some((4, &coin)));
     assert_eq!(ret, Ok("I thank Bob for the 4 coins.".to_string()));
+
+    let ret = anna.respond_to::<Person, Person>(&bob, "push", None);
+    assert_eq!(ret, Err("He shouldn't push Anna.".to_string()));
 }

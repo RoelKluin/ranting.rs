@@ -22,10 +22,14 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
             fn name(&self) -> &str {
                 self.name.as_str()
             }
-            fn a_or_an(&self) -> &str {
+            fn a_or_an(&self, uc: bool) -> &str {
                 match self.pronoun() {
-                    "we" | "they" => "some",
-                    _ => ranting::in_definite::get_a_or_an(self.name()),
+                    "we" | "they" => if uc {"Some"} else {"some"},
+                    _ => match ranting::in_definite::get_a_or_an(self.name()) {
+                            "a" if uc => "A",
+                            "an" if uc => "An",
+                            alt => alt,
+                        },
                 }
             }
             fn subject(&self, uc: bool) -> &str {

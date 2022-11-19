@@ -4,12 +4,12 @@ mod ranting_impl;
 
 use darling::{FromDeriveInput, ToTokens};
 use itertools::Itertools;
+use lazy_regex::regex;
 use proc_macro::{self, Literal, Span, TokenStream, TokenTree};
 use ranting_impl::*;
-
-use lazy_regex::regex;
 use regex::Captures;
 use std::collections::{hash_map::Entry, HashMap};
+use std::default::Default;
 use syn::{parse, parse_macro_input, Error as SynError, Expr, ExprPath};
 
 #[proc_macro_derive(Ranting, attributes(ranting))]
@@ -43,17 +43,46 @@ pub fn ack(input: TokenStream) -> TokenStream {
     }
 }
 
+#[derive(Default)]
 struct SayFmt {
     article_or_so: Option<String>,
     spaced_verb: Option<String>,
-    formatting: String,
+    format: String,
+    case: char,
+    uc: bool,
 }
 
 impl SayFmt {
+    fn from_caps(caps: &Captures) -> Result<Self, SynError> {
+        let mut uc = caps
+            .get(1)
+            .filter(|a| a.as_str().starts_with(|c: char| c.is_uppercase()))
+            .is_some();
+        let mut format = caps.get(4).map(|s| s.as_str()).unwrap_or("");
+        let case = if let Some(fmt) = format.strip_prefix(':') {
+            if fmt.is_empty() {
+                return Err(SynError::new(
+                    Span::call_site().into(),
+                    "cannot end format with ':'",
+                ));
+            }
+            let c;
+            (c, format) = fmt.split_at(1);
+            uc |= c.starts_with(|c: char| c.is_uppercase());
+            c.chars().next().unwrap().to_ascii_uppercase()
+        } else {
+            Default::default()
+        };
+        Ok(SayFmt {
+            article_or_so: caps.get(1).map(|a| a.as_str().to_string()),
+            spaced_verb: caps.get(3).map(|s| s.as_str().to_string()),
+            format: format.to_string(),
+            case,
+            uc,
+        })
+    }
     fn is_subject(&self) -> bool {
-        self.spaced_verb.is_some()
-            || self.formatting.starts_with(":s")
-            || self.formatting.starts_with(":S")
+        self.spaced_verb.is_some() || self.case == 'S'
     }
 }
 
@@ -97,16 +126,27 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
                 subject = usize::MAX;
                 return new_sentence.as_str().to_string();
             }
-            let sf = SayFmt {
-                article_or_so: caps.get(1).map(|a| a.as_str().to_string()),
-                spaced_verb: caps.get(3).map(|s| s.as_str().to_string()),
-                formatting: caps.get(4).map(|s| s.as_str()).unwrap_or("").to_string(),
-            };
             let noun_or_pos = caps.get(2).unwrap().as_str().to_string();
+            let sf = match SayFmt::from_caps(caps) {
+                Ok(sf) => sf,
+                Err(e) => {
+                    err = Some(e);
+                    return String::new();
+                }
+            };
             let u_offs = positional.len() + named_params.len();
             if let Ok(u) = noun_or_pos.parse::<usize>() {
                 let expr = match lookup.get(u) {
-                    Some(&u) => positional[u].to_string(),
+                    Some(&u) => {
+                        // reused may already be a function call
+                        let clean = positional[u]
+                            .split_once('.')
+                            .map(|x| x.0)
+                            .unwrap_or(positional[u].as_str())
+                            .to_string();
+                        positional.push(clean.to_string());
+                        clean
+                    }
                     None => match comma_next(&mut token_it, &mut positional) {
                         Ok(expr) => {
                             lookup.push(u_offs + u);
@@ -238,75 +278,47 @@ fn comma_next(
 
 // arguments become positionals
 fn handle_param(sf: SayFmt, local: String, positional: &mut Vec<String>, u: usize) -> String {
+    let uc = sf.uc;
     // numeric stay, only u increment if with article
     match sf.article_or_so {
         Some(article_or_so) => {
-            if article_or_so.starts_with('A') {
-                let a = format!(r#"if {local}.a_or_an() == "a" {{"A"}} else {{"An"}}"#);
-                positional.push(a);
-            } else if article_or_so.starts_with('a') {
-                positional.push(format!("{local}.a_or_an()"));
-            } else if article_or_so.ends_with("Our") {
+            if article_or_so.to_ascii_lowercase().ends_with("our") {
                 if let Some((obj, _)) = article_or_so.split_once(' ') {
-                    positional.push(format!("{obj}.object(true)"));
+                    positional.push(format!("{obj}.object({uc})"));
                     positional.push(format!("{obj}.possesive(false)"));
-                    return format!("{{{}}} {{{}}} {{{}{}}}", u + 1, u + 2, u, sf.formatting);
+                    return format!("{{{}}} {{{}}} {{{}{}}}", u + 1, u + 2, u, sf.format);
                 } else if let Some((obj, _)) = article_or_so.split_once(':') {
-                    positional.push(format!("{obj}.possesive(true)"));
+                    positional.push(format!("{obj}.possesive({uc})"));
                 } else {
-                    positional.push("{subject}.possesive(true)".to_string());
-                }
-            } else if article_or_so.ends_with("our") {
-                if let Some((obj, _)) = article_or_so.split_once(' ') {
-                    positional.push(format!("{obj}.object(false)"));
-                    positional.push(format!("{obj}.possesive(false)"));
-                    return format!("{{{}}} {{{}}} {{{}{}}}", u + 1, u + 2, u, sf.formatting);
-                } else if let Some((obj, _)) = article_or_so.split_once(':') {
-                    positional.push(format!("{obj}.possesive(false)"));
-                } else {
-                    positional.push("{subject}.possesive(false)".to_string());
+                    positional.push("{subject}.possesive({uc})".to_string());
                 }
             } else {
-                positional.push(format!(r#""{article_or_so}""#));
+                match article_or_so.to_ascii_lowercase().as_str() {
+                    "a" | "an" => positional.push(format!("{local}.a_or_an({uc})")),
+                    _ => positional.push(format!(r#""{article_or_so}""#)),
+                }
             }
             if let Some(sv) = sf.spaced_verb {
                 positional.push(format!("{local}.verb(\"{sv}\")"));
-                format!("{{{}}} {{{}{}}}{{{}}}", u + 1, u, sf.formatting, u + 2)
+                format!("{{{}}} {{{}{}}}{{{}}}", u + 1, u, sf.format, u + 2)
             } else {
-                format!("{{{}}} {{{}{}}}", u + 1, u, sf.formatting)
+                format!("{{{}}} {{{}{}}}", u + 1, u, sf.format)
             }
         }
         None => {
             if let Some(sv) = sf.spaced_verb {
-                let formatting = if let Some(formatting) = sf.formatting.strip_prefix(":S") {
-                    positional[u] = format!("{local}.subject(true)");
-                    formatting
-                } else {
-                    positional[u] = format!("{local}.subject(false)");
-                    sf.formatting.trim_end_matches(":s")
-                };
+                positional[u] = format!("{local}.subject({uc})");
                 positional.push(format!("{local}.verb(\"{sv}\")"));
-                format!("{{{}{}}}{{{}}}", u, formatting, u + 1)
-            } else if let Some(formatting) = sf.formatting.strip_prefix(":o") {
-                positional[u] = format!("{local}.object(false)");
-                format!("{{{}{}}}", u, formatting)
-            } else if let Some(formatting) = sf.formatting.strip_prefix(":O") {
-                positional[u] = format!("{local}.object(true)");
-                format!("{{{}{}}}", u, formatting)
-            } else if let Some(formatting) = sf.formatting.strip_prefix(":p") {
-                positional[u] = format!("{local}.possesive(false)");
-                format!("{{{}{}}}", u, formatting)
-            } else if let Some(formatting) = sf.formatting.strip_prefix(":P") {
-                positional[u] = format!("{local}.possesive(true)");
-                format!("{{{}{}}}", u, formatting)
-            } else if let Some(formatting) = sf.formatting.strip_prefix(":a") {
-                positional[u] = format!("{local}.adjective(flase)");
-                format!("{{{}{}}}", u, formatting)
-            } else if let Some(formatting) = sf.formatting.strip_prefix(":A") {
-                positional[u] = format!("{local}.adjective(true)");
-                format!("{{{}{}}}", u, formatting)
+                format!("{{{}{}}}{{{}}}", u, sf.format, u + 1)
             } else {
-                format!("{{{}{}}}", u, sf.formatting)
+                match sf.case {
+                    'S' => positional[u] = format!("{local}.subject({uc})"),
+                    'O' => positional[u] = format!("{local}.object({uc})"),
+                    'P' => positional[u] = format!("{local}.possesive({uc})"),
+                    'A' => positional[u] = format!("{local}.adjective({uc})"),
+                    _ => positional[u] = local.to_string(),
+                }
+                format!("{{{}{}}}", u, sf.format)
             }
         }
     }
