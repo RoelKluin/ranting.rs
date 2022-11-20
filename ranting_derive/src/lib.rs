@@ -25,24 +25,6 @@ pub fn derive_ranting(input: TokenStream) -> TokenStream {
 /// The say!() macro produces a String, a bit similar to format!(), but with extended
 /// formatting options for Ranting trait objects provided as arguments to say!().
 ///
-/// # Example
-/// ```
-/// #[derive(Ranting)]
-/// struct Named {
-///     name: String,
-///     pronoun: String,
-/// }
-///
-/// fn main() {
-///     let alice = Named { name: "Alice", pronoun: "She"};
-///     let bob = Named { name: "Bob", pronoun: "he"};
-///     let email = Named { name: "secret message", pronoun: "it"};
-///
-///     let s = say!("{0 want:S} to send {an email} of {0:P} to {bob}.", alice);
-///     assert_eq!(msg, "Alice wants to send a secret message of her to Bob.".to_string());
-/// }
-///
-/// ```
 /// Ranting trait objects as arguments to say!()  are displated as their name by
 /// default, or by pronoun with the following formatting extensions:
 ///
