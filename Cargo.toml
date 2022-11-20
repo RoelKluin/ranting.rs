@@ -7,4 +7,5 @@ edition = "2021"
 [dependencies]
 ranting_derive = { version = "=0.1.0", path = "ranting_derive" }
 in_definite = "0.2"
+Inflector = "0.11.4"
 

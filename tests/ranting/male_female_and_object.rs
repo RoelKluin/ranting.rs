@@ -53,18 +53,21 @@ impl Person {
                 nay!("{The trash} from {actor} is not something that {self do} accept.")
             }
             ("give", Some((nr, coin))) if coin.name() == "coin" => match nr {
-                0 => nay!("{actor don't:S} seem able to give zero {coin}s to {self}."),
-                1 => {
-                    let ent = self.inventory.entry(coin.name().to_string()).or_default();
-                    *ent += nr;
-                    ack!("{self thank:S} {0:o}, {0}, for {0:p} {coin}.", actor)
-                }
+                0 => nay!("{actor don't:S} seem able to give zero {coin:m} to {self}."),
                 n => {
                     let ent = self.inventory.entry(coin.name().to_string()).or_default();
                     *ent += nr;
-                    ack!("{self thank:S} {actor} for the {n} {coin}s.")
+                    ack!("{self thank:S} {0:o}, {0}, for {0:p} {#n coin}.", actor)
                 }
             },
+            ("receive", Some((nr, coin))) if coin.name() == "coin" && nr > 0 => {
+                let ent = self.inventory.entry(coin.name().to_string()).or_default();
+                if nr <= *ent {
+                    ack!("Reluctantly {actor give:s} {#nr coin} for {self:o}");
+                } else {
+                    nay!("{actor do:S} not have {#nr coin} to give to {self:o}");
+                }
+            }
             (act, Some((nr, item))) => nay!("{actor can:S} not {act} {nr} {item}s to {self}"),
             (act, None) => nay!("{actor shouldn't:S} {act} {self}."),
         }
@@ -75,7 +78,7 @@ impl Person {
 fn male_female_and_object() {
     let mut anna = Person::new("Anna", "I");
     let mut bob = Person::new("Bob", "he");
-    let rubbish = Object::new("trash", "some");
+    let rubbish = Object::new("trash", "they");
     let coin = Object::new("coin", "it");
 
     let ret = anna.respond_to(&bob, "give", Some((1, &rubbish)));
@@ -103,10 +106,10 @@ fn male_female_and_object() {
     );
 
     let ret = bob.respond_to(&anna, "give", Some((1, &coin)));
-    assert_eq!(ret, Ok("He thanks me, Anna, for my coin.".to_string()));
+    assert_eq!(ret, Ok("He thanks me, Anna, for my 1 coin.".to_string()));
 
     let ret = anna.respond_to(&bob, "give", Some((4, &coin)));
-    assert_eq!(ret, Ok("I thank Bob for the 4 coins.".to_string()));
+    assert_eq!(ret, Ok("I thank him, Bob, for his 4 coins.".to_string()));
 
     let ret = anna.respond_to::<Person, Person>(&bob, "push", None);
     assert_eq!(ret, Err("He shouldn't push Anna.".to_string()));

@@ -12,6 +12,9 @@ use std::collections::{hash_map::Entry, HashMap};
 use std::default::Default;
 use syn::{parse, parse_macro_input, Error as SynError, Expr, ExprPath};
 
+/// Generates the `Ranting` trait implementation
+/// Structs that receive this trait require a name and pronoun String.
+/// and can be referenced in the say!() nay!() and ack!() macros.
 #[proc_macro_derive(Ranting, attributes(ranting))]
 pub fn derive_ranting(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input);
@@ -19,6 +22,46 @@ pub fn derive_ranting(input: TokenStream) -> TokenStream {
     ranting_q(options, &input.ident).into()
 }
 
+/// The say!() macro produces a String, a bit similar to format!(), but with extended
+/// formatting options for Ranting trait objects provided as arguments to say!().
+///
+/// # Example
+/// ```
+/// #[derive(Ranting)]
+/// struct Named {
+///     name: String,
+///     pronoun: String,
+/// }
+///
+/// fn main() {
+///     let alice = Named { name: "Alice", pronoun: "She"};
+///     let bob = Named { name: "Bob", pronoun: "he"};
+///     let email = Named { name: "secret message", pronoun: "it"};
+///
+///     let s = say!("{0 want:S} to send {an email} of {0:P} to {bob}.", alice);
+///     assert_eq!(msg, "Alice wants to send a secret message of her to Bob.".to_string());
+/// }
+///
+/// ```
+/// Ranting trait objects as arguments to say!()  are displated as their name by
+/// default, or by pronoun with the following formatting extensions:
+///
+/// `:s` gives a subject, `:o` an object, `:p` the possesive and `:a` the adjective
+/// form of the pronoun. With a capital, e.g. `:S`, the pronoun form is capitalized.
+///
+/// There are also the `:m` or `:M` postfixes to display the plural form of the name.
+///
+/// when prepended with `a ` or `an `, this indefinite article is adapted to the name.
+/// When capitalized this is preserved. Also `the`, `these` and `those` can occur before.
+/// Ranting always uses the 1st plural form. `These` and `those` are converted to `this`
+/// and `that` if the pronoun is singular.
+///
+/// A verb after, als o in 1st plural form, is also inflected to the pronoun's case. The
+/// Ranting object enclosed before a verb is assumed to be the subject in the sentence.
+///
+/// Positional argument and numeric references are supported, but not named arguments,
+/// currently.
+///
 #[proc_macro]
 pub fn say(input: TokenStream) -> TokenStream {
     match do_say(input) {
@@ -59,20 +102,23 @@ impl SayFmt {
             .filter(|a| a.as_str().starts_with(|c: char| c.is_uppercase()))
             .is_some();
         let mut format = caps.get(4).map(|s| s.as_str()).unwrap_or("");
-        let case = if let Some(fmt) = format.strip_prefix(':') {
+        let mut case = Default::default();
+
+        if let Some(fmt) = format.strip_prefix(':') {
             if fmt.is_empty() {
                 return Err(SynError::new(
                     Span::call_site().into(),
                     "cannot end format with ':'",
                 ));
             }
-            let c;
-            (c, format) = fmt.split_at(1);
-            uc |= c.starts_with(|c: char| c.is_uppercase());
-            c.chars().next().unwrap().to_ascii_uppercase()
-        } else {
-            Default::default()
-        };
+            let (c, fmt) = fmt.split_at(1);
+            let c = c.chars().next().unwrap();
+            if "SOPAM".contains(c.to_ascii_uppercase()) {
+                format = fmt;
+                uc |= c.is_uppercase();
+                case = c.to_ascii_uppercase();
+            }
+        }
         Ok(SayFmt {
             article_or_so: caps.get(1).map(|a| a.as_str().to_string()),
             spaced_verb: caps.get(3).map(|s| s.as_str().to_string()),
@@ -96,7 +142,7 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     let mut positional: Vec<String> = vec![];
 
     let re = regex!(
-        r"(?:\{(?:([Aa]n?|[Tt]h(?:e|is|at)|(?:\w+[ :])?[Oo]ur) )?(\w+)([' ]\w+| \w+'\w+)?(:[^}]*)?\}|(\. ))"
+        r"(?:\{(?:([Aa]n?|[Tt]h(?:e|[eo]se)|#\w+) )?(\w+)([' ]\w+| \w+'\w+)?(:[^}]*)?\}|(\. ))"
     );
     let mut lookup: Vec<usize> = vec![];
     let mut err = None;
@@ -282,21 +328,22 @@ fn handle_param(sf: SayFmt, local: String, positional: &mut Vec<String>, u: usiz
     // numeric stay, only u increment if with article
     match sf.article_or_so {
         Some(article_or_so) => {
-            if article_or_so.to_ascii_lowercase().ends_with("our") {
-                if let Some((obj, _)) = article_or_so.split_once(' ') {
-                    positional.push(format!("{obj}.object({uc})"));
-                    positional.push(format!("{obj}.possesive(false)"));
-                    return format!("{{{}}} {{{}}} {{{}{}}}", u + 1, u + 2, u, sf.format);
-                } else if let Some((obj, _)) = article_or_so.split_once(':') {
-                    positional.push(format!("{obj}.possesive({uc})"));
-                } else {
-                    positional.push("{subject}.possesive({uc})".to_string());
-                }
-            } else {
-                match article_or_so.to_ascii_lowercase().as_str() {
-                    "a" | "an" => positional.push(format!("{local}.a_or_an({uc})")),
-                    _ => positional.push(format!(r#""{article_or_so}""#)),
-                }
+            if let Some(nr_var) = article_or_so.strip_prefix('#') {
+                positional[u] = format!(
+                    "if {nr_var} != 1 {{{local}.plural({uc})}} else {{{local}.name().to_string()}}"
+                );
+                positional.push(format!("{nr_var}"));
+                return format!("{{{}}} {{{}{}}}", u + 1, u, sf.format);
+            }
+            match article_or_so.to_ascii_lowercase().as_str() {
+                "a" | "an" => positional.push(format!("{local}.a_or_an({uc})")),
+                "these" => positional.push(format!(
+                    r#"if {local}.is_plural() {{"these"}} else {{"this"}}"#
+                )),
+                "those" => positional.push(format!(
+                    r#"if {local}.is_plural() {{"those"}} else {{"that"}}"#
+                )),
+                _ => positional.push(format!(r#""{article_or_so}""#)),
             }
             if let Some(sv) = sf.spaced_verb {
                 positional.push(format!("{local}.verb(\"{sv}\")"));
@@ -316,6 +363,7 @@ fn handle_param(sf: SayFmt, local: String, positional: &mut Vec<String>, u: usiz
                     'O' => positional[u] = format!("{local}.object({uc})"),
                     'P' => positional[u] = format!("{local}.possesive({uc})"),
                     'A' => positional[u] = format!("{local}.adjective({uc})"),
+                    'M' => positional[u] = format!("{local}.plural({uc})"),
                     _ => positional[u] = local.to_string(),
                 }
                 format!("{{{}{}}}", u, sf.format)

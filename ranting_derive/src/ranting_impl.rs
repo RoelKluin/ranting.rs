@@ -22,14 +22,30 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
             fn name(&self) -> &str {
                 self.name.as_str()
             }
-            fn a_or_an(&self, uc: bool) -> &str {
+            fn is_plural(&self) -> bool {
                 match self.pronoun() {
-                    "we" | "they" => if uc {"Some"} else {"some"},
-                    _ => match ranting::in_definite::get_a_or_an(self.name()) {
-                            "a" if uc => "A",
-                            "an" if uc => "An",
-                            alt => alt,
-                        },
+                    "we" | "they" => true,
+                    _ => false,
+                }
+            }
+            fn a_or_an(&self, uc: bool) -> &str {
+                if self.is_plural() {
+                    if uc {"Some"} else {"some"}
+                } else {
+                    match ranting::in_definite::get_a_or_an(self.name()) {
+                        "a" if uc => "A",
+                        "an" if uc => "An",
+                        alt => alt,
+                    }
+                }
+            }
+            fn plural(&self, uc: bool) -> String {
+                use ranting::Inflector;
+                let plural = self.name().to_plural();
+                if uc {
+                    plural.as_str().to_sentence_case()
+                } else {
+                    plural
                 }
             }
             fn subject(&self, uc: bool) -> &str {
@@ -40,7 +56,6 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
                         "he" => "He",
                         "she" => "She",
                         "we" => "We",
-                        "some" => "Some",
                         "they" => "They",
                         "it" => "It",
                         p => panic!("Unimplemented: subjective for '{}'", p),
@@ -57,7 +72,6 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
                     "she" => if uc {"Her"} else {"her"},
                     "it" => if uc {"It"} else {"it"},
                     "we" => if uc {"Us"} else {"us"},
-                    "some" => if uc {"Some"} else {"some"},
                     "they" => if uc {"Them"} else {"them"},
                     p => panic!("Unimplemented: objective for '{}'", p),
                 }
@@ -70,7 +84,6 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
                     "she" => if uc {"Her"} else {"her"},
                     "it" => if uc {"Its"} else {"its"},
                     "we" => if uc {"Our"} else {"our"},
-                    "some" => if uc {"Of some"} else {"of some"},
                     "they" => if uc {"Their"} else {"their"},
                     p => panic!("Unimplemented: possesive for '{}'", p),
                 }
@@ -83,7 +96,6 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
                     "she" => if uc {"Hers"} else {"hers"},
                     "it" => if uc {"Its"} else {"its"},
                     "we" => if uc {"Ours"} else {"ours"},
-                    "some" => if uc {"Of some"} else {"of some"},
                     "they" => if uc {"Theirs"} else {"theirs"},
                     p => panic!("Unimplemented adjective for '{}'", p),
                 }
@@ -98,7 +110,7 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
                         " weren't" => " wasn't".to_string(),
                         v => v.to_string()
                     },
-                    "you" | "we" | "they" | "some" => verb.to_string(),
+                    "you" | "we" | "they" => verb.to_string(),
                     _ => {
                         match verb {
                             "'re" | "'ve" => "'s".to_string(),
