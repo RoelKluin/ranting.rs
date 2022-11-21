@@ -95,7 +95,7 @@ impl SayFmt {
             }
             let (c, fmt) = fmt.split_at(1);
             let c = c.chars().next().unwrap();
-            if "SOPAMN".contains(c.to_ascii_uppercase()) {
+            if "SOPAMND".contains(c.to_ascii_uppercase()) {
                 format = fmt;
                 uc |= c.is_uppercase();
                 case = c.to_ascii_uppercase();
@@ -312,20 +312,33 @@ fn handle_param(sf: SayFmt, local: String, positional: &mut Vec<String>, u: usiz
         Some(article_or_so) => {
             if let Some(nr_var) = article_or_so.strip_prefix('#') {
                 positional[u] = format!(
-                    "if {nr_var} != 1 {{{local}.plural({uc})}} else {{{local}.name({uc})}}"
+                    "if {nr_var} != 1 {{ {local}.plural({uc}) }} else {{ {local}.name({uc}) }}"
                 );
                 positional.push(format!("{nr_var}"));
                 return format!("{{{}}} {{{}{}}}", u + 1, u, sf.format);
             }
             match article_or_so.to_ascii_lowercase().as_str() {
-                "a" | "an" => positional.push(format!("{local}.a_or_an({uc})")),
+                "a" | "an" => positional.push(format!(
+                    r#"if {local}.is_plural() {{ "some" }} else {{ {local}.a_or_an({uc}) }}"#
+                )),
+                "these" if uc => positional.push(format!(
+                    r#"if {local}.is_plural() {{ "These" }} else {{ "This" }}"#
+                )),
                 "these" => positional.push(format!(
-                    r#"if {local}.is_plural() {{"these"}} else {{"this"}}"#
+                    r#"if {local}.is_plural() {{ "these" }} else {{ "this" }}"#
+                )),
+                "those" if uc => positional.push(format!(
+                    r#"if {local}.is_plural() {{ "Those" }} else {{ "That" }}"#
                 )),
                 "those" => positional.push(format!(
-                    r#"if {local}.is_plural() {{"those"}} else {{"that"}}"#
+                    r#"if {local}.is_plural() {{ "those" }} else {{ "that" }}"#
                 )),
-                _ => positional.push(format!(r#""{article_or_so}""#)),
+                "the" if uc => positional.push(format!(r#""The""#)),
+                "the" => positional.push(format!(r#""the""#)),
+                x => panic!("Unexpected article {x}, this is a bug."),
+            }
+            if sf.case == 'M' {
+                positional[u] = format!("{local}.plural(false)");
             }
             if let Some(sv) = sf.spaced_verb {
                 positional.push(format!("{local}.verb(\"{sv}\")"));
@@ -336,7 +349,15 @@ fn handle_param(sf: SayFmt, local: String, positional: &mut Vec<String>, u: usiz
         }
         None => {
             if let Some(sv) = sf.spaced_verb {
-                positional[u] = format!("{local}.subject({uc})");
+                if sf.case == 'D' {
+                    positional[u] = if uc {
+                        format!("\"There\"")
+                    } else {
+                        format!("\"there\"")
+                    };
+                } else {
+                    positional[u] = format!("{local}.subject({uc})");
+                }
                 positional.push(format!("{local}.verb(\"{sv}\")"));
                 format!("{{{}{}}}{{{}}}", u, sf.format, u + 1)
             } else {
@@ -347,6 +368,8 @@ fn handle_param(sf: SayFmt, local: String, positional: &mut Vec<String>, u: usiz
                     'A' => positional[u] = format!("{local}.adjective({uc})"),
                     'M' => positional[u] = format!("{local}.plural({uc})"),
                     'N' => positional[u] = format!("{local}.name({uc})"),
+                    'D' if uc => positional[u] = format!("\"There\""),
+                    'D' => positional[u] = format!("\"there\""),
                     _ => positional[u] = local.to_string(),
                 }
                 format!("{{{}{}}}", u, sf.format)
