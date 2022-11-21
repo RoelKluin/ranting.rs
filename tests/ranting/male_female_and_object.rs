@@ -10,6 +10,37 @@ struct Object {
     pronoun: String,
 }
 
+#[derive(Ranting)]
+struct Meadowers {
+    name: String,
+    count: u32,
+}
+
+impl Meadowers {
+    fn new(name: &str, count: u32) -> Self {
+        Meadowers {
+            name: name.to_string(),
+            count,
+        }
+    }
+    fn pronoun(&self) -> &str {
+        if self.count == 1 {
+            "it"
+        } else {
+            "they"
+        }
+    }
+    fn count(&self) -> String {
+        let count = self.count;
+        say!("Now {self are:d} {#count self} in the meadow.")
+    }
+    fn join(&mut self, newcomer: Meadowers) -> String {
+        let s = say!("{The newcomer join} {the self:m} in the meadow.");
+        self.count += newcomer.count;
+        s
+    }
+}
+
 impl Object {
     fn new(name: &str, pronoun: &str) -> Self {
         Object {
@@ -81,6 +112,22 @@ impl Person {
 fn male_female_and_object() {
     let mut anna = Person::new("Anna", "I");
     let mut bob = Person::new("Bob", "he");
+
+    let mut pack = Meadowers::new("animal", 0);
+    assert_eq!(pack.count(), "Now there are 0 animals in the meadow.");
+
+    assert_eq!(
+        pack.join(Meadowers::new("raven", 1)),
+        "The raven joins the animals in the meadow."
+    );
+    assert_eq!(pack.count(), "Now there is 1 animal in the meadow.");
+
+    assert_eq!(
+        pack.join(Meadowers::new("sheep", 3)),
+        "The sheep join the animals in the meadow."
+    );
+    assert_eq!(pack.count(), "Now there are 4 animals in the meadow.");
+
     let rubbish = Object::new("trash", "they");
     let coin = Object::new("coin", "it");
 

@@ -64,6 +64,8 @@ default, but by pronoun with the formatting extensions.
 form of the pronoun. With a capital, e.g. `:S`, the pronoun form is capitalized.
 
 With `:n` or `:N` the name is printed and with `:m` or `:M` the plural thereof.
+With `:d` or `:D` a verb is reflected but the name is replaced by 'there', so that
+e.g. `{self are:d}` becomes `there is` if singular, or `there are` if plural.
 
 when prepended with `a` or `an`, this indefinite article is adapted to the name.
 When capitalized this is preserved. Also `the`, `these` and `those` can occur before.
