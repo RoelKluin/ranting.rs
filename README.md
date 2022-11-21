@@ -71,7 +71,8 @@ Ranting always uses the 1st plural form. `These` and `those` are converted to `t
 and `that` if the pronoun is singular.
 
 If prepended with `#var` where var is a numeric variable, then the noun is inflected
-accordingly, plural unless the value of var is 1.
+accordingly, plural unless the value of var is 1. However, var should be an identifier,
+not a numeric positional.
 
 A verb after, again in the first plural form, is also inflected to the pronoun's case.
 The Ranting object enclosed before a verb is assumed to be the subject in the sentence.
