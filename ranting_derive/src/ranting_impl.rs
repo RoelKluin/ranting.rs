@@ -19,8 +19,13 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
             fn pronoun(&self) -> &str {
                 #pronoun
             }
-            fn name(&self) -> &str {
-                self.name.as_str()
+            fn name(&self, uc: bool) -> String {
+                if uc {
+                    use ranting::Inflector;
+                    self.name.to_sentence_case()
+                } else {
+                    self.name.to_string()
+                }
             }
             fn is_plural(&self) -> bool {
                 match self.pronoun() {
@@ -32,7 +37,7 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
                 if self.is_plural() {
                     if uc {"Some"} else {"some"}
                 } else {
-                    match ranting::in_definite::get_a_or_an(self.name()) {
+                    match ranting::in_definite::get_a_or_an(self.name.as_str()) {
                         "a" if uc => "A",
                         "an" if uc => "An",
                         alt => alt,
@@ -41,12 +46,7 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
             }
             fn plural(&self, uc: bool) -> String {
                 use ranting::Inflector;
-                let plural = self.name().to_plural();
-                if uc {
-                    plural.as_str().to_sentence_case()
-                } else {
-                    plural
-                }
+                self.name(uc).as_str().to_plural()
             }
             fn subject(&self, uc: bool) -> &str {
                 if uc {
@@ -140,7 +140,7 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
         }
         impl std::fmt::Display for #ident {
             fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                write!(formatter, "{}", self.name)
+                write!(formatter, "{}", self.name(false))
             }
         }
     }

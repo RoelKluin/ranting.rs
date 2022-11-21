@@ -95,7 +95,7 @@ impl SayFmt {
             }
             let (c, fmt) = fmt.split_at(1);
             let c = c.chars().next().unwrap();
-            if "SOPAM".contains(c.to_ascii_uppercase()) {
+            if "SOPAMN".contains(c.to_ascii_uppercase()) {
                 format = fmt;
                 uc |= c.is_uppercase();
                 case = c.to_ascii_uppercase();
@@ -312,7 +312,7 @@ fn handle_param(sf: SayFmt, local: String, positional: &mut Vec<String>, u: usiz
         Some(article_or_so) => {
             if let Some(nr_var) = article_or_so.strip_prefix('#') {
                 positional[u] = format!(
-                    "if {nr_var} != 1 {{{local}.plural({uc})}} else {{{local}.name().to_string()}}"
+                    "if {nr_var} != 1 {{{local}.plural({uc})}} else {{{local}.name({uc})}}"
                 );
                 positional.push(format!("{nr_var}"));
                 return format!("{{{}}} {{{}{}}}", u + 1, u, sf.format);
@@ -346,6 +346,7 @@ fn handle_param(sf: SayFmt, local: String, positional: &mut Vec<String>, u: usiz
                     'P' => positional[u] = format!("{local}.possesive({uc})"),
                     'A' => positional[u] = format!("{local}.adjective({uc})"),
                     'M' => positional[u] = format!("{local}.plural({uc})"),
+                    'N' => positional[u] = format!("{local}.name({uc})"),
                     _ => positional[u] = local.to_string(),
                 }
                 format!("{{{}{}}}", u, sf.format)

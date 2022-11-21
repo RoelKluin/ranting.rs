@@ -63,12 +63,15 @@ default, but by pronoun with the formatting extensions.
 `:s` gives a subject, `:o` an object, `:p` the possesive and `:a` the adjective
 form of the pronoun. With a capital, e.g. `:S`, the pronoun form is capitalized.
 
-There are also the `:m` or `:M` postfixes to display the plural form of the name.
+With `:n` or `:N` the name is printed and with `:m` or `:M` the plural thereof.
 
 when prepended with `a` or `an`, this indefinite article is adapted to the name.
 When capitalized this is preserved. Also `the`, `these` and `those` can occur before.
 Ranting always uses the 1st plural form. `These` and `those` are converted to `this`
 and `that` if the pronoun is singular.
+
+If prepended with `#var` where var is a numeric variable, then the noun is inflected
+accordingly, plural unless the value of var is 1.
 
 A verb after, again in the first plural form, is also inflected to the pronoun's case.
 The Ranting object enclosed before a verb is assumed to be the subject in the sentence.
