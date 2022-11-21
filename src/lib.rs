@@ -6,8 +6,8 @@ pub use inflector::Inflector;
 #[rustfmt::skip]
 pub trait Ranting: std::fmt::Display {
     fn pronoun(&self) -> &str;
-    fn name(&self) -> &str;
     fn is_plural(&self) -> bool;
+    fn name(&self, uc: bool) -> String;
     fn a_or_an(&self, uc: bool) -> &str;
     fn subject(&self, uc: bool) -> &str;
     fn object(&self, uc: bool) -> &str;

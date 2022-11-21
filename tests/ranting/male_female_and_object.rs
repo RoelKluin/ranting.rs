@@ -48,27 +48,30 @@ impl Person {
         U: Ranting,
     {
         match (act, nr_obj) {
-            ("give", Some((_, trash))) if trash.name() == "trash" => {
+            ("give", Some((_, trash))) if trash.name(false).as_str() == "trash" => {
                 // Verbs are always in 1st plural form.
                 nay!("{The trash} from {actor} is not something that {self do} accept.")
             }
-            ("give", Some((nr, coin))) if coin.name() == "coin" => match nr {
-                0 => nay!("{actor don't:S} seem able to give zero {coin:m} to {self}."),
+            ("give", Some((nr, coin))) if coin.name(false).as_str() == "coin" => match nr {
+                0 => nay!("{actor don't:N} seem able to give zero {coin:m} to {self}."),
                 n => {
-                    let ent = self.inventory.entry(coin.name().to_string()).or_default();
+                    let ent = self
+                        .inventory
+                        .entry(coin.name(false).to_string())
+                        .or_default();
                     *ent += nr;
                     ack!("{self thank:S} {0:o}, {0}, for {0:p} {#n coin}.", actor)
                 }
             },
-            ("receive", Some((nr, coin))) if coin.name() == "coin" && nr > 0 => {
-                let ent = self.inventory.entry(coin.name().to_string()).or_default();
+            ("receive", Some((nr, coin))) if coin.name(false).as_str() == "coin" && nr > 0 => {
+                let ent = self.inventory.entry(coin.name(false)).or_default();
                 if nr <= *ent {
                     ack!("Reluctantly {actor give:s} {#nr coin} for {self:o}");
                 } else {
                     nay!("{actor do:S} not have {#nr coin} to give to {self:o}");
                 }
             }
-            (act, Some((nr, item))) => nay!("{actor can:S} not {act} {nr} {item}s to {self}"),
+            (act, Some((nr, item))) => nay!("{actor can:S} not {act} {#nr item} to {self}"),
             (act, None) => nay!("{actor shouldn't:S} {act} {self}."),
         }
     }
