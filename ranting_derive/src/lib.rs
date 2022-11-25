@@ -277,7 +277,7 @@ fn handle_param(sf: SayFmt, local: String, positional: &mut Vec<String>, u: usiz
                 positional[u] = format!(
                     "if {nr_var} != 1 {{ {local}.plural({uc}) }} else {{ {local}.name({uc}) }}"
                 );
-                positional.push(format!("{nr_var}"));
+                positional.push(nr_var.to_string());
                 return format!("{{{}}} {{{}{}}}", u + 1, u, sf.format);
             }
             match article_or_so.to_ascii_lowercase().as_str() {
@@ -296,8 +296,8 @@ fn handle_param(sf: SayFmt, local: String, positional: &mut Vec<String>, u: usiz
                 "those" => positional.push(format!(
                     r#"if {local}.is_plural() {{ "those" }} else {{ "that" }}"#
                 )),
-                "the" if uc => positional.push(format!(r#""The""#)),
-                "the" => positional.push(format!(r#""the""#)),
+                "the" if uc => positional.push("\"The\"".to_string()),
+                "the" => positional.push("\"the\"".to_string()),
                 x => panic!("Unexpected article {x}, this is a bug."),
             }
             if sf.case == 'M' {
@@ -313,11 +313,7 @@ fn handle_param(sf: SayFmt, local: String, positional: &mut Vec<String>, u: usiz
         None => {
             if let Some(sv) = sf.spaced_verb {
                 if sf.case == 'D' {
-                    positional[u] = if uc {
-                        format!("\"There\"")
-                    } else {
-                        format!("\"there\"")
-                    };
+                    positional[u] = format!("\"{}here\"", if uc { 'T' } else { 't' });
                 } else {
                     positional[u] = format!("{local}.subject({uc})");
                 }
@@ -331,9 +327,8 @@ fn handle_param(sf: SayFmt, local: String, positional: &mut Vec<String>, u: usiz
                     'A' => positional[u] = format!("{local}.adjective({uc})"),
                     'M' => positional[u] = format!("{local}.plural({uc})"),
                     'N' => positional[u] = format!("{local}.name({uc})"),
-                    'D' if uc => positional[u] = format!("\"There\""),
-                    'D' => positional[u] = format!("\"there\""),
-                    _ => positional[u] = local.to_string(),
+                    'D' => positional[u] = format!("\"{}here\"", if uc { 'T' } else { 't' }),
+                    _ => positional[u] = local,
                 }
                 format!("{{{}{}}}", u, sf.format)
             }
