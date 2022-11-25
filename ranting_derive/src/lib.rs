@@ -78,12 +78,17 @@ struct SayFmt {
 }
 
 impl SayFmt {
-    fn from_caps(caps: &Captures) -> Result<Self, SynError> {
+    fn from_caps(caps: &Captures, sentence_start: usize) -> Result<Self, SynError> {
+        // uppercase if 1) an uc format is specified otherwise if not lc is specified
+        // 2) uc if article or so is or 3) the noun is first or after start or `. '
         let mut uc = caps
             .get(1)
-            .filter(|a| a.as_str().starts_with(|c: char| c.is_uppercase()))
-            .is_some();
+            .map(|a| a.as_str().starts_with(|c: char| c.is_uppercase()));
+
+        // default format!() formatters are allowed, preserved here
         let mut format = caps.get(4).map(|s| s.as_str()).unwrap_or("");
+
+        // case as in subject, object, possesive or adjective. Also name specifier.
         let mut case = Default::default();
 
         if let Some(fmt) = format.strip_prefix(':') {
@@ -97,7 +102,7 @@ impl SayFmt {
             let c = c.chars().next().unwrap();
             if "SOPAMND".contains(c.to_ascii_uppercase()) {
                 format = fmt;
-                uc |= c.is_uppercase();
+                let _ = uc.insert(c.is_uppercase());
                 case = c.to_ascii_uppercase();
             }
         }
@@ -106,7 +111,8 @@ impl SayFmt {
             spaced_verb: caps.get(3).map(|s| s.as_str().to_string()),
             format: format.to_string(),
             case,
-            uc,
+            // sentence_start + 1 because noun is enclosed in curly braces, e.g. `{self are}'
+            uc: uc.unwrap_or(caps.get(2).unwrap().start() == sentence_start + 2),
         })
     }
     fn is_subject(&self) -> bool {
@@ -123,13 +129,15 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     // Expressions can have side effects, those must be assigned to a local.
     let mut positional: Vec<String> = vec![];
 
+    // regex to capture the placholders or sentence ends
     let re = regex!(
-        r"(?:\{(?:([Aa]n?|[Tt]h(?:e|[eo]se)|#\w+) )?(\w+)([' ]\w+| \w+'\w+)?(:[^}]*)?\}|(\. ))"
+        r"(?:\{(?:([Aa]n?|[Tt]h(?:e|[eo]se)|#\w+) )?(\w+)([' ]\w+| \w+'\w+)?(:[^}]*)?\}|(\. +))"
     );
     let mut lookup: Vec<usize> = vec![];
     let mut err = None;
     let mut last_pos = 0;
     let mut subject = usize::MAX;
+    let mut sentence_start = 0;
 
     let mut named_params: HashMap<String, Result<usize, String>> = HashMap::new();
 
@@ -149,13 +157,15 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
                             );
                         }
                     }
+                    sentence_start = new_sentence.end() - 1;
                 }
                 last_pos = positional.len();
                 subject = usize::MAX;
                 return new_sentence.as_str().to_string();
             }
-            let noun_or_pos = caps.get(2).unwrap().as_str().to_string();
-            let sf = match SayFmt::from_caps(caps) {
+            let noun_match = caps.get(2).unwrap();
+            let noun_or_pos = noun_match.as_str().to_string();
+            let sf = match SayFmt::from_caps(caps, sentence_start) {
                 Ok(sf) => sf,
                 Err(e) => {
                     err = Some(e);
