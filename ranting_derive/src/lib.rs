@@ -115,9 +115,6 @@ impl SayFmt {
             uc: uc.unwrap_or(caps.get(2).unwrap().start() == sentence_start + 2),
         })
     }
-    fn is_subject(&self) -> bool {
-        self.spaced_verb.is_some() || self.case == 'S'
-    }
 }
 
 fn do_say(input: TokenStream) -> Result<String, TokenStream> {
@@ -135,8 +132,6 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     );
     let mut lookup: Vec<usize> = vec![];
     let mut err = None;
-    let mut last_pos = 0;
-    let mut subject = usize::MAX;
     let mut sentence_start = 0;
 
     let mut named_params: HashMap<String, Result<usize, String>> = HashMap::new();
@@ -144,23 +139,7 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     lit = re
         .replace_all(&lit, |caps: &Captures| {
             if let Some(new_sentence) = caps.get(5) {
-                if subject != usize::MAX {
-                    for i in last_pos..positional.len() {
-                        if positional[i].contains("{subject}.possesive(") {
-                            // the subject is usually var.subject(true/false)
-                            positional[i] = positional[i].replace(
-                                "{subject}",
-                                positional[subject]
-                                    .split_once('.')
-                                    .map(|x| x.0)
-                                    .unwrap_or(positional[subject].as_str()),
-                            );
-                        }
-                    }
-                    sentence_start = new_sentence.end() - 1;
-                }
-                last_pos = positional.len();
-                subject = usize::MAX;
+                sentence_start = new_sentence.end() - 1;
                 return new_sentence.as_str().to_string();
             }
             let noun_match = caps.get(2).unwrap();
@@ -188,9 +167,6 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
                     None => match comma_next(&mut token_it, &mut positional) {
                         Ok(expr) => {
                             lookup.push(u_offs + u);
-                            if sf.is_subject() {
-                                subject = u;
-                            }
                             expr
                         }
                         Err(e) => {
@@ -207,24 +183,15 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
                         if let Ok(n) = occ_ent.get() {
                             // expression already encountered.
                             expr = positional[*n].to_string();
-                            if sf.spaced_verb.is_some() {
-                                subject = *n;
-                            }
                         } else {
                             // ok, but we need to set to the offsetted u and add positional
                             expr = occ_ent.insert(Ok(u_offs)).unwrap_err();
-                            if sf.is_subject() {
-                                subject = positional.len();
-                            }
                             positional.push(expr.to_string());
                         }
                     }
                     Entry::Vacant(vac_ent) => {
                         // a local with this name, make it a positional
                         expr = vac_ent.key().to_string();
-                        if sf.spaced_verb.is_some() {
-                            subject = positional.len();
-                        }
                         positional.push(expr.to_string());
                     }
                 }
@@ -238,20 +205,6 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     }
 
     if !positional.is_empty() {
-        if subject != usize::MAX {
-            for i in last_pos..positional.len() {
-                if positional[i].contains("{subject}.possesive(") {
-                    // the subject is usually var.subject(true/false)
-                    positional[i] = positional[i].replace(
-                        "{subject}",
-                        positional[subject]
-                            .split_once('.')
-                            .map(|x| x.0)
-                            .unwrap_or(positional[subject].as_str()),
-                    );
-                }
-            }
-        }
         lit.push_str(", ");
         lit.push_str(&positional.iter().join(", "));
     }
