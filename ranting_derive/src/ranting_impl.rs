@@ -124,12 +124,12 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
                             " could" | " would" | " can" | " may" | " might" | " must" | " should" | " shall" | " will" | " had" |
                             " couldn't" | " wouldn't" | " can't" | " mightn't" | " mustn't" | " shouldn't" | " hadn't" => verb.to_string(),
                             v => {
-                                if v.ends_with("s") || v.ends_with("o") || v.ends_with("ch") || v.ends_with("sh") || v.ends_with("x")  {
+                                if v.ends_with(&['s', 'o', 'x']) || v.ends_with("ch") || v.ends_with("sh") {
                                     format!("{}es", v)
-                                } else if !v.ends_with("y") || v.ends_with("ay") || v.ends_with("ey") || v.ends_with("uy") || v.ends_with("oy") {
-                                    format!("{}s", v)
+                                } else if let Some(p) = v.strip_suffix('y').filter(|p| !p.ends_with(&['a', 'e', 'u', 'o'])) {
+                                    format!("{}ies", p);
                                 } else {
-                                    format!("{}ies", v.trim_end_matches('y'))
+                                    format!("{}s", v)
                                 }
                             }
                         }
