@@ -15,4 +15,5 @@ pub trait Ranting: std::fmt::Display {
     fn adjective(&self, uc: bool) -> &str;
     fn plural(&self, uc: bool) -> String;
     fn verb(&self, verb: &str) -> String;
+    fn verb_for(&self, verb: &str, pronoun: &str) -> String;
 }

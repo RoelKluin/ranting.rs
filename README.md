@@ -12,7 +12,8 @@ impl Named {
     }
 }
 ```
-The struct should contain a name and pronoun, both as String and provides the following functions:
+The struct should contain at least a name String. The trait provides the following
+functions of which you may want to override the pronoun function:
 
 ```rust
 pub trait Ranting: std::fmt::Display {
@@ -26,6 +27,7 @@ pub trait Ranting: std::fmt::Display {
     fn adjective(&self, uc: bool) -> &str;
     fn plural(&self, uc: bool) -> String;
     fn verb(&self, verb: &str) -> String;
+    fn verb_for(&self, verb: &str, pronoun: &str) -> String;
 }
 ```
 Then these can be referenced in the say!() nay!() and ack!() macros.
@@ -48,10 +50,16 @@ fn main() {
         pronoun: "it".to_string(),
     };
 
-    let msg = say!("{0 want:S} to send {an email} of {0:p} to {bob}.", alice);
+    let msg = say!("{0 want} to send {an email} of {0:p} to {bob}.", alice);
     assert_eq!(
         msg,
         "Alice wants to send a secret message of her to Bob.".to_string()
+    );
+
+    let msg = say!("Now {bob know} that {these email are} really {alice:a}.", alice);
+    assert_eq!(
+        msg,
+        "Now Bob knows that this secret message is really hers.".to_string()
     );
 }
 ```
@@ -72,6 +80,9 @@ When capitalized this is preserved. Also `the`, `these` and `those` can occur be
 Ranting always uses the 1st plural form. `These` and `those` are converted to `this`
 and `that` if the pronoun is singular.
 
+In absence of upper or lower format specifiers, a noun at the start of a sentence or
+after a dot will start with a capital.
+
 If prepended with `#var` where var is a numeric variable, then the noun is inflected
 accordingly, plural unless the value of var is 1. However, var should be an identifier,
 not a numeric positional.
@@ -89,3 +100,8 @@ return Err(say!())
 // and
 return Ok(say!())
 ```
+
+ack!() and nay!() are not intended for normalerror handling; the usage of more placeholders
+can obfuscate where an error originates from. They hinder a simple string search.
+Instead they are intended to allow a diversity of reponses when different actors can be
+involved.

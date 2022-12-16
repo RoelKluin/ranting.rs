@@ -32,10 +32,10 @@ impl Meadowers {
     }
     fn count(&self) -> String {
         let count = self.count;
-        say!("Now {self are:d} {#count self} in the meadow.")
+        say!("Now {<self are} {#count self} in the meadow.")
     }
     fn join(&mut self, newcomer: Meadowers) -> String {
-        let s = say!("{The newcomer join} {the self:m} in the meadow.");
+        let s = say!("{The newcomer join} {the +self} in the meadow.");
         self.count += newcomer.count;
         s
     }
@@ -84,25 +84,25 @@ impl Person {
                 nay!("{The trash} from {actor} is not something that {self do} accept.")
             }
             ("give", Some((nr, coin))) if coin.name(false).as_str() == "coin" => match nr {
-                0 => nay!("{actor don't:N} seem able to give zero {coin:m} to {self}. {actor frown} at {self}."),
+                0 => nay!("{*actor don't} seem able to give zero {+coin} to {self}. {actor frown} at {self}."),
                 n => {
                     let ent = self
                         .inventory
                         .entry(coin.name(false).to_string())
                         .or_default();
                     *ent += nr;
-                    ack!("{self thank} {0:o}, {0}, for {0:p} {#n coin}.", actor)
+                    ack!("{self thank} {@0}, {0}, for {'0} {#n coin}.", actor)
                 }
             },
             ("receive", Some((nr, coin))) if coin.name(false).as_str() == "coin" && nr > 0 => {
                 let ent = self.inventory.entry(coin.name(false)).or_default();
                 if nr <= *ent {
-                    ack!("Reluctantly {actor give:s} {#nr coin} for {self:o}");
+                    ack!("Reluctantly, {actor give} {#nr coin} to {@self}");
                 } else {
-                    nay!("{actor do} not have {#nr coin} to give to {self:o}");
+                    nay!("{actor do} not have {#nr coin} to give to {@self}");
                 }
             }
-            (act, Some((nr, item))) => nay!("{actor can:S} not {act} {#nr item} to {self}"),
+            (act, Some((nr, item))) => nay!("{actor can} not {act} {#nr item} to {self}"),
             (act, None) => nay!("{actor shouldn't} {act} {self}."),
         }
     }
@@ -146,13 +146,13 @@ fn male_female_and_object() {
     let ret = anna.respond_to(&bob, "give", Some((0, &coin)));
     assert_eq!(
         ret,
-        Err("He doesn't seem able to give zero coins to Anna. He frowns at Anna.".to_string())
+        Err("Bob doesn't seem able to give zero coins to Anna. He frowns at Anna.".to_string())
     );
 
     let ret = bob.respond_to(&anna, "give", Some((0, &coin)));
     assert_eq!(
         ret,
-        Err("I don't seem able to give zero coins to Bob. I frown at Bob.".to_string())
+        Err("I, Anna, don't seem able to give zero coins to Bob. I frown at Bob.".to_string())
     );
 
     let ret = bob.respond_to(&anna, "give", Some((1, &coin)));

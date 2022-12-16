@@ -9,35 +9,49 @@ use syn::Ident;
 #[darling(default, attributes(object))]
 pub(crate) struct RantingOptions {
     pub(crate) pronoun: Option<String>,
+    pub(crate) is_plural_you: Option<bool>,
 }
 
 /// An abstract thing, which may be a person and have a gender
-pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
-    let pronoun = opts.pronoun.unwrap_or_else(|| "it".to_string());
+pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
+    let pronoun = opt.pronoun.unwrap_or("it".to_string());
+    let is_plural_you = opt.is_plural_you.unwrap_or(false);
     quote! {
         impl Ranting for #ident {
             fn pronoun(&self) -> &str {
                 #pronoun
             }
             fn name(&self, uc: bool) -> String {
-                if uc {
-                    use ranting::Inflector;
-                    self.name.to_sentence_case()
-                } else {
-                    self.name.to_string()
+                match self.pronoun() {
+                    "he" | "she" | "it" | "they" => {
+                        if uc {
+                            use ranting::Inflector;
+                            self.name.to_sentence_case()
+                        } else {
+                            self.name.to_string()
+                        }
+                    },
+                    "I" | "you" | "we" => {
+                        format!("{}, {},", self.subject(uc), self.name)
+                    },
+                    p => panic!("Unimplemented: subjective for '{}'", p),
                 }
             }
             fn is_plural(&self) -> bool {
                 match self.pronoun() {
                     "we" | "they" => true,
+                    "you" => #is_plural_you,
                     _ => false,
                 }
             }
             fn a_or_an(&self, uc: bool) -> &str {
-                if self.is_plural() {
-                    if uc {"Some"} else {"some"}
-                } else {
-                    match ranting::in_definite::get_a_or_an(self.name.as_str()) {
+                match self.pronoun() {
+                    "they" => if uc {"Some"} else {"some"},
+                    "you" if #is_plural_you => {
+                        if uc {"Some of you"} else {"some of you"}
+                    },
+                    "we" => if uc {"Some of us"} else {"some of us"},
+                    _ => match ranting::in_definite::get_a_or_an(self.name.as_str()) {
                         "a" if uc => "A",
                         "an" if uc => "An",
                         alt => alt,
@@ -101,7 +115,10 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
                 }
             }
             fn verb(&self, verb: &str) -> String {
-                match self.pronoun() {
+                self.verb_for(verb, self.pronoun())
+            }
+            fn verb_for(&self, verb: &str, pronoun: &str)-> String {
+                match pronoun {
                     "I" => match verb {
                         "'re" => "'m".to_string(),
                         " are" => " am".to_string(),
@@ -127,7 +144,7 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
                                 if v.ends_with(&['s', 'o', 'x']) || v.ends_with("ch") || v.ends_with("sh") {
                                     format!("{}es", v)
                                 } else if let Some(p) = v.strip_suffix('y').filter(|p| !p.ends_with(&['a', 'e', 'u', 'o'])) {
-                                    format!("{}ies", p);
+                                    format!("{}ies", p)
                                 } else {
                                     format!("{}s", v)
                                 }
@@ -140,7 +157,7 @@ pub(crate) fn ranting_q(opts: RantingOptions, ident: &Ident) -> TokenStream {
         }
         impl std::fmt::Display for #ident {
             fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                write!(formatter, "{}", self.name(false))
+                write!(formatter, "{}", self.name)
             }
         }
     }
