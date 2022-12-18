@@ -47,55 +47,54 @@ pub fn subjective(subjective: &str, uc: bool) -> &str {
     }
 }
 
-/// Return the plural of a (subject) subjective; unchanged if already plural.
+/// inflect subjective to singular / pluralize according to nr
 /// pancis for invalid subjective. valid are:
 /// "I", "you", "thou", "he", "she", "it", "we", "ye", "they".
 /// all must be lowercase except "I".
+/// If the subjective is "they", the assumption is neutrum, which is a guess.
 ///
-pub fn pluralize_subjective(subjective: &str, uc: bool) -> &str {
-    match subjective {
-        "I" if uc => "We",
-        "you" if uc => "You",
-        "thou" if uc => "Ye",
-        "he" if uc => "They",
-        "she" if uc => "They",
-        "it" if uc => "They",
-        "we" if uc => "We",
-        "ye" if uc => "Ye",
-        "they" if uc => "They",
-        "you" if uc => "You",
-        "I" | "we" => "we",
-        "you" => "you",
-        "thou" | "ye" => "ye",
-        "he" | "she" | "it" | "they" => "they",
-        x => panic!("'{x}' is not recognized as subjective"),
+pub fn inflect_subjective(subject: &str, to_plural: bool, uc: bool) -> &str {
+    if to_plural == is_subjective_plural(subject).unwrap_or(false) {
+        subjective(subject, uc)
+    } else if to_plural {
+        match subject {
+            "I" if uc => "We",
+            "you" if uc => "You",
+            "thou" if uc => "Ye",
+            "he" if uc => "They",
+            "she" if uc => "They",
+            "it" if uc => "They",
+            "we" if uc => "We",
+            "ye" if uc => "Ye",
+            "they" if uc => "They",
+            "you" if uc => "You",
+            "I" | "we" => "we",
+            "you" => "you",
+            "thou" | "ye" => "ye",
+            "he" | "she" | "it" | "they" => "they",
+            x => panic!("'{x}' is not recognized as subjective"),
+        }
+    } else {
+        match subject {
+            "I" | "we" => "I",
+            "you" if uc => "You",
+            "thou" if uc => "Thou",
+            "he" if uc => "He",
+            "she" if uc => "She",
+            "it" if uc => "It",
+            "they" if uc => "It",
+            "ye" if uc => "Thou",
+            "you" => "you",
+            "thou" | "ye" => "thou",
+            "he" => "he",
+            "she" => "she",
+            "it" | "they" => "it",
+            x => panic!("'{x}' is not recognized as subjective"),
+        }
     }
 }
 
-/// Return the singular of a (subject) subjective; unchanged if already singular.
-/// pancis for invalid subjective, see pluralize_subjective().
-/// If the subjective is "they", the assumption is neutrum, which may be incorrect.
-///
-pub fn singularize_subjective(subjective: &str, uc: bool) -> &str {
-    match subjective {
-        "I" | "we" => "I",
-        "you" if uc => "You",
-        "thou" if uc => "Thou",
-        "he" if uc => "He",
-        "she" if uc => "She",
-        "it" if uc => "It",
-        "they" if uc => "It",
-        "ye" if uc => "Thou",
-        "you" => "you",
-        "thou" | "ye" => "thou",
-        "he" => "he",
-        "she" => "she",
-        "it" | "they" => "it",
-        x => panic!("'{x}' is not recognized as subjective"),
-    }
-}
-
-/// Return the objective for a subjective. Can panic. see pluralize_subjective().
+/// Return the objective for a subjective. Can panic. see inflect_subjective_as_nr().
 pub fn objective(subject: &str, uc: bool) -> &str {
     match subject {
         "I" if uc => "Me",
@@ -119,15 +118,12 @@ pub fn objective(subject: &str, uc: bool) -> &str {
     }
 }
 
-pub fn pluralize_objective(subject: &str, uc: bool) -> &str {
-    objective(pluralize_subjective(subject, false), uc)
+/// singular-/pluralize subjective according to nr
+pub fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> &str {
+    objective(inflect_subjective(subject, to_plural, false), uc)
 }
 
-pub fn singularize_objective(subject: &str, uc: bool) -> &str {
-    objective(singularize_subjective(subject, false), uc)
-}
-
-/// Return the objective for a subjective. Can panic. see pluralize_subjective().
+/// Return the objective for a subjective. Can panic. see inflect_subjective_as_nr().
 pub fn possesive(subject: &str, uc: bool) -> &str {
     match subject {
         "I" if uc => "My",
@@ -151,15 +147,12 @@ pub fn possesive(subject: &str, uc: bool) -> &str {
     }
 }
 
-pub fn pluralize_possesive(subject: &str, uc: bool) -> &str {
-    possesive(pluralize_subjective(subject, false), uc)
+/// singular-/pluralize subjective according to nr
+pub fn inflect_possesive(subject: &str, to_plural: bool, uc: bool) -> &str {
+    possesive(inflect_subjective(subject, to_plural, false), uc)
 }
 
-pub fn singularize_possessive(subject: &str, uc: bool) -> &str {
-    possesive(singularize_subjective(subject, false), uc)
-}
-
-/// Return the adjective for a subjective. Can panic. see pluralize_subjective().
+/// Return the adjective for a subjective. Can panic. see inflect_subjective_as_nr().
 pub fn adjective(subject: &str, uc: bool) -> &str {
     match subject {
         "I" if uc => "Mine",
@@ -182,16 +175,18 @@ pub fn adjective(subject: &str, uc: bool) -> &str {
     }
 }
 
-pub fn pluralize_adjective(subject: &str, uc: bool) -> &str {
-    adjective(pluralize_subjective(subject, false), uc)
+/// singular-/pluralize subjective according to nr
+pub fn inflect_adjective(subject: &str, to_plural: bool, uc: bool) -> &str {
+    adjective(inflect_subjective(subject, to_plural, false), uc)
 }
 
-pub fn singularize_adjective(subject: &str, uc: bool) -> &str {
-    adjective(singularize_subjective(subject, false), uc)
-}
-
-pub fn inflect_verb(subject: &str, verb: &str, trim_and_uc: Option<bool>) -> String {
-    let res = match subject {
+pub fn inflect_verb(
+    subject: &str,
+    verb: &str,
+    to_plural: bool,
+    trim_and_uc: Option<bool>,
+) -> String {
+    let res = match inflect_subjective(subject, to_plural, false) {
         "I" => match verb {
             "'re" => "'m".to_string(),
             " are" => " am".to_string(),
@@ -238,84 +233,40 @@ pub fn inflect_verb(subject: &str, verb: &str, trim_and_uc: Option<bool>) -> Str
     }
 }
 
-pub fn pluralize_verb(subject: &str, verb: &str, trim_and_uc: Option<bool>) -> String {
-    inflect_verb(pluralize_subjective(subject, false), verb, trim_and_uc)
-}
-
-pub fn singularize_verb(subject: &str, verb: &str, trim_and_uc: Option<bool>) -> String {
-    inflect_verb(pluralize_subjective(subject, false), verb, trim_and_uc)
-}
-
-/// pluralize name and of noun
-pub fn if_pluralize_name(is_plural_by_default: bool, name: String) -> String {
-    if is_plural_by_default {
-        name
-    } else {
-        to_plural(name.as_str())
-    }
-}
-
-/// singularize name and of noun
-pub fn if_singularize_name(is_plural_by_default: bool, name: String) -> String {
-    if is_plural_by_default {
-        to_singular(name.as_str())
-    } else {
-        name
-    }
-}
-
 /// singular-/pluralize noun name according to nr
-pub fn pluralize_noun_as_nr(nr: i64, is_plural_by_default: bool, name: String) -> String {
-    let is_multiple = nr != 1;
-    if is_multiple == is_plural_by_default {
+pub fn inflect_noun(name: String, default_subject: &str, as_plural: bool, uc: bool) -> String {
+    let res = if as_plural == is_subjective_plural(default_subject).unwrap_or(false) {
         name
-    } else if is_multiple {
+    } else if as_plural {
         to_plural(name.as_str())
     } else {
         to_singular(name.as_str())
-    }
-}
-
-/// singular-/pluralize noun name according to nr
-pub fn pluralize_subjective_as_nr(nr: i64, subject: &str, uc: bool) -> &str {
-    let is_multiple = nr != 1;
-    if is_multiple == is_subjective_plural(subject).unwrap_or(false) {
-        subjective(subject, uc)
-    } else if is_multiple {
-        pluralize_subjective(subject, uc)
+    };
+    if uc {
+        uc_1st(res.as_str())
     } else {
-        singularize_subjective(subject, uc)
+        res
     }
 }
 
-/// singular-/pluralize verb according to nr
-pub fn pluralize_verb_as_nr(
-    nr: i64,
-    mut subject: &str,
-    verb: &str,
-    trim_and_uc: Option<bool>,
-) -> String {
-    let is_multiple = nr != 1;
-    if is_subjective_plural(subject).unwrap_or(false) != is_multiple {
-        if is_multiple {
-            subject = pluralize_subjective(subject, false);
-        } else {
-            subject = singularize_subjective(subject, false);
-        }
-    }
-    inflect_verb(subject, verb, trim_and_uc)
-}
-
-pub fn match_article_to_nr(x: i64, default: &str, lc_art: &str, uc: bool) -> String {
-    match (x, lc_art) {
-        (0, "some") => format!("{}one", if uc { 'N' } else { 'n' }),
+pub fn match_article_to_nr(nr: i64, default: &str, lc_art: &str, uc: bool) -> String {
+    match (nr, lc_art) {
+        (0, "some") | (0, "a") | (0, "an") => format!("{}one", if uc { 'N' } else { 'n' }),
+        (0, "these") => format!("{}ero", if uc { 'Z' } else { 'z' }),
         (0, "those") => format!("{}o", if uc { 'N' } else { 'n' }),
-        (1, "some") => default.to_string(),
+        (1, "some") | (1, "a") | (1, "an") => {
+            if uc {
+                uc_1st(default)
+            } else {
+                default.to_string()
+            }
+        }
         (1, "these") => format!("{}his", if uc { 'T' } else { 't' }),
         (1, "those") => format!("{}hat", if uc { 'T' } else { 't' }),
-        (_, y) if y == "the" => format!("{}he", if uc { 'T' } else { 't' }),
-        (_, y) if y == "those" => format!("{}hose", if uc { 'T' } else { 't' }),
-        (_, y) if y == "these" => format!("{}hese", if uc { 'T' } else { 't' }),
+        (_, "some") | (_, "a") | (_, "an") => format!("{}ome", if uc { 'S' } else { 's' }),
+        (_, a) if a == "the" => format!("{}he", if uc { 'T' } else { 't' }),
+        (_, a) if a == "those" => format!("{}hose", if uc { 'T' } else { 't' }),
+        (_, a) if a == "these" => format!("{}hese", if uc { 'T' } else { 't' }),
         _ => panic!("Unimplemented article {lc_art}"),
     }
 }

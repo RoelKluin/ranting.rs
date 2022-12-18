@@ -244,7 +244,7 @@ fn comma_next(it: &mut dyn Iterator<Item = TokenTree>) -> Result<String, SynErro
     }
 }
 
-fn pluralize(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
+fn pluralize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
     let mut res = String::new();
     let mut uc = sf.uc;
 
@@ -266,19 +266,19 @@ fn pluralize(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
         res.push_str(&format!("{}{{{}}}", space, pos.len()));
         match sf.case {
             ':' => pos.push(format!(
-                "ranting::pluralize_subjective({local}.subjective(), {uc})"
+                "ranting::inflect_subjective({var}.subjective(), true, {uc})"
             )),
             '@' => pos.push(format!(
-                "ranting::objective(ranting::pluralize_subjective({local}.subjective(), false), {uc})"
+                "ranting::inflect_objective({var}.subjective(), true, {uc})"
             )),
             '\'' => pos.push(format!(
-                "ranting::possesive(ranting::pluralize_subjective({local}.subjective(), false), {uc})"
+                "ranting::inflect_possesive({var}.subjective(), true, {uc})"
             )),
             '~' => pos.push(format!(
-                "ranting::adjective(ranting::pluralize_subjective({local}.subjective(), false), {uc})"
+                "ranting::inflect_adjective({var}.subjective(), true, {uc})"
             )),
             _ => pos.push(format!(
-                "ranting::if_pluralize_name({local}.is_plural(), {local}.name({uc}))"
+                "ranting::inflect_noun({var}.name({uc}), {var}.subjective(), true, {uc})"
             )),
         }
         uc = false;
@@ -286,7 +286,7 @@ fn pluralize(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
     if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
         let trim = res.is_empty().then_some(uc);
         pos.push(format!(
-            "ranting::pluralize_verb({local}.subjective(), \"{sv}\", {uc}, {trim:?})"
+            "ranting::inflect_verb({var}.subjective(), \"{sv}\", true, {trim:?})"
         ));
         res + &format!("{{{}}}", pos.len() - 1)
     } else {
@@ -294,7 +294,7 @@ fn pluralize(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
     }
 }
 
-fn singularize(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
+fn singularize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
     let mut res = String::new();
     let mut uc = sf.uc;
 
@@ -304,7 +304,7 @@ fn singularize(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
     {
         res.push_str(&format!("{{{}}}", pos.len()));
         match s.as_str() {
-            "some" | "a" | "an" => pos.push(format!("{local}.a_or_an({uc})")),
+            "some" | "a" | "an" => pos.push(format!("{var}.a_or_an({uc})")),
             "these" => pos.push(format!("\"{}his\"", if uc { 'T' } else { 't' })),
             "those" => pos.push(format!("\"{}hat\"", if uc { 'T' } else { 't' })),
             "the" => pos.push(format!("\"{}he\"", if uc { 'T' } else { 't' })),
@@ -317,19 +317,19 @@ fn singularize(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
         res.push_str(&format!("{}{{{}}}", space, pos.len()));
         match sf.case {
             ':' => pos.push(format!(
-                "ranting::singularize_subjective({local}.subjective(), {uc})"
+                "ranting::inflect_subjective({var}.subjective(), false, {uc})"
             )),
             '@' => pos.push(format!(
-                "ranting::objective(ranting::singularize_subjective({local}.subjective(), false), {uc})"
+                "ranting::inflect_objective({var}.subjective(), false, {uc})"
             )),
             '\'' => pos.push(format!(
-                "ranting::possesive(ranting::singularize_subjective({local}.subjective(), false), {uc})"
+                "ranting::inflect_possesive({var}.subjective(), false, {uc})"
             )),
             '~' => pos.push(format!(
-                "ranting::adjective(ranting::singularize_subjective({local}.subjective(), false), {uc})"
+                "ranting::inflect_adjective({var}.subjective(), false, {uc})"
             )),
             _ => pos.push(format!(
-                "ranting::if_singularize_name({local}.is_plural(), {local}.name({uc}))"
+                "ranting::inflect_noun({var}.name({uc}), {var}.subjective(), false, {uc})"
             )),
         }
         uc = false;
@@ -337,7 +337,7 @@ fn singularize(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
     if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
         let trim = res.is_empty().then_some(uc);
         pos.push(format!(
-            "ranting::singularize_verb({local}.subjective(), \"{sv}\", {trim:?})"
+            "ranting::inflect_verb({var}.subjective(), \"{sv}\", false, {trim:?})"
         ));
         res + &format!("{{{}}}", pos.len() - 1)
     } else {
@@ -345,7 +345,7 @@ fn singularize(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
     }
 }
 
-fn pluralize_as_nr_variable(sf: SayFmt, local: String, pos: &mut Vec<String>, nr: &str) -> String {
+fn pluralize_as_nr_variable(sf: SayFmt, var: String, pos: &mut Vec<String>, nr: &str) -> String {
     let mut res = String::new();
     let mut uc = sf.uc;
 
@@ -359,7 +359,7 @@ fn pluralize_as_nr_variable(sf: SayFmt, local: String, pos: &mut Vec<String>, nr
     {
         res.push_str(&format!("{{{}}}", pos.len()));
         pos.push(format!(
-            "ranting::match_article_to_nr({nr} as i64, \"{lc_art}\", {uc})"
+            "ranting::match_article_to_nr({nr} as i64, {var}.a_or_an({uc}), , \"{lc_art}\", {uc})"
         ));
         uc = false;
     }
@@ -368,19 +368,19 @@ fn pluralize_as_nr_variable(sf: SayFmt, local: String, pos: &mut Vec<String>, nr
         res.push_str(&format!("{}{{{}}}", space, pos.len()));
         match sf.case {
             ':' => pos.push(format!(
-                "ranting::pluralize_subjective_as_nr({nr} as i64, {local}.subjective(), {uc})"
+                "ranting::inflect_subjective({var}.subjective(), {nr} != 1, {uc})"
             )),
             '@' => pos.push(format!(
-                "ranting::objective(ranting::pluralize_subjective_as_nr({nr} as i64, {local}.subjective(), false), {uc})"
+                "ranting::inflect_objective({var}.subjective(), {nr} != 1, {uc})"
             )),
             '\'' => pos.push(format!(
-                "ranting::possesive(ranting::pluralize_subjective_as_nr({nr} as i64, {local}.subjective(), false), {uc})"
+                "ranting::inflect_possesive({var}.subjective(), {nr} != 1, {uc})"
             )),
             '~' => pos.push(format!(
-                "ranting::adjective(ranting::pluralize_subjective_as_nr({nr} as i64, {local}.subjective(), false), {uc})"
+                "ranting::inflect_adjective({var}.subjective(), {nr} != 1, {uc})"
             )),
             _ => pos.push(format!(
-                "ranting::pluralize_noun_as_nr({nr} as i64, {local}.is_plural(), {local}.name({uc}))"
+                "ranting::inflect_noun({var}.name({uc}), {var}.subjective(), {nr} != 1, {uc})"
             )),
         }
         uc = false;
@@ -388,7 +388,7 @@ fn pluralize_as_nr_variable(sf: SayFmt, local: String, pos: &mut Vec<String>, nr
     if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
         let trim = res.is_empty().then_some(uc);
         pos.push(format!(
-            "ranting::pluralize_verb_as_nr({nr} as i64, &{local}, \"{sv}\", {trim:?})"
+            "ranting::inflect_verb({var}.subjective(), \"{sv}\", {nr} != 1, {trim:?})"
         ));
         res + &format!("{{{}}}", pos.len() - 1)
     } else {
@@ -396,7 +396,7 @@ fn pluralize_as_nr_variable(sf: SayFmt, local: String, pos: &mut Vec<String>, nr
     }
 }
 
-fn preserve_plurality(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
+fn preserve_plurality(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
     let mut res = String::new();
     let mut uc = sf.uc;
     if let Some(lc_art) = sf
@@ -406,7 +406,7 @@ fn preserve_plurality(sf: SayFmt, local: String, pos: &mut Vec<String>) -> Strin
     {
         res.push_str(&format!("{{{}}}", pos.len()));
         pos.push(format!(
-            "ranting::match_article_to_nr({local}.is_plural() as i64 + 1, {local}.a_or_an({uc}), \"{lc_art}\", {uc})",
+            "ranting::match_article_to_nr({var}.is_plural() as i64 + 1, {var}.a_or_an({uc}), \"{lc_art}\", {uc})",
         ));
         uc = false;
     }
@@ -414,17 +414,19 @@ fn preserve_plurality(sf: SayFmt, local: String, pos: &mut Vec<String>) -> Strin
         let space = res.is_empty().then_some("").unwrap_or(" ");
         res.push_str(&format!("{}{{{}}}", space, pos.len()));
         match sf.case {
-            ':' => pos.push(format!("ranting::subjective({local}.subjective(), {uc})")),
-            '@' => pos.push(format!("ranting::objective({local}.subjective(), {uc})")),
-            '\'' => pos.push(format!("ranting::possesive({local}.subjective(), {uc})")),
-            '~' => pos.push(format!("ranting::adjective({local}.subjective(), {uc})")),
-            _ => pos.push(format!("{local}")),
+            ':' => pos.push(format!("ranting::subjective({var}.subjective(), {uc})")),
+            '@' => pos.push(format!("ranting::objective({var}.subjective(), {uc})")),
+            '\'' => pos.push(format!("ranting::possesive({var}.subjective(), {uc})")),
+            '~' => pos.push(format!("ranting::adjective({var}.subjective(), {uc})")),
+            _ => pos.push(format!("{var}")), // keep it like this: for non-Ranting variables
         }
         uc = false;
     }
     if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
         let trim = res.is_empty().then_some(uc);
-        pos.push(format!("ranting::pluralize_verb_as_nr({local}.is_plural() as i64 + 1, {local}.subjective(), \"{sv}\", {trim:?})"));
+        pos.push(format!(
+            "ranting::inflect_verb({var}.subjective(), \"{sv}\", {var}.is_plural(), {trim:?})"
+        ));
         res + &format!("{{{}}}", pos.len() - 1)
     } else {
         res
@@ -432,12 +434,12 @@ fn preserve_plurality(sf: SayFmt, local: String, pos: &mut Vec<String>) -> Strin
 }
 
 // arguments become positionals
-fn handle_param(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
+fn handle_param(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
     match sf.plurality.map(|s| s.as_str().split_at(1)) {
-        Some(("+", "")) => pluralize(sf, local, pos),
-        Some(("-", "")) => singularize(sf, local, pos),
-        Some(("#", nr)) => pluralize_as_nr_variable(sf, local, pos, nr),
-        None => preserve_plurality(sf, local, pos),
+        Some(("+", "")) => pluralize(sf, var, pos),
+        Some(("-", "")) => singularize(sf, var, pos),
+        Some(("#", nr)) => pluralize_as_nr_variable(sf, var, pos, nr),
+        None => preserve_plurality(sf, var, pos),
         Some((a, b)) => panic!("Unrecognized plurality '{a}{b}'"),
     }
 }
