@@ -24,11 +24,7 @@ impl Meadowers {
         }
     }
     fn subjective(&self) -> &str {
-        if self.count == 1 {
-            "it"
-        } else {
-            "they"
-        }
+        "it"
     }
     fn count(&self) -> String {
         let count = self.count;
@@ -66,7 +62,7 @@ impl Person {
             inventory: HashMap::new(),
         }
     }
-    fn subject(&self) -> &str {
+    fn subjective(&self) -> &str {
         self.subject.as_str()
     }
     fn respond_to<T, U>(

@@ -181,8 +181,9 @@ pub fn inflect_adjective(subject: &str, to_plural: bool, uc: bool) -> &str {
 }
 
 pub fn inflect_verb(subject: &str, verb: &str, to_plural: bool, uc: bool) -> String {
+    let trimmed = verb.trim();
     let res = match inflect_subjective(subject, to_plural, false) {
-        "I" => match verb.trim() {
+        "I" => match trimmed {
             "'re" => "'m".to_string(),
             "are" => "am".to_string(),
             "were" => "was".to_string(),
@@ -190,8 +191,8 @@ pub fn inflect_verb(subject: &str, verb: &str, to_plural: bool, uc: bool) -> Str
             "weren't" => "wasn't".to_string(),
             v => v.to_string(),
         },
-        "you" | "we" | "they" | "ye" | "thou" => verb.to_string(),
-        _ => match verb.trim() {
+        "you" | "we" | "they" | "ye" | "thou" => trimmed.to_string(),
+        _ => match trimmed {
             "'re" | "'ve" => "'s".to_string(),
             "are" => "is".to_string(),
             "have" => "has".to_string(),
@@ -202,7 +203,7 @@ pub fn inflect_verb(subject: &str, verb: &str, to_plural: bool, uc: bool) -> Str
             "don't" => "doesn't".to_string(),
             "could" | "would" | "can" | "may" | "might" | "must" | "should" | "shall" | "will"
             | "had" | "couldn't" | "wouldn't" | "can't" | "mightn't" | "mustn't" | "shouldn't"
-            | "hadn't" => verb.to_string(),
+            | "hadn't" => trimmed.to_string(),
             v => {
                 if v.ends_with(&['s', 'o', 'x']) || v.ends_with("ch") || v.ends_with("sh") {
                     format!("{}es", v)
@@ -226,7 +227,8 @@ pub fn inflect_verb(subject: &str, verb: &str, to_plural: bool, uc: bool) -> Str
 
 /// singular-/pluralize noun name according to nr
 pub fn inflect_noun(name: String, is_default_plural: bool, as_plural: bool, uc: bool) -> String {
-    let res = if as_plural == is_default_plural {
+    eprintln!("{name} is_default_plural:{is_default_plural}, as_plural:{as_plural}");
+    let res = if is_default_plural == as_plural {
         name
     } else if as_plural {
         to_plural(name.as_str())
