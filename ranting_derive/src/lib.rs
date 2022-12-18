@@ -254,138 +254,47 @@ fn get_case_from_char(c: char) -> Option<&'static str> {
     }
 }
 
-fn pluralize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
+// arguments become positionals
+fn handle_param(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
+    let mut nr = "";
     let mut res = String::new();
     let mut uc = sf.uc;
+    let mut pl_it = sf.plurality.map(|s| s.as_str()).unwrap_or_default().chars();
+    let plurality = pl_it.next();
 
-    if let Some(s) = sf.pre.map(|a| a.as_str().trim_end().to_lowercase()) {
-        res.push_str(&format!("{{{}}}", pos.len()));
-        match s.as_str() {
-            "a" | "an" => pos.push(format!("{}ome", if uc { 'S' } else { 's' })),
-            "the" | "some" | "these" | "those" => {
-                if uc {
-                    pos.push(format!("ranting::to_sentence_case(\"{s}\")"));
-                } else {
-                    pos.push(format!("\"{s}\""));
-                }
-            }
-            verb => {
-                assert!(sf.post.is_none(), "verb before and after?");
-                pos.push(format!(
-                    "ranting::inflect_verb({var}.subjective(), \"{verb}\", true, {uc})"
-                ))
+    let is_pl = match plurality {
+        Some('+') => format!("true"),
+        Some('-') => format!("false"),
+        Some('#') => {
+            nr = pl_it.as_str();
+            if nr.starts_with('?') {
+                let test = format!("{} != 1", nr.trim_start_matches('?'));
+                nr = "";
+                test
+            } else {
+                format!("{nr} != 1")
             }
         }
-        uc = false;
-    }
-    if !sf.hidden_noun {
-        if !res.is_empty() {
-            res.push(' ')
-        }
-        res.push_str(&format!("{{{}}}", pos.len()));
-        match get_case_from_char(sf.case) {
-            Some(case) => pos.push(format!(
-                "ranting::inflect_{case}({var}.subjective(), true, {uc})"
-            )),
-            None => pos.push(format!(
-                "ranting::inflect_noun({var}.name({uc}), {var}.is_plural(), true, {uc})"
-            )),
-        }
-        uc = false;
-    }
-    if let Some(sv) = sf.post.map(|s| s.as_str()) {
-        if !res.is_empty() && !sv.starts_with('\'') {
-            res.push(' ')
-        }
-        res.push_str(&format!("{{{}}}", pos.len()));
-        pos.push(format!(
-            "ranting::inflect_verb({var}.subjective(), \"{sv}\", true, {uc})"
-        ));
-    }
-    res
-}
+        None => format!("{var}.is_plural()"),
+        Some(a) => panic!("Unrecognized plurality '{a}{}'", pl_it.as_str()),
+    };
 
-fn singularize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
-    let mut res = String::new();
-    let mut uc = sf.uc;
-
-    if let Some(s) = sf.pre.map(|a| a.as_str().trim_end().to_lowercase()) {
-        res.push_str(&format!("{{{}}}", pos.len()));
-        match s.as_str() {
-            "some" | "a" | "an" => pos.push(format!("{var}.a_or_an({uc})")),
-            "these" => pos.push(format!("\"{}his\"", if uc { 'T' } else { 't' })),
-            "those" => pos.push(format!("\"{}hat\"", if uc { 'T' } else { 't' })),
-            "the" => pos.push(format!("\"{}he\"", if uc { 'T' } else { 't' })),
-            verb => {
-                assert!(sf.post.is_none(), "verb before and after?");
-                pos.push(format!(
-                    "ranting::inflect_verb({var}.subjective(), \"{verb}\", false, {uc})"
-                ))
-            }
-        }
-        uc = false;
-    }
-    if !sf.hidden_noun {
-        if !res.is_empty() {
-            res.push(' ')
-        }
-        res.push_str(&format!("{{{}}}", pos.len()));
-        match get_case_from_char(sf.case) {
-            Some(case) => pos.push(format!(
-                "ranting::inflect_{case}({var}.subjective(), false, {uc})"
-            )),
-            None => pos.push(format!(
-                "ranting::inflect_noun({var}.name({uc}), {var}.is_plural(), false, {uc})"
-            )),
-        }
-        uc = false;
-    }
-    if let Some(sv) = sf.post.map(|s| s.as_str()) {
-        if !res.is_empty() && !sv.starts_with('\'') {
-            res.push(' ')
-        }
-        res.push_str(&format!("{{{}}}", pos.len()));
-        pos.push(format!(
-            "ranting::inflect_verb({var}.subjective(), \"{sv}\", false, {uc})"
-        ));
-    }
-    res
-}
-
-fn pluralize_as_nr_variable(
-    sf: SayFmt,
-    var: String,
-    pos: &mut Vec<String>,
-    mut nr: &str,
-) -> String {
-    let mut res = String::new();
-    let mut uc = sf.uc;
-    let mut is_hidden_number = false;
-    if nr.starts_with('?') {
-        nr = nr.trim_start_matches('?');
-        is_hidden_number = true;
-    }
-
-    if let Some(p) = sf
-        .pre
-        .map(|a| a.as_str().trim_end().to_lowercase())
-        .filter(|s| s.as_str() != "*")
-    {
+    if let Some(p) = sf.pre.map(|a| a.as_str().trim_end().to_lowercase()) {
         res.push_str(&format!("{{{}}}", pos.len()));
         match p.as_str() {
             "some" | "a" | "an" | "the" | "these" | "those" => pos.push(format!(
-                "ranting::match_article_to_nr({nr} as i64, {var}.a_or_an({uc}), \"{p}\", {uc})"
+                "ranting::inflect_article({var}.a_or_an({uc}), \"{p}\", {is_pl}, {uc})"
             )),
             verb => {
                 assert!(sf.post.is_none(), "verb before and after?");
                 pos.push(format!(
-                    "ranting::inflect_verb({var}.subjective(), \"{verb}\", {nr} != 1, {uc})"
+                    "ranting::inflect_verb({var}.subjective(), \"{verb}\", {is_pl}, {uc})"
                 ))
             }
         }
         uc = false;
     }
-    if !is_hidden_number {
+    if !nr.is_empty() {
         if !res.is_empty() {
             res.push(' ')
         }
@@ -398,57 +307,11 @@ fn pluralize_as_nr_variable(
         }
         res.push_str(&format!("{{{}}}", pos.len()));
         match get_case_from_char(sf.case) {
-            Some(case) => pos.push(format!(
-                "ranting::inflect_{case}({var}.subjective(), {nr} != 1, {uc})"
-            )),
-            None => pos.push(format!(
-                "ranting::inflect_noun({var}.name({uc}), {var}.is_plural(), {nr} != 1, {uc})"
-            )),
-        }
-        uc = false;
-    }
-    if let Some(sv) = sf.post.map(|s| s.as_str()) {
-        if !res.is_empty() && !sv.starts_with('\'') {
-            res.push(' ')
-        }
-        res.push_str(&format!("{{{}}}", pos.len()));
-        pos.push(format!(
-            "ranting::inflect_verb({var}.subjective(), \"{sv}\", {nr} != 1, {uc})"
-        ));
-    }
-    res
-}
-
-fn preserve_plurality(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
-    let mut res = String::new();
-    let mut uc = sf.uc;
-    if let Some(p) = sf
-        .pre
-        .map(|a| a.as_str().trim_end().to_lowercase())
-        .filter(|s| s.as_str() != "*")
-    {
-        res.push_str(&format!("{{{}}}", pos.len()));
-        match p.as_str() {
-            "some" | "a" | "an" | "the" | "these" | "those" => pos.push(format!(
-                "ranting::match_article_to_nr({var}.is_plural() as i64 + 1, {var}.a_or_an({uc}), \"{p}\", {uc})",
-            )),
-            verb =>  {
-                assert!(sf.post.is_none(), "verb before and after?");
-                pos.push(format!(
-                    "ranting::inflect_verb({var}.subjective(), \"{verb}\", {var}.is_plural(), {uc})"
-                ))
-            },
-        }
-        uc = false;
-    }
-    if !sf.hidden_noun {
-        if !res.is_empty() {
-            res.push(' ')
-        }
-        res.push_str(&format!("{{{}}}", pos.len()));
-        match get_case_from_char(sf.case) {
             Some(case) => pos.push(format!("ranting::{case}({var}.subjective(), {uc})")),
-            None => pos.push(format!("{var}")), // keep it like this: for non-Ranting variables
+            None if plurality.is_none() => pos.push(format!("{var}")), // for non-Ranting variables
+            None => pos.push(format!(
+                "ranting::inflect_noun({var}.name({uc}), {var}.is_plural(), {is_pl}, {uc})"
+            )),
         }
         uc = false;
     }
@@ -458,19 +321,8 @@ fn preserve_plurality(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String 
         }
         res.push_str(&format!("{{{}}}", pos.len()));
         pos.push(format!(
-            "ranting::inflect_verb({var}.subjective(), \"{sv}\", {var}.is_plural(), {uc})"
+            "ranting::inflect_verb({var}.subjective(), \"{sv}\", {is_pl}, {uc})"
         ));
     }
     res
-}
-
-// arguments become positionals
-fn handle_param(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
-    match sf.plurality.map(|s| s.as_str().split_at(1)) {
-        Some(("+", "")) => pluralize(sf, var, pos),
-        Some(("-", "")) => singularize(sf, var, pos),
-        Some(("#", nr)) => pluralize_as_nr_variable(sf, var, pos, nr),
-        None => preserve_plurality(sf, var, pos),
-        Some((a, b)) => panic!("Unrecognized plurality '{a}{b}'"),
-    }
 }
