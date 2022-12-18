@@ -8,4 +8,5 @@ edition = "2021"
 ranting_derive = { version = "=0.1.0", path = "ranting_derive" }
 in_definite = "0.2"
 Inflector = "0.11.4"
+strum_macros = "0.24"
 

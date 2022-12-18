@@ -6,7 +6,7 @@ use quote::quote;
 use syn::Ident;
 
 #[derive(FromDeriveInput, Default)]
-#[darling(default, attributes(subject))]
+#[darling(default, attributes(ranting))]
 pub(crate) struct RantingOptions {
     pub(crate) subject: Option<String>,
     pub(crate) is_plural: Option<bool>,
@@ -14,12 +14,11 @@ pub(crate) struct RantingOptions {
 
 /// An abstract thing, which may be a person and have a gender
 pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
-    let subject = opt.subject.unwrap_or("it".to_string());
     let is_plural = opt.is_plural.unwrap_or(false);
     quote! {
         impl Ranting for #ident {
             fn subjective(&self) -> &str {
-                #subject
+                self.subject.as_str()
             }
             fn is_plural(&self) -> bool {
                 ranting::is_subjective_plural(self.subjective()).unwrap_or(#is_plural)
@@ -28,11 +27,7 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
                 let subject = self.subjective();
                 match subject {
                     "he" | "she" | "it" | "they" => {
-                        if uc {
-                            ranting::inflector::cases::sentencecase::to_sentence_case(self.name.as_str())
-                        } else {
-                            self.name.to_string()
-                        }
+                        ranting::inflect_noun(self.name.to_string(), true, true, uc)
                     },
                     "I" => format!("I, {},", self.name),
                     "you" | "we" => {
