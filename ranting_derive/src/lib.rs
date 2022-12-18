@@ -12,7 +12,7 @@ use std::default::Default;
 use syn::{parse, parse_macro_input, Error as SynError, Expr, ExprPath};
 
 /// Generates the `Ranting` trait implementation
-/// Structs that receive this trait require a name and pronoun String.
+/// Structs that receive this trait require a name and subjective String.
 /// and can be referenced in the say!() nay!() and ack!() macros.
 #[proc_macro_derive(Ranting, attributes(ranting))]
 pub fn derive_ranting(input: TokenStream) -> TokenStream {
@@ -25,19 +25,19 @@ pub fn derive_ranting(input: TokenStream) -> TokenStream {
 /// formatting options for Ranting trait objects provided as arguments to say!().
 ///
 /// Ranting trait objects as arguments to say!()  are displated as their name by
-/// default, or by pronoun with the following formatting extensions:
+/// default, or by subjective with the following formatting extensions:
 ///
 /// `:s` gives a subject, `:o` an object, `:p` the possesive and `:a` the adjective
-/// form of the pronoun. With a capital, e.g. `:S`, the pronoun form is capitalized.
+/// form of the subjective. With a capital, e.g. `:S`, the subjective form is capitalized.
 ///
 /// There are also the `:m` or `:M` postfixes to display the plural form of the name.
 ///
 /// when prepended with `a ` or `an `, this indefinite article is adapted to the name.
 /// When capitalized this is preserved. Also `the`, `these` and `those` can occur before.
 /// Ranting always uses the 1st plural form. `These` and `those` are converted to `this`
-/// and `that` if the pronoun is singular.
+/// and `that` if the subjective is singular.
 ///
-/// A verb after, als o in 1st plural form, is also inflected to the pronoun's case. The
+/// A verb after, als o in 1st plural form, is also inflected to the subjective's case. The
 /// Ranting object enclosed before a verb is assumed to be the subject in the sentence.
 ///
 /// Positional argument and numeric references are supported, but not named arguments,
@@ -266,16 +266,16 @@ fn pluralize(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
         res.push_str(&format!("{}{{{}}}", space, pos.len()));
         match sf.case {
             ':' => pos.push(format!(
-                "ranting::pluralize_pronoun({local}.pronoun(), {uc})"
+                "ranting::pluralize_subjective({local}.subjective(), {uc})"
             )),
             '@' => pos.push(format!(
-                "ranting::objective(ranting::pluralize_pronoun({local}.pronoun(), false), {uc})"
+                "ranting::objective(ranting::pluralize_subjective({local}.subjective(), false), {uc})"
             )),
             '\'' => pos.push(format!(
-                "ranting::possesive(ranting::pluralize_pronoun({local}.pronoun(), false), {uc})"
+                "ranting::possesive(ranting::pluralize_subjective({local}.subjective(), false), {uc})"
             )),
             '~' => pos.push(format!(
-                "ranting::adjective(ranting::pluralize_pronoun({local}.pronoun(), false), {uc})"
+                "ranting::adjective(ranting::pluralize_subjective({local}.subjective(), false), {uc})"
             )),
             _ => pos.push(format!(
                 "ranting::if_pluralize_name({local}.is_plural(), {local}.name({uc}))"
@@ -286,7 +286,7 @@ fn pluralize(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
     if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
         let trim = res.is_empty().then_some(uc);
         pos.push(format!(
-            "ranting::inflect_verb(ranting::pluralize_pronoun({local}.pronoun()), \"{sv}\", {uc}, {trim:?})"
+            "ranting::pluralize_verb({local}.subjective(), \"{sv}\", {uc}, {trim:?})"
         ));
         res + &format!("{{{}}}", pos.len() - 1)
     } else {
@@ -317,16 +317,16 @@ fn singularize(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
         res.push_str(&format!("{}{{{}}}", space, pos.len()));
         match sf.case {
             ':' => pos.push(format!(
-                "ranting::singularize_pronoun({local}.pronoun(), {uc})"
+                "ranting::singularize_subjective({local}.subjective(), {uc})"
             )),
             '@' => pos.push(format!(
-                "ranting::objective(ranting::singularize_pronoun({local}.pronoun(), false), {uc})"
+                "ranting::objective(ranting::singularize_subjective({local}.subjective(), false), {uc})"
             )),
             '\'' => pos.push(format!(
-                "ranting::possesive(ranting::singularize_pronoun({local}.pronoun(), false), {uc})"
+                "ranting::possesive(ranting::singularize_subjective({local}.subjective(), false), {uc})"
             )),
             '~' => pos.push(format!(
-                "ranting::adjective(ranting::singularize_pronoun({local}.pronoun(), false), {uc})"
+                "ranting::adjective(ranting::singularize_subjective({local}.subjective(), false), {uc})"
             )),
             _ => pos.push(format!(
                 "ranting::if_singularize_name({local}.is_plural(), {local}.name({uc}))"
@@ -337,7 +337,7 @@ fn singularize(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
     if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
         let trim = res.is_empty().then_some(uc);
         pos.push(format!(
-            "ranting::inflect_verb(ranting::singularize_pronoun({local}.pronoun()), \"{sv}\", {trim:?})"
+            "ranting::singularize_verb({local}.subjective(), \"{sv}\", {trim:?})"
         ));
         res + &format!("{{{}}}", pos.len() - 1)
     } else {
@@ -368,16 +368,16 @@ fn pluralize_as_nr_variable(sf: SayFmt, local: String, pos: &mut Vec<String>, nr
         res.push_str(&format!("{}{{{}}}", space, pos.len()));
         match sf.case {
             ':' => pos.push(format!(
-                "ranting::pluralize_pronoun_as_nr({nr} as i64, {local}.pronoun(), {uc})"
+                "ranting::pluralize_subjective_as_nr({nr} as i64, {local}.subjective(), {uc})"
             )),
             '@' => pos.push(format!(
-                "ranting::objective(ranting::pluralize_pronoun_as_nr({nr} as i64, {local}.pronoun(), false), {uc})"
+                "ranting::objective(ranting::pluralize_subjective_as_nr({nr} as i64, {local}.subjective(), false), {uc})"
             )),
             '\'' => pos.push(format!(
-                "ranting::possesive(ranting::pluralize_pronoun_as_nr({nr} as i64, {local}.pronoun(), false), {uc})"
+                "ranting::possesive(ranting::pluralize_subjective_as_nr({nr} as i64, {local}.subjective(), false), {uc})"
             )),
             '~' => pos.push(format!(
-                "ranting::adjective(ranting::pluralize_pronoun_as_nr({nr} as i64, {local}.pronoun(), false), {uc})"
+                "ranting::adjective(ranting::pluralize_subjective_as_nr({nr} as i64, {local}.subjective(), false), {uc})"
             )),
             _ => pos.push(format!(
                 "ranting::pluralize_noun_as_nr({nr} as i64, {local}.is_plural(), {local}.name({uc}))"
@@ -414,17 +414,17 @@ fn preserve_plurality(sf: SayFmt, local: String, pos: &mut Vec<String>) -> Strin
         let space = res.is_empty().then_some("").unwrap_or(" ");
         res.push_str(&format!("{}{{{}}}", space, pos.len()));
         match sf.case {
-            ':' => pos.push(format!("ranting::subjective({local}.pronoun(), {uc})")),
-            '@' => pos.push(format!("ranting::objective({local}.pronoun(), {uc})")),
-            '\'' => pos.push(format!("ranting::possesive({local}.pronoun(), {uc})")),
-            '~' => pos.push(format!("ranting::adjective({local}.pronoun(), {uc})")),
+            ':' => pos.push(format!("ranting::subjective({local}.subjective(), {uc})")),
+            '@' => pos.push(format!("ranting::objective({local}.subjective(), {uc})")),
+            '\'' => pos.push(format!("ranting::possesive({local}.subjective(), {uc})")),
+            '~' => pos.push(format!("ranting::adjective({local}.subjective(), {uc})")),
             _ => pos.push(format!("{local}")),
         }
         uc = false;
     }
     if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
         let trim = res.is_empty().then_some(uc);
-        pos.push(format!("ranting::pluralize_verb_as_nr({local}.is_plural() as i64 + 1, {local}.pronoun(), \"{sv}\", {trim:?})"));
+        pos.push(format!("ranting::pluralize_verb_as_nr({local}.is_plural() as i64 + 1, {local}.subjective(), \"{sv}\", {trim:?})"));
         res + &format!("{{{}}}", pos.len() - 1)
     } else {
         res
