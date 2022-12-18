@@ -35,7 +35,7 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
                     },
                     "I" => format!("I, {},", self.name),
                     "you" | "we" => {
-                        format!("{}, {},", ranting::uc_1st_if(#pronoun, uc), self.name)
+                        format!("{}, {},", ranting::subjective(#pronoun, uc), self.name)
                     },
                     p => panic!("Unimplemented: subjective for '{}'", p),
                 }
