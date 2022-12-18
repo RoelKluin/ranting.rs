@@ -6,17 +6,11 @@ pub use inflector::cases::sentencecase::to_sentence_case;
 pub use inflector::string::pluralize::to_plural;
 pub use inflector::string::singularize::to_singular;
 
-/// upper cases first character if uc is true, otherwise lowers it.
-pub fn uc_1st_if(s: &str, uc: bool) -> String {
+/// upper cases first character
+pub fn uc_1st(s: &str) -> String {
     let mut c = s.chars();
     c.next()
-        .map(|f| {
-            if uc {
-                f.to_uppercase().collect::<String>()
-            } else {
-                f.to_lowercase().collect::<String>()
-            }
-        })
+        .map(|f| f.to_uppercase().collect::<String>())
         .unwrap_or_default()
         + c.as_str()
 }
@@ -172,8 +166,8 @@ pub fn adjective(pronoun: &str, uc: bool) -> &str {
     }
 }
 
-pub fn inflect_verb(pronoun: &str, verb: &str) -> String {
-    match pronoun {
+pub fn inflect_verb(pronoun: &str, verb: &str, trim_and_uc: Option<bool>) -> String {
+    let res = match pronoun {
         "I" => match verb {
             "'re" => "'m".to_string(),
             " are" => " am".to_string(),
@@ -208,50 +202,76 @@ pub fn inflect_verb(pronoun: &str, verb: &str) -> String {
                 }
             }
         },
+    };
+    if let Some(uc) = trim_and_uc {
+        if uc {
+            uc_1st(res.trim())
+        } else {
+            res.trim().to_string()
+        }
+    } else {
+        res
     }
 }
 
-/// pluralize name and of noun and use the specified upper/lower case
-pub fn pluralize_case(is_plural: bool, name: String) -> String {
-    if is_plural {
+/// pluralize name and of noun
+pub fn if_pluralize_name(is_plural_by_default: bool, name: String) -> String {
+    if is_plural_by_default {
         name
     } else {
         to_plural(name.as_str())
     }
 }
 
-/// singularize name and of noun and use the specified case
-pub fn singularize_case(is_plural: bool, name: String) -> String {
-    if is_plural {
+/// singularize name and of noun
+pub fn if_singularize_name(is_plural_by_default: bool, name: String) -> String {
+    if is_plural_by_default {
         to_singular(name.as_str())
     } else {
         name
     }
 }
 
-/// singular-/pluralize noun name according to nr and use the specified case
-pub fn pluralize_noun_as_nr(nr: i64, is_plural: bool, name: String) -> String {
+/// singular-/pluralize noun name according to nr
+pub fn pluralize_noun_as_nr(nr: i64, is_plural_by_default: bool, name: String) -> String {
     let is_multiple = nr != 1;
-    if is_multiple == is_plural {
+    if is_multiple == is_plural_by_default {
         name
-    } else if is_plural {
-        to_singular(name.as_str())
-    } else {
+    } else if is_multiple {
         to_plural(name.as_str())
+    } else {
+        to_singular(name.as_str())
     }
 }
 
-/// singular-/pluralize verb according to nr and use the specified case
-pub fn pluralize_verb_as_nr(nr: i64, mut pronoun: &str, verb: &str) -> String {
+/// singular-/pluralize noun name according to nr
+pub fn pluralize_pronoun_as_nr(nr: i64, pronoun: &str, uc: bool) -> &str {
+    let is_multiple = nr != 1;
+    if is_multiple == is_pronoun_plural(pronoun).unwrap_or(false) {
+        subjective(pronoun, uc)
+    } else if is_multiple {
+        pluralize_pronoun(pronoun, uc)
+    } else {
+        singularize_pronoun(pronoun, uc)
+    }
+}
+
+/// singular-/pluralize verb according to nr
+pub fn pluralize_verb_as_nr(
+    nr: i64,
+    mut pronoun: &str,
+    verb: &str,
+    trim_and_uc: Option<bool>,
+) -> String {
     let is_multiple = nr != 1;
     if is_pronoun_plural(pronoun).unwrap_or(false) != is_multiple {
         if is_multiple {
-            pronoun = singularize_pronoun(pronoun, false);
-        } else {
             pronoun = pluralize_pronoun(pronoun, false);
+        } else {
+            pronoun = singularize_pronoun(pronoun, false);
         }
     }
-    inflect_verb(pronoun, verb)
+    inflect_verb(pronoun, verb, trim_and_uc)
 }
 
 pub fn match_article_to_nr(x: i64, default: &str, lc_art: &str, uc: bool) -> String {
