@@ -6,26 +6,27 @@ use quote::quote;
 use syn::Ident;
 
 #[derive(FromDeriveInput, Default)]
-#[darling(default, attributes(object))]
+#[darling(default, attributes(subject))]
 pub(crate) struct RantingOptions {
     pub(crate) subject: Option<String>,
-    pub(crate) is_plural_you: Option<bool>,
+    pub(crate) is_plural: Option<bool>,
 }
 
 /// An abstract thing, which may be a person and have a gender
 pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
     let subject = opt.subject.unwrap_or("it".to_string());
-    let is_plural_you = opt.is_plural_you.unwrap_or(false);
+    let is_plural = opt.is_plural.unwrap_or(false);
     quote! {
         impl Ranting for #ident {
             fn subjective(&self) -> &str {
                 #subject
             }
             fn is_plural(&self) -> bool {
-                ranting::is_subjective_plural(#subject).unwrap_or(#is_plural_you)
+                ranting::is_subjective_plural(self.subjective()).unwrap_or(#is_plural)
             }
             fn name(&self, uc: bool) -> String {
-                match #subject {
+                let subject = self.subjective();
+                match subject {
                     "he" | "she" | "it" | "they" => {
                         if uc {
                             ranting::inflector::cases::sentencecase::to_sentence_case(self.name.as_str())
@@ -35,7 +36,7 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
                     },
                     "I" => format!("I, {},", self.name),
                     "you" | "we" => {
-                        format!("{}, {},", ranting::subjective(#subject, uc), self.name)
+                        format!("{}, {},", ranting::subjective(subject, uc), self.name)
                     },
                     p => panic!("Unimplemented: subject for '{}'", p),
                 }

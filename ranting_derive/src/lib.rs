@@ -256,22 +256,21 @@ fn get_case_from_char(c: char) -> Option<&'static str> {
 
 // arguments become positionals
 fn handle_param(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
-    let mut nr = "";
-    let mut res = String::new();
     let mut uc = sf.uc;
     let mut pl_it = sf.plurality.map(|s| s.as_str()).unwrap_or_default().chars();
     let plurality = pl_it.next();
+    let mut res = String::new();
+    let mut nr = "";
 
     let is_pl = match plurality {
         Some('+') => format!("true"),
         Some('-') => format!("false"),
         Some('#') => {
-            nr = pl_it.as_str();
-            if nr.starts_with('?') {
-                let test = format!("{} != 1", nr.trim_start_matches('?'));
-                nr = "";
-                test
+            let s = pl_it.as_str();
+            if let Some(nr) = s.strip_prefix('?') {
+                format!("{nr} != 1") // Note: nr not assigned.
             } else {
+                nr = s;
                 format!("{nr} != 1")
             }
         }
@@ -307,7 +306,9 @@ fn handle_param(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
         }
         res.push_str(&format!("{{{}}}", pos.len()));
         match get_case_from_char(sf.case) {
-            Some(case) => pos.push(format!("ranting::{case}({var}.subjective(), {uc})")),
+            Some(case) => pos.push(format!(
+                "ranting::inflect_{case}({var}.subjective(), {is_pl}, {uc})"
+            )),
             None if plurality.is_none() => pos.push(format!("{var}")), // for non-Ranting variables
             None => pos.push(format!(
                 "ranting::inflect_noun({var}.name({uc}), {var}.is_plural(), {is_pl}, {uc})"
