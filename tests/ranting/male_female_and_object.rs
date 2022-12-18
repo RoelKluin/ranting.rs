@@ -32,10 +32,10 @@ impl Meadowers {
     }
     fn count(&self) -> String {
         let count = self.count;
-        say!("Now {<self are} {#count self} in the meadow.")
+        say!("Now there {?self are} {count} {self} in the meadow.")
     }
     fn join(&mut self, newcomer: Meadowers) -> String {
-        let s = say!("{The newcomer join} {the +self} in the meadow.");
+        let s = say!("{The newcomer join} {the self} in the meadow.");
         self.count += newcomer.count;
         s
     }
@@ -84,7 +84,7 @@ impl Person {
                 nay!("{The trash} from {actor} is not something that {self do} accept.")
             }
             ("give", Some((nr, coin))) if coin.name(false).as_str() == "coin" => match nr {
-                0 => nay!("{*actor don't} seem able to give zero {+coin} to {self}. {actor frown} at {self}."),
+                0 => nay!("{actor don't} seem able to give zero {+coin} to {self}. {actor frown} at {self}."),
                 n => {
                     let ent = self
                         .inventory
