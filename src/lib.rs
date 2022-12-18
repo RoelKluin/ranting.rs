@@ -234,8 +234,8 @@ pub fn inflect_verb(
 }
 
 /// singular-/pluralize noun name according to nr
-pub fn inflect_noun(name: String, default_subject: &str, as_plural: bool, uc: bool) -> String {
-    let res = if as_plural == is_subjective_plural(default_subject).unwrap_or(false) {
+pub fn inflect_noun(name: String, is_default_plural: bool, as_plural: bool, uc: bool) -> String {
+    let res = if as_plural == is_default_plural {
         name
     } else if as_plural {
         to_plural(name.as_str())

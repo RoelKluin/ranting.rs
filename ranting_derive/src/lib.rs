@@ -92,13 +92,13 @@ impl<'t> SayFmt<'t> {
 
         // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
         // 2) uc if article or so is or 3) the noun is first or after start or `. '
-        let article_or_so = caps.name("article");
+        let article_or_so = caps.name("pre");
 
         let uc = match caps.name("uc").and_then(|s| s.as_str().chars().next()) {
             Some('^') => true,
             Some(',') => false,
             _ => {
-                // or if article has uc or the noun is first or at new sentence
+                // or if pre has uc or the noun is first or at new sentence
                 article_or_so
                     .filter(|s| s.as_str().starts_with(|c: char| c.is_uppercase()))
                     .is_some()
@@ -135,8 +135,8 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     // regex to capture the placholders or sentence ends
     lazy_static! {
         static ref RE: Regex = Regex::new(&format!(
-            r"(?:[{{]{article}{mode}{noun}{verb}[}}]|{period})",
-            article = r"(?:(?P<article>[Aa]n |[Ss]ome |[Tt]h(?:e|[eo]se) ))?",
+            r"(?:[{{]{pre}{mode}{noun}{verb}[}}]|{period})",
+            pre = r"(?:(?P<pre>[Aa]n |[Ss]ome |[Tt]h(?:e|[eo]se) ))?",
             mode = r"(?P<uc>[,^])?(?P<plurality>[+-]|#\w+ )?(?P<case>[':@~]?)",
             noun = r"(?P<noun>\??[\w-]+)",
             verb = r"(?P<verb>(?: [\w-]+)*?[' ][\w-]+)?",
@@ -278,7 +278,7 @@ fn pluralize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
                 "ranting::inflect_adjective({var}.subjective(), true, {uc})"
             )),
             _ => pos.push(format!(
-                "ranting::inflect_noun({var}.name({uc}), {var}.subjective(), true, {uc})"
+                "ranting::inflect_noun({var}.name({uc}), {var}.is_plural(), true, {uc})"
             )),
         }
         uc = false;
@@ -308,7 +308,7 @@ fn singularize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
             "these" => pos.push(format!("\"{}his\"", if uc { 'T' } else { 't' })),
             "those" => pos.push(format!("\"{}hat\"", if uc { 'T' } else { 't' })),
             "the" => pos.push(format!("\"{}he\"", if uc { 'T' } else { 't' })),
-            x => panic!("Unimplemented article {x}"),
+            x => panic!("Unimplemented pre {x}"),
         }
         uc = false;
     }
@@ -329,7 +329,7 @@ fn singularize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
                 "ranting::inflect_adjective({var}.subjective(), false, {uc})"
             )),
             _ => pos.push(format!(
-                "ranting::inflect_noun({var}.name({uc}), {var}.subjective(), false, {uc})"
+                "ranting::inflect_noun({var}.name({uc}), {var}.is_plural(), false, {uc})"
             )),
         }
         uc = false;
@@ -380,7 +380,7 @@ fn pluralize_as_nr_variable(sf: SayFmt, var: String, pos: &mut Vec<String>, nr: 
                 "ranting::inflect_adjective({var}.subjective(), {nr} != 1, {uc})"
             )),
             _ => pos.push(format!(
-                "ranting::inflect_noun({var}.name({uc}), {var}.subjective(), {nr} != 1, {uc})"
+                "ranting::inflect_noun({var}.name({uc}), {var}.is_plural(), {nr} != 1, {uc})"
             )),
         }
         uc = false;
