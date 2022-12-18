@@ -7,7 +7,7 @@ use std::collections::HashMap;
 #[derive(Ranting)]
 struct Object {
     name: String,
-    pronoun: String,
+    subject: String,
 }
 
 #[derive(Ranting)]
@@ -23,7 +23,7 @@ impl Meadowers {
             count,
         }
     }
-    fn pronoun(&self) -> &str {
+    fn subjective(&self) -> &str {
         if self.count == 1 {
             "it"
         } else {
@@ -32,7 +32,7 @@ impl Meadowers {
     }
     fn count(&self) -> String {
         let count = self.count;
-        say!("Now there {?self are} {#count self} in the meadow.")
+        say!("Now there {+?self are} {#count self} in the meadow.")
     }
     fn join(&mut self, newcomer: Meadowers) -> String {
         let s = say!("{The newcomer join} {the +self} in the meadow.");
@@ -42,10 +42,10 @@ impl Meadowers {
 }
 
 impl Object {
-    fn new(name: &str, pronoun: &str) -> Self {
+    fn new(name: &str, subject: &str) -> Self {
         Object {
             name: name.to_string(),
-            pronoun: pronoun.to_string(),
+            subject: subject.to_string(),
         }
     }
 }
@@ -53,20 +53,20 @@ impl Object {
 #[derive(Ranting)]
 struct Person {
     name: String,
-    pronoun: String,
+    subject: String,
     inventory: HashMap<String, usize>,
 }
 
 impl Person {
-    fn new(name: &str, pronoun: &str) -> Self {
+    fn new(name: &str, subject: &str) -> Self {
         Person {
             name: name.to_string(),
-            pronoun: pronoun.to_string(),
+            subject: subject.to_string(),
             inventory: HashMap::new(),
         }
     }
-    fn pronoun(&self) -> &str {
-        self.pronoun.as_str()
+    fn subject(&self) -> &str {
+        self.subject.as_str()
     }
     fn respond_to<T, U>(
         &mut self,

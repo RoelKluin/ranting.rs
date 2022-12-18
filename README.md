@@ -4,30 +4,23 @@ Generates the `Ranting` trait implementations
 #[derive(Ranting)]
 struct Named {
     name: String,
-    pronoun: String,
+    subject: String,
 }
 impl Named {
-    fn pronoun(&self) -> &str {
-        self.pronoun.as_str()
+    fn subjective(&self) -> &str {
+        self.subject.as_str()
     }
 }
 ```
 The struct should contain at least a name String. The trait provides the following
-functions of which you may want to override the pronoun function:
+functions of which you may want to override the subjective function:
 
 ```rust
 pub trait Ranting: std::fmt::Display {
-    fn pronoun(&self) -> &str;
+    fn subjective(&self) -> &str;
     fn name(&self) -> &str;
     fn is_plural(&self) -> bool;
     fn a_or_an(&self, uc: bool) -> &str;
-    fn subject(&self, uc: bool) -> &str;
-    fn object(&self, uc: bool) -> &str;
-    fn possesive(&self, uc: bool) -> &str;
-    fn adjective(&self, uc: bool) -> &str;
-    fn plural(&self, uc: bool) -> String;
-    fn verb(&self, verb: &str) -> String;
-    fn verb_for(&self, verb: &str, pronoun: &str) -> String;
 }
 ```
 Then these can be referenced in the say!() nay!() and ack!() macros.
@@ -39,15 +32,15 @@ formatting options for arguments with Ranting traits.
 fn main() {
     let alice = Named {
         name: "Alice".to_string(),
-        pronoun: "she".to_string(),
+        subject: "she".to_string(),
     };
     let bob = Named {
         name: "Bob".to_string(),
-        pronoun: "he".to_string(),
+        subject: "he".to_string(),
     };
     let email = Named {
         name: "secret message".to_string(),
-        pronoun: "it".to_string(),
+        subject: "it".to_string(),
     };
 
     let msg = say!("{0 want} to send {an email} of {0:p} to {bob}.", alice);
@@ -66,10 +59,10 @@ fn main() {
 for a more elaborate example see tests/ranting/male_female_and_object.rs
 
 Ranting trait objects as arguments to say!()  are displated by name by
-default, but by pronoun with the formatting extensions.
+default, but by subject with the formatting extensions.
 
 `:s` gives a subject, `:o` an object, `:p` the possesive and `:a` the adjective
-form of the pronoun. With a capital, e.g. `:S`, the pronoun form is capitalized.
+form for the subjective. With a capital, e.g. `:S`, the subjective form is capitalized.
 
 With `:n` or `:N` the name is printed and with `:m` or `:M` the plural thereof.
 With `:d` or `:D` a verb is reflected but the name is replaced by 'there', so that

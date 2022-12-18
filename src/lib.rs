@@ -15,30 +15,45 @@ pub fn uc_1st(s: &str) -> String {
         + c.as_str()
 }
 
-/// Returns Ok(true) if the pronoun is plural, an Error if unrecognized or indiscernible.
+/// Returns Ok(true) if the subjective is plural, an Error if unrecognized or indiscernible.
 /// ```
-///     use ranting::is_pronoun_plural;
-///     let pronoun: &str = "we";
-///     assert!(is_pronoun_plural(pronoun)?);
+///     use ranting::is_subjective_plural;
+///     let subjective: &str = "we";
+///     assert!(is_subjective_plural(subjective)?);
 ///
 /// ```
 ///
-pub fn is_pronoun_plural(pronoun: &str) -> Result<bool, String> {
-    match pronoun {
+pub fn is_subjective_plural(subjective: &str) -> Result<bool, String> {
+    match subjective {
         "we" | "they" | "ye" => Ok(true),
         "you" => Err("'you' could be either singular or plural".to_string()),
         "I" | "she" | "he" | "it" | "thou" => Ok(false),
-        x => Err(format!("'{x}' is not recognized as pronoun")),
+        x => Err(format!("'{x}' is not recognized as subjective")),
     }
 }
 
-/// Return the plural of a (subject) pronoun; unchanged if already plural.
-/// pancis for invalid pronouns. valid are:
+/// Return the subjective teh same for subjective except the case can differ.
+pub fn subjective(subjective: &str, uc: bool) -> &str {
+    match subjective {
+        "you" if uc => "You",
+        "thou" if uc => "Thou",
+        "he" if uc => "He",
+        "she" if uc => "She",
+        "it" if uc => "It",
+        "we" if uc => "We",
+        "ye" if uc => "Ye",
+        "they" if uc => "They",
+        alt => alt,
+    }
+}
+
+/// Return the plural of a (subject) subjective; unchanged if already plural.
+/// pancis for invalid subjective. valid are:
 /// "I", "you", "thou", "he", "she", "it", "we", "ye", "they".
 /// all must be lowercase except "I".
 ///
-pub fn pluralize_pronoun(pronoun: &str, uc: bool) -> &str {
-    match pronoun {
+pub fn pluralize_subjective(subjective: &str, uc: bool) -> &str {
+    match subjective {
         "I" if uc => "We",
         "you" if uc => "You",
         "thou" if uc => "Ye",
@@ -53,16 +68,16 @@ pub fn pluralize_pronoun(pronoun: &str, uc: bool) -> &str {
         "you" => "you",
         "thou" | "ye" => "ye",
         "he" | "she" | "it" | "they" => "they",
-        x => panic!("'{x}' is not recognized as pronoun"),
+        x => panic!("'{x}' is not recognized as subjective"),
     }
 }
 
-/// Return the singular of a (subject) pronoun; unchanged if already singular.
-/// pancis for invalid pronouns, see pluralize_pronoun().
-/// If the pronoun is "they", the assumption is neutrum, which may be incorrect.
+/// Return the singular of a (subject) subjective; unchanged if already singular.
+/// pancis for invalid subjective, see pluralize_subjective().
+/// If the subjective is "they", the assumption is neutrum, which may be incorrect.
 ///
-pub fn singularize_pronoun(pronoun: &str, uc: bool) -> &str {
-    match pronoun {
+pub fn singularize_subjective(subjective: &str, uc: bool) -> &str {
+    match subjective {
         "I" | "we" => "I",
         "you" if uc => "You",
         "thou" if uc => "Thou",
@@ -76,28 +91,13 @@ pub fn singularize_pronoun(pronoun: &str, uc: bool) -> &str {
         "he" => "he",
         "she" => "she",
         "it" | "they" => "it",
-        x => panic!("'{x}' is not recognized as pronoun"),
+        x => panic!("'{x}' is not recognized as subjective"),
     }
 }
 
-/// Return the subjective teh same for pronoun except the case can differ.
-pub fn subjective(pronoun: &str, uc: bool) -> &str {
-    match pronoun {
-        "you" if uc => "You",
-        "thou" if uc => "Thou",
-        "he" if uc => "He",
-        "she" if uc => "She",
-        "it" if uc => "It",
-        "we" if uc => "We",
-        "ye" if uc => "Ye",
-        "they" if uc => "They",
-        alt => alt,
-    }
-}
-
-/// Return the objective for a subjective pronoun. Can panic. see pluralize_pronoun().
-pub fn objective(pronoun: &str, uc: bool) -> &str {
-    match pronoun {
+/// Return the objective for a subjective. Can panic. see pluralize_subjective().
+pub fn objective(subject: &str, uc: bool) -> &str {
+    match subject {
         "I" if uc => "Me",
         "you" if uc => "You",
         "he" if uc => "Him",
@@ -115,13 +115,21 @@ pub fn objective(pronoun: &str, uc: bool) -> &str {
         "we" => "us",
         "you" | "ye" => "you",
         "they" => "them",
-        p => panic!("Unimplemented: objective for '{}'", p),
+        x => panic!("'{x}' is not recognized as subjective"),
     }
 }
 
-/// Return the objective for a subjective pronoun. Can panic. see pluralize_pronoun().
-pub fn possesive(pronoun: &str, uc: bool) -> &str {
-    match pronoun {
+pub fn pluralize_objective(subject: &str, uc: bool) -> &str {
+    objective(pluralize_subjective(subject, false), uc)
+}
+
+pub fn singularize_objective(subject: &str, uc: bool) -> &str {
+    objective(singularize_subjective(subject, false), uc)
+}
+
+/// Return the objective for a subjective. Can panic. see pluralize_subjective().
+pub fn possesive(subject: &str, uc: bool) -> &str {
+    match subject {
         "I" if uc => "My",
         "you" if uc => "Your",
         "he" if uc => "His",
@@ -139,13 +147,21 @@ pub fn possesive(pronoun: &str, uc: bool) -> &str {
         "we" => "our",
         "you" | "ye" => "your",
         "they" => "their",
-        p => panic!("Unimplemented: possesive for '{}'", p),
+        x => panic!("'{x}' is not recognized as subjective"),
     }
 }
 
-/// Return the adjective for a subjective pronoun. Can panic. see pluralize_pronoun().
-pub fn adjective(pronoun: &str, uc: bool) -> &str {
-    match pronoun {
+pub fn pluralize_possesive(subject: &str, uc: bool) -> &str {
+    possesive(pluralize_subjective(subject, false), uc)
+}
+
+pub fn singularize_possessive(subject: &str, uc: bool) -> &str {
+    possesive(singularize_subjective(subject, false), uc)
+}
+
+/// Return the adjective for a subjective. Can panic. see pluralize_subjective().
+pub fn adjective(subject: &str, uc: bool) -> &str {
+    match subject {
         "I" if uc => "Mine",
         "you" if uc => "Yours",
         "ye" if uc => "Yours",
@@ -162,12 +178,20 @@ pub fn adjective(pronoun: &str, uc: bool) -> &str {
         "we" => "ours",
         "they" => "theirs",
         "thou" => "thine",
-        p => panic!("Unimplemented adjective for '{}'", p),
+        x => panic!("'{x}' is not recognized as subjective"),
     }
 }
 
-pub fn inflect_verb(pronoun: &str, verb: &str, trim_and_uc: Option<bool>) -> String {
-    let res = match pronoun {
+pub fn pluralize_adjective(subject: &str, uc: bool) -> &str {
+    adjective(pluralize_subjective(subject, false), uc)
+}
+
+pub fn singularize_adjective(subject: &str, uc: bool) -> &str {
+    adjective(singularize_subjective(subject, false), uc)
+}
+
+pub fn inflect_verb(subject: &str, verb: &str, trim_and_uc: Option<bool>) -> String {
+    let res = match subject {
         "I" => match verb {
             "'re" => "'m".to_string(),
             " are" => " am".to_string(),
@@ -214,6 +238,14 @@ pub fn inflect_verb(pronoun: &str, verb: &str, trim_and_uc: Option<bool>) -> Str
     }
 }
 
+pub fn pluralize_verb(subject: &str, verb: &str, trim_and_uc: Option<bool>) -> String {
+    inflect_verb(pluralize_subjective(subject, false), verb, trim_and_uc)
+}
+
+pub fn singularize_verb(subject: &str, verb: &str, trim_and_uc: Option<bool>) -> String {
+    inflect_verb(pluralize_subjective(subject, false), verb, trim_and_uc)
+}
+
 /// pluralize name and of noun
 pub fn if_pluralize_name(is_plural_by_default: bool, name: String) -> String {
     if is_plural_by_default {
@@ -245,33 +277,33 @@ pub fn pluralize_noun_as_nr(nr: i64, is_plural_by_default: bool, name: String) -
 }
 
 /// singular-/pluralize noun name according to nr
-pub fn pluralize_pronoun_as_nr(nr: i64, pronoun: &str, uc: bool) -> &str {
+pub fn pluralize_subjective_as_nr(nr: i64, subject: &str, uc: bool) -> &str {
     let is_multiple = nr != 1;
-    if is_multiple == is_pronoun_plural(pronoun).unwrap_or(false) {
-        subjective(pronoun, uc)
+    if is_multiple == is_subjective_plural(subject).unwrap_or(false) {
+        subjective(subject, uc)
     } else if is_multiple {
-        pluralize_pronoun(pronoun, uc)
+        pluralize_subjective(subject, uc)
     } else {
-        singularize_pronoun(pronoun, uc)
+        singularize_subjective(subject, uc)
     }
 }
 
 /// singular-/pluralize verb according to nr
 pub fn pluralize_verb_as_nr(
     nr: i64,
-    mut pronoun: &str,
+    mut subject: &str,
     verb: &str,
     trim_and_uc: Option<bool>,
 ) -> String {
     let is_multiple = nr != 1;
-    if is_pronoun_plural(pronoun).unwrap_or(false) != is_multiple {
+    if is_subjective_plural(subject).unwrap_or(false) != is_multiple {
         if is_multiple {
-            pronoun = pluralize_pronoun(pronoun, false);
+            subject = pluralize_subjective(subject, false);
         } else {
-            pronoun = singularize_pronoun(pronoun, false);
+            subject = singularize_subjective(subject, false);
         }
     }
-    inflect_verb(pronoun, verb, trim_and_uc)
+    inflect_verb(subject, verb, trim_and_uc)
 }
 
 pub fn match_article_to_nr(x: i64, default: &str, lc_art: &str, uc: bool) -> String {
@@ -290,7 +322,7 @@ pub fn match_article_to_nr(x: i64, default: &str, lc_art: &str, uc: bool) -> Str
 
 #[rustfmt::skip]
 pub trait Ranting: std::fmt::Display {
-    fn pronoun(&self) -> &str;
+    fn subjective(&self) -> &str;
     fn is_plural(&self) -> bool;
     fn name(&self, uc: bool) -> String;
     fn a_or_an(&self, uc: bool) -> &str;
