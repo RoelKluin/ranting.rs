@@ -6,19 +6,59 @@ use darling::{FromDeriveInput, ToTokens};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use proc_macro::{self, Literal, Span, TokenStream, TokenTree};
+use quote::quote;
 use ranting_impl::*;
 use regex::{Captures, Match, Regex};
 use std::default::Default;
-use syn::{parse, parse_macro_input, Error as SynError, Expr, ExprPath};
+use syn::parse::Parser;
+use syn::{self, parse, parse_macro_input, DeriveInput, Error as SynError, Expr, ExprPath};
 
 /// Generates the `Ranting` trait implementation
 /// Structs that receive this trait require a name and subjective String.
 /// and can be referenced in the say!() nay!() and ack!() macros.
 #[proc_macro_derive(Ranting, attributes(ranting))]
-pub fn derive_ranting(input: TokenStream) -> TokenStream {
+pub fn inner_derive_ranting(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input);
     let options = RantingOptions::from_derive_input(&input).expect("Invalid Thing trait options");
     ranting_q(options, &input.ident).into()
+}
+
+#[proc_macro_attribute]
+pub fn derive_ranting(_args: TokenStream, input: TokenStream) -> TokenStream {
+    let mut ast = parse_macro_input!(input as DeriveInput);
+    match &mut ast.data {
+        syn::Data::Struct(ref mut struct_data) => {
+            match &mut struct_data.fields {
+                syn::Fields::Named(fields) => {
+                    fields.named.push(
+                        syn::Field::parse_named
+                            .parse2(quote! { name: String })
+                            .unwrap(),
+                    );
+                    fields.named.push(
+                        syn::Field::parse_named
+                            .parse2(quote! { subject: String })
+                            .unwrap(),
+                    );
+                }
+                _ => (),
+            }
+
+            return quote! {
+                #[derive(Ranting)]
+                #ast
+            }
+            .into();
+        }
+        syn::Data::Enum(_) => {
+            return quote! {
+                #[derive(ranting::strum_macros::Display, Ranting)]
+                #ast
+            }
+            .into();
+        }
+        _ => panic!("`add_field` has to be used with structs or enums"),
+    }
 }
 
 /// The say!() macro produces a String, a bit similar to format!(), but with extended
@@ -30,12 +70,12 @@ pub fn derive_ranting(input: TokenStream) -> TokenStream {
 /// `:` gives a subject, `@` an object, `'` a possesive and `~` an adjective form of the
 /// pronoun.
 ///
-/// when prepended with `a ` or `an `, this indefinite article is adapted to the name.
-/// When capitalized this is preserved. Also `the`, `these` and `those` can occur before.
-/// Ranting always uses the 1st plural form. `These` and `those` are converted to `this`
+/// when prepended with an article, this is adapted to the name if `a`. A capital is
+/// preserved. Also `the`, `some`, `these` and `those` can occur before. Ranting mostly
+/// uses the 1st plural form. `These` and `those` are converted to `this`
 /// and `that` if the subjective is singular.
 ///
-/// A verb after, als o in 1st plural form, is also inflected to the subjective's case. The
+/// A verb after, also in 1st plural form, is also inflected to the subjective's case. The
 /// Ranting object enclosed before a verb is assumed to be the subject in the sentence.
 ///
 /// Positional argument and numeric references are supported, but not named arguments,
@@ -156,10 +196,10 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     }
     //eprintln!("{:?}", RE.to_string());
     let mut err = None;
-    let mut sentence_start = 0;
+    let mut sentence_start = 1;
 
     let mut positional: Vec<String> = vec![];
-    let original = lit.to_string();
+    //let original = lit.to_string();
 
     lit = RE
         .replace_all(&lit, |caps: &Captures| {
@@ -203,7 +243,7 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
         lit.push_str(", ");
         lit.push_str(&positional.iter().join(", "));
     }
-    eprintln!("{}\n {}", original, lit);
+    //eprintln!("{}\n {}", original, lit);
     Ok(lit)
 }
 
@@ -319,7 +359,9 @@ fn handle_param(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
             Some(case) => pos.push(format!(
                 "ranting::inflect_{case}({var}.subjective(), {is_pl}, {uc})"
             )),
-            None if plurality.is_none() => pos.push(format!("{var}")), // for non-Ranting variables
+            None if plurality.is_none() && sf.pre.is_none() && sf.post.is_none() => {
+                pos.push(format!("{var}")); // for non-Ranting variables
+            }
             None => pos.push(format!(
                 "ranting::inflect_noun({var}.name({uc}), {var}.is_plural(), {is_pl}, {uc})"
             )),

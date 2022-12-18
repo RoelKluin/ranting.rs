@@ -5,6 +5,7 @@ pub use inflector;
 pub use inflector::cases::sentencecase::to_sentence_case;
 pub use inflector::string::pluralize::to_plural;
 pub use inflector::string::singularize::to_singular;
+pub use strum_macros;
 
 /// upper cases first character
 pub fn uc_1st(s: &str) -> String {
@@ -19,7 +20,7 @@ pub fn uc_1st(s: &str) -> String {
 /// ```
 ///     use ranting::is_subjective_plural;
 ///     let subjective: &str = "we";
-///     assert!(is_subjective_plural(subjective)?);
+///     assert!(is_subjective_plural(subjective).expect("unsure"));
 ///
 /// ```
 ///
@@ -53,10 +54,10 @@ pub fn subjective(subjective: &str, uc: bool) -> &str {
 /// all must be lowercase except "I".
 /// If the subjective is "they", the assumption is neutrum, which is a guess.
 ///
-pub fn inflect_subjective(subject: &str, to_plural: bool, uc: bool) -> &str {
-    if to_plural == is_subjective_plural(subject).unwrap_or(false) {
+pub fn inflect_subjective(subject: &str, as_plural: bool, uc: bool) -> &str {
+    if as_plural == is_subjective_plural(subject).unwrap_or(false) {
         subjective(subject, uc)
-    } else if to_plural {
+    } else if as_plural {
         match subject {
             "I" if uc => "We",
             "you" if uc => "You",
@@ -119,8 +120,8 @@ pub fn objective(subject: &str, uc: bool) -> &str {
 }
 
 /// singular-/pluralize subjective according to nr
-pub fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> &str {
-    objective(inflect_subjective(subject, to_plural, false), uc)
+pub fn inflect_objective(subject: &str, as_plural: bool, uc: bool) -> &str {
+    objective(inflect_subjective(subject, as_plural, false), uc)
 }
 
 /// Return the objective for a subjective. Can panic. see inflect_subjective_as_nr().
@@ -148,8 +149,8 @@ pub fn possesive(subject: &str, uc: bool) -> &str {
 }
 
 /// singular-/pluralize subjective according to nr
-pub fn inflect_possesive(subject: &str, to_plural: bool, uc: bool) -> &str {
-    possesive(inflect_subjective(subject, to_plural, false), uc)
+pub fn inflect_possesive(subject: &str, as_plural: bool, uc: bool) -> &str {
+    possesive(inflect_subjective(subject, as_plural, false), uc)
 }
 
 /// Return the adjective for a subjective. Can panic. see inflect_subjective_as_nr().
@@ -176,13 +177,13 @@ pub fn adjective(subject: &str, uc: bool) -> &str {
 }
 
 /// singular-/pluralize subjective according to nr
-pub fn inflect_adjective(subject: &str, to_plural: bool, uc: bool) -> &str {
-    adjective(inflect_subjective(subject, to_plural, false), uc)
+pub fn inflect_adjective(subject: &str, as_plural: bool, uc: bool) -> &str {
+    adjective(inflect_subjective(subject, as_plural, false), uc)
 }
 
-pub fn inflect_verb(subject: &str, verb: &str, to_plural: bool, uc: bool) -> String {
+pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> String {
     let trimmed = verb.trim();
-    let res = match inflect_subjective(subject, to_plural, false) {
+    let res = match inflect_subjective(subject, as_plural, false) {
         "I" => match trimmed {
             "'re" => "'m".to_string(),
             "are" => "am".to_string(),
@@ -227,7 +228,6 @@ pub fn inflect_verb(subject: &str, verb: &str, to_plural: bool, uc: bool) -> Str
 
 /// singular-/pluralize noun name according to nr
 pub fn inflect_noun(name: String, is_default_plural: bool, as_plural: bool, uc: bool) -> String {
-    eprintln!("{name} is_default_plural:{is_default_plural}, as_plural:{as_plural}");
     let res = if is_default_plural == as_plural {
         name
     } else if as_plural {

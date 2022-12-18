@@ -13,6 +13,7 @@ struct Object {
 #[derive(Ranting)]
 struct Meadowers {
     name: String,
+    subject: String,
     pub count: u32,
 }
 
@@ -20,11 +21,9 @@ impl Meadowers {
     fn new(name: &str, count: u32) -> Self {
         Meadowers {
             name: name.to_string(),
+            subject: "it".to_string(),
             count,
         }
-    }
-    fn subjective(&self) -> &str {
-        "it"
     }
     fn count(&self) -> String {
         let count = self.count;
@@ -81,14 +80,14 @@ impl Person {
                 nay!("{The trash} from {actor} is not something that {:self do} accept.")
             }
             ("give", Some((nr, coin))) if coin.name(false).as_str() == "coin" => match nr {
-                0 => nay!("{actor don't} seem able to give zero {+coin} to {self}. {actor frown} at {self}."),
+                0 => nay!("{actor don't} seem able to give zero {+coin} to {self}. {:actor frown} at {self}."),
                 n => {
                     let ent = self
                         .inventory
                         .entry(coin.name(false).to_string())
                         .or_default();
                     *ent += nr;
-                    ack!("{self thank} {@0}, {0}, for {'0} {#n coin}.", actor)
+                    ack!("{:self thank} {@0}, {0}, for {'0} {#n coin}.", actor)
                 }
             },
             ("receive", Some((nr, coin))) if coin.name(false).as_str() == "coin" && nr > 0 => {
@@ -100,7 +99,7 @@ impl Person {
                 }
             }
             (act, Some((nr, item))) => nay!("{actor can} not {act} {#nr item} to {self}"),
-            (act, None) => nay!("{actor shouldn't} {act} {self}."),
+            (act, None) => nay!("{:actor shouldn't} {act} {self}."),
         }
     }
 }

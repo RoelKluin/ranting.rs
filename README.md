@@ -39,30 +39,46 @@ fn main() {
         subject: "he".to_string(),
     };
     let email = Named {
-        name: "secret message".to_string(),
+        name: "message".to_string(),
         subject: "it".to_string(),
     };
 
-    let msg = say!("{0 want} to send {an email} of {0:p} to {bob}.", alice);
+    let msg = say!("{0 want} to send {some email} of {'0} to {bob}.", alice);
     assert_eq!(
         msg,
-        "Alice wants to send a secret message of her to Bob.".to_string()
+        "Alice wants to send a message of her to Bob.".to_string()
     );
 
-    let msg = say!("Now {bob know} that {these email are} really {alice:a}.", alice);
+    let msg = say!("Now {:bob know} that {these email are} really {~alice}.", alice);
     assert_eq!(
         msg,
-        "Now Bob knows that this secret message is really hers.".to_string()
+        "Now he knows that this message is really hers.".to_string()
+    );
+    assert_eq!(
+        say("{some email arrive} in {'alice} inbox."),
+        "an email arrives in her inbox.".to_string()
     );
 }
 ```
 for a more elaborate example see tests/ranting/male_female_and_object.rs
 
-Ranting trait objects as arguments to say!()  are displated by name by
-default, but by subject with the formatting extensions.
+Ranting trait objects as arguments to say!() are displayed either as name (by default)
+or as pronoun and/or inflected, dependent on provided markers. Alongside the ranting
+variable, articles and verbs can be included in the curly braces, that are inflected
+accordingly.
 
-`:s` gives a subject, `:o` an object, `:p` the possesive and `:a` the adjective
-form for the subjective. With a capital, e.g. `:S`, the subjective form is capitalized.
+Articles and verbs provided should have the plural form.
+
+
+{[,^]?(<article> |<verb> )?([+-]|#var )?[':@~]?\??<noun>( <post_verb>)}
+
+To force a plural form, use '+', to force singular use '-'. If prependeded by a
+`#var `, where var is an integer in scope, the plurality is adapted to the variable
+count, singular if 1, otherwise plural.
+
+`:` gives a subject, `@` an object, `'` a possesive and `~` an adjective form of the
+pronoun. Without the name is printed, not its pronoun. To force a plural form,
+plural, 
 
 With `:n` or `:N` the name is printed and with `:m` or `:M` the plural thereof.
 With `:d` or `:D` a verb is reflected but the name is replaced by 'there', so that
