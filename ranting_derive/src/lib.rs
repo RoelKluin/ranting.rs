@@ -71,6 +71,7 @@ struct SayFmt<'t> {
     post: Option<Match<'t>>,
     plurality: Option<Match<'t>>,
     case: char,
+    format: String,
     uc: bool,
     hidden_noun: bool,
 }
@@ -87,6 +88,13 @@ impl<'t> SayFmt<'t> {
             .name("case")
             .and_then(|s| s.as_str().chars().next())
             .unwrap_or_default();
+
+        // default format!() formatters are allowed, preserved here
+        let format = caps
+            .name("format")
+            .map(|s| s.as_str())
+            .unwrap_or("")
+            .to_string();
 
         // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
         // 2) uc if article or so is or 3) the noun is first or after start or `. '
@@ -108,6 +116,7 @@ impl<'t> SayFmt<'t> {
             post: caps.name("post"),
             plurality: caps.name("plurality"),
             case,
+            format,
             uc,
             hidden_noun,
         })
@@ -132,7 +141,7 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     // regex to capture the placholders or sentence ends
     lazy_static! {
         static ref RE: Regex = Regex::new(&format!(
-            r"(?:[{{]{ulc}(?P<pre>(?:{art}|{pre_verb}){etc})?{mode}{noun}{post}[}}]|{period})",
+            r"(?:[{{]{ulc}(?P<pre>(?:{art}|{pre_verb}){etc})?{mode}{noun}{post}{fmt}[}}]|{period})",
             ulc = r"(?P<uc>[,^])?",
             art = "[Aa]n |[Ss]ome |[Tt]h(?:e|[eo]se) ",
             pre_verb = "'re |may |(?:sha|wi)ll |(?:(?:a|we)re|do|ca|ha(?:d|ve)|(?:[cw]|sh)ould|must|might)(?:n't)? ",
@@ -140,6 +149,7 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
             mode = r"(?P<plurality>[+-]|#\??\w+ )?(?P<case>[':@~]?)",
             noun = r"(?P<noun>\??[\w-]+)",
             post = r"(?P<post>(?: [\w-]+)*?[' ][\w-]+)?",
+            fmt = r"(?P<format>:[^}}]+)?",
             period = r"(?P<period>\. +)"
         ))
         .unwrap();
@@ -297,7 +307,7 @@ fn handle_param(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
         if !res.is_empty() {
             res.push(' ')
         }
-        res.push_str(&format!("{{{}}}", pos.len()));
+        res.push_str(&format!("{{{}{}}}", pos.len(), sf.format));
         pos.push(format!("{nr}"));
     }
     if !sf.hidden_noun {
