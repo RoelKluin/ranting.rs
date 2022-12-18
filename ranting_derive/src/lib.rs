@@ -69,8 +69,8 @@ pub fn ack(input: TokenStream) -> TokenStream {
 
 #[derive(Default)]
 struct SayFmt<'t> {
-    article_or_so: Option<Match<'t>>,
-    spaced_verb: Option<Match<'t>>,
+    pre: Option<Match<'t>>,
+    post: Option<Match<'t>>,
     plurality: Option<Match<'t>>,
     case: char,
     uc: bool,
@@ -92,23 +92,22 @@ impl<'t> SayFmt<'t> {
 
         // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
         // 2) uc if article or so is or 3) the noun is first or after start or `. '
-        let article_or_so = caps.name("pre");
+        let pre = caps.name("pre");
 
         let uc = match caps.name("uc").and_then(|s| s.as_str().chars().next()) {
             Some('^') => true,
             Some(',') => false,
             _ => {
-                // or if pre has uc or the noun is first or at new sentence
-                article_or_so
-                    .filter(|s| s.as_str().starts_with(|c: char| c.is_uppercase()))
+                // or if article has uc or the noun is first or at new sentence
+                pre.filter(|s| s.as_str().starts_with(|c: char| c.is_uppercase()))
                     .is_some()
                     | (caps.get(0).unwrap().start() == sentence_start)
             }
         };
 
         Ok(SayFmt {
-            article_or_so,
-            spaced_verb: caps.name("verb"),
+            pre,
+            post: caps.name("post"),
             plurality: caps.name("plurality"),
             case,
             uc,
@@ -135,11 +134,11 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     // regex to capture the placholders or sentence ends
     lazy_static! {
         static ref RE: Regex = Regex::new(&format!(
-            r"(?:[{{]{pre}{mode}{noun}{verb}[}}]|{period})",
-            pre = r"(?:(?P<pre>[Aa]n |[Ss]ome |[Tt]h(?:e|[eo]se) ))?",
+            r"(?:[{{]{pre}{mode}{noun}{post}[}}]|{period})",
+            pre = r"(?P<pre>(?:[Aa]n |[Ss]ome |[Tt]h(?:e|[eo]se) |'re |may |(?:sha|wi)ll |(?:(?:a|we)re|do|ca|ha(?:d|ve)|(?:[cw]|sh)ould|must|might)(?:n't)? )(?:[\w-]+ )*?)?",
             mode = r"(?P<uc>[,^])?(?P<plurality>[+-]|#\w+ )?(?P<case>[':@~]?)",
             noun = r"(?P<noun>\??[\w-]+)",
-            verb = r"(?P<verb>(?: [\w-]+)*?[' ][\w-]+)?",
+            post = r"(?P<post>(?: [\w-]+)*?[' ][\w-]+)?",
             period = r"(?P<period>\. +)"
         ))
         .unwrap();
@@ -248,22 +247,31 @@ fn pluralize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
     let mut res = String::new();
     let mut uc = sf.uc;
 
-    if let Some(s) = sf
-        .article_or_so
-        .map(|a| a.as_str().trim_end().to_lowercase())
-    {
-        let (c, r) = s.split_at(1);
+    if let Some(s) = sf.pre.map(|a| a.as_str().trim_end().to_lowercase()) {
         res.push_str(&format!("{{{}}}", pos.len()));
-        if uc {
-            pos.push(format!("\"{}{r}\"", c.to_ascii_uppercase()));
-            uc = false;
-        } else {
-            pos.push(format!("\"{c}{r}\""));
+        match s.as_str() {
+            "a" | "an" => pos.push(format!("{}ome", if uc { 'S' } else { 's' })),
+            "the" | "some" | "these" | "those" => {
+                if uc {
+                    pos.push(format!("ranting::to_sentence_case(\"{s}\")"));
+                } else {
+                    pos.push(format!("\"{s}\""));
+                }
+            }
+            verb => {
+                assert!(sf.post.is_none(), "verb before and after?");
+                pos.push(format!(
+                    "ranting::inflect_verb({var}.subjective(), \"{verb}\", true, {uc})"
+                ))
+            }
         }
+        uc = false;
     }
     if !sf.hidden_noun {
-        let space = res.is_empty().then_some("").unwrap_or(" ");
-        res.push_str(&format!("{}{{{}}}", space, pos.len()));
+        if !res.is_empty() {
+            res.push(' ')
+        }
+        res.push_str(&format!("{{{}}}", pos.len()));
         match sf.case {
             ':' => pos.push(format!(
                 "ranting::inflect_subjective({var}.subjective(), true, {uc})"
@@ -283,38 +291,43 @@ fn pluralize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
         }
         uc = false;
     }
-    if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
-        let trim = res.is_empty().then_some(uc);
+    if let Some(sv) = sf.post.map(|s| s.as_str()) {
+        if !res.is_empty() && !sv.starts_with('\'') {
+            res.push(' ')
+        }
+        res.push_str(&format!("{{{}}}", pos.len()));
         pos.push(format!(
-            "ranting::inflect_verb({var}.subjective(), \"{sv}\", true, {trim:?})"
+            "ranting::inflect_verb({var}.subjective(), \"{sv}\", true, {uc})"
         ));
-        res + &format!("{{{}}}", pos.len() - 1)
-    } else {
-        res
     }
+    res
 }
 
 fn singularize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
     let mut res = String::new();
     let mut uc = sf.uc;
 
-    if let Some(s) = sf
-        .article_or_so
-        .map(|a| a.as_str().trim_end().to_lowercase())
-    {
+    if let Some(s) = sf.pre.map(|a| a.as_str().trim_end().to_lowercase()) {
         res.push_str(&format!("{{{}}}", pos.len()));
         match s.as_str() {
             "some" | "a" | "an" => pos.push(format!("{var}.a_or_an({uc})")),
             "these" => pos.push(format!("\"{}his\"", if uc { 'T' } else { 't' })),
             "those" => pos.push(format!("\"{}hat\"", if uc { 'T' } else { 't' })),
             "the" => pos.push(format!("\"{}he\"", if uc { 'T' } else { 't' })),
-            x => panic!("Unimplemented pre {x}"),
+            verb => {
+                assert!(sf.post.is_none(), "verb before and after?");
+                pos.push(format!(
+                    "ranting::inflect_verb({var}.subjective(), \"{verb}\", false, {uc})"
+                ))
+            }
         }
         uc = false;
     }
     if !sf.hidden_noun {
-        let space = res.is_empty().then_some("").unwrap_or(" ");
-        res.push_str(&format!("{}{{{}}}", space, pos.len()));
+        if !res.is_empty() {
+            res.push(' ')
+        }
+        res.push_str(&format!("{{{}}}", pos.len()));
         match sf.case {
             ':' => pos.push(format!(
                 "ranting::inflect_subjective({var}.subjective(), false, {uc})"
@@ -334,38 +347,52 @@ fn singularize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
         }
         uc = false;
     }
-    if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
-        let trim = res.is_empty().then_some(uc);
+    if let Some(sv) = sf.post.map(|s| s.as_str()) {
+        if !res.is_empty() && !sv.starts_with('\'') {
+            res.push(' ')
+        }
+        res.push_str(&format!("{{{}}}", pos.len()));
         pos.push(format!(
-            "ranting::inflect_verb({var}.subjective(), \"{sv}\", false, {trim:?})"
+            "ranting::inflect_verb({var}.subjective(), \"{sv}\", false, {uc})"
         ));
-        res + &format!("{{{}}}", pos.len() - 1)
-    } else {
-        res
     }
+    res
 }
 
 fn pluralize_as_nr_variable(sf: SayFmt, var: String, pos: &mut Vec<String>, nr: &str) -> String {
     let mut res = String::new();
     let mut uc = sf.uc;
 
-    res.push_str(&format!("{{{}}}", pos.len()));
-    pos.push(format!("{nr}"));
-
-    if let Some(lc_art) = sf
-        .article_or_so
+    if let Some(p) = sf
+        .pre
         .map(|a| a.as_str().trim_end().to_lowercase())
         .filter(|s| s.as_str() != "*")
     {
         res.push_str(&format!("{{{}}}", pos.len()));
-        pos.push(format!(
-            "ranting::match_article_to_nr({nr} as i64, {var}.a_or_an({uc}), , \"{lc_art}\", {uc})"
-        ));
+        match p.as_str() {
+            "some" | "a" | "an" | "the" | "these" | "those" => pos.push(format!(
+                "ranting::match_article_to_nr({nr} as i64, {var}.a_or_an({uc}), , \"{p}\", {uc})"
+            )),
+            verb => {
+                assert!(sf.post.is_none(), "verb before and after?");
+                pos.push(format!(
+                    "ranting::inflect_verb({var}.subjective(), \"{verb}\", {nr} != 1, {uc})"
+                ))
+            }
+        }
         uc = false;
     }
+    if !res.is_empty() {
+        res.push(' ')
+    }
+    res.push_str(&format!("{{{}}}", pos.len()));
+    pos.push(format!("{nr}"));
+
     if !sf.hidden_noun {
-        let space = res.is_empty().then_some("").unwrap_or(" ");
-        res.push_str(&format!("{}{{{}}}", space, pos.len()));
+        if !res.is_empty() {
+            res.push(' ')
+        }
+        res.push_str(&format!("{{{}}}", pos.len()));
         match sf.case {
             ':' => pos.push(format!(
                 "ranting::inflect_subjective({var}.subjective(), {nr} != 1, {uc})"
@@ -385,34 +412,45 @@ fn pluralize_as_nr_variable(sf: SayFmt, var: String, pos: &mut Vec<String>, nr: 
         }
         uc = false;
     }
-    if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
-        let trim = res.is_empty().then_some(uc);
+    if let Some(sv) = sf.post.map(|s| s.as_str()) {
+        if !res.is_empty() && !sv.starts_with('\'') {
+            res.push(' ')
+        }
+        res.push_str(&format!("{{{}}}", pos.len()));
         pos.push(format!(
-            "ranting::inflect_verb({var}.subjective(), \"{sv}\", {nr} != 1, {trim:?})"
+            "ranting::inflect_verb({var}.subjective(), \"{sv}\", {nr} != 1, {uc})"
         ));
-        res + &format!("{{{}}}", pos.len() - 1)
-    } else {
-        res
     }
+    res
 }
 
 fn preserve_plurality(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
     let mut res = String::new();
     let mut uc = sf.uc;
-    if let Some(lc_art) = sf
-        .article_or_so
+    if let Some(p) = sf
+        .pre
         .map(|a| a.as_str().trim_end().to_lowercase())
         .filter(|s| s.as_str() != "*")
     {
         res.push_str(&format!("{{{}}}", pos.len()));
-        pos.push(format!(
-            "ranting::match_article_to_nr({var}.is_plural() as i64 + 1, {var}.a_or_an({uc}), \"{lc_art}\", {uc})",
-        ));
+        match p.as_str() {
+            "some" | "a" | "an" | "the" | "these" | "those" => pos.push(format!(
+                "ranting::match_article_to_nr({var}.is_plural() as i64 + 1, {var}.a_or_an({uc}), \"{p}\", {uc})",
+            )),
+            verb =>  {
+                assert!(sf.post.is_none(), "verb before and after?");
+                pos.push(format!(
+                    "ranting::inflect_verb({var}.subjective(), \"{verb}\", {var}.is_plural(), {uc})"
+                ))
+            },
+        }
         uc = false;
     }
     if !sf.hidden_noun {
-        let space = res.is_empty().then_some("").unwrap_or(" ");
-        res.push_str(&format!("{}{{{}}}", space, pos.len()));
+        if !res.is_empty() {
+            res.push(' ')
+        }
+        res.push_str(&format!("{{{}}}", pos.len()));
         match sf.case {
             ':' => pos.push(format!("ranting::subjective({var}.subjective(), {uc})")),
             '@' => pos.push(format!("ranting::objective({var}.subjective(), {uc})")),
@@ -422,15 +460,16 @@ fn preserve_plurality(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String 
         }
         uc = false;
     }
-    if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
-        let trim = res.is_empty().then_some(uc);
+    if let Some(sv) = sf.post.map(|s| s.as_str()) {
+        if !res.is_empty() && !sv.starts_with('\'') {
+            res.push(' ')
+        }
+        res.push_str(&format!("{{{}}}", pos.len()));
         pos.push(format!(
-            "ranting::inflect_verb({var}.subjective(), \"{sv}\", {var}.is_plural(), {trim:?})"
+            "ranting::inflect_verb({var}.subjective(), \"{sv}\", {var}.is_plural(), {uc})"
         ));
-        res + &format!("{{{}}}", pos.len() - 1)
-    } else {
-        res
     }
+    res
 }
 
 // arguments become positionals

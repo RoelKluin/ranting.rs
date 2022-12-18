@@ -32,7 +32,7 @@ impl Meadowers {
     }
     fn count(&self) -> String {
         let count = self.count;
-        say!("Now there {?self are} {#count self} in the meadow.")
+        say!("Now there {are #count self} in the meadow.")
     }
     fn join(&mut self, newcomer: Meadowers) -> String {
         let s = say!("{The newcomer join} {the +self} in the meadow.");
