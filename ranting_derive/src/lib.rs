@@ -8,7 +8,6 @@ use lazy_static::lazy_static;
 use proc_macro::{self, Literal, Span, TokenStream, TokenTree};
 use ranting_impl::*;
 use regex::{Captures, Match, Regex};
-use std::collections::{hash_map::Entry, HashMap};
 use std::default::Default;
 use syn::{parse, parse_macro_input, Error as SynError, Expr, ExprPath};
 
@@ -74,21 +73,17 @@ struct SayFmt<'t> {
     spaced_verb: Option<Match<'t>>,
     plurality: Option<Match<'t>>,
     case: char,
-    named: bool,
-    format: String,
     uc: bool,
+    hidden_noun: bool,
 }
 
 impl<'t> SayFmt<'t> {
-    fn from_caps(caps: &'t Captures, sentence_start: usize) -> Result<Self, SynError> {
+    fn from_caps(
+        caps: &'t Captures,
+        sentence_start: usize,
+        hidden_noun: bool,
+    ) -> Result<Self, SynError> {
         // case as in subject, object, possesive or adjective. Also name specifier.
-
-        // default format!() formatters are allowed, preserved here
-        let format = caps
-            .name("format")
-            .map(|s| s.as_str())
-            .unwrap_or("")
-            .to_string();
 
         let case = caps
             .name("case")
@@ -116,9 +111,8 @@ impl<'t> SayFmt<'t> {
             spaced_verb: caps.name("verb"),
             plurality: caps.name("plurality"),
             case,
-            named: caps.name("named").is_some(),
-            format,
             uc,
+            hidden_noun,
         })
     }
 }
@@ -141,12 +135,11 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     // regex to capture the placholders or sentence ends
     lazy_static! {
         static ref RE: Regex = Regex::new(&format!(
-            r"(?:[{{]{mode}{article}{noun}{verb}{fmt}[}}]|{period})",
-            mode = r"(?P<uc>[,^])?(?P<plurality>[+-]|#\w+ )?(?P<named>\*)?(?P<case>[':@~]?)",
-            article = r"(?:(?P<article>[Aa]n?|[Tt]h(?:e|[eo]se)) +)?",
-            noun = r"(?P<noun>[\w-]+)",
+            r"(?:[{{]{mode}{article}{noun}{verb}[}}]|{period})",
+            mode = r"(?P<uc>[,^])?(?P<plurality>[+-]|#\w+ )?(?P<case>[':@~]?)",
+            article = r"(?:(?P<article>[Aa]n |[Ss]ome |[Tt]h(?:e|[eo]se) ))?",
+            noun = r"(?P<noun>\??[\w-]+)",
             verb = r"(?P<verb>(?: [\w-]+)*?[' ][\w-]+)?",
-            fmt = r"(?P<format>:[^}}]+)?",
             period = r"(?P<period>\. +)"
         ))
         .unwrap();
@@ -156,6 +149,7 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     let mut sentence_start = 0;
 
     let mut positional: Vec<String> = vec![];
+    let original = lit.to_string();
 
     lit = RE
         .replace_all(&lit, |caps: &Captures| {
@@ -163,6 +157,7 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
                 sentence_start = new_sentence.end();
                 return new_sentence.as_str().to_string();
             }
+            let mut hidden_noun = false;
             let mut expr = caps.name("noun").unwrap().as_str().to_string();
             if let Ok(u) = expr.parse::<usize>() {
                 match given.get(u) {
@@ -175,8 +170,11 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
                         return String::new();
                     }
                 }
+            } else if let Some(var) = expr.strip_prefix('?').map(|s| s.to_owned()) {
+                expr = var; // '?' indicates unnamed noun, so not pushed
+                hidden_noun = true
             }
-            let sf = match SayFmt::from_caps(caps, sentence_start) {
+            let sf = match SayFmt::from_caps(caps, sentence_start, hidden_noun) {
                 Ok(sf) => sf,
                 Err(e) => {
                     err = Some(e);
@@ -195,7 +193,7 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
         lit.push_str(", ");
         lit.push_str(&positional.iter().join(", "));
     }
-    //eprintln!("{}", lit);
+    eprintln!("{}\n {}", original, lit);
     Ok(lit)
 }
 
@@ -247,150 +245,125 @@ fn comma_next(it: &mut dyn Iterator<Item = TokenTree>) -> Result<String, SynErro
 }
 
 // arguments become positionals
-fn handle_param(sf: SayFmt, local: String, positional: &mut Vec<String>) -> String {
+fn handle_param(sf: SayFmt, local: String, pos: &mut Vec<String>) -> String {
+    let mut u = pos.len();
+    let mut res = String::new();
+    let mut art = String::new();
+    let mut noun_fn = String::new();
+    let mut verb_fn = String::new();
     let uc = sf.uc;
-    let u = positional.len();
-    let plurality = sf.plurality.map(|s| s.as_str());
-    // numeric stay, only u increment if with article
-    match sf.article_or_so {
-        Some(article_or_so) => {
-            let art = match article_or_so.as_str().to_lowercase().as_str() {
-                "a" | "an" => match plurality {
-                    Some("+") => format!("\"{}ome\"", if uc { 'S' } else { 's' }),
-                    Some("-") => format!("{local}.a_or_an({uc})"),
-                    Some(var) => {
-                        let x = var.trim_start_matches('#');
-                        format!(
-                            r#"match {x} {{ 0 => "{}o", 1 => {local}.a_or_an({uc}), _ => "{}ome" }}"#,
-                            if uc { 'N' } else { 'n' },
-                            if uc { 'S' } else { 's' }
-                        )
-                    }
-                    _ => format!(
-                        r#"if {local}.is_plural() {{ "{}ome" }} else {{ {local}.a_or_an({uc}) }}"#,
-                        if uc { 'S' } else { 's' }
-                    ),
-                },
-                "these" => match plurality {
-                    Some("+") => format!("\"{}hese\"", if uc { 'T' } else { 't' }),
-                    Some("-") => format!("{}his", if uc { 'T' } else { 't' }),
-                    Some(var) => {
-                        let x = var.trim_start_matches('#');
-                        format!(
-                            r#"if {x} != 1 {{ "{0}hese" }} else {{ "{0}his" }}"#,
-                            if uc { 'T' } else { 't' }
-                        )
-                    }
-                    _ => format!(
-                        r#"if {local}.is_plural() {{ "{0}hese" }} else {{ "{0}his" }}"#,
-                        if uc { 'T' } else { 't' }
-                    ),
-                },
-                "those" => match plurality {
-                    Some("+") => format!("\"{}hose\"", if uc { 'T' } else { 't' }),
-                    Some("-") => format!("{}hat", if uc { 'T' } else { 't' }),
-                    Some(var) => {
-                        let x = var.trim_start_matches('#');
-                        format!(
-                            r#"if {x} != 1 {{ "{0}hose" }} else {{ "{0}hat" }}"#,
-                            if uc { 'T' } else { 't' }
-                        )
-                    }
-                    _ => format!(
-                        r#"if {local}.is_plural() {{ "{0}hose" }} else {{ "{0}hat" }}"#,
-                        if uc { 'T' } else { 't' }
-                    ),
-                },
-                "the" => format!("\"{}he\"", if uc { 'T' } else { 't' }),
-                x => panic!("Unimplemented article {x}"),
-            };
-            positional.push(art);
-            let reference = if sf.named {
-                match plurality {
-                    Some("+") => {
-                        format!(
-                            "if {local}.is_plural() {{ {local}.name({uc}) }} else {{ {local}.plural({uc}) }}"
-                        )
-                    }
-                    Some("-") => {
-                        format!(
-                            "if {local}.is_plural() {{ {local}.singular({uc}) }} else {{ {local}.name({uc}) }}"
-                        )
-                    }
-                    Some(var) => {
-                        let x = var.trim_start_matches('#').to_string();
-                        format!(
-                            "if {x} != 1 {{ if {local}.is_plural() {{ {local}.singular({uc}) }} else {{ {local}.name({uc}) }} }} else {{ if {local}.is_plural() {{ {local}.name({uc}) }} else {{ {local}.plural({uc}) }} }}"
-                        )
-                    }
-                    None => {
-                        format!("{local}.name({uc})")
-                    }
-                }
-            } else {
-                match plurality {
-                    Some("+") => {
-                        format!(
-                            r#"if {local}.is_plural() || {local}.subject(false) == "you" {{ {local}.subject({uc}) }} else if {local}.subject(true) == "I" {{ "{}e" }} else {{ "{}hey" }}"#,
-                            if uc { 'W' } else { 'w' },
-                            if uc { 'T' } else { 't' }
-                        )
-                    }
-                    Some("-") => {
-                        format!(
-                            r#"if {local}.subject(false) == "you" || !{local}.is_plural() {{ {local}.subject({uc}) }} else if {local}.subject(true) == "We" {{ "I" }} else {{ "{}t" }}"#,
-                            if uc { 'I' } else { 'i' } // assuming neutrum
-                        )
-                    }
-                    Some(var) => {
-                        let x = var.trim_start_matches('#').to_string();
-                        format!(
-                            r#"if {local}.subject(false) == "you" {{ {local}.subject({uc}) }} else if {x} != 1 {{ if {local}.is_plural() {{ {local}.subject({uc}) }} else if {local}.subject(true) == "I" {{ "{}e" }} else {{ "{}hey" }} }} else {{ if !{local}.is_plural() {{ {local}.subject({uc}) }} else if {local}.subject(true) == "We" {{ "I" }} else {{ "{}t" }} }}"#,
-                            if uc { 'W' } else { 'w' },
-                            if uc { 'T' } else { 't' },
-                            if uc { 'I' } else { 'i' }
-                        )
-                    }
-                    None => {
-                        format!("{local}.name({uc})")
-                    }
-                }
-            };
-            positional.push(reference);
+    let lc_art = sf
+        .article_or_so
+        .map(|a| a.as_str().trim_end().to_lowercase());
 
+    match sf.plurality.map(|s| s.as_str().split_at(1)) {
+        Some(("+", "")) => {
+            if !sf.hidden_noun {
+                noun_fn =
+                    format!("ranting::pluralize_case({local}.is_plural(), {local}.name({uc}))");
+            }
             if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
-                positional.push(format!("{local}.verb(\"{sv}\")"));
-                format!("{{{}}} {{{}{}}}{{{}}}", u, u + 1, sf.format, u + 2)
-            } else {
-                format!("{{{}}} {{{}{}}}", u, u + 1, sf.format)
+                verb_fn = format!(
+                    "ranting::inflect_verb(ranting::pluralize_pronoun({local}.pronoun()), \"{sv}\")"
+                );
+            }
+            if let Some(s) = lc_art {
+                let (c, r) = s.split_at(1);
+                let c = if uc {
+                    c.to_ascii_uppercase()
+                } else {
+                    c.to_string()
+                };
+                art = format!("\"{}{}\"", c, r);
+            }
+        }
+        Some(("-", "")) => {
+            if !sf.hidden_noun {
+                noun_fn =
+                    format!("ranting::singularize_case({local}.is_plural(), {local}.name({uc}))");
+            }
+            if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
+                verb_fn = format!(
+                    "ranting::inflect_verb(ranting::singularize_pronoun({local}.pronoun()), \"{sv}\")"
+                );
+            }
+            if let Some(s) = lc_art {
+                match s.as_str() {
+                    "some" | "a" | "an" => art = format!("{local}.a_or_an({uc})"),
+                    "these" => art = format!("\"{}his\"", if uc { 'T' } else { 't' }),
+                    "those" => art = format!("\"{}hat\"", if uc { 'T' } else { 't' }),
+                    "the" => art = format!("\"{}he\"", if uc { 'T' } else { 't' }),
+                    x => panic!("Unimplemented article {x}"),
+                }
+            }
+        }
+        Some(("#", x)) => {
+            if !sf.hidden_noun {
+                noun_fn = format!("ranting::pluralize_noun_as_nr({x} as i64, {local}.is_plural(), {local}.name({uc}))");
+            }
+            if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
+                verb_fn = format!("ranting::pluralize_verb_as_nr({x} as i64, &{local}, \"{sv}\")");
+            }
+            if let Some(lc_art) = lc_art.filter(|s| s.as_str() != "*") {
+                art = format!("ranting::match_article_to_nr({x} as i64, \"{lc_art}\", {uc})");
             }
         }
         None => {
-            if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
-                match sf.case {
-                    '<' => positional[u] = format!("\"{}here\"", if uc { 'T' } else { 't' }),
-                    '*' => positional[u] = format!("{local}.name({uc})"),
-                    /*'M' => {
-                        positional[u] = format!("{local}.plural({uc})");
-                        positional.push(format!("{local}.verb_for(\"{sv}\", \"they\")"));
-                        return format!("{{{}{}}}{{{}}}", u, sf.format, u + 1);
-                    },*/
-                    '&' => panic!("Adjective before verb plurality? use {{&adj}} {{?obj {sv}}}"),
-                    '!' | '\0' => positional[u] = format!("{local}.subject({uc})"),
-                    x => panic!("{x}: Illegal format specifier before verb"),
-                }
-                positional.push(format!("{local}.verb(\"{sv}\")"));
-                format!("{{{}{}}}{{{}}}", u, sf.format, u + 1)
-            } else {
-                positional[u] = match sf.case {
-                    ':' => format!("{local}.subject({uc})"),
-                    '@' => format!("{local}.object({uc})"),
-                    '\'' => format!("{local}.possesive({uc})"),
-                    '~' => format!("{local}.adjective({uc})"),
-                    _ => local,
-                };
-                format!("{{{}{}}}", u, sf.format)
+            if !sf.hidden_noun {
+                //noun_fn = format!("{local}.name({uc})");
+                noun_fn = format!("{local}");
             }
+            if let Some(sv) = sf.spaced_verb.map(|s| s.as_str()) {
+                verb_fn = format!(
+                    "ranting::pluralize_verb_as_nr({local}.is_plural() as i64 + 1, {local}.pronoun(), \"{sv}\")"
+                );
+            }
+            if let Some(lc_art) = lc_art.filter(|s| s.as_str() != "*") {
+                art = format!(
+                    "ranting::match_article_to_nr({local}.is_plural() as i64 + 1, {local}.a_or_an({uc}), \"{lc_art}\", {uc})",
+                );
+            }
+        }
+        Some((a, b)) => panic!("Unrecognized plurality '{a}{b}'"),
+    };
+    if !art.is_empty() {
+        pos.push(art);
+        res.push_str(&format!("{{{}}}", u));
+        u += 1;
+    }
+    if !noun_fn.is_empty() {
+        pos.push(noun_fn);
+        if !res.is_empty() {
+            res.push(' ');
+        }
+        res.push_str(&format!("{{{}}}", u));
+        u += 1;
+    }
+    if !verb_fn.is_empty() {
+        if res.is_empty() {
+            verb_fn.push_str(".trim_start()");
+        }
+        pos.push(verb_fn);
+        res + &format!("{{{}}}", u)
+    } else {
+        match sf.case {
+            ':' => {
+                pos.push(format!("ranting::subjective({local}.pronoun(), {uc})"));
+                res + &format!(" {{{}}}", u)
+            }
+            '\'' => {
+                pos.push(format!("ranting::possesive({local}.pronoun(), {uc})"));
+                res + &format!(" {{{}}}", u)
+            }
+            '~' => {
+                pos.push(format!("ranting::adjective({local}.pronoun(), {uc})"));
+                res + &format!(" {{{}}}", u)
+            }
+            '@' => {
+                pos.push(format!("ranting::objective({local}.pronoun(), {uc})"));
+                res + &format!(" {{{}}}", u)
+            }
+            _ => res,
         }
     }
 }
