@@ -180,34 +180,29 @@ pub fn inflect_adjective(subject: &str, to_plural: bool, uc: bool) -> &str {
     adjective(inflect_subjective(subject, to_plural, false), uc)
 }
 
-pub fn inflect_verb(
-    subject: &str,
-    verb: &str,
-    to_plural: bool,
-    trim_and_uc: Option<bool>,
-) -> String {
+pub fn inflect_verb(subject: &str, verb: &str, to_plural: bool, uc: bool) -> String {
     let res = match inflect_subjective(subject, to_plural, false) {
-        "I" => match verb {
+        "I" => match verb.trim() {
             "'re" => "'m".to_string(),
-            " are" => " am".to_string(),
-            " were" => " was".to_string(),
-            " aren't" => " am not".to_string(),
-            " weren't" => " wasn't".to_string(),
+            "are" => "am".to_string(),
+            "were" => "was".to_string(),
+            "aren't" => "am not".to_string(),
+            "weren't" => "wasn't".to_string(),
             v => v.to_string(),
         },
         "you" | "we" | "they" | "ye" | "thou" => verb.to_string(),
-        _ => match verb {
+        _ => match verb.trim() {
             "'re" | "'ve" => "'s".to_string(),
-            " are" => " is".to_string(),
-            " have" => " has".to_string(),
-            " were" => " was".to_string(),
-            " do" => " does".to_string(),
-            " aren't" => " isn't".to_string(),
-            " weren't" => " wasn't".to_string(),
-            " don't" => " doesn't".to_string(),
-            " could" | " would" | " can" | " may" | " might" | " must" | " should" | " shall"
-            | " will" | " had" | " couldn't" | " wouldn't" | " can't" | " mightn't"
-            | " mustn't" | " shouldn't" | " hadn't" => verb.to_string(),
+            "are" => "is".to_string(),
+            "have" => "has".to_string(),
+            "were" => "was".to_string(),
+            "do" => "does".to_string(),
+            "aren't" => "isn't".to_string(),
+            "weren't" => "wasn't".to_string(),
+            "don't" => "doesn't".to_string(),
+            "could" | "would" | "can" | "may" | "might" | "must" | "should" | "shall" | "will"
+            | "had" | "couldn't" | "wouldn't" | "can't" | "mightn't" | "mustn't" | "shouldn't"
+            | "hadn't" => verb.to_string(),
             v => {
                 if v.ends_with(&['s', 'o', 'x']) || v.ends_with("ch") || v.ends_with("sh") {
                     format!("{}es", v)
@@ -222,12 +217,8 @@ pub fn inflect_verb(
             }
         },
     };
-    if let Some(uc) = trim_and_uc {
-        if uc {
-            uc_1st(res.trim())
-        } else {
-            res.trim().to_string()
-        }
+    if uc {
+        uc_1st(res.as_str())
     } else {
         res
     }
