@@ -240,24 +240,21 @@ pub fn inflect_noun(name: String, is_default_plural: bool, as_plural: bool, uc: 
     }
 }
 
-pub fn match_article_to_nr(nr: i64, default: &str, lc_art: &str, uc: bool) -> String {
-    match (nr, lc_art) {
-        (0, "some") | (0, "a") | (0, "an") => format!("{}one", if uc { 'N' } else { 'n' }),
-        (0, "these") => format!("{}ero", if uc { 'Z' } else { 'z' }),
-        (0, "those") => format!("{}o", if uc { 'N' } else { 'n' }),
-        (1, "some") | (1, "a") | (1, "an") => {
+pub fn inflect_article(default: &str, lc_art: &str, as_plural: bool, uc: bool) -> String {
+    match (as_plural, lc_art) {
+        (_, "the") => format!("{}he", if uc { 'T' } else { 't' }),
+        (false, "some") | (false, "a") | (false, "an") => {
             if uc {
                 uc_1st(default)
             } else {
                 default.to_string()
             }
         }
-        (1, "these") => format!("{}his", if uc { 'T' } else { 't' }),
-        (1, "those") => format!("{}hat", if uc { 'T' } else { 't' }),
-        (_, "some") | (_, "a") | (_, "an") => format!("{}ome", if uc { 'S' } else { 's' }),
-        (_, a) if a == "the" => format!("{}he", if uc { 'T' } else { 't' }),
-        (_, a) if a == "those" => format!("{}hose", if uc { 'T' } else { 't' }),
-        (_, a) if a == "these" => format!("{}hese", if uc { 'T' } else { 't' }),
+        (false, "these") => format!("{}his", if uc { 'T' } else { 't' }),
+        (false, "those") => format!("{}hat", if uc { 'T' } else { 't' }),
+        (true, "some") | (_, "a") | (_, "an") => format!("{}ome", if uc { 'S' } else { 's' }),
+        (true, "those") => format!("{}hose", if uc { 'T' } else { 't' }),
+        (true, "these") => format!("{}hese", if uc { 'T' } else { 't' }),
         _ => panic!("Unimplemented article {lc_art}"),
     }
 }
