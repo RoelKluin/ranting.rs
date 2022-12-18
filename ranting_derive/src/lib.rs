@@ -24,13 +24,11 @@ pub fn derive_ranting(input: TokenStream) -> TokenStream {
 /// The say!() macro produces a String, a bit similar to format!(), but with extended
 /// formatting options for Ranting trait objects provided as arguments to say!().
 ///
-/// Ranting trait objects as arguments to say!()  are displated as their name by
-/// default, or by subjective with the following formatting extensions:
+/// Ranting trait objects as arguments to say!()  are displayed as their name by
+/// default, or by a pronoun with formatting markers:
 ///
-/// `:s` gives a subject, `:o` an object, `:p` the possesive and `:a` the adjective
-/// form of the subjective. With a capital, e.g. `:S`, the subjective form is capitalized.
-///
-/// There are also the `:m` or `:M` postfixes to display the plural form of the name.
+/// `:` gives a subject, `@` an object, `'` a possesive and `~` an adjective form of the
+/// pronoun.
 ///
 /// when prepended with `a ` or `an `, this indefinite article is adapted to the name.
 /// When capitalized this is preserved. Also `the`, `these` and `those` can occur before.
@@ -134,9 +132,12 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     // regex to capture the placholders or sentence ends
     lazy_static! {
         static ref RE: Regex = Regex::new(&format!(
-            r"(?:[{{]{pre}{mode}{noun}{post}[}}]|{period})",
-            pre = r"(?P<pre>(?:[Aa]n |[Ss]ome |[Tt]h(?:e|[eo]se) |'re |may |(?:sha|wi)ll |(?:(?:a|we)re|do|ca|ha(?:d|ve)|(?:[cw]|sh)ould|must|might)(?:n't)? )(?:[\w-]+ )*?)?",
-            mode = r"(?P<uc>[,^])?(?P<plurality>[+-]|#\w+ )?(?P<case>[':@~]?)",
+            r"(?:[{{]{ulc}(?P<pre>(?:{art}|{pre_verb}){etc})?{mode}{noun}{post}[}}]|{period})",
+            ulc = r"(?P<uc>[,^])?",
+            art = "[Aa]n |[Ss]ome |[Tt]h(?:e|[eo]se) ",
+            pre_verb = "'re |may |(?:sha|wi)ll |(?:(?:a|we)re|do|ca|ha(?:d|ve)|(?:[cw]|sh)ould|must|might)(?:n't)? ",
+            etc = r"(?:[\w-]+ )*?",
+            mode = r"(?P<plurality>[+-]|#\??\w+ )?(?P<case>[':@~]?)",
             noun = r"(?P<noun>\??[\w-]+)",
             post = r"(?P<post>(?: [\w-]+)*?[' ][\w-]+)?",
             period = r"(?P<period>\. +)"
@@ -243,6 +244,16 @@ fn comma_next(it: &mut dyn Iterator<Item = TokenTree>) -> Result<String, SynErro
     }
 }
 
+fn get_case_from_char(c: char) -> Option<&'static str> {
+    match c {
+        ':' => Some("subjective"),
+        '@' => Some("objective"),
+        '\'' => Some("possesive"),
+        '~' => Some("adjective"),
+        _ => None,
+    }
+}
+
 fn pluralize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
     let mut res = String::new();
     let mut uc = sf.uc;
@@ -272,20 +283,11 @@ fn pluralize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
             res.push(' ')
         }
         res.push_str(&format!("{{{}}}", pos.len()));
-        match sf.case {
-            ':' => pos.push(format!(
-                "ranting::inflect_subjective({var}.subjective(), true, {uc})"
+        match get_case_from_char(sf.case) {
+            Some(case) => pos.push(format!(
+                "ranting::inflect_{case}({var}.subjective(), true, {uc})"
             )),
-            '@' => pos.push(format!(
-                "ranting::inflect_objective({var}.subjective(), true, {uc})"
-            )),
-            '\'' => pos.push(format!(
-                "ranting::inflect_possesive({var}.subjective(), true, {uc})"
-            )),
-            '~' => pos.push(format!(
-                "ranting::inflect_adjective({var}.subjective(), true, {uc})"
-            )),
-            _ => pos.push(format!(
+            None => pos.push(format!(
                 "ranting::inflect_noun({var}.name({uc}), {var}.is_plural(), true, {uc})"
             )),
         }
@@ -328,20 +330,11 @@ fn singularize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
             res.push(' ')
         }
         res.push_str(&format!("{{{}}}", pos.len()));
-        match sf.case {
-            ':' => pos.push(format!(
-                "ranting::inflect_subjective({var}.subjective(), false, {uc})"
+        match get_case_from_char(sf.case) {
+            Some(case) => pos.push(format!(
+                "ranting::inflect_{case}({var}.subjective(), false, {uc})"
             )),
-            '@' => pos.push(format!(
-                "ranting::inflect_objective({var}.subjective(), false, {uc})"
-            )),
-            '\'' => pos.push(format!(
-                "ranting::inflect_possesive({var}.subjective(), false, {uc})"
-            )),
-            '~' => pos.push(format!(
-                "ranting::inflect_adjective({var}.subjective(), false, {uc})"
-            )),
-            _ => pos.push(format!(
+            None => pos.push(format!(
                 "ranting::inflect_noun({var}.name({uc}), {var}.is_plural(), false, {uc})"
             )),
         }
@@ -359,9 +352,19 @@ fn singularize(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
     res
 }
 
-fn pluralize_as_nr_variable(sf: SayFmt, var: String, pos: &mut Vec<String>, nr: &str) -> String {
+fn pluralize_as_nr_variable(
+    sf: SayFmt,
+    var: String,
+    pos: &mut Vec<String>,
+    mut nr: &str,
+) -> String {
     let mut res = String::new();
     let mut uc = sf.uc;
+    let mut is_hidden_number = false;
+    if nr.starts_with('?') {
+        nr = nr.trim_start_matches('?');
+        is_hidden_number = true;
+    }
 
     if let Some(p) = sf
         .pre
@@ -371,7 +374,7 @@ fn pluralize_as_nr_variable(sf: SayFmt, var: String, pos: &mut Vec<String>, nr: 
         res.push_str(&format!("{{{}}}", pos.len()));
         match p.as_str() {
             "some" | "a" | "an" | "the" | "these" | "those" => pos.push(format!(
-                "ranting::match_article_to_nr({nr} as i64, {var}.a_or_an({uc}), , \"{p}\", {uc})"
+                "ranting::match_article_to_nr({nr} as i64, {var}.a_or_an({uc}), \"{p}\", {uc})"
             )),
             verb => {
                 assert!(sf.post.is_none(), "verb before and after?");
@@ -382,31 +385,23 @@ fn pluralize_as_nr_variable(sf: SayFmt, var: String, pos: &mut Vec<String>, nr: 
         }
         uc = false;
     }
-    if !res.is_empty() {
-        res.push(' ')
+    if !is_hidden_number {
+        if !res.is_empty() {
+            res.push(' ')
+        }
+        res.push_str(&format!("{{{}}}", pos.len()));
+        pos.push(format!("{nr}"));
     }
-    res.push_str(&format!("{{{}}}", pos.len()));
-    pos.push(format!("{nr}"));
-
     if !sf.hidden_noun {
         if !res.is_empty() {
             res.push(' ')
         }
         res.push_str(&format!("{{{}}}", pos.len()));
-        match sf.case {
-            ':' => pos.push(format!(
-                "ranting::inflect_subjective({var}.subjective(), {nr} != 1, {uc})"
+        match get_case_from_char(sf.case) {
+            Some(case) => pos.push(format!(
+                "ranting::inflect_{case}({var}.subjective(), {nr} != 1, {uc})"
             )),
-            '@' => pos.push(format!(
-                "ranting::inflect_objective({var}.subjective(), {nr} != 1, {uc})"
-            )),
-            '\'' => pos.push(format!(
-                "ranting::inflect_possesive({var}.subjective(), {nr} != 1, {uc})"
-            )),
-            '~' => pos.push(format!(
-                "ranting::inflect_adjective({var}.subjective(), {nr} != 1, {uc})"
-            )),
-            _ => pos.push(format!(
+            None => pos.push(format!(
                 "ranting::inflect_noun({var}.name({uc}), {var}.is_plural(), {nr} != 1, {uc})"
             )),
         }
@@ -451,12 +446,9 @@ fn preserve_plurality(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String 
             res.push(' ')
         }
         res.push_str(&format!("{{{}}}", pos.len()));
-        match sf.case {
-            ':' => pos.push(format!("ranting::subjective({var}.subjective(), {uc})")),
-            '@' => pos.push(format!("ranting::objective({var}.subjective(), {uc})")),
-            '\'' => pos.push(format!("ranting::possesive({var}.subjective(), {uc})")),
-            '~' => pos.push(format!("ranting::adjective({var}.subjective(), {uc})")),
-            _ => pos.push(format!("{var}")), // keep it like this: for non-Ranting variables
+        match get_case_from_char(sf.case) {
+            Some(case) => pos.push(format!("ranting::{case}({var}.subjective(), {uc})")),
+            None => pos.push(format!("{var}")), // keep it like this: for non-Ranting variables
         }
         uc = false;
     }

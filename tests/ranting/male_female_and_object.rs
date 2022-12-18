@@ -13,7 +13,7 @@ struct Object {
 #[derive(Ranting)]
 struct Meadowers {
     name: String,
-    count: u32,
+    pub count: u32,
 }
 
 impl Meadowers {
@@ -35,7 +35,8 @@ impl Meadowers {
         say!("Now there {are #count self} in the meadow.")
     }
     fn join(&mut self, newcomer: Meadowers) -> String {
-        let s = say!("{The newcomer join} {the +self} in the meadow.");
+        let count = newcomer.count;
+        let s = say!("{The #?count newcomer join} {the +self} in the meadow.");
         self.count += newcomer.count;
         s
     }
