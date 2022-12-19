@@ -34,7 +34,7 @@ fn say_want_to_send(sender: &Named, receiver: &Named, message: &Named) -> String
 }
 
 fn say_we_know_message(sender: &Named, receiver: &Named, message: &Named) -> String {
-    say!("Now {:receiver know} that {these message are} really {~sender}.")
+    say!("Now {:receiver know} of {these message} that {:message is} really {~sender}.")
 }
 
 fn main() {
@@ -46,29 +46,43 @@ fn main() {
         name: "Bob".to_string(),
         subject: "he".to_string(),
     };
+    let packages = Named {
+        name: "packages".to_string(),
+        subject: "they".to_string(),
+    };
     let email = Named {
         name: "message".to_string(),
         subject: "it".to_string(),
     };
-
-    // with Alice as sender
+    
+    // with Alice as sender: packages 
     assert_eq!(
         say_want_to_send(alice, bob, email)
-        "Alice wants to send a message of her to Bob.".to_string()
+        "Alice wants to send some packages of her to Bob.".to_string()
     );
     assert_eq!(
         say_we_know_message(alice, bob, email)
-        "Now he knows that this message is really hers.".to_string()
+        "Now he knows of these packages that they are really hers.".to_string()
     );
     
-    // With Bob as sender
+    // With Bob as sender: email
     assert_eq!(
         say_want_to_send(bob, alice, email)
         "Bob wants to send a message of his to Alice.".to_string()
     );
     assert_eq!(
         say_we_know_message(alice, bob, email)
-        "Now she knows that this message is really his.".to_string()
+        "Now she knows of this message that it is really his.".to_string()
+    );
+    
+    // With Email as sender: packages to Alice, even kind of works:
+    assert_eq!(
+        say_want_to_send(email, alice, packages)
+        "Email wants to send some packages of its to Alice.".to_string()
+    );
+    assert_eq!(
+        say_we_know_message(alice, bob, email)
+        "Now it knows of these packages that they are really its.".to_string()
     );
 }
 ```
