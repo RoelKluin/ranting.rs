@@ -7,6 +7,12 @@ struct Named {
     subject: String,
 }
 impl Named {
+    fn new(name: &str, subject: &str) -> Self {
+        Named {
+            name: name.to_string(),
+            subject: subject.to_string()
+        }
+    }
     fn subjective(&self) -> &str {
         self.subject.as_str()
     }
@@ -38,22 +44,9 @@ fn say_we_know_message(sender: &Named, receiver: &Named, message: &Named) -> Str
 }
 
 fn main() {
-    let alice = Named {
-        name: "Alice".to_string(),
-        subject: "she".to_string(),
-    };
-    let bob = Named {
-        name: "Bob".to_string(),
-        subject: "he".to_string(),
-    };
-    let packages = Named {
-        name: "packages".to_string(),
-        subject: "they".to_string(),
-    };
-    let email = Named {
-        name: "message".to_string(),
-        subject: "it".to_string(),
-    };
+    let alice = Named::new("Alice","she");
+    let bob = Named::new("Bob", "he");
+    let packages = Named::new("packages", "they");
     
     // with Alice as sender: packages 
     assert_eq!(
@@ -64,17 +57,19 @@ fn main() {
         say_we_know_message(alice, bob, email)
         "Now he knows of these packages that they are really hers.".to_string()
     );
-    
+
+    let email = Named::new("email", "it");
+
     // With Bob as sender: email
     assert_eq!(
         say_want_to_send(bob, alice, email)
-        "Bob wants to send a message of his to Alice.".to_string()
+        "Bob wants to send an email of his to Alice.".to_string()
     );
     assert_eq!(
         say_we_know_message(alice, bob, email)
-        "Now she knows of this message that it is really his.".to_string()
+        "Now she knows of this email that it is really his.".to_string()
     );
-    
+
     // With Email as sender: packages to Alice, even kind of works:
     assert_eq!(
         say_want_to_send(email, alice, packages)
@@ -83,6 +78,16 @@ fn main() {
     assert_eq!(
         say_we_know_message(alice, bob, email)
         "Now it knows of these packages that they are really its.".to_string()
+    );
+
+    // With Packages as sender: email to Bob:
+    assert_eq!(
+        say_want_to_send(email, alice, packages)
+        "Packages want to send an email of theirs to Bob.".to_string()
+    );
+    assert_eq!(
+        say_we_know_message(alice, bob, email)
+        "Now they know of this email that it is really theirs.".to_string()
     );
 }
 ```
