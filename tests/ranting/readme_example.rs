@@ -10,7 +10,7 @@ impl Named {
     fn new(name: &str, subject: &str) -> Self {
         Named {
             name: name.to_string(),
-            subject: subject.to_string()
+            subject: subject.to_string(),
         }
     }
     fn subjective(&self) -> &str {
@@ -19,16 +19,23 @@ impl Named {
 }
 
 fn say_want_to_send(sender: &dyn Ranting, receiver: &dyn Ranting, message: &dyn Ranting) -> String {
-    say!("{0 want} to send {some message}, {'0} secret {message}, to {receiver}.", sender)
+    say!(
+        "{0 want} to send {some message}, {`0} secret {message}, to {receiver}.",
+        sender
+    )
 }
 
-fn say_we_know_message(sender: &dyn Ranting, receiver: &dyn Ranting, message: &dyn Ranting) -> String {
+fn say_we_know_message(
+    sender: &dyn Ranting,
+    receiver: &dyn Ranting,
+    message: &dyn Ranting,
+) -> String {
     say!("Now {:receiver know} of {these message} that {:message are} really {~sender}.")
 }
 
 #[test]
 fn readme_example() {
-    let alice = Named::new("Alice","she");
+    let alice = Named::new("Alice", "she");
     let bob = Named::new("Bob", "he");
     let packages = Named::new("packages", "they");
 
