@@ -65,52 +65,52 @@ for a more elaborate example see tests/ranting/male_female_and_object.rs
 Ranting trait objects as arguments to say!() are displayed either as name (by default)
 or as pronoun and/or inflected, dependent on provided markers. Alongside the ranting
 variable, articles and verbs can be included in the curly braces, that are inflected
-accordingly.
+accordingly. The verb should be specified in the plural form.
 
-Articles and verbs provided should have the plural form.
+Any struct with the Ranting trait should contain a name and subject variable. The name
+should preferrably just be a noun. The subject variable determines the default case,
+use `I`, `you`, `he`, `she`, `it`, `we`, `they`, `thou` or `ye`.
 
+Beside ranting trait variables, also variables can be included as normal, that have a
+Display or Debug trait. Then just Normal formatting specifiers apply, but for ranting
+trait arguments normal formatting specifiers apply to specific parts of the content.
 
-{[,^]?(<article> |<verb> )?([+-]|#var )?[':@~]?\??<noun>( <post_verb>)}
+A placeholder to display a Ranting variable has this structure:
 
-To force a plural form, use '+', to force singular use '-'. If prependeded by a
-`#var `, where var is an integer in scope, the plurality is adapted to the variable
-count, singular if 1, otherwise plural.
+`{[,^]?(<article> |<verb> )?([+-]|#<var> )?[':@~]?<noun>( <verb>):<fmt>}`
 
-`:` gives a subject, `@` an object, `'` a possesive and `~` an adjective form of the
-pronoun. Without the name is printed, not its pronoun. To force a plural form,
-plural, 
+With `,` and `^` lower- and uppercase are enforced, but a sentence start is assumed
+to be uppercase - the start of a string or after `. ` - also an article or verb with
+an uppercase enforces uppercase.
 
-With `:n` or `:N` the name is printed and with `:m` or `:M` the plural thereof.
-With `:d` or `:D` a verb is reflected but the name is replaced by 'there', so that
-e.g. `{self are:d}` becomes `there is` if singular, or `there are` if plural.
+To force plurality use `+`, for a singular use `-`. If prependeded by a `#<var>` where
+`<var>` is an integer in scope, plurality is adapted to the count, singular if 1,
+otherwise plural. A verb or article is inflected along with the specified or default
+plurality.
 
-when prepended with `a` or `an`, this indefinite article is adapted to the name.
-When capitalized this is preserved. Also `the`, `these` and `those` can occur before.
-Ranting always uses the 1st plural form. `These` and `those` are converted to `this`
-and `that` if the pronoun is singular.
+By default the name of a variable is displayed, but a pronoun with formatting markes:
+subject with `:`, or `@` for object, `'`: possesive, `~`: adjective. If a verb is
+included in the placeholder, the noun is assumed to be subject.
 
-In absence of upper or lower format specifiers, a noun at the start of a sentence or
-after a dot will start with a capital.
+Both a var and the noun can be prepended with a question mark, such as `#?<var>`,
+to indicates that inflection rules occur accordingly, but the var or noun is not
+displayed. The inflection may apply to the article and / or verb alongside.
 
-If prepended with `#var` where var is a numeric variable, then the noun is inflected
-accordingly, plural unless the value of var is 1. However, var should be an identifier,
-not a numeric positional.
-
-A verb after, again in the first plural form, is also inflected to the pronoun's case.
-The Ranting object enclosed before a verb is assumed to be the subject in the sentence.
+The article can be one of `a`, `an`, `some` `the` `those` or `these`. If capitalized
+this is retained. `These` and `those` are converted to `this` and `that` if the
+pronoun is singular.
 
 Positional argument and numeric references are supported, but not named arguments,
 currently.
 
-nay!() and ack!() are convenience wrappers respectively for 
+ack!() and nay!() are convenience wrappers respectively for 
 
 ```rust
-return Err(say!())
-// and
 return Ok(say!())
+// and
+return Err(say!())
 ```
 
-ack!() and nay!() are not intended for normalerror handling; the usage of more placeholders
-can obfuscate where an error originates from. They hinder a simple string search.
-Instead they are intended to allow a diversity of reponses when different actors can be
-involved.
+ack!() and nay!() are not intended for normalerror handling; placeholders obfuscate
+where an error originates from, rendering a simple string search less effective.
+Instead use these as a allow / deny response where multiple actors could be involved.
