@@ -58,26 +58,24 @@ pub fn inflect_subjective(subject: &str, as_plural: bool, uc: bool) -> &str {
     if as_plural == is_subjective_plural(subject).unwrap_or(false) {
         subjective(subject, uc)
     } else if as_plural {
-        match subject {
-            "I" if uc => "We",
-            "you" if uc => "You",
-            "thou" if uc => "Ye",
-            "he" if uc => "They",
-            "she" if uc => "They",
-            "it" if uc => "They",
-            "we" if uc => "We",
-            "ye" if uc => "Ye",
-            "they" if uc => "They",
-            "you" if uc => "You",
-            "I" | "we" => "we",
-            "you" => "you",
-            "thou" | "ye" => "ye",
-            "he" | "she" | "it" | "they" => "they",
-            x => panic!("'{x}' is not recognized as subjective"),
+        if uc {
+            match subject {
+                "I" | "we" => "We",
+                "he" | "she" | "it" | "they" => "They",
+                "you" => "You",
+                "thou" | "ye" => "Ye",
+                x => panic!("'{x}' is not recognized as subjective"),
+            }
+        } else {
+            match subject {
+                "I" => "we",
+                "he" | "she" | "it" => "they",
+                "thou" => "ye",
+                alt => alt
+            }
         }
     } else {
         match subject {
-            "I" | "we" => "I",
             "you" if uc => "You",
             "thou" if uc => "Thou",
             "he" if uc => "He",
@@ -85,12 +83,10 @@ pub fn inflect_subjective(subject: &str, as_plural: bool, uc: bool) -> &str {
             "it" if uc => "It",
             "they" if uc => "It",
             "ye" if uc => "Thou",
-            "you" => "you",
-            "thou" | "ye" => "thou",
-            "he" => "he",
-            "she" => "she",
-            "it" | "they" => "it",
-            x => panic!("'{x}' is not recognized as subjective"),
+            "we" => "I",
+            "they" => "it",
+            "ye" => "thou",
+            alt => alt
         }
     }
 }
@@ -111,11 +107,10 @@ pub fn objective(subject: &str, uc: bool) -> &str {
         "thou" => "thee",
         "he" => "him",
         "she" => "her",
-        "it" => "it",
         "we" => "us",
-        "you" | "ye" => "you",
+        "ye" => "you",
         "they" => "them",
-        x => panic!("'{x}' is not recognized as subjective"),
+        alt => alt
     }
 }
 
@@ -227,13 +222,13 @@ pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> Str
 }
 
 /// singular-/pluralize noun name according to nr
-pub fn inflect_noun(name: String, is_default_plural: bool, as_plural: bool, uc: bool) -> String {
+pub fn inflect_noun(name: &str, is_default_plural: bool, as_plural: bool, uc: bool) -> String {
     let res = if is_default_plural == as_plural {
-        name
+        name.to_string()
     } else if as_plural {
-        to_plural(name.as_str())
+        to_plural(name)
     } else {
-        to_singular(name.as_str())
+        to_singular(name)
     };
     if uc {
         uc_1st(res.as_str())

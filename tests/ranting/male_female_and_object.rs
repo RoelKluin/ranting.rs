@@ -76,8 +76,8 @@ impl Person {
     {
         match (act, nr_obj) {
             ("give", Some((_, trash))) if trash.name(false).as_str() == "trash" => {
-                // Verbs are always in 1st plural form.
-                nay!("{The trash} from {actor} is not something that {:self do} accept.")
+                // Verbs are always in plural form.
+                nay!("{The trash} from {actor} is not something that {:self do} accept.");
             }
             ("give", Some((nr, coin))) if coin.name(false).as_str() == "coin" => match nr {
                 0 => nay!("{actor don't} seem able to give zero {+coin} to {self}. {:actor frown} at {self}."),
@@ -87,7 +87,7 @@ impl Person {
                         .entry(coin.name(false).to_string())
                         .or_default();
                     *ent += nr;
-                    ack!("{:self thank} {@0}, {0}, for {'0} {#n coin}.", actor)
+                    ack!("{:self thank} {@0}, {0}, for {'0} {#n coin}.", actor);
                 }
             },
             ("receive", Some((nr, coin))) if coin.name(false).as_str() == "coin" && nr > 0 => {
