@@ -123,7 +123,7 @@ otherwise plural. A verb or article is inflected along with the specified or def
 plurality.
 
 By default the name of a variable is displayed, but a pronoun with formatting markes:
-subject with `:`, or `@` for object, `\x60`: possesive, `~`: adjective. If a verb is
+subject with `:`, or `@` for object, `````: possesive, `~`: adjective. If a verb is
 included in the placeholder, the noun is assumed to be subject.
 
 Both a var and the noun can be prepended with a question mark, such as `#?<var>`,
