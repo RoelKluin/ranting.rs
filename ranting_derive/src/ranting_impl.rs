@@ -27,7 +27,7 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
                 let subject = self.subjective();
                 match subject {
                     "he" | "she" | "it" | "they" => {
-                        ranting::inflect_noun(self.name.to_string(), true, true, uc)
+                        ranting::inflect_noun(self.name.as_str(), true, true, uc)
                     },
                     "I" => format!("I, {},", self.name),
                     "you" | "we" => {

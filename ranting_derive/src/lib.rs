@@ -78,9 +78,6 @@ pub fn derive_ranting(_args: TokenStream, input: TokenStream) -> TokenStream {
 /// A verb after, also in 1st plural form, is also inflected to the subjective's case. The
 /// Ranting object enclosed before a verb is assumed to be the subject in the sentence.
 ///
-/// Positional argument and numeric references are supported, but not named arguments,
-/// currently.
-///
 #[proc_macro]
 pub fn say(input: TokenStream) -> TokenStream {
     match do_say(input) {
@@ -363,7 +360,8 @@ fn handle_param(sf: SayFmt, var: String, pos: &mut Vec<String>) -> String {
                 pos.push(format!("{var}")); // for non-Ranting variables
             }
             None => pos.push(format!(
-                "ranting::inflect_noun({var}.name({uc}), {var}.is_plural(), {is_pl}, {uc})"
+                // {var}.name would break working for Ranting trait generics
+                "ranting::inflect_noun({var}.name(false).as_str(), {var}.is_plural(), {is_pl}, {uc})"
             )),
         }
         uc = false;
