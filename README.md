@@ -1,5 +1,5 @@
 
-Generates the `Ranting` trait implementations
+Generate `Ranting` trait implementations
 ```rust
 #[derive(Ranting)]
 struct Named {
@@ -29,6 +29,14 @@ The say!() macro produces a String, a bit similar to format!(), but with extende
 formatting options for arguments with Ranting traits.
 
 ```rust
+fn say_want_to_send(sender: &Named, receiver: &Named, message: &Named) -> String {
+    say!("{0 want} to send {some message} of {'0} to {receiver}.", sender)
+}
+
+fn say_we_know_message(sender: &Named, receiver: &Named, message: &Named) -> String {
+    say!("Now {:receiver know} that {these message are} really {~sender}.")
+}
+
 fn main() {
     let alice = Named {
         name: "Alice".to_string(),
@@ -43,24 +51,28 @@ fn main() {
         subject: "it".to_string(),
     };
 
-    let msg = say!("{0 want} to send {some email} of {'0} to {bob}.", alice);
+    // with Alice as sender
     assert_eq!(
-        msg,
+        say_want_to_send(alice, bob, email)
         "Alice wants to send a message of her to Bob.".to_string()
     );
-
-    let msg = say!("Now {:bob know} that {these email are} really {~alice}.", alice);
     assert_eq!(
-        msg,
+        say_we_know_message(alice, bob, email)
         "Now he knows that this message is really hers.".to_string()
     );
+    
+    // With Bob as sender
     assert_eq!(
-        say("{some email arrive} in {'alice} inbox."),
-        "an email arrives in her inbox.".to_string()
+        say_want_to_send(bob, alice, email)
+        "Bob wants to send a message of his to Alice.".to_string()
+    );
+    assert_eq!(
+        say_we_know_message(alice, bob, email)
+        "Now she knows that this message is really his.".to_string()
     );
 }
 ```
-for a more elaborate example see tests/ranting/male_female_and_object.rs
+For a more elaborate example see tests/ranting/male_female_and_object.rs
 
 Ranting trait objects as arguments to say!() are displayed either as name (by default)
 or as pronoun and/or inflected, dependent on provided markers. Alongside the ranting
