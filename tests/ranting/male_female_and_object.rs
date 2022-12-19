@@ -87,7 +87,7 @@ impl Person {
                         .entry(coin.name(false).to_string())
                         .or_default();
                     *ent += nr;
-                    ack!("{:self thank} {@0}, {0}, for {'0} {#n coin}.", actor);
+                    ack!("{:self thank} {@0}, {0}, for {`0} {#n coin}.", actor);
                 }
             },
             ("receive", Some((nr, coin))) if coin.name(false).as_str() == "coin" && nr > 0 => {
