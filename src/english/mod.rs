@@ -1,10 +1,6 @@
 // (c) Roel Kluin 2022 GPL v3
 //!
-//! Functions are used by [Ranting](../ranting_derive/index.html) trait placeholders.
-//!
-//! Inflection occurs according to a subjective pronoun; one of:
-//! `I`, `you`, `he`, `she`, `it`, `we`, `they`, `thou` or `ye`.
-//! If the subjective is "they", the assumed gender is neutrum.
+//! Functions used by [Ranting](../ranting_derive/index.html) trait placeholders.
 
 use crate::uc_1st;
 
@@ -148,6 +144,7 @@ pub fn possesive(subject: &str, uc: bool) -> &str {
     }
 }
 
+/// Given a subject and a verb, inflect it and to_upper() it as specified.
 pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> String {
     let trimmed = verb.trim();
     let res = match inflect_subjective(subject, as_plural, false) {
@@ -193,8 +190,9 @@ pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> Str
     }
 }
 
-pub fn inflect_article(default: &str, lc_art: &str, as_plural: bool, uc: bool) -> String {
-    match (as_plural, lc_art) {
+/// Given an article, the default, a requested one, inflect and to_upper() it as specified.
+pub fn inflect_article(default: &str, requested: &str, as_plural: bool, uc: bool) -> String {
+    match (as_plural, requested_article) {
         (_, "the") => format!("{}he", if uc { 'T' } else { 't' }),
         (false, "some") | (false, "a") | (false, "an") => {
             if uc {
@@ -208,7 +206,7 @@ pub fn inflect_article(default: &str, lc_art: &str, as_plural: bool, uc: bool) -
         (true, "some") | (_, "a") | (_, "an") => format!("{}ome", if uc { 'S' } else { 's' }),
         (true, "those") => format!("{}hose", if uc { 'T' } else { 't' }),
         (true, "these") => format!("{}hese", if uc { 'T' } else { 't' }),
-        _ => panic!("Unimplemented article {lc_art}"),
+        _ => panic!("Unimplemented article {requested}"),
     }
 }
 
