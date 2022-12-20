@@ -77,7 +77,7 @@ pub fn inflect_subjective(subject: &str, as_plural: bool, uc: bool) -> &str {
                 "I" => "we",
                 "he" | "she" | "it" => "they",
                 "thou" => "ye",
-                alt => alt
+                alt => alt,
             }
         }
     } else {
@@ -92,7 +92,7 @@ pub fn inflect_subjective(subject: &str, as_plural: bool, uc: bool) -> &str {
             "we" => "I",
             "they" => "it",
             "ye" => "thou",
-            alt => alt
+            alt => alt,
         }
     }
 }
@@ -116,7 +116,7 @@ pub fn objective(subject: &str, uc: bool) -> &str {
         "we" => "us",
         "ye" => "you",
         "they" => "them",
-        alt => alt
+        alt => alt,
     }
 }
 
@@ -192,7 +192,7 @@ pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> Str
 
 /// Given an article, the default, a requested one, inflect and to_upper() it as specified.
 pub fn inflect_article(default: &str, requested: &str, as_plural: bool, uc: bool) -> String {
-    match (as_plural, requested_article) {
+    match (as_plural, requested) {
         (_, "the") => format!("{}he", if uc { 'T' } else { 't' }),
         (false, "some") | (false, "a") | (false, "an") => {
             if uc {
@@ -209,4 +209,3 @@ pub fn inflect_article(default: &str, requested: &str, as_plural: bool, uc: bool
         _ => panic!("Unimplemented article {requested}"),
     }
 }
-
