@@ -27,11 +27,16 @@
 //!
 //! If a var or noun is prefixed with a question mark, e.g. `#?var`, inflection rules apply
 //! accordingly, but the variable and the space following is not displayed.
+//!
+//! If you wonder how this works, for the inflection, a placeholder is split in multiple which
+//! each display the inflection of the respective noun, article or verb. The functions that
+//! are used are listed in the [ranting docs](https://docs.rs/ranting/0.1.0/ranting/).
 
-mod ranting_impl;
 mod english;
+mod ranting_impl;
 
 use darling::{FromDeriveInput, ToTokens};
+use english as language;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use proc_macro::{self, Literal, Span, TokenStream, TokenTree};
@@ -40,8 +45,6 @@ use ranting_impl::*;
 use regex::{Captures, Regex};
 use syn::parse::Parser;
 use syn::{self, parse, parse_macro_input, DeriveInput, Error as SynError, Expr, ExprPath};
-use english as language;
-
 
 /// A wrapper for `return Ok(say!())`
 ///

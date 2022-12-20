@@ -10,6 +10,7 @@ repository = "https://github.com/RoelKluin/ranting.rs"
 readme = "README.md"
 keywords = ["article", "placeholder", "inflection", "verbs", "plural", "singular", "nouns", "pronouns", "indefinite-article"]
 categories = ["text-processing", "template-engine"]
+documentation = "https://docs.rs/ranting/0.1.0/ranting/"
 
 [dependencies]
 ranting_derive = { version = "=0.1.0", path = "ranting_derive" }

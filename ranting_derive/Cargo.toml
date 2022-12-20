@@ -5,6 +5,9 @@ authors = ["Roel Kluin <Roel.Kluin@gmail.com>"]
 description = "A proc-macro library for internal support of ranting"
 license = "GPLv3"
 edition = "2021"
+repository = "https://github.com/RoelKluin/ranting.rs"
+readme = "../README.md"
+documentation = "https://docs.rs/ranting_derive/0.1.0/ranting_derive/"
 
 [dependencies]
 syn = { version = "1.0.98", features = ["full"] }
