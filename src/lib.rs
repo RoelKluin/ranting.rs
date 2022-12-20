@@ -1,6 +1,6 @@
 // (c) Roel Kluin 2022 GPL v3
 //!
-//! Functions are used by [Ranting](../ranting_derive/index.html) trait placeholders.
+//! Functions are used by [Ranting](https://docs.rs/ranting_derive/0.1.0/ranting_derive/) trait placeholders.
 //!
 //! ```
 //! #[derive(new)]
@@ -35,18 +35,18 @@ pub use inflector::string::singularize::to_singular;
 // TODO: make this a feature:
 pub use strum_macros;
 
-pub use language::subjective;
 pub use language::inflect_article;
-pub use language::inflect_verb;
 pub use language::inflect_subjective;
+pub use language::inflect_verb;
 pub use language::is_subjective_plural;
+pub use language::subjective;
 
+use language::adjective;
 use language::objective;
 use language::possesive;
-use language::adjective;
 
 /// By overriding these one can adapt default behavior, which affects the
-/// [placeholder](../ranting_derive/index.html) interpretation.
+/// [placeholder](https://docs.rs/ranting_derive/0.1.0/ranting_derive/) interpretation.
 // TODO: add function for 'the': some words require an article to be printed.
 // E.g. names, languages, elements, food grains, meals (unless particular), sports.
 // Space after should then also be omitted.
