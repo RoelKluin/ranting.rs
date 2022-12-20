@@ -3,10 +3,16 @@ name = "ranting"
 version = "0.1.0"
 authors = ["Roel Kluin <Roel.Kluin@gmail.com>"]
 edition = "2021"
+license-file = "LICENSE.txt"
+description = "Linguistic formatting placeholder extensions for rust"
+homepage = "https://github.com/RoelKluin/ranting.rs"
+repository = "https://github.com/RoelKluin/ranting.rs"
+readme = "README.md"
+keywords = ["article", "placeholder", "inflection", "verbs", "plural", "singular", "nouns", "pronouns", "indefinite-article"]
+categories = ["text-processing", "template-engine"]
 
 [dependencies]
 ranting_derive = { version = "=0.1.0", path = "ranting_derive" }
 in_definite = "0.2"
 Inflector = "0.11.4"
 strum_macros = "0.24"
-

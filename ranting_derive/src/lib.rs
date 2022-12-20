@@ -1,6 +1,35 @@
 // (c) RoelKluin 2022 GPL v3
+//! The `say!()` macro produces a String with for `Ranting` trait structs or enums
+//! inflection within placeholders. Alongside the Ranting element, articles and verbs
+//! can be included within the curly braces of a placeholder that are inflected
+//! accordingly. Use a plural form of verbs if English.
+//!
+//! A placeholder to display a Ranting variable has this structure:
+//! ```text
+//! {[,^]?(article |verb )?([+-]|#var )?[':@~]?noun( verb):fmt}
+//! ```
+//!
+//! With `,` and `^` lower- and uppercase are enforced, but a sentence start is assumed
+//! to be uppercase or if an article or verb starts with uppercase.
+//!
+//! To pluralize use `+`, for a singular use `-`. If prependeded by `#var` where
+//! `var` is an integer in scope, plurality is adapted to the count, singular if 1,
+//! otherwise plural. A verb or article is inflected along with the specified or default
+//! plurality. `These` or `those`, instead of an article, are converted to `this` or `that`
+//! if the pronoun is singular.
+//!
+//! If a verb is included in the placeholder, the noun is assumed to be subject. By default
+//! the name of a variable is displayed, but a pronoun with formatting markers:
+//! * `:` - subject
+//! * `@` - object
+//! * `` ` `` - possesive
+//! * `~` - adjective
+//!
+//! If a var or noun is prefixed with a question mark, e.g. `#?var`, inflection rules apply
+//! accordingly, but the variable and the space following is not displayed.
 
 mod ranting_impl;
+mod english;
 
 use darling::{FromDeriveInput, ToTokens};
 use itertools::Itertools;
@@ -11,17 +40,84 @@ use ranting_impl::*;
 use regex::{Captures, Regex};
 use syn::parse::Parser;
 use syn::{self, parse, parse_macro_input, DeriveInput, Error as SynError, Expr, ExprPath};
+use english as language;
 
-/// Generates the `Ranting` trait implementation
-/// Structs that receive this trait require a name and subjective String.
-/// and can be referenced in the say!() nay!() and ack!() macros.
-#[proc_macro_derive(Ranting, attributes(ranting))]
-pub fn inner_derive_ranting(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input);
-    let options = RantingOptions::from_derive_input(&input).expect("Invalid Thing trait options");
-    ranting_q(options, &input.ident).into()
+
+/// A wrapper for `return Ok(say!())`
+///
+/// # Examples
+///
+/// ```
+/// #[derive(new)]
+/// #[derive_ranting]
+/// struct Named {}
+///
+/// fn question(harr: named, friends: Named, lad: Named) -> Result<String, String> {
+///     ack!("{harr shall} {+:friends do} with {the drunken lad}?");
+/// }
+///
+/// # fn main() {
+/// let harr = Named::new("what", "it");
+/// let friends = Named::new("crew", "we");
+/// let lad = Named::new("sailor", "he");
+///
+/// assort_eq!(
+///     question(harr, friends, lad),
+///     Ok("What shall we do with the drunken sailor?".to_string())
+/// );
+/// # }
+/// ```
+#[proc_macro]
+pub fn ack(input: TokenStream) -> TokenStream {
+    match do_say(input) {
+        Ok(lit) => format!("return Ok(format!({lit}))").parse().unwrap(),
+        Err(e) => e,
+    }
 }
 
+/// A wrapper for `return Err(say!())`
+///
+/// # Examples
+///
+/// ```
+/// #[derive(new)]
+/// #[derive_ranting]
+/// struct Named {}
+///
+/// fn sing(lad: Named) -> Result<String, String> {
+///     // the verb part must be plural
+///     nay!("Keel haul {@lad} till {:lad're} sober.");
+/// }
+///
+/// # fn main() {
+/// let lad = Named::new("sailor", "he");
+
+/// assort_eq!(
+///     sing(lad),
+///     Err(" Keel haul him till he's sober.".to_string())
+/// );
+/// # }
+/// ```
+#[proc_macro]
+pub fn nay(input: TokenStream) -> TokenStream {
+    match do_say(input) {
+        Ok(lit) => format!("return Err(format!({lit}))").parse().unwrap(),
+        Err(e) => e,
+    }
+}
+
+/// Like `format!()` but with inflection within placeholders for Ranting elements. Other elements
+/// adhere to their Display or Debug traits.
+#[proc_macro]
+pub fn say(input: TokenStream) -> TokenStream {
+    match do_say(input) {
+        Ok(lit) => format!("format!({lit})").parse().unwrap(),
+        Err(e) => e,
+    }
+}
+
+/// Implies `#[derive(Ranting)]` and includes `name` and `subject` in structs.
+/// For an enum `"it"` and the variant's name are assumed.
 #[proc_macro_attribute]
 pub fn derive_ranting(_args: TokenStream, input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -60,45 +156,12 @@ pub fn derive_ranting(_args: TokenStream, input: TokenStream) -> TokenStream {
     }
 }
 
-/// The say!() macro produces a String, a bit similar to format!(), but with extended
-/// formatting options for Ranting trait objects provided as arguments to say!().
-///
-/// Ranting trait objects as arguments to say!()  are displayed as their name by
-/// default, or by a pronoun with formatting markers:
-///
-/// `:` gives a subject, `@` an object, `'` a possesive and `~` an adjective form of the
-/// pronoun.
-///
-/// when prepended with an article, this is adapted to the name if `a`. A capital is
-/// preserved. Also `the`, `some`, `these` and `those` can occur before. Ranting mostly
-/// uses the 1st plural form. `These` and `those` are converted to `this`
-/// and `that` if the subjective is singular.
-///
-/// A verb after, also in 1st plural form, is also inflected to the subjective's case. The
-/// Ranting object enclosed before a verb is assumed to be the subject in the sentence.
-///
-#[proc_macro]
-pub fn say(input: TokenStream) -> TokenStream {
-    match do_say(input) {
-        Ok(lit) => format!("format!({lit})").parse().unwrap(),
-        Err(e) => e,
-    }
-}
-
-#[proc_macro]
-pub fn nay(input: TokenStream) -> TokenStream {
-    match do_say(input) {
-        Ok(lit) => format!("return Err(format!({lit}))").parse().unwrap(),
-        Err(e) => e,
-    }
-}
-
-#[proc_macro]
-pub fn ack(input: TokenStream) -> TokenStream {
-    match do_say(input) {
-        Ok(lit) => format!("return Ok(format!({lit}))").parse().unwrap(),
-        Err(e) => e,
-    }
+/// Above macros inflect Ranting elements within a placeholder. Structs require a `name` and `subject` String.
+#[proc_macro_derive(Ranting, attributes(ranting))]
+pub fn inner_derive_ranting(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input);
+    let options = RantingOptions::from_derive_input(&input).expect("Invalid Thing trait options");
+    ranting_q(options, &input.ident).into()
 }
 
 fn do_say(input: TokenStream) -> Result<String, TokenStream> {
@@ -120,24 +183,7 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     // useful: https://regex101.com/r/Ly7O1x/3/
     // can duplicated because the n't eats the n
     lazy_static! {
-        static ref RE: Regex = Regex::new(
-            r"(?x)(?P<sentence>(?:\.\s+)?+)\{  # NOTE: always captures on purpose!
-                (?P<uc>[,^])?+
-                (?:(?P<pre>
-                    [aA]n?|[sS]ome|[tT]h(?:[eo]s)?e|
-                    '[rv]e|'d|[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
-                    (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|
-                        (?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?)(?P<s_pre>\s+))?
-                (?P<etc1>\s+(?:[\w-]+\s+)+?)??
-                (?:(?P<plurality>[+-]|\#\??\w+)(?P<s_nr>\s*))?+
-                (?P<case>[`:@~])?+
-                (?P<noun>\??[\w-]+)
-                (?P<etc2>(?:\s+[\w-]+)*?)??
-                (?:(?P<s_post>\s+)(?P<post>(?:\w+')?+[\w-]+))?
-                (?P<fmt>:[^}]+)?+
-            \}"
-        )
-        .unwrap();
+        static ref RE: Regex = Regex::new(language::RANTING_PLACEHOLDER).unwrap();
     }
     //eprintln!("{:?}", RE.to_string());
     let mut err = None;
@@ -215,16 +261,6 @@ fn comma_next(it: &mut dyn Iterator<Item = TokenTree>) -> Result<String, SynErro
     }
 }
 
-fn get_case_from_str(s: &str) -> Option<&'static str> {
-    match s {
-        ":" => Some("subjective"),
-        "@" => Some("objective"),
-        "`" => Some("possesive"),
-        "~" => Some("adjective"),
-        x => panic!("Unsupported case {x}"),
-    }
-}
-
 // arguments become positionals
 fn handle_param(
     caps: &Captures,
@@ -247,7 +283,6 @@ fn handle_param(
                 } else {
                     nr = x;
                 }
-                // TODO: allow positional if numeric?
                 if let Ok(u) = x.parse::<usize>() {
                     x = given
                         .get(u)
@@ -315,16 +350,16 @@ fn handle_param(
         is_plain_placeholder = false;
         let p = pre.as_str().to_lowercase();
         res.push_str(&format!("{{{}}}", pos.len()));
-        match p.as_str() {
-            "some" | "a" | "an" | "the" | "these" | "those" => pos.push(format!(
+        if language::is_article_or_so(p.as_str()) {
+            pos.push(format!(
                 "ranting::inflect_article({noun}.a_or_an(false), \"{p}\", {is_pl}, {uc})"
-            )),
-            verb => {
-                assert!(caps.name("post").is_none(), "verb before and after?");
-                pos.push(format!(
-                    "ranting::inflect_verb({noun}.subjective(), \"{verb}\", {is_pl}, {uc})"
-                ))
-            }
+            ));
+        } else {
+            assert!(caps.name("post").is_none(), "verb before and after?");
+            pos.push(format!(
+                "ranting::inflect_verb({noun}.subjective(), \"{}\", {is_pl}, {uc})",
+                p.as_str()
+            ));
         }
         res.push_str(caps.name("s_pre").map(|m| m.as_str()).unwrap_or_default());
         uc = false;
@@ -342,9 +377,10 @@ fn handle_param(
     }
     if display_noun {
         res.push_str(&format!("{{{}}}", pos.len()));
+        res.push_str(caps.name("s_noun").map(|m| m.as_str()).unwrap_or_default());
         match caps
             .name("case")
-            .and_then(|s| get_case_from_str(s.as_str()))
+            .and_then(|s| language::get_case_from_str(s.as_str()))
         {
             Some(case) => pos.push(format!(
                 "ranting::inflect_{case}({noun}.subjective(), {is_pl}, {uc})"
@@ -363,7 +399,6 @@ fn handle_param(
         res.push_str(&format!("{}", etc2.as_str()));
     }
     if let Some(post) = caps.name("post") {
-        res.push_str(caps.name("s_post").map(|m| m.as_str()).unwrap_or_default());
         res.push_str(&format!("{{{}}}", pos.len()));
         pos.push(format!(
             "ranting::inflect_verb({noun}.subjective(), \"{}\", {is_pl}, {uc})",
