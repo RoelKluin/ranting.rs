@@ -85,20 +85,19 @@ pub fn ack(input: TokenStream) -> TokenStream {
 /// ```
 /// #[derive(new)]
 /// #[derive_ranting]
-/// struct Named {}
+/// struct N {}
 ///
-/// fn sing(lad: Named) -> Result<String, String> {
+/// fn home(lad: Named) -> Result<String, String> {
 ///     // the verb part must be plural
-///     nay!("Keel haul {@lad} till {:lad're} sober.");
+///     say!("{:p go} to {`p} house, all {~p}.")
 /// }
 ///
 /// # fn main() {
-/// let lad = Named::new("sailor", "he");
-
-/// assort_eq!(
-///     sing(lad),
-///     Err(" Keel haul him till he's sober.".to_string())
-/// );
+///assort_eq!(home(N::new("Jo", "she"), "She goes to her house, all hers.".to_string());
+///assort_eq!(home(N::new("Mo", "he"), "He goes to his house, all his.".to_string());
+///assort_eq!(home(N::new("Io", "I"), "I go to my house, all mine.".to_string());
+///assort_eq!(home(N::new("Bro", "we"), "We go to our house, all ours.".to_string());
+///assort_eq!(home(N::new("NGO", "they"), "They go to their house, all theirs.".to_string());
 /// # }
 /// ```
 #[proc_macro]
@@ -111,6 +110,28 @@ pub fn nay(input: TokenStream) -> TokenStream {
 
 /// Like `format!()` but with inflection within placeholders for Ranting elements. Other elements
 /// adhere to their Display or Debug traits.
+///
+/// # Examples
+///
+/// ```
+/// #[derive(new)]
+/// #[derive_ranting]
+/// struct Named {}
+///
+/// fn sing(lad: Named) -> Result<String, String> {
+///     // the verb part must be plural
+///     nay!("Keel haul {@lad} till {:lad're} sober.");
+/// }
+///
+/// # fn main() {
+/// let lad = Named::new("sailor", "he");
+///
+/// assort_eq!(
+///     sing(lad),
+///     Err(" Keel haul him till he's sober.".to_string())
+/// );
+/// # }
+/// ```
 #[proc_macro]
 pub fn say(input: TokenStream) -> TokenStream {
     match do_say(input) {
@@ -163,7 +184,11 @@ pub fn derive_ranting(_args: TokenStream, input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Ranting, attributes(ranting))]
 pub fn inner_derive_ranting(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input);
-    let options = RantingOptions::from_derive_input(&input).expect("Invalid Thing trait options");
+    let mut options =
+        RantingOptions::from_derive_input(&input).expect("Invalid Thing trait options");
+    if let syn::Data::Enum(_) = &input.data {
+        options.is_enum = true;
+    }
     ranting_q(options, &input.ident).into()
 }
 
@@ -184,7 +209,6 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
 
     // regex to capture the placholders or sentence ends
     // useful: https://regex101.com/r/Ly7O1x/3/
-    // can duplicated because the n't eats the n
     lazy_static! {
         static ref RE: Regex = Regex::new(language::RANTING_PLACEHOLDER).unwrap();
     }

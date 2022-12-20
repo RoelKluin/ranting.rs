@@ -10,11 +10,32 @@ use syn::Ident;
 pub(crate) struct RantingOptions {
     pub(crate) subject: Option<String>,
     pub(crate) is_plural: Option<bool>,
+    pub(crate) is_enum: bool,
 }
 
 /// An abstract thing, which may be a person and have a gender
 pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
     let is_plural = opt.is_plural.unwrap_or(false);
+    let get_name_q = if opt.is_enum {
+        quote! {
+            self.to_string().to_lowercase().to_string()
+        }
+    } else {
+        quote! { self.name.to_string() }
+    };
+    let dismplay_impl = if opt.is_enum {
+        quote! {
+            // no-op
+        }
+    } else {
+        quote! {
+            impl std::fmt::Display for #ident {
+                fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                    write!(formatter, "{}", #get_name_q)
+                }
+            }
+        }
+    };
     quote! {
         impl Ranting for #ident {
             fn subjective(&self) -> &str {
@@ -25,13 +46,14 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
             }
             fn name(&self, uc: bool) -> String {
                 let subject = self.subjective();
+                let name = #get_name_q;
                 match subject {
                     "he" | "she" | "it" | "they" => {
-                        ranting::inflect_noun(self.name.as_str(), true, true, uc)
+                        ranting::inflect_noun(name.as_str(), true, true, uc)
                     },
-                    "I" => format!("I, {},", self.name),
+                    "I" => format!("I, {},", name),
                     "you" | "we" => {
-                        format!("{}, {},", ranting::subjective(subject, uc), self.name)
+                        format!("{}, {},", ranting::subjective(subject, uc), name)
                     },
                     p => panic!("Unimplemented: subject for '{}'", p),
                 }
@@ -50,10 +72,6 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
                 }
             }
         }
-        impl std::fmt::Display for #ident {
-            fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                write!(formatter, "{}", self.name)
-            }
-        }
+        #dismplay_impl
     }
 }
