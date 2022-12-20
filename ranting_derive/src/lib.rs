@@ -121,7 +121,7 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     // can duplicated because the n't eats the n
     lazy_static! {
         static ref RE: Regex = Regex::new(
-            r"(?x)(?P<sentence>^|\.\s+|)\{
+            r"(?x)(?P<sentence>(?:\.\s+)?+)\{  # NOTE: always captures on purpose!
                 (?P<uc>[,^])?+
                 (?:(?P<pre>
                     [aA]n?|[sS]ome|[tT]h(?:[eo]s)?e|
@@ -240,13 +240,43 @@ fn handle_param(
 
     let mut display_noun = true;
     let mut basic_placeholder = true;
+    let mut nr = "";
+    let mut is_pl = String::new();
+
+    if let Some(plurality) = caps.name("plurality") {
+        basic_placeholder = false;
+        match plurality.as_str().split_at(1) {
+            ("+", "") => is_pl.push_str("true"),
+            ("-", "") => is_pl.push_str("false"),
+            ("#", mut x) => {
+                if let Some(nr) = x.strip_prefix('?') {
+                    x = nr;
+                } else {
+                    nr = x;
+                }
+                // TODO: allow positional if numeric?
+                if let Ok(u) = x.parse::<usize>() {
+                    x = given
+                        .get(u)
+                        .ok_or(SynError::new(
+                            Span::call_site().into(),
+                            "#<nr> positional out of bounds",
+                        ))?
+                        .as_str();
+                }
+                is_pl = format!("{x} != 1");
+            }
+            (a, b) => panic!("Unrecognized plurality '{a}{b}'"),
+        }
+    }
+
     // a positional.
     if let Ok(u) = noun.parse::<usize>() {
         noun = given
             .get(u)
             .ok_or(SynError::new(
                 Span::call_site().into(),
-                "noun positional out of bounds",
+                "<noun> positional out of bounds",
             ))?
             .as_str();
     } else if let Some(n) = noun.strip_prefix('?') {
@@ -255,27 +285,9 @@ fn handle_param(
         noun = n;
     }
 
-    let mut nr = "";
-
-    let is_pl = if let Some(plurality) = caps.name("plurality") {
-        basic_placeholder = false;
-        match plurality.as_str().split_at(1) {
-            ("+", "") => format!("true"),
-            ("-", "") => format!("false"),
-            ("#", s) => {
-                if let Some(nr) = s.strip_prefix('?') {
-                    format!("{nr} != 1") // Note: nr not assigned.
-                } else {
-                    // TODO: allow positional here?
-                    nr = s;
-                    format!("{nr} != 1")
-                }
-            }
-            (a, b) => panic!("Unrecognized plurality '{a}{b}'"),
-        }
-    } else {
-        format!("{noun}.is_plural()")
-    };
+    if is_pl.is_empty() {
+        is_pl = format!("{noun}.is_plural()");
+    }
     let mut res = caps
         .name("sentence")
         .map(|s| s.as_str().to_owned())
