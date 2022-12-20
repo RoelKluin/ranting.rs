@@ -9,7 +9,6 @@ use proc_macro::{self, Literal, Span, TokenStream, TokenTree};
 use quote::quote;
 use ranting_impl::*;
 use regex::{Captures, Regex};
-use std::default::Default;
 use syn::parse::Parser;
 use syn::{self, parse, parse_macro_input, DeriveInput, Error as SynError, Expr, ExprPath};
 
@@ -102,94 +101,6 @@ pub fn ack(input: TokenStream) -> TokenStream {
     }
 }
 
-#[derive(Default)]
-struct SayPlaceHolder {
-    uc: bool,
-    pre: String,
-    etc1: String,
-    plurality: String,
-    case: char,
-    noun: String,
-    etc2: String,
-    post: String,
-    format: String,
-}
-
-impl SayPlaceHolder {
-    fn from_caps(
-        caps: &Captures,
-        given: &Vec<String>,
-        sentence_start: usize,
-    ) -> Result<Self, SynError> {
-        // This may be an article or certain verbs that can occur before the noun:
-        let pre = caps.name("pre").map(|s| s.as_str());
-
-        // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
-        // 2) uc if article or so is or 3) the noun is first or after start or `. '
-        let uc = match caps.name("uc").and_then(|s| s.as_str().chars().next()) {
-            Some('^') => true,
-            Some(',') => false,
-            _ => {
-                // or if article has uc or the noun is first or at new sentence
-                pre.filter(|s| s.starts_with(|c: char| c.is_uppercase()))
-                    .is_some()
-                    | (caps.get(0).unwrap().start() == sentence_start)
-            }
-        };
-        // words that are not inflected but are retained.
-        let etc1 = caps.name("etc1").map(|s| s.as_str());
-
-        // A plurality character `+` or `-`, a number `#<var>` or hidden `#?<var>`.
-        let plurality = caps.name("plurality").map(|s| s.as_str());
-
-        // case as in subject, object, possesive or adjective. Also name specifier.
-        let case = caps
-            .name("case")
-            .and_then(|s| s.as_str().chars().next())
-            .unwrap_or_default();
-
-        // could be a struct or enum with a Ranting trait or just be a regular
-        //  placeholder if withou all other SayPlaceholder elements.
-        let mut noun = caps
-            .name("noun")
-            .map(|s| s.as_str().to_owned())
-            .ok_or(SynError::new(
-                Span::mixed_site().into(),
-                format!("'{}': missing noun", caps.get(0).unwrap().as_str()),
-            ))?;
-        if let Ok(u) = noun.parse::<usize>() {
-            noun = given
-                .get(u)
-                .ok_or(SynError::new(
-                    Span::call_site().into(),
-                    "noun nr out of bounds",
-                ))?
-                .to_owned();
-        }
-
-        // words that are not inflected but are retained.
-        let etc2 = caps.name("etc2").map(|s| s.as_str());
-
-        // This is currently always a verb.
-        let post = caps.name("post").map(|s| s.as_str());
-
-        // default format!() formatters are allowed, preserved here
-        let format = caps.name("format").map(|s| s.as_str());
-
-        Ok(SayPlaceHolder {
-            uc,
-            pre: pre.unwrap_or_default().to_owned(),
-            etc1: etc1.unwrap_or_default().to_owned(),
-            plurality: plurality.unwrap_or_default().to_owned(),
-            case,
-            noun,
-            etc2: etc2.unwrap_or_default().to_owned(),
-            post: post.unwrap_or_default().to_owned(),
-            format: format.unwrap_or_default().to_owned(),
-        })
-    }
-}
-
 fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     let mut token_it = input.into_iter().peekable();
 
@@ -210,45 +121,38 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     // can duplicated because the n't eats the n
     lazy_static! {
         static ref RE: Regex = Regex::new(
-            r"(?x)(?:\.\s+|\{
+            r"(?x)(?P<sentence>^|\.\s+|)\{
                 (?P<uc>[,^])?+
                 (?:(?P<pre>
                     [aA]n?|[sS]ome|[tT]h(?:[eo]s)?e|
                     '[rv]e|'d|[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
                     (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|
-                        (?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?)\s+)?
+                        (?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?)(?P<s_pre>\s+))?
                 (?P<etc1>\s+(?:[\w-]+\s+)+?)??
-                (?P<plurality>[+-]|\#\??\w+\s+)?+
+                (?:(?P<plurality>[+-]|\#\??\w+)(?P<s_nr>\s*))?+
                 (?P<case>[`:@~])?+
                 (?P<noun>\??[\w-]+)
                 (?P<etc2>(?:\s+[\w-]+)*?)??
-                (?P<post>(?:(?:\s+\w+)?+'|\s+)[\w-]+)?
-                (?P<format>:[^}]+)?+
-            \})"
+                (?:(?P<s_post>\s+)(?P<post>(?:\w+')?+[\w-]+))?
+                (?P<fmt>:[^}]+)?+
+            \}"
         )
         .unwrap();
     }
     //eprintln!("{:?}", RE.to_string());
     let mut err = None;
-    let mut sentence_start = 1;
-
     let mut positional: Vec<String> = vec![];
     //let original = lit.to_string();
 
     lit = RE
         .replace_all(&lit, |caps: &Captures| {
-            if let Some(new_sentence) = caps.get(0).filter(|m| m.as_str().starts_with('.')) {
-                sentence_start = new_sentence.end();
-                return new_sentence.as_str().to_string();
-            }
-            let sf = match SayPlaceHolder::from_caps(caps, &given, sentence_start) {
-                Ok(sf) => sf,
+            match handle_param(caps, &given, &mut positional) {
+                Ok(s) => s,
                 Err(e) => {
                     err = Some(e);
-                    return String::new();
+                    String::new()
                 }
-            };
-            handle_param(sf, &mut positional)
+            }
         })
         .to_string();
 
@@ -311,85 +215,127 @@ fn comma_next(it: &mut dyn Iterator<Item = TokenTree>) -> Result<String, SynErro
     }
 }
 
-fn get_case_from_char(c: char) -> Option<&'static str> {
-    match c {
-        ':' => Some("subjective"),
-        '@' => Some("objective"),
-        '`' => Some("possesive"),
-        '~' => Some("adjective"),
-        _ => None,
+fn get_case_from_str(s: &str) -> Option<&'static str> {
+    match s {
+        ":" => Some("subjective"),
+        "@" => Some("objective"),
+        "`" => Some("possesive"),
+        "~" => Some("adjective"),
+        x => panic!("Unsupported case {x}"),
     }
 }
 
 // arguments become positionals
-fn handle_param(sf: SayPlaceHolder, pos: &mut Vec<String>) -> String {
-    let mut uc = sf.uc;
-    let mut res = String::new();
+fn handle_param(
+    caps: &Captures,
+    given: &Vec<String>,
+    pos: &mut Vec<String>,
+) -> Result<String, SynError> {
+    // could be a struct or enum with a Ranting trait or just be a regular
+    //  placeholder if withou all other SayPlaceholder elements.
+    let mut noun = caps.name("noun").map(|s| s.as_str()).ok_or(SynError::new(
+        Span::mixed_site().into(),
+        format!("'{}': missing noun", caps.get(0).unwrap().as_str()),
+    ))?;
+
+    let mut display_noun = true;
+    let mut basic_placeholder = true;
+    // a positional.
+    if let Ok(u) = noun.parse::<usize>() {
+        noun = given
+            .get(u)
+            .ok_or(SynError::new(
+                Span::call_site().into(),
+                "noun positional out of bounds",
+            ))?
+            .as_str();
+    } else if let Some(n) = noun.strip_prefix('?') {
+        basic_placeholder = false;
+        display_noun = false;
+        noun = n;
+    }
+
     let mut nr = "";
 
-    let (noun, do_display) = if let Some(n) = sf.noun.strip_prefix('?') {
-        (n, false)
-    } else {
-        (sf.noun.as_str(), true)
-    };
-    let is_pl = if sf.plurality.is_empty() {
-        format!("{noun}.is_plural()")
-    } else {
-        match sf.plurality.split_at(1) {
+    let is_pl = if let Some(plurality) = caps.name("plurality") {
+        basic_placeholder = false;
+        match plurality.as_str().split_at(1) {
             ("+", "") => format!("true"),
             ("-", "") => format!("false"),
             ("#", s) => {
                 if let Some(nr) = s.strip_prefix('?') {
                     format!("{nr} != 1") // Note: nr not assigned.
                 } else {
+                    // TODO: allow positional here?
                     nr = s;
                     format!("{nr} != 1")
                 }
             }
             (a, b) => panic!("Unrecognized plurality '{a}{b}'"),
         }
+    } else {
+        format!("{noun}.is_plural()")
+    };
+    let mut res = caps
+        .name("sentence")
+        .map(|s| s.as_str().to_owned())
+        .unwrap_or_default();
+
+    // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
+    // 2) uc if article or so is or 3) the noun is first or after start or `. '
+    let mut uc = if let Some(c) = caps.name("uc") {
+        basic_placeholder = false;
+        c.as_str() == "^"
+    } else {
+        // or if article has uc or the noun is first or at new sentence
+        caps.name("pre")
+            .filter(|s| s.as_str().starts_with(|c: char| c.is_uppercase()))
+            .or(caps
+                .name("sentence")
+                .filter(|m| m.start() == 1 || m.as_str() != ""))
+            .is_some()
     };
 
-    if !sf.pre.is_empty() {
-        let p = sf.pre.trim_end().to_lowercase();
+    // This may be an article or certain verbs that can occur before the noun:
+    if let Some(pre) = caps.name("pre") {
+        basic_placeholder = false;
+        let p = pre.as_str().to_lowercase();
         res.push_str(&format!("{{{}}}", pos.len()));
         match p.as_str() {
             "some" | "a" | "an" | "the" | "these" | "those" => pos.push(format!(
-                "ranting::inflect_article({noun}.a_or_an({uc}), \"{p}\", {is_pl}, {uc})"
+                "ranting::inflect_article({noun}.a_or_an(false), \"{p}\", {is_pl}, {uc})"
             )),
             verb => {
-                assert!(sf.post.is_empty(), "verb before and after?");
+                assert!(caps.name("post").is_none(), "verb before and after?");
                 pos.push(format!(
                     "ranting::inflect_verb({noun}.subjective(), \"{verb}\", {is_pl}, {uc})"
                 ))
             }
         }
+        res.push_str(caps.name("s_pre").map(|m| m.as_str()).unwrap_or_default());
         uc = false;
     }
-    if !sf.etc1.is_empty() {
-        if !res.is_empty() {
-            res.push(' ')
-        }
-        res.push_str(&format!("{{{}}}", pos.len()));
-        pos.push(format!("\"{}\"", sf.etc1));
+
+    if let Some(etc1) = caps.name("etc1") {
+        basic_placeholder = false;
+        res.push_str(&format!("{}", etc1.as_str()));
     }
     if !nr.is_empty() {
-        if !res.is_empty() {
-            res.push(' ')
-        }
-        res.push_str(&format!("{{{}{}}}", pos.len(), sf.format));
+        let fmt = caps.name("fmt").map(|s| s.as_str()).unwrap_or_default();
+        res.push_str(&format!("{{{}{}}}", pos.len(), fmt));
+        res.push_str(caps.name("s_nr").map(|m| m.as_str()).unwrap_or_default());
         pos.push(format!("{nr}"));
     }
-    if do_display {
-        if !res.is_empty() {
-            res.push(' ')
-        }
+    if display_noun {
         res.push_str(&format!("{{{}}}", pos.len()));
-        match get_case_from_char(sf.case) {
+        match caps
+            .name("case")
+            .and_then(|s| get_case_from_str(s.as_str()))
+        {
             Some(case) => pos.push(format!(
                 "ranting::inflect_{case}({noun}.subjective(), {is_pl}, {uc})"
             )),
-            None if sf.plurality.is_empty() && sf.pre.is_empty() && sf.post.is_empty() => {
+            None if basic_placeholder && caps.name("etc2").is_none() && caps.name("post").is_none() => {
                 pos.push(format!("{noun}")); // for non-Ranting variables
             }
             None => pos.push(format!(
@@ -399,22 +345,16 @@ fn handle_param(sf: SayPlaceHolder, pos: &mut Vec<String>) -> String {
         }
         uc = false;
     }
-    if !sf.etc2.is_empty() {
-        if !res.is_empty() {
-            res.push(' ')
-        }
-        res.push_str(&format!("{{{}}}", pos.len()));
-        pos.push(format!("\"{}\"", sf.etc2));
+    if let Some(etc2) = caps.name("etc2") {
+        res.push_str(&format!("{}", etc2.as_str()));
     }
-    if !sf.post.is_empty() {
-        if !res.is_empty() && !sf.post.starts_with('\'') {
-            res.push(' ')
-        }
+    if let Some(post) = caps.name("post") {
+        res.push_str(caps.name("s_post").map(|m| m.as_str()).unwrap_or_default());
         res.push_str(&format!("{{{}}}", pos.len()));
         pos.push(format!(
             "ranting::inflect_verb({noun}.subjective(), \"{}\", {is_pl}, {uc})",
-            sf.post
+            post.as_str()
         ));
     }
-    res
+    Ok(res)
 }
