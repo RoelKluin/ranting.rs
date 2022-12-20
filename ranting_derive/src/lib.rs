@@ -231,26 +231,19 @@ fn handle_param(
     given: &Vec<String>,
     pos: &mut Vec<String>,
 ) -> Result<String, SynError> {
-    // could be a struct or enum with a Ranting trait or just be a regular
-    //  placeholder if withou all other SayPlaceholder elements.
-    let mut noun = caps.name("noun").map(|s| s.as_str()).ok_or(SynError::new(
-        Span::mixed_site().into(),
-        format!("'{}': missing noun", caps.get(0).unwrap().as_str()),
-    ))?;
-
     let mut display_noun = true;
-    let mut basic_placeholder = true;
-    let mut nr = "";
+    let mut is_plain_placeholder = true;
     let mut is_pl = String::new();
+    let mut nr = "";
 
     if let Some(plurality) = caps.name("plurality") {
-        basic_placeholder = false;
+        is_plain_placeholder = false;
         match plurality.as_str().split_at(1) {
             ("+", "") => is_pl.push_str("true"),
             ("-", "") => is_pl.push_str("false"),
             ("#", mut x) => {
                 if let Some(nr) = x.strip_prefix('?') {
-                    x = nr;
+                    x = nr; // nr not assigned!
                 } else {
                     nr = x;
                 }
@@ -270,6 +263,19 @@ fn handle_param(
         }
     }
 
+    // could be a struct or enum with a Ranting trait or just be a regular
+    //  placeholder if withou all other SayPlaceholder elements.
+    let mut noun = caps.name("noun").map(|s| s.as_str()).ok_or(SynError::new(
+        Span::mixed_site().into(),
+        format!("'{}': missing noun", caps.get(0).unwrap().as_str()),
+    ))?;
+
+    if let Some(n) = noun.strip_prefix('?') {
+        is_plain_placeholder = false;
+        display_noun = false;
+        noun = n;
+    }
+
     // a positional.
     if let Ok(u) = noun.parse::<usize>() {
         noun = given
@@ -279,10 +285,6 @@ fn handle_param(
                 "<noun> positional out of bounds",
             ))?
             .as_str();
-    } else if let Some(n) = noun.strip_prefix('?') {
-        basic_placeholder = false;
-        display_noun = false;
-        noun = n;
     }
 
     if is_pl.is_empty() {
@@ -296,7 +298,7 @@ fn handle_param(
     // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
     // 2) uc if article or so is or 3) the noun is first or after start or `. '
     let mut uc = if let Some(c) = caps.name("uc") {
-        basic_placeholder = false;
+        is_plain_placeholder = false;
         c.as_str() == "^"
     } else {
         // or if article has uc or the noun is first or at new sentence
@@ -310,7 +312,7 @@ fn handle_param(
 
     // This may be an article or certain verbs that can occur before the noun:
     if let Some(pre) = caps.name("pre") {
-        basic_placeholder = false;
+        is_plain_placeholder = false;
         let p = pre.as_str().to_lowercase();
         res.push_str(&format!("{{{}}}", pos.len()));
         match p.as_str() {
@@ -329,7 +331,7 @@ fn handle_param(
     }
 
     if let Some(etc1) = caps.name("etc1") {
-        basic_placeholder = false;
+        is_plain_placeholder = false;
         res.push_str(&format!("{}", etc1.as_str()));
     }
     if !nr.is_empty() {
@@ -347,7 +349,7 @@ fn handle_param(
             Some(case) => pos.push(format!(
                 "ranting::inflect_{case}({noun}.subjective(), {is_pl}, {uc})"
             )),
-            None if basic_placeholder && caps.name("etc2").is_none() && caps.name("post").is_none() => {
+            None if is_plain_placeholder && caps.name("etc2").is_none() && caps.name("post").is_none() => {
                 pos.push(format!("{noun}")); // for non-Ranting variables
             }
             None => pos.push(format!(
