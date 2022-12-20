@@ -3,16 +3,26 @@
 //! Functions are used by [Ranting](https://docs.rs/ranting_derive/0.1.0/ranting_derive/) trait placeholders.
 //!
 //! ```
-//! #[derive(new)]
-//! #[ranting_derive]
-//! struct X {}
+//! use ranting::Ranting;
+//! use ranting_derive::*;
 //!
+//! #[derive_ranting]
+//! struct X {}
+//! impl X {
+//!     fn new(n: &str, s: &str) -> Self {
+//!         X {
+//!             name: n.to_string(),
+//!             subject: s.to_string()
+//!         }
+//!     }
+//! }
+//!
+//! # fn main() {
 //! let mry = X::new("Mary", "she");
 //! let lmb = X::new("lamb", "it");
 //! let fl = X::new("fleece", "it");
 //!
-//! # fn main() {
-//! assert_eq!(say!("{mry have} {some little lmb}. {`lmb} {:fl were} white as snow."),
+//! assert_eq!(say!("{mry had} a little {lmb}. {`lmb} {fl were} white as snow."),
 //!     "Mary had a little lamb. Its fleece was white as snow.".to_string());
 //! # }
 //! ```

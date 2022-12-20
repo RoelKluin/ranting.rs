@@ -1,7 +1,11 @@
 // (c) Roel Kluin 2022 GPL v3
 //
+// regex to capture the placholders or sentence ends
+// useful: https://regex101.com/r/Ly7O1x/3/
 /// The components captured in a Ranting trait placeholder are defined here.
-pub(crate) static RANTING_PLACEHOLDER: &str = r"(?x)(?P<sentence>(?:\.\s+)?+)\{  # NOTE: always captures on purpose!
+pub(crate) static RANTING_PLACEHOLDER: &str = r"(?x)
+(?P<sentence>(?:\.\s+)?+)  # sentence always captures: to obtain the placeholder offset.
+\{
     (?P<uc>[,^])?+
     (?:(?P<pre>
         [aA]n?|[sS]ome|[tT]h(?:[eo]s)?e|
@@ -35,5 +39,3 @@ pub fn is_article_or_so(word: &str) -> bool {
         _ => false,
     }
 }
-
-
