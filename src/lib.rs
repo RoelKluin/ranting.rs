@@ -2,9 +2,24 @@
 //!
 //! Functions are used by [Ranting](../ranting_derive/index.html) trait placeholders.
 //!
-//! Inflection occurs according to a subjective pronoun; one of:
-//! `I`, `you`, `he`, `she`, `it`, `we`, `they`, `thou` or `ye`.
-//! If the subjective is "they", the assumed gender is neutrum.
+//! ```
+//! #[derive(new)]
+//! #[ranting_derive]
+//! struct X {}
+//!
+//! let mry = X::new("Mary", "she");
+//! let lmb = X::new("lamb", "it");
+//! let fl = X::new("fleece", "it");
+//!
+//! # fn main() {
+//! assert_eq!(say!("{mry have} {some little lmb}. {`lmb} {:fl were} white as snow."),
+//!     "Mary had a little lamb. Its fleece was white as snow.".to_string());
+//! # }
+//! ```
+//!
+//! Inflection occurs according to a subjective pronoun; one of: `I`, `you`, `he`, `she`,
+//! `it`, `we`, `they`, `thou` or `ye`. If the subjective is "they", the assumed gender is
+//! neutrum. Verbs and articles in placeholders should be plural.
 
 mod english;
 use english as language;
@@ -30,7 +45,8 @@ use language::objective;
 use language::possesive;
 use language::adjective;
 
-/// By overriding these one can adapt default behavior.
+/// By overriding these one can adapt default behavior, which affects the
+/// [placeholder](../ranting_derive/index.html) interpretation.
 // TODO: add function for 'the': some words require an article to be printed.
 // E.g. names, languages, elements, food grains, meals (unless particular), sports.
 // Space after should then also be omitted.
