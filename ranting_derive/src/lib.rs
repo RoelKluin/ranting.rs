@@ -345,7 +345,7 @@ fn handle_param(
     ))?;
 
     // a positional.
-    if let Ok(u) = noun.trim_end().parse::<usize>() {
+    if let Ok(u) = noun.parse::<usize>() {
         noun = given
             .get(u)
             .ok_or(SynError::new(
@@ -408,13 +408,12 @@ fn handle_param(
         res.push_str(&format!("{{{}{}}}", pos.len(), fmt));
         pos.push(format!("{nr}"));
     }
-    if caps.name("case").filter(|s| s.as_str() != "?").is_some() {
+    // also if case is None, the noun should be printed.
+    let opt_case = caps.name("case").map(|m| m.as_str());
+    if opt_case != Some("?") {
         res.push_str(noun_space.map(|m| m.as_str()).unwrap_or_default());
         res.push_str(&format!("{{{}}}", pos.len()));
-        match caps
-            .name("case")
-            .and_then(|s| language::get_case_from_str(s.as_str()))
-        {
+        match opt_case.and_then(|s| language::get_case_from_str(s)) {
             Some(case) => pos.push(format!(
                 "ranting::inflect_{case}({noun}.subjective(), {is_pl}, {uc})"
             )),
