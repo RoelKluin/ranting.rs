@@ -65,7 +65,7 @@ use syn::{self, parse, parse_macro_input, DeriveInput, Error as SynError, Expr, 
 /// let friends = Named::new("crew", "we");
 /// let lad = Named::new("sailor", "he");
 ///
-/// assort_eq!(
+/// assert_eq!(
 ///     question(harr, friends, lad),
 ///     Ok("What shall we do with the drunken sailor?".to_string())
 /// );
@@ -94,11 +94,11 @@ pub fn ack(input: TokenStream) -> TokenStream {
 /// }
 ///
 /// # fn main() {
-///assort_eq!(home(N::new("Jo", "she"), "She goes to her house, all hers.".to_string());
-///assort_eq!(home(N::new("Mo", "he"), "He goes to his house, all his.".to_string());
-///assort_eq!(home(N::new("Io", "I"), "I go to my house, all mine.".to_string());
-///assort_eq!(home(N::new("Bro", "we"), "We go to our house, all ours.".to_string());
-///assort_eq!(home(N::new("NGO", "they"), "They go to their house, all theirs.".to_string());
+/// assert_eq!(home(N::new("Jo", "she"), "She goes to her house, all hers.".to_string());
+/// assert_eq!(home(N::new("Mo", "he"), "He goes to his house, all his.".to_string());
+/// assert_eq!(home(N::new("Io", "I"), "I go to my house, all mine.".to_string());
+/// assert_eq!(home(N::new("Bro", "we"), "We go to our house, all ours.".to_string());
+/// assert_eq!(home(N::new("NGO", "they"), "They go to their house, all theirs.".to_string());
 /// # }
 /// ```
 #[proc_macro]
@@ -127,7 +127,7 @@ pub fn nay(input: TokenStream) -> TokenStream {
 /// # fn main() {
 /// let lad = Named::new("sailor", "he");
 ///
-/// assort_eq!(
+/// assert_eq!(
 ///     sing(lad),
 ///     Err(" Keel haul him till he's sober.".to_string())
 /// );
