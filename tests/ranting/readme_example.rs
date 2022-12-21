@@ -13,24 +13,22 @@ impl Named {
             subject: subject.to_string(),
         }
     }
-    fn subjective(&self) -> &str {
-        self.subject.as_str()
-    }
 }
-
-fn say_want_to_send(sender: &dyn Ranting, receiver: &dyn Ranting, message: &dyn Ranting) -> String {
+fn send(sender: &Named, receiver: &Named, msg: &Named) -> String {
     say!(
-        "{0 want} to send {some message}, {`0} secret {message}, to {receiver}.",
-        sender
+        "{0 want} to send {some msg}, {`0} secret {msg}, to {1}.",
+        sender,
+        receiver
     )
 }
 
-fn say_we_know_message(
-    sender: &dyn Ranting,
-    receiver: &dyn Ranting,
-    message: &dyn Ranting,
-) -> String {
-    say!("Now {:receiver know} of {these message} that {:message are} really {~sender}.")
+fn receive<S, R, M>(sender: &S, receiver: &R, msg: &M) -> String
+where
+    S: Ranting,
+    R: Ranting,
+    M: Ranting,
+{
+    say!("Now {:receiver know} {these msg}, {:msg are} {~sender}.")
 }
 
 #[test]
@@ -41,43 +39,52 @@ fn readme_example() {
 
     // with Alice as sender: packages
     assert_eq!(
-        say_want_to_send(&alice, &bob, &packages),
-        "Alice wants to send some packages, her secret packages, to Bob.".to_string()
+        send(&alice, &bob, &packages),
+        "Alice wants to send some packages, her secret packages, \
+        to Bob."
+            .to_string()
     );
     assert_eq!(
-        say_we_know_message(&alice, &bob, &packages),
-        "Now he knows of these packages that they are really hers.".to_string()
+        receive(&alice, &bob, &packages),
+        "Now he knows these packages, they are hers.".to_string()
     );
-
     let email = Named::new("email", "it");
 
     // With Bob as sender: email
     assert_eq!(
-        say_want_to_send(&bob, &alice, &email),
-        "Bob wants to send an email, his secret email, to Alice.".to_string()
+        send(&bob, &alice, &email),
+        "Bob wants to send an email, his secret email, \
+        to Alice."
+            .to_string()
     );
     assert_eq!(
-        say_we_know_message(&bob, &alice, &email),
-        "Now she knows of this email that it is really his.".to_string()
+        receive(&bob, &alice, &email),
+        "Now she knows this email, it is his.".to_string()
     );
 
     // With Email as sender: packages to Alice, even kind of works:
     assert_eq!(
-        say_want_to_send(&email, &alice, &packages),
-        "Email wants to send some packages, its secret packages, to Alice.".to_string()
+        send(&email, &alice, &packages),
+        "Email wants to send some packages, its secret packages, \
+        to Alice."
+            .to_string()
     );
     assert_eq!(
-        say_we_know_message(&email, &alice, &packages),
-        "Now she knows of these packages that they are really its.".to_string()
+        receive(&email, &alice, &packages),
+        "Now she knows these packages, \
+        they are its."
+            .to_string()
     );
 
     // With Packages as sender: email to Bob:
     assert_eq!(
-        say_want_to_send(&packages, &bob, &email),
-        "Packages want to send an email, their secret email, to Bob.".to_string()
+        send(&packages, &bob, &email),
+        "Packages want to send an email, their secret email, \
+        to Bob."
+            .to_string()
     );
     assert_eq!(
-        say_we_know_message(&packages, &bob, &email),
-        "Now he knows of this email that it is really theirs.".to_string()
+        receive(&packages, &bob, &email),
+        "Now he knows this email, it is theirs.".to_string()
     );
 }
