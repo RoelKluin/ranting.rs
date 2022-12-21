@@ -22,7 +22,7 @@
 //! let lmb = X::new("lamb", "it");
 //! let fl = X::new("fleece", "it");
 //!
-//! assert_eq!(say!("{mry had} a little {lmb}. {`lmb} {fl were} white as snow."),
+//! assert_eq!(say!("{mry had} {some little *lmb}. {`lmb} {fl were} white as snow."),
 //!     "Mary had a little lamb. Its fleece was white as snow.".to_string());
 //! # }
 //! ```
