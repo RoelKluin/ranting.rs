@@ -7,17 +7,18 @@ pub(crate) static RANTING_PLACEHOLDER: &str = r"(?x)
 (?P<sentence>(?:\.\s+)?+)  # sentence always captures: to obtain the placeholder offset.
 \{
     (?P<uc>[,^])?+
-    (?:(?P<pre>
-        [aA]n?|[sS]ome|[tT]h(?:[eo]s)?e|
-        '[rv]e|'d|[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
-        (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?
-    )(?P<s_pre>\s+))?
-    (?P<etc1>\s+(?:[\w-]+\s+)+?)??
-    (?:(?P<plurality>[+-]|\#\??\w+)(?P<s_nr>\s*))?+
-    (?P<case>[`:@~])?+
-    (?:(?P<noun>\??[\w-]+)(?P<s_noun>\s*)?+)
-    (?P<etc2>(?:[\w-]+\s+)*?)??
-    (?:(?P<post>(?:\w+')?+[\w-]+))?
+    (?:
+        (?P<pre>[aA]n?|[sS]ome|[tT]h(?:[eo]s)?e|
+        '[rv]e|[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
+        (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)?+
+        (?P<etc1>(?:\s+[\w-]+)+?)??
+        (?P<sp1>\s+)
+    )?+
+    (?P<plurality>[+-]|(?:\??\#|\#\?)\w+(?P<sp2>\s+))?+
+    (?P<case>[`:@~*?])?+
+    (?P<noun>[\w-]+)
+    (?P<etc2>(?:\s+[\w-]+)+?)??
+    (?P<post>(?:(?:\s+\w+)?'|\s+)[\w-]+)?
     (?P<fmt>:[^}]+)?+
 \}";
 
@@ -28,6 +29,7 @@ pub(crate) fn get_case_from_str(s: &str) -> Option<&'static str> {
         "@" => Some("objective"),
         "`" => Some("possesive"),
         "~" => Some("adjective"),
+        "*" => None,
         x => panic!("Unsupported case {x}"),
     }
 }

@@ -14,7 +14,9 @@
 //!
 //! To pluralize use `+`, for a singular use `-`. If prependeded by `#var` where
 //! `var` is an integer in scope, plurality is adapted to the count, singular if 1,
-//! otherwise plural. A verb or article is inflected along with the specified or default
+//! otherwise plural. `#?var` or `?#var` allows inflection without the number display.
+//!
+//! A verb or article is inflected along with the specified or default
 //! plurality. `These` or `those`, instead of an article, are converted to `this` or `that`
 //! if the pronoun is singular.
 //!
@@ -24,13 +26,12 @@
 //! * `@` - object
 //! * `` ` `` - possesive
 //! * `~` - adjective
+//! * '*' - display the name, and mark that this is the Ranting element in the placeholder.
+//! * '?' - subject in inflection, but neither variable or its leading space are displayed.
 //!
-//! If a var or noun is prefixed with a question mark, e.g. `#?var`, inflection rules apply
-//! accordingly, but the variable and the space following is not displayed.
-//!
-//! If you wonder how this works, for the inflection, a placeholder is split in multiple which
-//! each display the inflection of the respective noun, article or verb. The functions that
-//! are used are listed in the [ranting docs](https://docs.rs/ranting/0.1.0/ranting/).
+//! If you wonder how this works, for the inflection, a placeholder is split in many, where
+//! each display the inflection of the verb, article or noun. The functions that are used
+//! are listed in the [ranting docs](https://docs.rs/ranting/0.1.0/ranting/).
 
 mod english;
 mod ranting_impl;
@@ -294,23 +295,26 @@ fn handle_param(
     given: &Vec<String>,
     pos: &mut Vec<String>,
 ) -> Result<String, SynError> {
-    let mut display_noun = true;
     let mut is_plain_placeholder = true;
     let mut is_pl = String::new();
-    let mut nr = "";
+    let mut nr = String::new();
+    let mut noun_space = caps.name("sp1");
 
     if let Some(plurality) = caps.name("plurality") {
         is_plain_placeholder = false;
-        match plurality.as_str().split_at(1) {
+        match plurality.as_str().trim().split_at(1) {
             ("+", "") => is_pl.push_str("true"),
             ("-", "") => is_pl.push_str("false"),
-            ("#", mut x) => {
-                if let Some(nr) = x.strip_prefix('?') {
+            ("#", x) | ("?", x) => {
+                noun_space = caps.name("sp2");
+                let mut x = x;
+                // "#", "#?" or "?#" are captured in RE but not "??" or "##".
+                if let Some(nr) = x.strip_prefix(&['?', '#']) {
                     x = nr; // nr not assigned!
                 } else {
-                    nr = x;
+                    nr = x.to_string();
                 }
-                if let Ok(u) = x.parse::<usize>() {
+                if let Ok(u) = x.trim_end().parse::<usize>() {
                     x = given
                         .get(u)
                         .ok_or(SynError::new(
@@ -318,6 +322,14 @@ fn handle_param(
                             "#<nr> positional out of bounds",
                         ))?
                         .as_str();
+                    if !nr.is_empty() {
+                        // keep leading whitespace if displayed.
+                        nr = nr
+                            .split_once(|c: char| c.is_ascii_digit())
+                            .map(|s| s.0.to_string())
+                            .unwrap_or_default()
+                            + x;
+                    }
                 }
                 is_pl = format!("{x} != 1");
             }
@@ -332,14 +344,8 @@ fn handle_param(
         format!("'{}': missing noun", caps.get(0).unwrap().as_str()),
     ))?;
 
-    if let Some(n) = noun.strip_prefix('?') {
-        is_plain_placeholder = false;
-        display_noun = false;
-        noun = n;
-    }
-
     // a positional.
-    if let Ok(u) = noun.parse::<usize>() {
+    if let Ok(u) = noun.trim_end().parse::<usize>() {
         noun = given
             .get(u)
             .ok_or(SynError::new(
@@ -397,14 +403,14 @@ fn handle_param(
         res.push_str(&format!("{}", etc1.as_str()));
     }
     if !nr.is_empty() {
+        res.push_str(caps.name("sp1").map(|m| m.as_str()).unwrap_or_default());
         let fmt = caps.name("fmt").map(|s| s.as_str()).unwrap_or_default();
         res.push_str(&format!("{{{}{}}}", pos.len(), fmt));
-        res.push_str(caps.name("s_nr").map(|m| m.as_str()).unwrap_or_default());
         pos.push(format!("{nr}"));
     }
-    if display_noun {
+    if caps.name("case").filter(|s| s.as_str() != "?").is_some() {
+        res.push_str(noun_space.map(|m| m.as_str()).unwrap_or_default());
         res.push_str(&format!("{{{}}}", pos.len()));
-        res.push_str(caps.name("s_noun").map(|m| m.as_str()).unwrap_or_default());
         match caps
             .name("case")
             .and_then(|s| language::get_case_from_str(s.as_str()))
@@ -425,11 +431,14 @@ fn handle_param(
     if let Some(etc2) = caps.name("etc2") {
         res.push_str(&format!("{}", etc2.as_str()));
     }
-    if let Some(post) = caps.name("post") {
-        res.push_str(&format!("{{{}}}", pos.len()));
+    if let Some((space, post)) = caps.name("post").map(|m| {
+        let s = m.as_str();
+        s.split_at(s.find(|c: char| !c.is_whitespace()).unwrap_or(0))
+    }) {
+        res.push_str(&format!("{space}{{{}}}", pos.len()));
         pos.push(format!(
             "ranting::inflect_verb({noun}.subjective(), \"{}\", {is_pl}, {uc})",
-            post.as_str()
+            post
         ));
     }
     Ok(res)
