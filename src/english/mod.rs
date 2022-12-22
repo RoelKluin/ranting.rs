@@ -2,6 +2,7 @@
 //!
 //! Functions used by [Ranting](../ranting_derive/index.html) trait placeholders.
 
+use crate::to_plural;
 use crate::uc_1st;
 
 /// Return the adjective for a subject or panic.
@@ -146,29 +147,32 @@ pub fn possesive(subject: &str, uc: bool) -> &str {
 
 /// Given a subject and a verb, inflect it and to_upper() it as specified.
 pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> String {
-    let trimmed = verb.trim();
+    let mut trimmed = verb.trim();
+    let mut post = "";
+    if let Some(start) = trimmed.strip_suffix("n't") {
+        trimmed = start;
+        post = "n't";
+    }
+
     let res = match inflect_subjective(subject, as_plural, false) {
         "I" => match trimmed {
             "'re" => "'m".to_string(),
-            "are" => "am".to_string(),
-            "were" => "was".to_string(),
-            "aren't" => "am not".to_string(),
-            "weren't" => "wasn't".to_string(),
-            v => v.to_string(),
+            "are" if !post.is_empty() => "ain't".to_string(),
+            "are" if post.is_empty() => "am".to_string(),
+            "were" => "was".to_string() + post,
+            v => v.to_string() + post,
         },
-        "you" | "we" | "they" | "ye" | "thou" => trimmed.to_string(),
+        "you" | "we" | "they" | "ye" | "thou" => trimmed.to_string() + post,
         _ => match trimmed {
             "'re" | "'ve" => "'s".to_string(),
-            "are" => "is".to_string(),
-            "have" => "has".to_string(),
-            "were" => "was".to_string(),
-            "do" => "does".to_string(),
-            "aren't" => "isn't".to_string(),
-            "weren't" => "wasn't".to_string(),
-            "don't" => "doesn't".to_string(),
-            "could" | "would" | "can" | "may" | "might" | "must" | "should" | "shall" | "will"
-            | "had" | "couldn't" | "wouldn't" | "can't" | "mightn't" | "mustn't" | "shouldn't"
-            | "hadn't" => trimmed.to_string(),
+            "are" => "is".to_string() + post,
+            "have" => "has".to_string() + post,
+            "were" => "was".to_string() + post,
+            "do" => "does".to_string() + post,
+            "can" if !post.is_empty() => "can't".to_string(),
+            "can" if post.is_empty() => "can".to_string(),
+            "had" | "could" | "would" | "should" | "might" | "must" => trimmed.to_string() + post,
+            "may" | "shall" | "will" => trimmed.to_string(),
             v => {
                 if v.ends_with(&['s', 'o', 'x']) || v.ends_with("ch") || v.ends_with("sh") {
                     format!("{}es", v)
@@ -187,6 +191,22 @@ pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> Str
         uc_1st(res.as_str())
     } else {
         res
+    }
+}
+
+pub fn inflect_possesive_s(name: &str, is_default_plural: bool, asked_plural: bool) -> &str {
+    if !asked_plural || name.contains(|c: char| c.is_ascii_uppercase()) {
+        "'s"
+    } else if is_default_plural == asked_plural {
+        if name.ends_with('s') {
+            "'"
+        } else {
+            "'s"
+        }
+    } else if to_plural(name).ends_with('s') {
+        "'s"
+    } else {
+        "'"
     }
 }
 

@@ -435,10 +435,18 @@ fn handle_param(
         s.split_at(s.find(|c: char| !c.is_whitespace()).unwrap_or(0))
     }) {
         res.push_str(&format!("{space}{{{}}}", pos.len()));
-        pos.push(format!(
-            "ranting::inflect_verb({noun}.subjective(), \"{}\", {is_pl}, {uc})",
-            post
-        ));
+        match post {
+            "'" | "'s" => {
+                pos.push(format!(
+                    "ranting::inflect_possesive_s({noun}.name(false).as_str(), {noun}.is_plural(), {is_pl})"
+                ));
+            }
+            verb => {
+                pos.push(format!(
+                    "ranting::inflect_verb({noun}.subjective(), \"{verb}\", {is_pl}, {uc})"
+                ));
+            }
+        }
     }
     Ok(res)
 }
