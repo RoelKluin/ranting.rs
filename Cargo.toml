@@ -1,6 +1,6 @@
 [package]
 name = "ranting"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Roel Kluin <Roel.Kluin@gmail.com>"]
 edition = "2021"
 license-file = "LICENSE.txt"
@@ -13,7 +13,7 @@ categories = ["text-processing", "template-engine"]
 documentation = "https://docs.rs/ranting/0.1.0/ranting/"
 
 [dependencies]
-ranting_derive = { version = "=0.1.0", path = "ranting_derive" }
+ranting_derive = { version = "=0.1.1", path = "ranting_derive" }
 in_definite = "0.2"
 Inflector = "0.11.4"
 strum_macros = "0.24"

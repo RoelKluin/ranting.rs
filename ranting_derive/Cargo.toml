@@ -1,6 +1,6 @@
 [package]
 name = "ranting_derive"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Roel Kluin <Roel.Kluin@gmail.com>"]
 description = "A proc-macro library for internal support of ranting"
 license = "GPLv3"
