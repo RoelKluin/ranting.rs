@@ -16,8 +16,9 @@ ranting = "0.1"
 
 ## Details
 
-- A `say!()` macro allows you to produce a String with pronouns or verbs inflected accordingly.
-  The stuct noun has the Ranting trait. 
+- A `say!()` macro produces a String similar to `format!()`, but with placeholder markers a pronouns can
+  be retrieved. A verb alongside, always specified in plural, inflects according to the pronoun or noun
+  requested.
 
 ```rust
 use ranting::*;
@@ -26,90 +27,72 @@ fn name(who: Noun) -> String {
     say!("{:who do} say {`who} name is {who}.")
 }
 
-fn main() {
-    assert_eq!(
-        name(Noun::new("Jane", "I")),
-        "I do say my name is Jane.".to_string()
-    );
-    assert_eq!(
-        name(Noun::new("Tarzan", "he")),
-        "He does say his name is Tarzan.".to_string()
-    );
-}
+# fn main() {
+assert_eq!(
+    name(Noun::new("Jane", "I")),
+    "I do say my name is Jane.".to_string()
+);
+assert_eq!(
+    name(Noun::new("Tarzan", "he")),
+    "He does say his name is Tarzan.".to_string()
+);
+# }
 ```
-- It also can adapt an article, possesive `'s` or inflect verbs before the noun, or display normal variables.
+
+- Here, `Noun` has the `Ranting` trait. You can use `#[derive(Ranting)]` on a struct or enum fo similar
+  behavior.  A struct should also hve a name and a subject String variable. Use I .. they, thou or ye.
+
+- A placeholder to display a Ranting variable has the structure:
+<br>
+  `{[,^]?(article |verb )?([+-]|#var )?[':@~?*]noun( verb):fmt}`
+<br>
+
+- With `,` and `^` lower- and uppercase are enforced, but a placeholder at sentence start is assumed
+  to be uppercase. Also an article or verb with an uppercase enforces using an uppercase.
 
 ```rust
-use ranting::*;
-
+# use ranting::*;
 fn state(who: Noun, liberty: &str) -> String {
     say!("{haven't :who} a {liberty} to say {a who's} land is {~who}?")
 }
 
-fn main() {
-    assert_eq!(
-        state(Noun::new("earl", "he"), "right"),
-        "Hasn't he a right to say an earl's land is his?".to_string()
-    );
-    assert_eq!(
-        state(Noun::new("farmers", "they"), "right"),
-        "Haven't they a right to say some farmers' land is theirs?".to_string()
-    );
-}
+# fn main() {
+assert_eq!(
+    state(Noun::new("earl", "he"), "right"),
+    "Hasn't he a right to say an earl's land is his?".to_string()
+);
+assert_eq!(
+    state(Noun::new("farmers", "they"), "right"),
+    "Haven't they a right to say some farmers' land is theirs?".to_string()
+);
+# }
 ```
 
-- `ack!()` and `nay!()` provide an Ok() / Err() return with similar formatting.
+- An article, possesive `'s` or verbs before the noun are also adapted. Normal variables just follow their
+  Display or Debug traits.
 
+- With the "Inflector" feature, a given Ranting trait can also be inflected to plural or singular.
 
+- To force plurality use `+`, for a singular use `-`. If prependeded by `#var`, plurality of the noun is
+  adapted to the count of variable var. Which is displayed, unless prepended with a '?'. Other words
+  within the placeholder are adapted as well.
 
-Ranting trait objects as arguments to say!() are displayed either as name (by default)
-or as pronoun and/or inflected, dependent on provided markers. Articles and verbs
-within the curly braces are inflected accordingly. Verbs should be specified in the
-plural form.
+- A Noun or pronoun is displayed dependent on its leading character or string marker.
+  * '?' - subject in inflection, but neither variable or its leading space are displayed.
+  * `:` - subject
+  * `@` - object
+  * `` ` `` - possesive
+  * `~` - adjective
+  * '$' - display the name, and mark that this is the Ranting element in the placeholder.
+  * '*' - displays similarly, by default, but with a noun mutating function.
+  * '<word>' - similarly, and passes `Some("word")` rather than `None` to this mutating function.
 
-Any struct with the Ranting trait should have a name and subject variable. The name
-should preferrably just be a noun. The subject variable determines the default case,
-use I .. they, thou or ye.
+- If a Noun or plurality is hidden with a leading question mark, its inflection still applies.
 
-Beside ranting trait variables, also variables can be included as normal, that have a
-Display or Debug trait. Then just Normal formatting specifiers apply, but for ranting
-trait arguments normal formatting specifiers apply to specific parts of the content.
+- The article can be one of `a`, `an`, `some` `the` `those` or `these`. These and those are converted to
+  this and that if the pronoun is singular.
 
-A placeholder to display a Ranting variable has the structure:
-
-`{[,^]?(article |verb )?([+-]|#var )?[':@~?*]noun( verb):fmt}`
-
-With `,` and `^` lower- and uppercase are enforced, but a sentence start is assumed
-to be uppercase - the start of a string or after `. ` - also an article or verb with
-an uppercase enforces uppercase.
-
-To force plurality use `+`, for a singular use `-`. If prependeded by a `#var` where
-`var` is an integer in scope, plurality is adapted to the count, singular if 1,
-otherwise plural. A verb or article is inflected along with the specified or default
-plurality.
-
-By default the name of a variable is displayed, but a pronoun with formatting markes:
-subject with `:`, or `@` for object, `` ` ``: possesive, `~`: adjective. If a verb is
-included in the placeholder, the noun is assumed to be subject.
-
-Both a var and the noun can be prepended with a question mark, such as `#?var`,
-to indicates that inflection rules occur accordingly, but the var or noun is not
-displayed. The inflection may apply to the article and / or verb alongside.
-
-The article can be one of `a`, `an`, `some` `the` `those` or `these`. If capitalized
-this is retained. These and those are converted to this and that if the pronoun is
-singular.
+- `ack!()` and `nay!()` provide an Ok() / Err() return with a `say!()` formatted string included. Intended
+  for allow / deny responses, rather than error handling.
 
 Positional argument and numeric references are supported, but not named arguments.
-
-ack!() and nay!() are convenience wrappers respectively for 
-
-```rust
-return Ok(say!())
-// and
-return Err(say!())
-```
-
-ack!() and nay!() are not intended for normal error handling; placeholders obfuscate
-where an error originates from, rendering a simple string search less effective.
-Instead use these as a allow / deny response where multiple actors could be involved.

@@ -21,7 +21,7 @@
 //! let lmb = X::new("lamb", "it");
 //! let fl = X::new("fleece", "it");
 //!
-//! assert_eq!(say!("{mry had} {some little *lmb}. {`lmb} {fl were} white as snow."),
+//! assert_eq!(say!("{mry had} {some little $lmb}. {`lmb} {fl were} white as snow."),
 //!     "Mary had a little lamb. Its fleece was white as snow.".to_string());
 //! # }
 //! ```
@@ -67,7 +67,8 @@ pub trait Ranting: std::fmt::Display {
     fn subjective(&self) -> &str;
     fn is_plural(&self) -> bool;
     fn name(&self, uc: bool) -> String;
-    fn a_or_an(&self, uc: bool) -> &str;
+    fn mut_name(&mut self, _opt_word: Option<&str>) -> String;
+    fn indefinite_article(&self, uc: bool) -> &str;
     fn requires_article(&self) -> bool;
 }
 
@@ -142,10 +143,13 @@ impl Ranting for Noun {
             p => panic!("Unimplemented: subject for '{}'", p),
         }
     }
+    fn mut_name(&mut self, _opt_word: Option<&str>) -> String {
+        self.name(false)
+    }
     fn requires_article(&self) -> bool {
         true
     }
-    fn a_or_an(&self, uc: bool) -> &str {
+    fn indefinite_article(&self, uc: bool) -> &str {
         if self.is_plural() {
             return if uc { "Some" } else { "some" };
         }

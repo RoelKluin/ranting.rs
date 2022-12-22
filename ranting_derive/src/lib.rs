@@ -318,8 +318,8 @@ fn handle_param(
                     x = given
                         .get(u)
                         .ok_or(SynError::new(
-                            Span::call_site().into(),
-                            "#<nr> positional out of bounds",
+                            Span::mixed_site().into(),
+                            format!("A #var, positional {u}, is out of bounds"),
                         ))?
                         .as_str();
                     if !nr.is_empty() {
@@ -341,7 +341,7 @@ fn handle_param(
     //  placeholder if withou all other SayPlaceholder elements.
     let mut noun = caps.name("noun").map(|s| s.as_str()).ok_or(SynError::new(
         Span::mixed_site().into(),
-        format!("'{}': missing noun", caps.get(0).unwrap().as_str()),
+        "The Noun is missing in a placeholder.",
     ))?;
     let fmt = caps.name("fmt").map(|s| s.as_str()).unwrap_or_default();
 
@@ -350,8 +350,8 @@ fn handle_param(
         noun = given
             .get(u)
             .ok_or(SynError::new(
-                Span::call_site().into(),
-                "<noun> positional out of bounds",
+                Span::mixed_site().into(),
+                format!("A Noun, positional {u}, is out of bounds"),
             ))?
             .as_str();
     }
@@ -386,7 +386,7 @@ fn handle_param(
         res.push_str(&format!("{{{}}}", pos.len()));
         if language::is_article_or_so(p.as_str()) {
             pos.push(format!(
-                "ranting::inflect_article({noun}.a_or_an(false), \"{p}\", {is_pl}, {uc})"
+                "ranting::inflect_article({noun}.indefinite_article(false), \"{p}\", {is_pl}, {uc})"
             ));
         } else {
             assert!(caps.name("post").is_none(), "verb before and after?");
@@ -405,7 +405,6 @@ fn handle_param(
     }
     if !nr.is_empty() {
         res.push_str(caps.name("sp1").map(|m| m.as_str()).unwrap_or_default());
-        let fmt = caps.name("fmt").map(|s| s.as_str()).unwrap_or_default();
         res.push_str(&format!("{{{}{}}}", pos.len(), fmt));
         pos.push(format!("{nr}"));
     }
@@ -414,10 +413,21 @@ fn handle_param(
     if opt_case != Some("?") {
         res.push_str(noun_space.map(|m| m.as_str()).unwrap_or_default());
         match opt_case.and_then(|s| language::get_case_from_str(s)) {
-            Some(case) => {
+            Some(case) if case.ends_with("ive") => {
                 res.push_str(&format!("{{{}}}", pos.len()));
                 pos.push(format!(
                     "ranting::inflect_{case}({noun}.subjective(), {is_pl}, {uc})"
+                ))
+            }
+            Some(word_angular) => {
+                let word = match word_angular.is_empty() {
+                    true => None,
+                    false => Some(word_angular.trim_end_matches('>')),
+                };
+                res.push_str(&format!("{{{}}}", pos.len()));
+                pos.push(format!(
+                    // {noun}.name would break working for Ranting trait generics
+                    "ranting::inflect_noun({noun}.mut_name({word:?}).as_str(), {noun}.is_plural(), {is_pl}, {uc})"
                 ))
             }
             None if is_plain_placeholder

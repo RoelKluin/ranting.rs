@@ -4,7 +4,7 @@
 // useful: https://regex101.com/r/Ly7O1x/3/
 /// The components captured in a Ranting trait placeholder are defined here.
 pub(crate) static RANTING_PLACEHOLDER: &str = r"(?x)
-(?P<sentence>(?:\.\s+)?+)  # sentence always captures: to obtain the placeholder offset.
+(?P<sentence>(?:[.?!]\s+)?+)  # sentence always captures: to obtain the placeholder offset.
 \{
     (?P<uc>[,^])?+
     (?:
@@ -15,7 +15,7 @@ pub(crate) static RANTING_PLACEHOLDER: &str = r"(?x)
         (?P<sp1>\s+)
     )?+
     (?P<plurality>[+-]|(?:\??\#|\#\?)\w+(?P<sp2>\s+))?+
-    (?P<case>[`:@~*?])?+
+    (?P<case>(?:[`:@~*?$]|<[^>]*>))?+
     (?P<noun>[\w-]+)
     (?P<etc2>(?:\s+[\w-]+)+?)??
     (?P<post>(?:\s+\w+)?'\w*|\s+[\w-]+)?
@@ -23,14 +23,14 @@ pub(crate) static RANTING_PLACEHOLDER: &str = r"(?x)
 \}";
 
 /// Return the case for a character.
-pub(crate) fn get_case_from_str(s: &str) -> Option<&'static str> {
+pub(crate) fn get_case_from_str(s: &str) -> Option<String> {
     match s {
-        ":" => Some("subjective"),
-        "@" => Some("objective"),
-        "`" => Some("possesive"),
-        "~" => Some("adjective"),
-        "*" => None,
-        x => panic!("Unsupported case {x}"),
+        ":" => Some("subjective".to_string()),
+        "@" => Some("objective".to_string()),
+        "`" => Some("possesive".to_string()),
+        "~" => Some("adjective".to_string()),
+        "$" => None,
+        _ => Some(s.trim_start_matches(&['<', '*']).to_string()),
     }
 }
 
