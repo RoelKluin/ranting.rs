@@ -18,7 +18,7 @@ pub(crate) static RANTING_PLACEHOLDER: &str = r"(?x)
     (?P<case>[`:@~*?])?+
     (?P<noun>[\w-]+)
     (?P<etc2>(?:\s+[\w-]+)+?)??
-    (?P<post>(?:(?:\s+\w+)?'|\s+)[\w-]+)?
+    (?P<post>(?:\s+\w+)?'\w*|\s+[\w-]+)?
     (?P<fmt>:[^}]+)?+
 \}";
 

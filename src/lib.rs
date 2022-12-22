@@ -3,8 +3,7 @@
 //! Functions are used by [Ranting](https://docs.rs/ranting_derive/0.1.0/ranting_derive/) trait placeholders.
 //!
 //! ```
-//! use ranting::Ranting;
-//! use ranting_derive::*;
+//! use ranting::*;
 //!
 //! #[derive_ranting]
 //! struct X {}
@@ -34,6 +33,8 @@
 mod english;
 use english as language;
 
+pub use ranting_derive::*;
+
 pub use in_definite;
 
 // TODO: make this a feature.
@@ -46,6 +47,7 @@ pub use inflector::string::singularize::to_singular;
 pub use strum_macros;
 
 pub use language::inflect_article;
+pub use language::inflect_possesive_s;
 pub use language::inflect_subjective;
 pub use language::inflect_verb;
 pub use language::is_subjective_plural;
@@ -107,4 +109,55 @@ pub fn uc_1st(s: &str) -> String {
         .map(|f| f.to_uppercase().collect::<String>())
         .unwrap_or_default()
         + c.as_str()
+}
+
+pub struct Noun {
+    name: String,
+    subject: String,
+}
+impl Noun {
+    pub fn new(name: &str, subject: &str) -> Self {
+        Noun {
+            name: name.to_string(),
+            subject: subject.to_string(),
+        }
+    }
+}
+
+impl Ranting for Noun {
+    fn subjective(&self) -> &str {
+        self.subject.as_str()
+    }
+    fn is_plural(&self) -> bool {
+        is_subjective_plural(self.subjective()).unwrap_or(false)
+    }
+    fn name(&self, uc: bool) -> String {
+        let subject = self.subjective();
+        match subject {
+            "he" | "she" | "it" | "they" => inflect_noun(self.name.as_str(), true, true, uc),
+            "I" => format!("I, {},", self.name),
+            "you" | "we" => {
+                format!("{}, {},", subjective(subject, uc), self.name)
+            }
+            p => panic!("Unimplemented: subject for '{}'", p),
+        }
+    }
+    fn requires_article(&self) -> bool {
+        true
+    }
+    fn a_or_an(&self, uc: bool) -> &str {
+        if self.is_plural() {
+            return if uc { "Some" } else { "some" };
+        }
+        match in_definite::get_a_or_an(self.name.as_str()) {
+            "a" if uc => "A",
+            "an" if uc => "An",
+            lc => lc,
+        }
+    }
+}
+impl std::fmt::Display for Noun {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "{}", self.name)
+    }
 }

@@ -16,111 +16,58 @@ ranting = "0.1"
 
 ## Details
 
-- use `say!()` for printing strings.
-
-  Within the string litteral, include articles or verbs within a placeholder.
-```rust
-use ranting::Ranting;
-use ranting_derive::*;
-
-#[derive(Ranting)]
-struct Named {
-    name: String,
-    subject: String,
-}
-impl Named {
-    fn new(name: &str, subject: &str) -> Self {
-        Named {
-            name: name.to_string(),
-            subject: subject.to_string()
-        }
-    }
-    fn subjective(&self) -> &str {
-        self.subject.as_str()
-    }
-}
-```
-The struct should contain at least a name String. The trait provides the following
-functions of which you may want to override the subjective function:
+- A `say!()` macro allows you to produce a String with pronouns or verbs inflected accordingly.
+  The stuct noun has the Ranting trait. 
 
 ```rust
-pub trait Ranting: std::fmt::Display {
-    fn subjective(&self) -> &str;
-    fn name(&self) -> &str;
-    fn is_plural(&self) -> bool;
-    fn a_or_an(&self, uc: bool) -> &str;
-}
-```
-Then these can be referenced in the say!() nay!() and ack!() macros.
+use ranting::*;
 
-The say!() macro produces a String, a bit similar to format!(), but with extended
-formatting options for arguments with Ranting traits.
-
-```rust
-fn say_want_to_send(sender: &dyn Ranting, receiver: &dyn Ranting, message: &dyn Ranting) -> String {
-    say!("{0 want} to send {some message}, {'0} secret {message}, to {receiver}.", sender)
-}
-
-fn say_we_know_message(sender: &dyn Ranting, receiver: &dyn Ranting, message: &dyn Ranting) -> String {
-    say!("Now {:receiver know} of {these message} that {:message are} really {~sender}.")
+fn name(who: Noun) -> String {
+    say!("{:who do} say {`who} name is {who}.")
 }
 
 fn main() {
-    let alice = Named::new("Alice","she");
-    let bob = Named::new("Bob", "he");
-    let packages = Named::new("packages", "they");
-
-    // with Alice as sender: packages
     assert_eq!(
-        say_want_to_send(&alice, &bob, &packages),
-        "Alice wants to send some packages, her secret packages, to Bob.".to_string()
+        name(Noun::new("Jane", "I")),
+        "I do say my name is Jane.".to_string()
     );
     assert_eq!(
-        say_we_know_message(&alice, &bob, &packages),
-        "Now he knows of these packages that they are really hers.".to_string()
-    );
-
-    let email = Named::new("email", "it");
-
-    // With Bob as sender: email
-    assert_eq!(
-        say_want_to_send(&bob, &alice, &email),
-        "Bob wants to send an email, his secret email, to Alice.".to_string()
-    );
-    assert_eq!(
-        say_we_know_message(&bob, &alice, &email),
-        "Now she knows of this email that it is really his.".to_string()
-    );
-
-    // With Email as sender: packages to Alice, even kind of works:
-    assert_eq!(
-        say_want_to_send(&email, &alice, &packages),
-        "Email wants to send some packages, its secret packages, to Alice.".to_string()
-    );
-    assert_eq!(
-        say_we_know_message(&email, &alice, &packages),
-        "Now she knows of these packages that they are really its.".to_string()
-    );
-
-    // With Packages as sender: email to Bob:
-    assert_eq!(
-        say_want_to_send(&packages, &bob, &email),
-        "Packages want to send an email, their secret email, to Bob.".to_string()
-    );
-    assert_eq!(
-        say_we_know_message(&packages, &bob, &email),
-        "Now he knows of this email that it is really theirs.".to_string()
+        name(Noun::new("Tarzan", "he")),
+        "He does say his name is Tarzan.".to_string()
     );
 }
 ```
-Or see a more elaborate [example](tests/ranting/male_female_and_object.rs).
+- It also can adapt an article, possesive `'s` or inflect verbs before the noun, or display normal variables.
+
+```
+use ranting::*;
+
+fn state(who: Noun, liberty: &str) -> String {
+    say!("{haven't :who} a {liberty} to say {a who's} land is {~who}?")
+}
+
+fn main() {
+    assert_eq!(
+        state(Noun::new("earl", "he"), "right"),
+        "Hasn't he a right to say an earl's land is his?".to_string()
+    );
+    assert_eq!(
+        state(Noun::new("farmers", "they"), "right"),
+        "Haven't they a right to say some farmers' land is theirs?".to_string()
+    );
+}
+```
+
+- `ack!()` and `nay!()` allow provide an `Ok()` / `Err()` return with similar formatting.
+
+
 
 Ranting trait objects as arguments to say!() are displayed either as name (by default)
-or as pronoun and/or inflected, dependent on provided markers. Alongside the ranting
-variable, articles and verbs can be included in the curly braces, that are inflected
-accordingly. The verb should be specified in the plural form.
+or as pronoun and/or inflected, dependent on provided markers. Articles and verbs
+within the curly braces are inflected accordingly. Verbs should be specified in the
+plural form.
 
-Any struct with the Ranting trait should contain a name and subject variable. The name
+Any struct with the Ranting trait should have a name and subject variable. The name
 should preferrably just be a noun. The subject variable determines the default case,
 use `I`, `you`, `he`, `she`, `it`, `we`, `they`, `thou` or `ye`.
 
@@ -130,7 +77,7 @@ trait arguments normal formatting specifiers apply to specific parts of the cont
 
 A placeholder to display a Ranting variable has this structure:
 
-`{[,^]?(<article> |<verb> )?([+-]|#<var> )?[':@~]?<noun>( <verb>):<fmt>}`
+`{[,^]?(article |verb )?([+-]|#var )?[':@~?*]noun( verb):fmt}`
 
 With `,` and `^` lower- and uppercase are enforced, but a sentence start is assumed
 to be uppercase - the start of a string or after `. ` - also an article or verb with
@@ -164,6 +111,6 @@ return Ok(say!())
 return Err(say!())
 ```
 
-ack!() and nay!() are not intended for normalerror handling; placeholders obfuscate
+ack!() and nay!() are not intended for normal error handling; placeholders obfuscate
 where an error originates from, rendering a simple string search less effective.
 Instead use these as a allow / deny response where multiple actors could be involved.
