@@ -39,7 +39,7 @@ fn main() {
 ```
 - It also can adapt an article, possesive `'s` or inflect verbs before the noun, or display normal variables.
 
-```
+```rust
 use ranting::*;
 
 fn state(who: Noun, liberty: &str) -> String {
@@ -58,7 +58,7 @@ fn main() {
 }
 ```
 
-- `ack!()` and `nay!()` allow provide an `Ok()` / `Err()` return with similar formatting.
+- `ack!()` and `nay!()` provide an Ok() / Err() return with similar formatting.
 
 
 
@@ -69,13 +69,13 @@ plural form.
 
 Any struct with the Ranting trait should have a name and subject variable. The name
 should preferrably just be a noun. The subject variable determines the default case,
-use `I`, `you`, `he`, `she`, `it`, `we`, `they`, `thou` or `ye`.
+use I .. they, thou or ye.
 
 Beside ranting trait variables, also variables can be included as normal, that have a
 Display or Debug trait. Then just Normal formatting specifiers apply, but for ranting
 trait arguments normal formatting specifiers apply to specific parts of the content.
 
-A placeholder to display a Ranting variable has this structure:
+A placeholder to display a Ranting variable has the structure:
 
 `{[,^]?(article |verb )?([+-]|#var )?[':@~?*]noun( verb):fmt}`
 
@@ -83,8 +83,8 @@ With `,` and `^` lower- and uppercase are enforced, but a sentence start is assu
 to be uppercase - the start of a string or after `. ` - also an article or verb with
 an uppercase enforces uppercase.
 
-To force plurality use `+`, for a singular use `-`. If prependeded by a `#<var>` where
-`<var>` is an integer in scope, plurality is adapted to the count, singular if 1,
+To force plurality use `+`, for a singular use `-`. If prependeded by a `#var` where
+`var` is an integer in scope, plurality is adapted to the count, singular if 1,
 otherwise plural. A verb or article is inflected along with the specified or default
 plurality.
 
@@ -92,16 +92,15 @@ By default the name of a variable is displayed, but a pronoun with formatting ma
 subject with `:`, or `@` for object, `` ` ``: possesive, `~`: adjective. If a verb is
 included in the placeholder, the noun is assumed to be subject.
 
-Both a var and the noun can be prepended with a question mark, such as `#?<var>`,
+Both a var and the noun can be prepended with a question mark, such as `#?var`,
 to indicates that inflection rules occur accordingly, but the var or noun is not
 displayed. The inflection may apply to the article and / or verb alongside.
 
 The article can be one of `a`, `an`, `some` `the` `those` or `these`. If capitalized
-this is retained. `These` and `those` are converted to `this` and `that` if the
-pronoun is singular.
+this is retained. These and those are converted to this and that if the pronoun is
+singular.
 
-Positional argument and numeric references are supported, but not named arguments,
-currently.
+Positional argument and numeric references are supported, but not named arguments.
 
 ack!() and nay!() are convenience wrappers respectively for 
 
