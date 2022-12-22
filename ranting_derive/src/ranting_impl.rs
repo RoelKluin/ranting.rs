@@ -58,10 +58,13 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
                     p => panic!("Unimplemented: subject for '{}'", p),
                 }
             }
+            fn mut_name(&mut self, _opt_word: Option<&str>) -> String {
+                self.name(false)
+            }
             fn requires_article(&self) -> bool {
                 true
             }
-            fn a_or_an(&self, uc: bool) -> &str {
+            fn indefinite_article(&self, uc: bool) -> &str {
                 if self.is_plural() {
                     return if uc { "Some" } else { "some" };
                 }
