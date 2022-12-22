@@ -169,9 +169,9 @@ pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> Str
             "have" => "has".to_string() + post,
             "were" => "was".to_string() + post,
             "do" => "does".to_string() + post,
-            "can" if !post.is_empty() => "can't".to_string(),
-            "can" if post.is_empty() => "can".to_string(),
-            "had" | "could" | "would" | "should" | "might" | "must" => trimmed.to_string() + post,
+            "can" | "ca" | "had" | "could" | "would" | "should" | "might" | "must" => {
+                trimmed.to_string() + post
+            }
             "may" | "shall" | "will" => trimmed.to_string(),
             v => {
                 if v.ends_with(&['s', 'o', 'x']) || v.ends_with("ch") || v.ends_with("sh") {
