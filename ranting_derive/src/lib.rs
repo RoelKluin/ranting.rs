@@ -343,6 +343,7 @@ fn handle_param(
         Span::mixed_site().into(),
         format!("'{}': missing noun", caps.get(0).unwrap().as_str()),
     ))?;
+    let fmt = caps.name("fmt").map(|s| s.as_str()).unwrap_or_default();
 
     // a positional.
     if let Ok(u) = noun.parse::<usize>() {
@@ -412,18 +413,27 @@ fn handle_param(
     let opt_case = caps.name("case").map(|m| m.as_str());
     if opt_case != Some("?") {
         res.push_str(noun_space.map(|m| m.as_str()).unwrap_or_default());
-        res.push_str(&format!("{{{}}}", pos.len()));
         match opt_case.and_then(|s| language::get_case_from_str(s)) {
-            Some(case) => pos.push(format!(
-                "ranting::inflect_{case}({noun}.subjective(), {is_pl}, {uc})"
-            )),
-            None if is_plain_placeholder && caps.name("etc2").is_none() && caps.name("post").is_none() => {
+            Some(case) => {
+                res.push_str(&format!("{{{}}}", pos.len()));
+                pos.push(format!(
+                    "ranting::inflect_{case}({noun}.subjective(), {is_pl}, {uc})"
+                ))
+            }
+            None if is_plain_placeholder
+                && caps.name("etc2").is_none()
+                && caps.name("post").is_none() =>
+            {
+                res.push_str(&format!("{{{}{fmt}}}", pos.len()));
                 pos.push(format!("{noun}")); // for non-Ranting variables
             }
-            None => pos.push(format!(
-                // {noun}.name would break working for Ranting trait generics
-                "ranting::inflect_noun({noun}.name(false).as_str(), {noun}.is_plural(), {is_pl}, {uc})"
-            )),
+            None => {
+                res.push_str(&format!("{{{}}}", pos.len()));
+                pos.push(format!(
+                    // {noun}.name would break working for Ranting trait generics
+                    "ranting::inflect_noun({noun}.name(false).as_str(), {noun}.is_plural(), {is_pl}, {uc})"
+                ))
+            }
         }
         uc = false;
     }
