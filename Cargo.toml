@@ -15,5 +15,14 @@ documentation = "https://docs.rs/ranting/0.1.0/ranting/"
 [dependencies]
 ranting_derive = { version = "=0.1.1", path = "ranting_derive" }
 in_definite = "0.2"
-Inflector = "0.11.4"
+Inflector = { version = "0.11.4", optional = true }
 strum_macros = "0.24"
+document-features = "0.2"
+
+### FEATURES #################################################################
+
+[features]
+default = []
+
+## allows inflection of the `Ranting` name as specified by placeholder markers `+`, `-` or `#var`.
+inflector = ["Inflector"]

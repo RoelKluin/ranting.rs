@@ -47,30 +47,6 @@ use regex::{Captures, Regex};
 use syn::parse::Parser;
 use syn::{self, parse, parse_macro_input, DeriveInput, Error as SynError, Expr, ExprPath};
 
-/// A wrapper for `return Ok(say!())`
-///
-/// # Examples
-///
-/// ```
-/// #[derive(new)]
-/// #[derive_ranting]
-/// struct Named {}
-///
-/// fn question(harr: named, friends: Named, lad: Named) -> Result<String, String> {
-///     ack!("{harr shall} {+:friends do} with {the drunken lad}?");
-/// }
-///
-/// # fn main() {
-/// let harr = Named::new("what", "it");
-/// let friends = Named::new("crew", "we");
-/// let lad = Named::new("sailor", "he");
-///
-/// assert_eq!(
-///     question(harr, friends, lad),
-///     Ok("What shall we do with the drunken sailor?".to_string())
-/// );
-/// # }
-/// ```
 #[proc_macro]
 pub fn ack(input: TokenStream) -> TokenStream {
     match do_say(input) {
@@ -79,28 +55,6 @@ pub fn ack(input: TokenStream) -> TokenStream {
     }
 }
 
-/// A wrapper for `return Err(say!())`
-///
-/// # Examples
-///
-/// ```
-/// #[derive(new)]
-/// #[derive_ranting]
-/// struct N {}
-///
-/// fn home(lad: Named) -> Result<String, String> {
-///     // the verb part must be plural
-///     say!("{:p go} to {`p} house, all {~p}.")
-/// }
-///
-/// # fn main() {
-/// assert_eq!(home(N::new("Jo", "she"), "She goes to her house, all hers.".to_string());
-/// assert_eq!(home(N::new("Mo", "he"), "He goes to his house, all his.".to_string());
-/// assert_eq!(home(N::new("Io", "I"), "I go to my house, all mine.".to_string());
-/// assert_eq!(home(N::new("Bro", "we"), "We go to our house, all ours.".to_string());
-/// assert_eq!(home(N::new("NGO", "they"), "They go to their house, all theirs.".to_string());
-/// # }
-/// ```
 #[proc_macro]
 pub fn nay(input: TokenStream) -> TokenStream {
     match do_say(input) {
@@ -109,30 +63,6 @@ pub fn nay(input: TokenStream) -> TokenStream {
     }
 }
 
-/// Like `format!()` but with inflection within placeholders for Ranting elements. Other elements
-/// adhere to their Display or Debug traits.
-///
-/// # Examples
-///
-/// ```
-/// #[derive(new)]
-/// #[derive_ranting]
-/// struct Named {}
-///
-/// fn sing(lad: Named) -> Result<String, String> {
-///     // the verb part must be plural
-///     nay!("Keel haul {@lad} till {:lad're} sober.");
-/// }
-///
-/// # fn main() {
-/// let lad = Named::new("sailor", "he");
-///
-/// assert_eq!(
-///     sing(lad),
-///     Err(" Keel haul him till he's sober.".to_string())
-/// );
-/// # }
-/// ```
 #[proc_macro]
 pub fn say(input: TokenStream) -> TokenStream {
     match do_say(input) {
@@ -386,7 +316,7 @@ fn handle_param(
         res.push_str(&format!("{{{}}}", pos.len()));
         if language::is_article_or_so(p.as_str()) {
             pos.push(format!(
-                "ranting::inflect_article({noun}.indefinite_article(false), \"{p}\", {is_pl}, {uc})"
+                "ranting::adapt_article({noun}.indefinite_article(false), \"{p}\", {is_pl}, {uc})"
             ));
         } else {
             assert!(caps.name("post").is_none(), "verb before and after?");
@@ -458,7 +388,7 @@ fn handle_param(
         match post {
             "'" | "'s" => {
                 pos.push(format!(
-                    "ranting::inflect_possesive_s({noun}.name(false).as_str(), {noun}.is_plural(), {is_pl})"
+                    "ranting::adapt_possesive_s({noun}.name(false).as_str(), {noun}.is_plural(), {is_pl})"
                 ));
             }
             verb => {
