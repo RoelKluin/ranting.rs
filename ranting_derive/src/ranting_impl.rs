@@ -18,10 +18,10 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
     let is_plural = opt.is_plural.unwrap_or(false);
     let get_name_q = if opt.is_enum {
         quote! {
-            self.to_string().to_lowercase().to_string()
+            self.to_string().to_lowercase()
         }
     } else {
-        quote! { self.name.to_string() }
+        quote! { self.name }
     };
     let dismplay_impl = if opt.is_enum {
         quote! {
@@ -45,18 +45,8 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
                 ranting::is_subjective_plural(self.subjective()).unwrap_or(#is_plural)
             }
             fn name(&self, uc: bool) -> String {
-                let subject = self.subjective();
-                let name = #get_name_q;
-                match subject {
-                    "he" | "she" | "it" | "they" => {
-                        ranting::inflect_noun(name.as_str(), true, true, uc)
-                    },
-                    "I" => format!("I, {},", name),
-                    "you" | "we" => {
-                        format!("{}, {},", ranting::subjective(subject, uc), name)
-                    },
-                    p => panic!("Unimplemented: subject for '{}'", p),
-                }
+                let name = #get_name_q.to_string();
+                ranting::uc_1st_if(name.as_str(), uc)
             }
             fn mut_name(&mut self, _opt_word: Option<&str>) -> String {
                 self.name(false)

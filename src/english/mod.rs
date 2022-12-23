@@ -2,11 +2,43 @@
 //!
 //! Functions used by [Ranting](../ranting_derive/index.html) trait placeholders.
 
-use crate::to_plural;
-use crate::uc_1st;
+// TODO: make this a feature.
+use crate::uc_1st_if;
+
+#[cfg(feature = "inflector")]
+use inflector::string::{pluralize::to_plural, singularize::to_singular};
+
+pub fn adapt_possesive_s(name: &str, is_default_plural: bool, asked_plural: bool) -> &str {
+    if !asked_plural
+        || name.contains(|c: char| c.is_ascii_uppercase())
+        || (if is_default_plural == asked_plural {
+            !name.ends_with('s')
+        } else {
+            !inflect_name(name, true).ends_with('s')
+        })
+    {
+        "'s"
+    } else {
+        "'"
+    }
+}
+
+/// Given an article, the default, a requested one, inflect and to_upper() it as specified.
+pub fn adapt_article(default: &str, requested: &str, as_plural: bool, uc: bool) -> String {
+    match (as_plural, requested) {
+        (_, "the") => format!("{}he", if uc { 'T' } else { 't' }),
+        (false, "some") | (false, "a") | (false, "an") => uc_1st_if(default, uc),
+        (false, "these") => format!("{}his", if uc { 'T' } else { 't' }),
+        (false, "those") => format!("{}hat", if uc { 'T' } else { 't' }),
+        (true, "some") | (_, "a") | (_, "an") => format!("{}ome", if uc { 'S' } else { 's' }),
+        (true, "those") => format!("{}hose", if uc { 'T' } else { 't' }),
+        (true, "these") => format!("{}hese", if uc { 'T' } else { 't' }),
+        _ => panic!("Unimplemented article {requested}"),
+    }
+}
 
 /// Return the adjective for a subject or panic.
-pub fn adjective(subject: &str, uc: bool) -> &str {
+pub(crate) fn adjective(subject: &str, uc: bool) -> &str {
     match subject {
         "I" if uc => "Mine",
         "you" if uc => "Yours",
@@ -60,7 +92,32 @@ pub fn subjective(subjective: &str, uc: bool) -> &str {
     }
 }
 
-/// Inflect subjective to singular / pluralize according to nr
+/// Inflect a subject pronoun to singular or plural and uppercase first character as indicated
+///
+/// # Example
+///
+/// ```rust
+/// # use ranting::{Noun, say, Ranting};
+/// fn get_subject(word: Noun) -> String {
+///     say!("{:word are} - for {word}.")
+/// }
+///
+/// # fn main() {
+///
+/// assert_eq!(["I", "you", "she", "he", "it", "we", "they"]
+///     .iter()
+///     .map(|s| get_subject(Noun::new(format!("subject {s}").as_str(), s)))
+///     .collect::<String>(),
+///     "I am - for subject I.\
+///     You are - for subject you.\
+///     She is - for subject she.\
+///     He is - for subject he.\
+///     It is - for subject it.\
+///     We are - for subject we.\
+///     They are - for subject they."
+///     .to_string());
+/// # }
+/// ```
 pub fn inflect_subjective(subject: &str, as_plural: bool, uc: bool) -> &str {
     if as_plural == is_subjective_plural(subject).unwrap_or(false) {
         subjective(subject, uc)
@@ -99,7 +156,7 @@ pub fn inflect_subjective(subject: &str, as_plural: bool, uc: bool) -> &str {
 }
 
 /// Return the objective for a subjective. Can panic. see inflect_subjective().
-pub fn objective(subject: &str, uc: bool) -> &str {
+pub(crate) fn objective(subject: &str, uc: bool) -> &str {
     match subject {
         "I" if uc => "Me",
         "you" if uc => "You",
@@ -122,7 +179,7 @@ pub fn objective(subject: &str, uc: bool) -> &str {
 }
 
 /// Return the objective for a subjective. Can panic. see inflect_subjective().
-pub fn possesive(subject: &str, uc: bool) -> &str {
+pub(crate) fn possesive(subject: &str, uc: bool) -> &str {
     match subject {
         "I" if uc => "My",
         "you" if uc => "Your",
@@ -147,32 +204,34 @@ pub fn possesive(subject: &str, uc: bool) -> &str {
 
 /// Given a subject and a verb, inflect it and to_upper() it as specified.
 pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> String {
-    let mut trimmed = verb.trim();
-    let mut post = "";
-    if let Some(start) = trimmed.strip_suffix("n't") {
-        trimmed = start;
-        post = "n't";
-    }
+    let verb = verb.trim();
 
-    let res = match inflect_subjective(subject, as_plural, false) {
-        "I" => match trimmed {
-            "'re" => "'m".to_string(),
-            "are" if !post.is_empty() => "ain't".to_string(),
-            "are" if post.is_empty() => "am".to_string(),
-            "were" => "was".to_string() + post,
-            v => v.to_string() + post,
+    let (part, post) = verb
+        .strip_suffix("n't")
+        .map_or((verb, ""), |start| (start, "n't"));
+
+    match inflect_subjective(subject, as_plural, false) {
+        "I" => match part {
+            "'re" => format!("'{}", if uc { 'M' } else { 'm' }),
+            "are" => match post {
+                "n't" => format!("{}in't", if uc { 'A' } else { 'a' }),
+                _ => format!("{}m", if uc { 'A' } else { 'a' }),
+            },
+            "were" => format!("{}as{post}", if uc { 'W' } else { 'w' }),
+            _ => uc_1st_if(verb, uc),
         },
-        "you" | "we" | "they" | "ye" | "thou" => trimmed.to_string() + post,
-        _ => match trimmed {
-            "'re" | "'ve" => "'s".to_string(),
-            "are" => "is".to_string() + post,
-            "have" => "has".to_string() + post,
-            "were" => "was".to_string() + post,
-            "do" => "does".to_string() + post,
-            "can" | "ca" | "had" | "could" | "would" | "should" | "might" | "must" => {
-                trimmed.to_string() + post
-            }
-            "may" | "shall" | "will" => trimmed.to_string(),
+        "you" | "we" | "they" | "ye" | "thou" => match part {
+            "'re" => format!("'{}e", if uc { 'R' } else { 'r' }),
+            _ => uc_1st_if(verb, uc),
+        },
+        _ => match part {
+            "'re" | "'ve" => format!("'{}", if uc { 'S' } else { 's' }),
+            "are" => format!("{}s{post}", if uc { 'I' } else { 'i' }),
+            "have" => format!("{}as{post}", if uc { 'H' } else { 'h' }),
+            "were" => format!("{}as{post}", if uc { 'W' } else { 'w' }),
+            "do" => format!("{}oes{post}", if uc { 'D' } else { 'd' }),
+            "ca" | "had" | "could" | "would" | "should" | "might" | "must" | "can" | "may"
+            | "shall" | "will" => uc_1st_if(part, uc) + post,
             v => {
                 if v.ends_with(&['s', 'o', 'x']) || v.ends_with("ch") || v.ends_with("sh") {
                     format!("{}es", v)
@@ -186,46 +245,19 @@ pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> Str
                 }
             }
         },
-    };
-    if uc {
-        uc_1st(res.as_str())
-    } else {
-        res
     }
 }
 
-pub fn inflect_possesive_s(name: &str, is_default_plural: bool, asked_plural: bool) -> &str {
-    if !asked_plural || name.contains(|c: char| c.is_ascii_uppercase()) {
-        "'s"
-    } else if is_default_plural == asked_plural {
-        if name.ends_with('s') {
-            "'"
-        } else {
-            "'s"
-        }
-    } else if to_plural(name).ends_with('s') {
-        "'s"
+#[cfg(feature = "inflector")]
+pub(crate) fn inflect_name(name: &str, as_plural: bool) -> String {
+    if as_plural {
+        to_plural(name)
     } else {
-        "'"
+        to_singular(name)
     }
 }
 
-/// Given an article, the default, a requested one, inflect and to_upper() it as specified.
-pub fn inflect_article(default: &str, requested: &str, as_plural: bool, uc: bool) -> String {
-    match (as_plural, requested) {
-        (_, "the") => format!("{}he", if uc { 'T' } else { 't' }),
-        (false, "some") | (false, "a") | (false, "an") => {
-            if uc {
-                uc_1st(default)
-            } else {
-                default.to_string()
-            }
-        }
-        (false, "these") => format!("{}his", if uc { 'T' } else { 't' }),
-        (false, "those") => format!("{}hat", if uc { 'T' } else { 't' }),
-        (true, "some") | (_, "a") | (_, "an") => format!("{}ome", if uc { 'S' } else { 's' }),
-        (true, "those") => format!("{}hose", if uc { 'T' } else { 't' }),
-        (true, "these") => format!("{}hese", if uc { 'T' } else { 't' }),
-        _ => panic!("Unimplemented article {requested}"),
-    }
+#[cfg(not(feature = "Inflector"))]
+pub(crate) fn inflect_name(_name: &str, _as_plural: bool) -> String {
+    panic!("Inflection requires the \"Inflector\" feature.");
 }
