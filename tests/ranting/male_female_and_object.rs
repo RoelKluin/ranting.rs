@@ -80,7 +80,7 @@ impl Person {
                 nay!("{The trash} from {actor} is not something that {:self do} accept.");
             }
             ("give", Some((nr, coin))) if coin.name(false).as_str() == "coin" => match nr {
-                0 => nay!("{actor don't} seem able to give zero {+coin} to {self}. {:actor frown} at {self}."),
+                0 => nay!("{:actor don't} seem able to give zero {+coin} to {self}. {:actor frown} at {self}."),
                 n => {
                     let ent = self
                         .inventory
@@ -142,13 +142,13 @@ fn male_female_and_object() {
     let ret = anna.respond_to(&bob, "give", Some((0, &coin)));
     assert_eq!(
         ret,
-        Err("Bob doesn't seem able to give zero coins to Anna. He frowns at Anna.".to_string())
+        Err("He doesn't seem able to give zero coins to Anna. He frowns at Anna.".to_string())
     );
 
     let ret = bob.respond_to(&anna, "give", Some((0, &coin)));
     assert_eq!(
         ret,
-        Err("I, Anna, don't seem able to give zero coins to Bob. I frown at Bob.".to_string())
+        Err("I don't seem able to give zero coins to Bob. I frown at Bob.".to_string())
     );
 
     let ret = bob.respond_to(&anna, "give", Some((1, &coin)));

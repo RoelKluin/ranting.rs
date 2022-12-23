@@ -1,37 +1,4 @@
 // (c) RoelKluin 2022 GPL v3
-//! The `say!()` macro produces a String with for `Ranting` trait structs or enums
-//! inflection within placeholders. Alongside the Ranting element, articles and verbs
-//! can be included within the curly braces of a placeholder that are inflected
-//! accordingly. Use a plural form of verbs if English.
-//!
-//! A placeholder to display a Ranting variable has this structure:
-//! ```text
-//! {[,^]?(article |verb )?([+-]|#var )?[':@~]?noun( verb):fmt}
-//! ```
-//!
-//! With `,` and `^` lower- and uppercase are enforced, but a sentence start is assumed
-//! to be uppercase or if an article or verb starts with uppercase.
-//!
-//! To pluralize use `+`, for a singular use `-`. If prependeded by `#var` where
-//! `var` is an integer in scope, plurality is adapted to the count, singular if 1,
-//! otherwise plural. `#?var` or `?#var` allows inflection without the number display.
-//!
-//! A verb or article is inflected along with the specified or default
-//! plurality. `These` or `those`, instead of an article, are converted to `this` or `that`
-//! if the pronoun is singular.
-//!
-//! If a verb is included in the placeholder, the noun is assumed to be subject. By default
-//! the name of a variable is displayed, but a pronoun with formatting markers:
-//! * `:` - subject
-//! * `@` - object
-//! * `` ` `` - possesive
-//! * `~` - adjective
-//! * '*' - display the name, and mark that this is the Ranting element in the placeholder.
-//! * '?' - subject in inflection, but neither variable or its leading space are displayed.
-//!
-//! If you wonder how this works, for the inflection, a placeholder is split in many, where
-//! each display the inflection of the verb, article or noun. The functions that are used
-//! are listed in the [ranting docs](https://docs.rs/ranting/0.1.0/ranting/).
 
 mod english;
 mod ranting_impl;
@@ -229,6 +196,8 @@ fn handle_param(
     let mut is_pl = String::new();
     let mut nr = String::new();
     let mut noun_space = caps.name("sp1");
+    let mut post_space = caps.name("sp3").map_or("", |m| m.as_str());
+    let post = caps.name("post1").or(caps.name("post2"));
 
     if let Some(plurality) = caps.name("plurality") {
         is_plain_placeholder = false;
@@ -256,8 +225,8 @@ fn handle_param(
                         // keep leading whitespace if displayed.
                         nr = nr
                             .split_once(|c: char| c.is_ascii_digit())
-                            .map(|s| s.0.to_string())
-                            .unwrap_or_default()
+                            .map_or("", |s| s.0)
+                            .to_string()
                             + x;
                     }
                 }
@@ -273,7 +242,7 @@ fn handle_param(
         Span::mixed_site().into(),
         "The Noun is missing in a placeholder.",
     ))?;
-    let fmt = caps.name("fmt").map(|s| s.as_str()).unwrap_or_default();
+    let fmt = caps.name("fmt").map_or("", |s| s.as_str());
 
     // a positional.
     if let Ok(u) = noun.parse::<usize>() {
@@ -289,10 +258,7 @@ fn handle_param(
     if is_pl.is_empty() {
         is_pl = format!("{noun}.is_plural()");
     }
-    let mut res = caps
-        .name("sentence")
-        .map(|s| s.as_str().to_owned())
-        .unwrap_or_default();
+    let mut res = caps.name("sentence").map_or("", |s| s.as_str()).to_owned();
 
     // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
     // 2) uc if article or so is or 3) the noun is first or after start or `. '
@@ -319,13 +285,13 @@ fn handle_param(
                 "ranting::adapt_article({noun}.indefinite_article(false), \"{p}\", {is_pl}, {uc})"
             ));
         } else {
-            assert!(caps.name("post").is_none(), "verb before and after?");
+            assert!(post.is_none(), "verb before and after?");
             pos.push(format!(
                 "ranting::inflect_verb({noun}.subjective(), \"{}\", {is_pl}, {uc})",
                 p.as_str()
             ));
         }
-        res.push_str(caps.name("s_pre").map(|m| m.as_str()).unwrap_or_default());
+        res.push_str(caps.name("s_pre").map_or("", |m| m.as_str()));
         uc = false;
     }
 
@@ -334,14 +300,14 @@ fn handle_param(
         res.push_str(&format!("{}", etc1.as_str()));
     }
     if !nr.is_empty() {
-        res.push_str(caps.name("sp1").map(|m| m.as_str()).unwrap_or_default());
+        res.push_str(caps.name("sp1").map_or("", |m| m.as_str()));
         res.push_str(&format!("{{{}{}}}", pos.len(), fmt));
         pos.push(format!("{nr}"));
     }
     // also if case is None, the noun should be printed.
     let opt_case = caps.name("case").map(|m| m.as_str());
     if opt_case != Some("?") {
-        res.push_str(noun_space.map(|m| m.as_str()).unwrap_or_default());
+        res.push_str(noun_space.map_or("", |m| m.as_str()));
         match opt_case.and_then(|s| language::get_case_from_str(s)) {
             Some(case) if case.ends_with("ive") => {
                 res.push_str(&format!("{{{}}}", pos.len()));
@@ -350,20 +316,14 @@ fn handle_param(
                 ))
             }
             Some(word_angular) => {
-                let word = match word_angular.is_empty() {
-                    true => None,
-                    false => Some(word_angular.trim_end_matches('>')),
-                };
+                let word = word_angular.trim_end_matches('>');
                 res.push_str(&format!("{{{}}}", pos.len()));
                 pos.push(format!(
                     // {noun}.name would break working for Ranting trait generics
-                    "ranting::inflect_noun({noun}.mut_name({word:?}).as_str(), {noun}.is_plural(), {is_pl}, {uc})"
+                    "ranting::inflect_noun({noun}.mut_name(\"{word}\").as_str(), {noun}.is_plural(), {is_pl}, {uc})"
                 ))
             }
-            None if is_plain_placeholder
-                && caps.name("etc2").is_none()
-                && caps.name("post").is_none() =>
-            {
+            None if is_plain_placeholder && caps.name("etc2").is_none() && post.is_none() => {
                 res.push_str(&format!("{{{}{fmt}}}", pos.len()));
                 pos.push(format!("{noun}")); // for non-Ranting variables
             }
@@ -376,15 +336,14 @@ fn handle_param(
             }
         }
         uc = false;
+    } else if noun_space.is_none() {
+        post_space = "";
     }
     if let Some(etc2) = caps.name("etc2") {
         res.push_str(&format!("{}", etc2.as_str()));
     }
-    if let Some((space, post)) = caps.name("post").map(|m| {
-        let s = m.as_str();
-        s.split_at(s.find(|c: char| !c.is_whitespace()).unwrap_or(0))
-    }) {
-        res.push_str(&format!("{space}{{{}}}", pos.len()));
+    if let Some(post) = post.map(|m| m.as_str()) {
+        res.push_str(&format!("{post_space}{{{}}}", pos.len()));
         match post {
             "'" | "'s" => {
                 pos.push(format!(

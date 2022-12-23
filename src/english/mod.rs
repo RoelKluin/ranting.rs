@@ -203,6 +203,52 @@ pub(crate) fn possesive(subject: &str, uc: bool) -> &str {
 }
 
 /// Given a subject and a verb, inflect it and to_upper() it as specified.
+/// Inflect a subject pronoun to singular or plural and uppercase first character as indicated
+///
+/// # Examples
+///
+/// ```rust
+/// # use ranting::{Noun, say, Ranting};
+/// fn deny(w: Noun) -> String {
+///     say!("{:w don't}, {:w can't}, {:?w won't} {:?w mustn't} {:?w haven't} {:?w weren't}. ")
+/// }
+///
+/// # fn main() {
+///
+/// assert_eq!(["I", "you", "it", "we", "they"]
+///     .iter()
+///     .map(|s| deny(Noun::new(format!("subject {s}").as_str(), s)))
+///     .collect::<String>(),
+///     "I don't, I can't, won't mustn't haven't wasn't. \
+///     You don't, you can't, won't mustn't haven't weren't. \
+///     It doesn't, it can't, won't mustn't hasn't wasn't. \
+///     We don't, we can't, won't mustn't haven't weren't. \
+///     They don't, they can't, won't mustn't haven't weren't. "
+///     .to_string());
+/// # }
+/// ```
+/// ```rust
+/// # use ranting::{Noun, say, Ranting};
+/// fn allow(w: Noun) -> String {
+///     say!("{:w're} {:?w can} {:?w see} {:?w may} {:?w do} {:w've}, {:w were}. ")
+/// }
+///
+/// # fn main() {
+///
+/// assert_eq!(["I", "you", "he", "we", "they"]
+///     .iter()
+///     .map(|s| allow(Noun::new(format!("subject {s}").as_str(), s)))
+///     .collect::<String>(),
+///     "I'm can see may do I've, I was. \
+///     You're can see may do you've, you were. \
+///     He's can sees may does he's, he was. \
+///     We're can see may do we've, we were. \
+///     They're can see may do they've, they were. "
+///     .to_string());
+/// # }
+/// ```
+
+///
 pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> String {
     let verb = verb.trim();
 
@@ -220,18 +266,15 @@ pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> Str
             "were" => format!("{}as{post}", if uc { 'W' } else { 'w' }),
             _ => uc_1st_if(verb, uc),
         },
-        "you" | "we" | "they" | "ye" | "thou" => match part {
-            "'re" => format!("'{}e", if uc { 'R' } else { 'r' }),
-            _ => uc_1st_if(verb, uc),
-        },
+        "you" | "we" | "they" | "ye" | "thou" => uc_1st_if(verb, uc),
         _ => match part {
             "'re" | "'ve" => format!("'{}", if uc { 'S' } else { 's' }),
             "are" => format!("{}s{post}", if uc { 'I' } else { 'i' }),
             "have" => format!("{}as{post}", if uc { 'H' } else { 'h' }),
             "were" => format!("{}as{post}", if uc { 'W' } else { 'w' }),
             "do" => format!("{}oes{post}", if uc { 'D' } else { 'd' }),
-            "ca" | "had" | "could" | "would" | "should" | "might" | "must" | "can" | "may"
-            | "shall" | "will" => uc_1st_if(part, uc) + post,
+            "ca" | "wo" | "had" | "could" | "would" | "should" | "might" | "must" | "can"
+            | "may" | "shall" | "will" | "'d" => uc_1st_if(part, uc) + post,
             v => {
                 if v.ends_with(&['s', 'o', 'x']) || v.ends_with("ch") || v.ends_with("sh") {
                     format!("{}es", v)
@@ -257,7 +300,7 @@ pub(crate) fn inflect_name(name: &str, as_plural: bool) -> String {
     }
 }
 
-#[cfg(not(feature = "Inflector"))]
+#[cfg(not(feature = "inflector"))]
 pub(crate) fn inflect_name(_name: &str, _as_plural: bool) -> String {
-    panic!("Inflection requires the \"Inflector\" feature.");
+    panic!("Inflection requires the \"inflector\" feature.");
 }

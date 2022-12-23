@@ -48,7 +48,7 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
                 let name = #get_name_q.to_string();
                 ranting::uc_1st_if(name.as_str(), uc)
             }
-            fn mut_name(&mut self, _opt_word: Option<&str>) -> String {
+            fn mut_name(&mut self, _word: &str) -> String {
                 self.name(false)
             }
             fn requires_article(&self) -> bool {
