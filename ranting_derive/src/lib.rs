@@ -12,7 +12,10 @@ use quote::quote;
 use ranting_impl::*;
 use regex::{Captures, Regex};
 use syn::parse::Parser;
-use syn::{self, parse, parse_macro_input, DeriveInput, Error as SynError, Expr, ExprPath};
+use syn::{
+    self, parse, parse_macro_input, DeriveInput, Error as SynError, Expr, ExprLit, ExprPath,
+    Lit::Int, LitInt,
+};
 
 #[proc_macro]
 pub fn ack(input: TokenStream) -> TokenStream {
@@ -179,6 +182,9 @@ fn comma_next(it: &mut dyn Iterator<Item = TokenTree>) -> Result<String, SynErro
 
     match parse::<Expr>(res?.into())? {
         Expr::Path(ExprPath { path, .. }) => Ok(path.to_token_stream().to_string()),
+        Expr::Lit(ExprLit {
+            lit: Int(lit_int), ..
+        }) => Ok(lit_int.to_token_stream().to_string()),
         e => Err(SynError::new(
             Span::call_site().into(),
             format!("unexpected expression: {e:?}"),
