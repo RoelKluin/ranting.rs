@@ -21,7 +21,7 @@ pub use strum_macros;
 /// ```rust
 /// # use ranting::{Noun, ack, Ranting};
 /// fn question(harr: Noun, friends: Noun, lad: Noun) -> Result<String, String> {
-///     ack!("{harr shall} {+:friends do} with {the drunken $lad}?");
+///     ack!("{harr shall} {+:friends do} with {the drunken *lad}?");
 /// }
 ///
 /// # fn main() {
@@ -65,7 +65,7 @@ pub use ranting_derive::nay;
 /// # use ranting::{Noun, say, Ranting};
 /// fn inflect(with: Noun) -> String {
 ///     let n = Noun::new("noun", "it");
-///     say!("{Some n} with {0}{?n inflect} as {:0}, {@0}, {`0} and {~0}.", with)
+///     say!("{Some n} with {0} {?n inflect} as {:0}, {@0}, {`0} and {~0}.", with)
 /// }
 ///
 /// # fn main() {
@@ -112,7 +112,7 @@ impl Ranting for Noun {
     fn name(&self, uc: bool) -> String {
         uc_1st_if(self.name.as_str(), uc)
     }
-    fn mut_name(&mut self, _opt_word: Option<&str>) -> String {
+    fn mut_name(&mut self, _word: &str) -> String {
         self.name(false)
     }
     fn requires_article(&self) -> bool {
@@ -169,19 +169,44 @@ pub use language::inflect_verb;
 pub use language::is_subjective_plural;
 pub use language::subjective;
 
-/// upper cases first character
-pub(crate) fn uc_1st(s: &str) -> String {
-    let mut c = s.chars();
-    c.next()
-        .map(|f| f.to_uppercase().collect::<String>())
-        .unwrap_or_default()
-        + c.as_str()
-}
-
-/// upper cases first character if boolean is true
-pub(crate) fn uc_1st_if(s: &str, uc: bool) -> String {
+/// upper cases first character if uc is true, or second in a contraction.
+///
+/// # Example
+///
+/// ```rust
+/// # use ranting::{Noun, say, Ranting};
+/// fn upper(w: Noun) -> String {
+///     say!("{:?w're} {the w}? {:?w'd} say for {`w}self! {:?w've} got here all of {@w}. ")
+/// }
+///
+/// # fn main() {
+///
+/// assert_eq!(["I", "you", "she", "they"]
+///     .iter()
+///     .map(|s| upper(Noun::new("one", s)))
+///     .collect::<String>(),
+///     "'M the one? 'D say for myself! 'Ve got here all of me. \
+///     'Re the one? 'D say for yourself! 'Ve got here all of you. \
+///     'S the one? 'D say for herself! 'S got here all of her. \
+///     'Re the one? 'D say for theirself! 'Ve got here all of them. "
+///     .to_string());
+/// # }
+/// ```
+pub fn uc_1st_if(s: &str, uc: bool) -> String {
     if uc {
-        uc_1st(s)
+        let mut c = s.chars();
+        c.next()
+            .map(|t| match t {
+                '\'' => {
+                    t.to_string()
+                        + &c.next()
+                            .map(|c| c.to_uppercase().collect::<String>())
+                            .unwrap_or_default()
+                }
+                _ => t.to_uppercase().collect::<String>(),
+            })
+            .unwrap_or_default()
+            + c.as_str()
     } else {
         s.to_string()
     }
@@ -201,7 +226,7 @@ pub trait Ranting: std::fmt::Display {
     fn subjective(&self) -> &str;
     fn is_plural(&self) -> bool;
     fn name(&self, uc: bool) -> String;
-    fn mut_name(&mut self, _opt_word: Option<&str>) -> String;
+    fn mut_name(&mut self, _word: &str) -> String;
     fn indefinite_article(&self, uc: bool) -> &str;
     fn requires_article(&self) -> bool;
 }

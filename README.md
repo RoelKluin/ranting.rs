@@ -70,21 +70,20 @@ assert_eq!(
 - An article, possesive `'s` or verbs before the noun are also adapted. Normal variables just follow their
   Display or Debug traits.
 
-- With the "Inflector" feature, a given Ranting trait can also be inflected to plural or singular.
+- With the "inflector" feature, a given Ranting trait can also be inflected to plural or singular.
 
 - To force plurality use `+`, for a singular use `-`. If prependeded by `#var`, plurality of the noun is
   adapted to the count of variable var. Which is displayed, unless prepended with a '?'. Other words
   within the placeholder are adapted as well.
 
 - A Noun or pronoun is displayed dependent on its leading character or string marker.
-  * '?' - subject in inflection, but neither variable or its leading space are displayed.
+  * '?' - subject in inflection, but neither variable nor its space is displayed.
   * `:` - subject
   * `@` - object
   * `` ` `` - possesive
   * `~` - adjective
-  * '$' - display the name, and mark that this is the Ranting element in the placeholder.
-  * '*' - displays similarly, by default, but with a noun mutating function.
-  * '<word>' - similarly, and passes `Some("word")` rather than `None` to this mutating function.
+  * '*' - display the name, and mark that this is the Ranting element in the placeholder.
+  * '<word>' - similarly, but passes `"word"` and mutates the Ranting element.
 
 - If a Noun or plurality is hidden with a leading question mark, its inflection still applies.
 
