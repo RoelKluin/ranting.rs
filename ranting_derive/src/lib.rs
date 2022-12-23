@@ -14,7 +14,7 @@ use regex::{Captures, Regex};
 use syn::parse::Parser;
 use syn::{
     self, parse, parse_macro_input, DeriveInput, Error as SynError, Expr, ExprLit, ExprPath,
-    Lit::Int, LitInt,
+    Lit::Int,
 };
 
 #[proc_macro]

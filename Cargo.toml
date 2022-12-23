@@ -8,7 +8,7 @@ description = "Linguistic formatting placeholder extensions for rust"
 homepage = "https://github.com/RoelKluin/ranting.rs"
 repository = "https://github.com/RoelKluin/ranting.rs"
 readme = "README.md"
-keywords = ["article", "placeholder", "inflection", "verbs", "plural", "singular", "nouns", "pronouns", "indefinite-article"]
+keywords = ["placeholder", "inflection", "verbs", "nouns", "indefinite-article"]
 categories = ["text-processing", "template-engine"]
 documentation = "https://docs.rs/ranting/0.1.2/ranting/"
 
