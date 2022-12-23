@@ -8,6 +8,7 @@ use crate::uc_1st_if;
 #[cfg(feature = "inflector")]
 use inflector::string::{pluralize::to_plural, singularize::to_singular};
 
+/// can convert a `'s` or `'` after a noun to `'` or `'s` as appropriate for singular or plural.
 pub fn adapt_possesive_s(name: &str, is_default_plural: bool, asked_plural: bool) -> &str {
     if !asked_plural
         || name.contains(|c: char| c.is_ascii_uppercase())
@@ -230,7 +231,7 @@ pub(crate) fn possesive(subject: &str, uc: bool) -> &str {
 /// ```rust
 /// # use ranting::{Noun, say, Ranting};
 /// fn allow(w: Noun) -> String {
-///     say!("{:w're} {:?w can} {:?w see} {:?w may} {:?w do} {:w've}, {:w were}. ")
+///     say!("{:w're} {can :?w} {:?w see} {:?w may} {do :w}, {:w've}, {:w were}. ")
 /// }
 ///
 /// # fn main() {
@@ -239,15 +240,14 @@ pub(crate) fn possesive(subject: &str, uc: bool) -> &str {
 ///     .iter()
 ///     .map(|s| allow(Noun::new(format!("subject {s}").as_str(), s)))
 ///     .collect::<String>(),
-///     "I'm can see may do I've, I was. \
-///     You're can see may do you've, you were. \
-///     He's can sees may does he's, he was. \
-///     We're can see may do we've, we were. \
-///     They're can see may do they've, they were. "
+///     "I'm can see may do I, I've, I was. \
+///     You're can see may do you, you've, you were. \
+///     He's can sees may does he, he's, he was. \
+///     We're can see may do we, we've, we were. \
+///     They're can see may do they, they've, they were. "
 ///     .to_string());
 /// # }
 /// ```
-
 ///
 pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> String {
     let verb = verb.trim();
@@ -291,6 +291,32 @@ pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> Str
     }
 }
 
+/// ```rust
+/// # use ranting::{Noun, say, Ranting};
+/// fn pluralize(w: &Noun) -> String {
+///     let ct = 2;
+///     say!("{+w do} or {^don't #0 w}? More of {Some w}.", ct)
+/// }
+///
+/// fn singularize(w: &Noun) -> String {
+///     say!("{,-:w do} or {don't #0 w}? Less of {Some w}.", 1)
+/// }
+/// # #[cfg(feature = "inflector")]
+/// # fn main() {
+/// let one = Noun::new("ox", "it");
+///
+/// assert_eq!(
+///     pluralize(&one),
+///     "Oxen do or Don't 2 oxen? More of An ox.".to_string()
+/// );
+///
+/// let two = Noun::new("foo_bars", "they");
+/// assert_eq!(
+///     singularize(&two),
+///     "it does or doesn't 1 foo_bar? Less of Some foo_bars.".to_string()
+/// );
+/// # }
+/// ```
 #[cfg(feature = "inflector")]
 pub(crate) fn inflect_name(name: &str, as_plural: bool) -> String {
     if as_plural {

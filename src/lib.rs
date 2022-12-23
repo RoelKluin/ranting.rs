@@ -1,6 +1,6 @@
 // (c) Roel Kluin 2022 GPL v3
 //!
-//! Functions are used by [Ranting](https://docs.rs/ranting_derive/0.1.1/ranting_derive/) trait placeholders.
+//! Functions are used by [Ranting](https://docs.rs/ranting_derive/0.1.2/ranting_derive/) trait placeholders.
 //!
 //! ## Feature flags
 #![doc = document_features::document_features!()]
@@ -217,7 +217,7 @@ use language::objective;
 use language::possesive;
 
 /// By overriding these one can adapt default behavior, which affects the
-/// [placeholder](https://docs.rs/ranting_derive/0.1.0/ranting_derive/) interpretation.
+/// [placeholder](https://docs.rs/ranting_derive/0.1.2/ranting_derive/) interpretation.
 // TODO: add function for 'the': some words require an article to be printed.
 // E.g. names, languages, elements, food grains, meals (unless particular), sports.
 // Space after should then also be omitted.
