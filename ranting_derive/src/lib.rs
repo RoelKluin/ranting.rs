@@ -7,7 +7,8 @@ use darling::{FromDeriveInput, ToTokens};
 use english as language;
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use proc_macro::{self, Literal, Span, TokenStream, TokenTree};
+use proc_macro::TokenStream as TokenStream1;
+use proc_macro::{self, Literal, Span, TokenTree};
 use quote::quote;
 use ranting_impl::*;
 use regex::{Captures, Regex};
@@ -18,7 +19,7 @@ use syn::{
 };
 
 #[proc_macro]
-pub fn ack(input: TokenStream) -> TokenStream {
+pub fn ack(input: TokenStream1) -> TokenStream1 {
     match do_say(input) {
         Ok(lit) => format!("return Ok(format!({lit}))").parse().unwrap(),
         Err(e) => e,
@@ -26,7 +27,7 @@ pub fn ack(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
-pub fn nay(input: TokenStream) -> TokenStream {
+pub fn nay(input: TokenStream1) -> TokenStream1 {
     match do_say(input) {
         Ok(lit) => format!("return Err(format!({lit}))").parse().unwrap(),
         Err(e) => e,
@@ -34,7 +35,7 @@ pub fn nay(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
-pub fn say(input: TokenStream) -> TokenStream {
+pub fn say(input: TokenStream1) -> TokenStream1 {
     match do_say(input) {
         Ok(lit) => format!("format!({lit})").parse().unwrap(),
         Err(e) => e,
@@ -44,7 +45,7 @@ pub fn say(input: TokenStream) -> TokenStream {
 /// Implies `#[derive(Ranting)]` and includes `name` and `subject` in structs.
 /// For an enum `"it"` and the variant's name are assumed.
 #[proc_macro_attribute]
-pub fn derive_ranting(_args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn derive_ranting(_args: TokenStream1, input: TokenStream1) -> TokenStream1 {
     let mut ast = parse_macro_input!(input as DeriveInput);
     match &mut ast.data {
         syn::Data::Struct(ref mut struct_data) => {
@@ -83,7 +84,7 @@ pub fn derive_ranting(_args: TokenStream, input: TokenStream) -> TokenStream {
 
 /// Above macros inflect Ranting elements within a placeholder. Structs require a `name` and `subject` String.
 #[proc_macro_derive(Ranting, attributes(ranting))]
-pub fn inner_derive_ranting(input: TokenStream) -> TokenStream {
+pub fn inner_derive_ranting(input: TokenStream1) -> TokenStream1 {
     let input = parse_macro_input!(input);
     let mut options =
         RantingOptions::from_derive_input(&input).expect("Invalid Thing trait options");
@@ -93,7 +94,7 @@ pub fn inner_derive_ranting(input: TokenStream) -> TokenStream {
     ranting_q(options, &input.ident).into()
 }
 
-fn do_say(input: TokenStream) -> Result<String, TokenStream> {
+fn do_say(input: TokenStream1) -> Result<String, TokenStream1> {
     let mut token_it = input.into_iter().peekable();
 
     let mut lit = match lit_first(token_it.next()) {
@@ -103,7 +104,7 @@ fn do_say(input: TokenStream) -> Result<String, TokenStream> {
     let mut given = vec![];
     while token_it.peek().is_some() {
         given.push(comma_next(&mut token_it).map_err(|e| {
-            let ts: TokenStream = e.into_compile_error().into();
+            let ts: TokenStream1 = e.into_compile_error().into();
             ts
         })?);
     }
