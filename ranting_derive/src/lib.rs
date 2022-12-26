@@ -5,41 +5,31 @@ mod ranting_impl;
 
 use darling::{FromDeriveInput, ToTokens};
 use english as language;
-use itertools::Itertools;
 use lazy_static::lazy_static;
-use proc_macro::TokenStream as TokenStream1;
-use proc_macro::{self, Literal, Span, TokenTree};
+use proc_macro::{self, Literal, TokenStream as TokenStream1, TokenTree};
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use ranting_impl::*;
 use regex::{Captures, Regex};
 use syn::parse::Parser;
-use syn::{
-    self, parse, parse_macro_input, DeriveInput, Error as SynError, Expr, ExprLit, ExprPath,
-    Lit::Int,
-};
+use syn::{self, parse, parse_macro_input, DeriveInput, Error, Expr, ExprLit, ExprPath, Lit::Int};
 
 #[proc_macro]
 pub fn ack(input: TokenStream1) -> TokenStream1 {
-    match do_say(input) {
-        Ok(lit) => format!("return Ok(format!({lit}))").parse().unwrap(),
-        Err(e) => e,
-    }
+    let res = do_say(input);
+    quote!(return Ok(#res)).into()
 }
 
 #[proc_macro]
 pub fn nay(input: TokenStream1) -> TokenStream1 {
-    match do_say(input) {
-        Ok(lit) => format!("return Err(format!({lit}))").parse().unwrap(),
-        Err(e) => e,
-    }
+    let res = do_say(input);
+    quote!(return Err(#res)).into()
 }
 
 #[proc_macro]
 pub fn say(input: TokenStream1) -> TokenStream1 {
-    match do_say(input) {
-        Ok(lit) => format!("format!({lit})").parse().unwrap(),
-        Err(e) => e,
-    }
+    let res = do_say(input);
+    quote!(#res).into()
 }
 
 /// Implies `#[derive(Ranting)]` and includes `name` and `subject` in structs.
@@ -94,19 +84,19 @@ pub fn inner_derive_ranting(input: TokenStream1) -> TokenStream1 {
     ranting_q(options, &input.ident).into()
 }
 
-fn do_say(input: TokenStream1) -> Result<String, TokenStream1> {
+fn do_say(input: TokenStream1) -> TokenStream {
     let mut token_it = input.into_iter().peekable();
 
     let mut lit = match lit_first(token_it.next()) {
-        Ok(lit) => format!("{lit}"),
-        Err(e) => return Err(e.into_compile_error().into()),
+        Ok(lit) => lit.to_string().trim_matches('"').to_string(),
+        Err(e) => return e.into_compile_error(),
     };
     let mut given = vec![];
     while token_it.peek().is_some() {
-        given.push(comma_next(&mut token_it).map_err(|e| {
-            let ts: TokenStream1 = e.into_compile_error().into();
-            ts
-        })?);
+        match comma_next(&mut token_it) {
+            Ok(tok) => given.push(tok),
+            Err(e) => return e.into_compile_error(),
+        }
     }
 
     // regex to capture the placholders or sentence ends
@@ -116,7 +106,7 @@ fn do_say(input: TokenStream1) -> Result<String, TokenStream1> {
     }
     //eprintln!("{:?}", RE.to_string());
     let mut err = None;
-    let mut positional: Vec<String> = vec![];
+    let mut positional = vec![];
     //let original = lit.to_string();
 
     lit = RE
@@ -133,52 +123,43 @@ fn do_say(input: TokenStream1) -> Result<String, TokenStream1> {
 
     //eprintln!("{}\n {}", original, lit.as_str());
     if let Some(e) = err {
-        return Err(e.into_compile_error().into());
+        return e.into_compile_error();
     }
-
-    if !positional.is_empty() {
-        lit.push_str(", ");
-        lit.push_str(&positional.iter().join(", "));
-    }
-    Ok(lit)
+    //eprintln!("{}\n {}", original, quote!(format!(#lit(, #positional)*)).to_string());
+    quote!(format!(#lit #(, #positional)*))
 }
 
-fn lit_first(o: Option<TokenTree>) -> Result<Literal, SynError> {
+fn lit_first(o: Option<TokenTree>) -> Result<Literal, Error> {
     match o {
         Some(TokenTree::Literal(l)) => Ok(l),
-        Some(TokenTree::Ident(i)) => Err(SynError::new(
+        Some(TokenTree::Ident(i)) => Err(Error::new(
             i.span().into(),
             "expected Literal, not Identifier",
         )),
-        Some(TokenTree::Punct(p)) => Err(SynError::new(
-            p.span().into(),
-            "expected Literal, not Punct",
-        )),
-        Some(TokenTree::Group(g)) => Err(SynError::new(
-            g.span().into(),
-            "expected Literal, not Group",
-        )),
-        None => Err(SynError::new(Span::call_site().into(), "expected Literal")),
+        Some(TokenTree::Punct(p)) => {
+            Err(Error::new(p.span().into(), "expected Literal, not Punct"))
+        }
+        Some(TokenTree::Group(g)) => {
+            Err(Error::new(g.span().into(), "expected Literal, not Group"))
+        }
+        None => Err(Error::new(Span::mixed_site().into(), "expected Literal")),
     }
 }
 
-fn comma_next(it: &mut dyn Iterator<Item = TokenTree>) -> Result<String, SynError> {
+fn comma_next(it: &mut dyn Iterator<Item = TokenTree>) -> Result<String, Error> {
     let t: TokenTree = it.next().unwrap();
 
     let res = match t {
         TokenTree::Punct(p) => (p.as_char() == ',')
             .then_some(it.next())
             .flatten()
-            .ok_or_else(|| SynError::new(p.span().into(), "expected token after Punct")),
-        TokenTree::Literal(l) => Err(SynError::new(
-            l.span().into(),
-            "expected Punct, not Literal",
-        )),
-        TokenTree::Ident(i) => Err(SynError::new(
+            .ok_or_else(|| Error::new(p.span().into(), "expected token after Punct")),
+        TokenTree::Literal(l) => Err(Error::new(l.span().into(), "expected Punct, not Literal")),
+        TokenTree::Ident(i) => Err(Error::new(
             i.span().into(),
             "expected Punct, not Identifier",
         )),
-        TokenTree::Group(g) => Err(SynError::new(g.span().into(), "expected Punct, not Group")),
+        TokenTree::Group(g) => Err(Error::new(g.span().into(), "expected Punct, not Group")),
     };
 
     match parse::<Expr>(res?.into())? {
@@ -186,8 +167,8 @@ fn comma_next(it: &mut dyn Iterator<Item = TokenTree>) -> Result<String, SynErro
         Expr::Lit(ExprLit {
             lit: Int(lit_int), ..
         }) => Ok(lit_int.to_token_stream().to_string()),
-        e => Err(SynError::new(
-            Span::call_site().into(),
+        e => Err(Error::new(
+            Span::mixed_site().into(),
             format!("unexpected expression: {e:?}"),
         )),
     }
@@ -197,8 +178,8 @@ fn comma_next(it: &mut dyn Iterator<Item = TokenTree>) -> Result<String, SynErro
 fn handle_param(
     caps: &Captures,
     given: &Vec<String>,
-    pos: &mut Vec<String>,
-) -> Result<String, SynError> {
+    pos: &mut Vec<TokenStream>,
+) -> Result<String, Error> {
     let mut is_plain_placeholder = true;
     let mut is_pl = String::new();
     let mut nr = String::new();
@@ -223,7 +204,7 @@ fn handle_param(
                 if let Ok(u) = x.trim_end().parse::<usize>() {
                     x = given
                         .get(u)
-                        .ok_or(SynError::new(
+                        .ok_or(Error::new(
                             Span::mixed_site().into(),
                             format!("A #var, positional {u}, is out of bounds"),
                         ))?
@@ -245,7 +226,7 @@ fn handle_param(
 
     // could be a struct or enum with a Ranting trait or just be a regular
     //  placeholder if withou all other SayPlaceholder elements.
-    let mut noun = caps.name("noun").map(|s| s.as_str()).ok_or(SynError::new(
+    let mut noun = caps.name("noun").map(|s| s.as_str()).ok_or(Error::new(
         Span::mixed_site().into(),
         "The Noun is missing in a placeholder.",
     ))?;
@@ -255,7 +236,7 @@ fn handle_param(
     if let Ok(u) = noun.parse::<usize>() {
         noun = given
             .get(u)
-            .ok_or(SynError::new(
+            .ok_or(Error::new(
                 Span::mixed_site().into(),
                 format!("A Noun, positional {u}, is out of bounds"),
             ))?
@@ -278,7 +259,7 @@ fn handle_param(
             .filter(|s| s.as_str().starts_with(|c: char| c.is_uppercase()))
             .or(caps
                 .name("sentence")
-                .filter(|m| m.start() == 1 || m.as_str() != ""))
+                .filter(|m| m.start() == 0 || m.as_str() != ""))
             .is_some()
     };
 
@@ -288,15 +269,23 @@ fn handle_param(
         let p = pre.as_str().to_lowercase();
         res.push_str(&format!("{{{}}}", pos.len()));
         if language::is_article_or_so(p.as_str()) {
-            pos.push(format!(
+            pos.push(
+                format!(
                 "ranting::adapt_article({noun}.indefinite_article(false), \"{p}\", {is_pl}, {uc})"
-            ));
+            )
+                .parse()
+                .unwrap(),
+            );
         } else {
             assert!(post.is_none(), "verb before and after?");
-            pos.push(format!(
-                "ranting::inflect_verb({noun}.subjective(), \"{}\", {is_pl}, {uc})",
-                p.as_str()
-            ));
+            pos.push(
+                format!(
+                    "ranting::inflect_verb({noun}.subjective(), \"{}\", {is_pl}, {uc})",
+                    p.as_str()
+                )
+                .parse()
+                .unwrap(),
+            );
         }
         res.push_str(caps.name("s_pre").map_or("", |m| m.as_str()));
         uc = false;
@@ -309,7 +298,7 @@ fn handle_param(
     if !nr.is_empty() {
         res.push_str(caps.name("sp1").map_or("", |m| m.as_str()));
         res.push_str(&format!("{{{}{}}}", pos.len(), fmt));
-        pos.push(format!("{nr}"));
+        pos.push(format!("{nr}").parse().unwrap());
     }
     // also if case is None, the noun should be printed.
     let opt_case = caps.name("case").map(|m| m.as_str());
@@ -318,9 +307,11 @@ fn handle_param(
         match opt_case.and_then(|s| language::get_case_from_str(s)) {
             Some(case) if case.ends_with("ive") => {
                 res.push_str(&format!("{{{}}}", pos.len()));
-                pos.push(format!(
-                    "ranting::inflect_{case}({noun}.subjective(), {is_pl}, {uc})"
-                ))
+                pos.push(
+                    format!("ranting::inflect_{case}({noun}.subjective(), {is_pl}, {uc})")
+                        .parse()
+                        .unwrap(),
+                )
             }
             Some(word_angular) => {
                 let word = word_angular.trim_end_matches('>');
@@ -328,18 +319,18 @@ fn handle_param(
                 pos.push(format!(
                     // {noun}.name would break working for Ranting trait generics
                     "ranting::inflect_noun({noun}.mut_name(\"{word}\").as_str(), {noun}.is_plural(), {is_pl}, {uc})"
-                ))
+                ).parse().unwrap())
             }
             None if is_plain_placeholder && caps.name("etc2").is_none() && post.is_none() => {
                 res.push_str(&format!("{{{}{fmt}}}", pos.len()));
-                pos.push(format!("{noun}")); // for non-Ranting variables
+                pos.push(format!("{noun}").parse().unwrap()); // for non-Ranting variables
             }
             None => {
                 res.push_str(&format!("{{{}}}", pos.len()));
                 pos.push(format!(
                     // {noun}.name would break working for Ranting trait generics
                     "ranting::inflect_noun({noun}.name(false).as_str(), {noun}.is_plural(), {is_pl}, {uc})"
-                ))
+                ).parse().unwrap())
             }
         }
         uc = false;
@@ -355,12 +346,16 @@ fn handle_param(
             "'" | "'s" => {
                 pos.push(format!(
                     "ranting::adapt_possesive_s({noun}.name(false).as_str(), {noun}.is_plural(), {is_pl})"
-                ));
+                ).parse().unwrap());
             }
             verb => {
-                pos.push(format!(
-                    "ranting::inflect_verb({noun}.subjective(), \"{verb}\", {is_pl}, {uc})"
-                ));
+                pos.push(
+                    format!(
+                        "ranting::inflect_verb({noun}.subjective(), \"{verb}\", {is_pl}, {uc})"
+                    )
+                    .parse()
+                    .unwrap(),
+                );
             }
         }
     }
