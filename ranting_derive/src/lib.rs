@@ -1,7 +1,11 @@
 // (c) RoelKluin 2022 GPL v3
 
-mod english;
 mod ranting_impl;
+
+#[path = "../language/english.rs"]
+#[allow(dead_code)]
+mod english;
+use english as language;
 
 use darling::{FromDeriveInput, ToTokens};
 use english as language;
