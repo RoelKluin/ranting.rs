@@ -2,11 +2,92 @@
 //!
 //! Functions used by [Ranting](../ranting_derive/index.html) trait placeholders.
 
-// TODO: make this a feature.
-use crate::uc_1st_if;
-
 #[cfg(feature = "inflector")]
 use inflector::string::{pluralize::to_plural, singularize::to_singular};
+
+// regex to capture the placholders or sentence ends
+// useful: https://regex101.com/r/Ly7O1x/3/
+/// The components captured in a Ranting trait placeholder are defined here.
+pub(crate) static RANTING_PLACEHOLDER: &str = r"(?x)
+(?P<sentence>(?:[.?!]\s+)?+)  # sentence always captures: to obtain the placeholder offset.
+\{
+    (?P<uc>[,^])?+
+    (?:
+        (?P<pre>[aA]n?|[sS]ome|[tT]h(?:[eo]s)?e|
+        '[rv]e|[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
+        (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)?+
+        (?P<etc1>(?:\s+[\w-]+)+?)??
+        (?P<sp1>\s+)
+    )?+
+    (?:(?P<plurality>[+-]|\??\#(?P<nr>\w+)(?P<sp2>\s+)))?+
+    (?P<case>(?:[`:@~*?]|<[^>]*>))?+
+    (?P<noun>[\w-]+)
+    (?:
+        (?P<sp3>\s+)(?P<etc2>(?:[\w-]+\s+)+?)??(?P<post1>(?:[\w-]+')?[\w-]+)?|
+        (?P<post2>'\w*)
+    )?
+    (?P<fmt>:[^}]+)?+
+\}";
+
+/// upper cases first character if uc is true, or second in a contraction.
+///
+/// # Example
+///
+/// ```rust
+/// # use ranting::{Noun, say, Ranting};
+/// fn upper(w: Noun) -> String {
+///     say!("{:?w're} {the w}? {:?w'd} say for {`w}self! {:?w've} got here all of {@w}. ")
+/// }
+///
+/// # fn main() {
+///
+/// assert_eq!(["I", "you", "she", "they"]
+///     .iter()
+///     .map(|s| upper(Noun::new("one", s)))
+///     .collect::<String>(),
+///     "'M the one? 'D say for myself! 'Ve got here all of me. \
+///     'Re the one? 'D say for yourself! 'Ve got here all of you. \
+///     'S the one? 'D say for herself! 'S got here all of her. \
+///     'Re the one? 'D say for theirself! 'Ve got here all of them. "
+///     .to_string());
+/// # }
+/// ```
+pub fn uc_1st_if(s: &str, uc: bool) -> String {
+    if uc {
+        let mut c = s.chars();
+        c.next()
+            .map(|t| match t {
+                '\'' => {
+                    t.to_string()
+                        + &c.next()
+                            .map(|c| c.to_uppercase().collect::<String>())
+                            .unwrap_or_default()
+                }
+                _ => t.to_uppercase().collect::<String>(),
+            })
+            .unwrap_or_default()
+            + c.as_str()
+    } else {
+        s.to_string()
+    }
+}
+
+/// Return the case for a character.
+pub(crate) fn get_case_from_str(s: &str) -> Option<String> {
+    match s {
+        ":" => Some("subjective".to_string()),
+        "@" => Some("objective".to_string()),
+        "`" => Some("possesive".to_string()),
+        "~" => Some("adjective".to_string()),
+        "*" => None,
+        _ => Some(s.trim_start_matches('<').to_string()),
+    }
+}
+
+/// Return whether a word is one of `some` `a` `an` `the` `these` `those`
+pub fn is_article_or_so(word: &str) -> bool {
+    matches!(word, "some" | "a" | "an" | "the" | "these" | "those")
+}
 
 /// can convert a `'s` or `'` after a noun to `'` or `'s` as appropriate for singular or plural.
 pub fn adapt_possesive_s<'a, S: AsRef<str> + 'a>(

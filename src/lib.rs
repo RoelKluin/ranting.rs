@@ -5,6 +5,8 @@
 //! ## Feature flags
 #![doc = document_features::document_features!()]
 
+#[path = "../ranting_derive/language/english.rs"]
+#[allow(dead_code)]
 mod english;
 use english as language;
 
@@ -173,49 +175,7 @@ pub use language::inflect_subjective;
 pub use language::inflect_verb;
 pub use language::is_subjective_plural;
 pub use language::subjective;
-
-/// upper cases first character if uc is true, or second in a contraction.
-///
-/// # Example
-///
-/// ```rust
-/// # use ranting::{Noun, say, Ranting};
-/// fn upper(w: Noun) -> String {
-///     say!("{:?w're} {the w}? {:?w'd} say for {`w}self! {:?w've} got here all of {@w}. ")
-/// }
-///
-/// # fn main() {
-///
-/// assert_eq!(["I", "you", "she", "they"]
-///     .iter()
-///     .map(|s| upper(Noun::new("one", s)))
-///     .collect::<String>(),
-///     "'M the one? 'D say for myself! 'Ve got here all of me. \
-///     'Re the one? 'D say for yourself! 'Ve got here all of you. \
-///     'S the one? 'D say for herself! 'S got here all of her. \
-///     'Re the one? 'D say for theirself! 'Ve got here all of them. "
-///     .to_string());
-/// # }
-/// ```
-pub fn uc_1st_if(s: &str, uc: bool) -> String {
-    if uc {
-        let mut c = s.chars();
-        c.next()
-            .map(|t| match t {
-                '\'' => {
-                    t.to_string()
-                        + &c.next()
-                            .map(|c| c.to_uppercase().collect::<String>())
-                            .unwrap_or_default()
-                }
-                _ => t.to_uppercase().collect::<String>(),
-            })
-            .unwrap_or_default()
-            + c.as_str()
-    } else {
-        s.to_string()
-    }
-}
+pub use language::uc_1st_if;
 
 use language::adjective;
 use language::objective;
