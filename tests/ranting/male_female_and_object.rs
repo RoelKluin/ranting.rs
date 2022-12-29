@@ -31,7 +31,7 @@ impl Meadowers {
     }
     fn join(&mut self, newcomer: Meadowers) -> String {
         let count = newcomer.count;
-        let s = say!("{The #?count newcomer join} {the +self} in the meadow.");
+        let s = say!("{The ?#count newcomer join} {the +self} in the meadow.");
         self.count += newcomer.count;
         s
     }

@@ -10,9 +10,9 @@ readme = "README.md"
 documentation = "https://docs.rs/ranting_derive/0.1.2/ranting_derive/"
 
 [dependencies]
-syn = { version = "1.0.98", features = ["full"] }
+syn = { version = "1.0.98", default-features = false }
 quote = "1.0.20"
-proc-macro2 = "1.0.40"
+proc-macro2 = "1.0.49"
 lazy_static = "1.4.0"
 darling = "0.14.1"
 litrs = "0.2.3"
@@ -22,3 +22,11 @@ proc-macro-error = "1.0.4"
 
 [lib]
 proc-macro = true
+
+### FEATURES #################################################################
+
+[features]
+default = ["syn/full"]
+
+## allows debugging.
+debug = ["syn/extra-traits", "syn/full"]

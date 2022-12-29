@@ -6,30 +6,399 @@ mod ranting_impl;
 use darling::{FromDeriveInput, ToTokens};
 use english as language;
 use lazy_static::lazy_static;
-use proc_macro::{self, Literal, TokenStream as TokenStream1, TokenTree};
-use proc_macro2::{Span, TokenStream};
-use quote::quote;
+use proc_macro::{self, TokenStream as TokenStream1};
+use proc_macro2::{Punct, Spacing, Span, TokenStream};
+use quote::{quote, TokenStreamExt};
 use ranting_impl::*;
 use regex::{Captures, Regex};
-use syn::parse::Parser;
-use syn::{self, parse, parse_macro_input, DeriveInput, Error, Expr, ExprLit, ExprPath, Lit::Int};
+use syn::{
+    self,
+    parse::{Parse, ParseStream, Parser},
+    parse_macro_input,
+    punctuated::Punctuated,
+    DeriveInput, Error, Expr, LitStr, Token,
+};
+
+// TODO: replace Span::mixed_site() with more precise location.
+
+struct Say {
+    lit: String,
+    params: Vec<Expr>,
+}
+
+impl Parse for Say {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if input.is_empty() {
+            return Err(syn::Error::new(Span::call_site(), "missing format string"));
+        }
+        let mut lit = input.parse::<LitStr>()?.value();
+
+        let params_in = if input.is_empty() {
+            vec![]
+        } else {
+            input.parse::<Token![,]>()?;
+
+            input
+                .parse_terminated::<_, Token![,]>(syn::Expr::parse)?
+                .into_iter()
+                .collect()
+        };
+        lazy_static! {
+            static ref RE: Regex = Regex::new(language::RANTING_PLACEHOLDER).unwrap();
+        }
+        let mut err = None;
+        #[cfg(feature = "debug")]
+        eprintln!("{}", lit.to_string());
+        let mut params = vec![];
+
+        lit = RE
+            .replace_all(&lit, |caps: &Captures| {
+                match handle_param(caps, &params_in, &mut params) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        err = Some(e);
+                        String::new()
+                    }
+                }
+            })
+            .to_string();
+
+        if let Some(e) = err {
+            return Err(e);
+        }
+        Ok(Say { lit, params })
+    }
+}
+
+impl ToTokens for Say {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let mut macro_tokens = TokenStream::new();
+        let expr = get_lit_str(self.lit.as_str());
+
+        expr.to_tokens(&mut macro_tokens);
+        for param in self.params.iter() {
+            macro_tokens.append(Punct::new(',', Spacing::Alone));
+            param.to_tokens(&mut macro_tokens);
+        }
+        let mut segments = Punctuated::new();
+        segments.push(syn::PathSegment {
+            ident: syn::Ident::new("format", Span::call_site()),
+            arguments: syn::PathArguments::None,
+        });
+        let mac = Expr::Macro(syn::ExprMacro {
+            attrs: vec![],
+            mac: syn::Macro {
+                path: syn::Path {
+                    leading_colon: None,
+                    segments,
+                },
+                bang_token: syn::Token![!]([Span::mixed_site()]),
+                delimiter: syn::MacroDelimiter::Paren(syn::token::Paren {
+                    span: Span::mixed_site(),
+                }),
+                tokens: macro_tokens,
+            },
+        });
+        mac.to_tokens(tokens);
+        #[cfg(feature = "debug")]
+        eprintln!("{}", tokens.to_string());
+    }
+}
+
+fn get_lit_bool(value: bool) -> syn::Expr {
+    Expr::Lit(syn::ExprLit {
+        attrs: vec![],
+        lit: syn::Lit::Bool(syn::LitBool {
+            value,
+            span: Span::mixed_site(),
+        }),
+    })
+}
+fn get_lit_str(value: &str) -> syn::Expr {
+    Expr::Lit(syn::ExprLit {
+        attrs: vec![],
+        lit: syn::Lit::Str(syn::LitStr::new(value, Span::mixed_site())),
+    })
+}
+
+fn get_lit_int(repr: &str) -> syn::Expr {
+    Expr::Lit(syn::ExprLit {
+        attrs: vec![],
+        lit: syn::Lit::Int(syn::LitInt::new(repr, Span::mixed_site())),
+    })
+}
+
+fn path_from_segs<S: AsRef<str>>(segs: &[S]) -> syn::Expr {
+    let mut segments = Punctuated::new();
+    for seg in segs.iter() {
+        segments.push(syn::PathSegment {
+            ident: syn::Ident::new(seg.as_ref(), Span::call_site()),
+            arguments: syn::PathArguments::None,
+        });
+    }
+    Expr::Path(syn::ExprPath {
+        attrs: vec![],
+        qself: None,
+        path: syn::Path {
+            leading_colon: None,
+            segments,
+        },
+    })
+}
+
+fn fn_call_from_path(path: Expr, mut arg_vec: Vec<Expr>) -> syn::Expr {
+    let mut args = Punctuated::new();
+    for arg in arg_vec.drain(..) {
+        args.push(arg);
+    }
+    Expr::Call(syn::ExprCall {
+        attrs: vec![],
+        func: std::boxed::Box::new(path),
+        paren_token: syn::token::Paren {
+            span: Span::mixed_site(),
+        },
+        args,
+    })
+}
+
+fn fn_call_from_segs<S: AsRef<str>>(segs: &[S], arg_vec: Vec<Expr>) -> syn::Expr {
+    fn_call_from_path(path_from_segs(segs), arg_vec)
+}
+
+fn get_method_call(path: Expr, method: &str, mut arg_vec: Vec<Expr>) -> syn::Expr {
+    let mut args = Punctuated::new();
+    for arg in arg_vec.drain(..) {
+        args.push(arg);
+    }
+    Expr::MethodCall(syn::ExprMethodCall {
+        attrs: vec![],
+        receiver: Box::new(path),
+        dot_token: syn::Token![.]([Span::mixed_site()]),
+        method: syn::Ident::new(method, Span::mixed_site()),
+        paren_token: syn::token::Paren {
+            span: Span::mixed_site(),
+        },
+        args,
+        turbofish: None,
+    })
+}
+
+fn get_caps_expr(caps: &Captures, given: &[Expr], name: &str) -> Result<Expr, Error> {
+    if let Some(part) = caps.name(name).map(|s| s.as_str()) {
+        let expr = if let Ok(u) = part.parse::<usize>() {
+            given
+                .get(u)
+                .ok_or_else(|| {
+                    Error::new(
+                        Span::mixed_site(),
+                        format!("for {name} {part}, positional {u} is out of bounds"),
+                    )
+                })?
+                .clone()
+        } else {
+            path_from_segs(&[part])
+        };
+        Ok(expr)
+    } else {
+        Err(Error::new(
+            Span::mixed_site(),
+            format!("The {name} is missing in a placeholder."),
+        ))
+    }
+}
+
+// arguments become positionals
+fn handle_param(caps: &Captures, given: &[Expr], pos: &mut Vec<Expr>) -> Result<String, Error> {
+    let mut is_plain_placeholder = true;
+    let mut nr: Option<Expr> = None;
+    let mut noun_space = caps.name("sp1");
+    let mut post_space = caps.name("sp3").map_or("", |m| m.as_str());
+    let post = caps.name("post1").or_else(|| caps.name("post2"));
+    let fmt = caps.name("fmt").map_or("", |s| s.as_str());
+
+    // could be a struct or enum with a Ranting trait or just be a regular
+    //  placeholder if withou all other SayPlaceholder elements.
+    let noun = get_caps_expr(caps, given, "noun")?;
+
+    let is_pl = if let Some(plurality) = caps.name("plurality") {
+        is_plain_placeholder = false;
+        match plurality.as_str().chars().next().unwrap() {
+            '+' => get_lit_bool(true),
+            '-' => get_lit_bool(false),
+            c => {
+                noun_space = caps.name("sp2");
+                let expr = get_caps_expr(caps, given, "nr")?;
+                // "#", "#?" or "?#" are captured in RE but not "??" or "##".
+                if c != '?' {
+                    nr = Some(expr.clone()); // nr not assigned!
+                }
+                Expr::Binary(syn::ExprBinary {
+                    attrs: vec![],
+                    left: Box::new(expr),
+                    op: syn::BinOp::Ne(syn::Token![!=]([Span::mixed_site(); 2])),
+                    right: Box::new(get_lit_int("1")),
+                })
+            }
+        }
+    } else {
+        get_method_call(noun.clone(), "is_plural", vec![])
+    };
+    let mut res = caps.name("sentence").map_or("", |s| s.as_str()).to_owned();
+
+    // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
+    // 2) uc if article or so is or 3) the noun is first or after start or `. '
+    let mut uc = if let Some(c) = caps.name("uc") {
+        is_plain_placeholder = false;
+        c.as_str() == "^"
+    } else {
+        // or if article has uc or the noun is first or at new sentence
+        caps.name("pre")
+            .filter(|s| s.as_str().starts_with(|c: char| c.is_uppercase()))
+            .or_else(|| {
+                caps.name("sentence")
+                    .filter(|m| m.start() == 0 || m.as_str() != "")
+            })
+            .is_some()
+    };
+
+    // This may be an article or certain verbs that can occur before the noun:
+    if let Some(pre) = caps.name("pre") {
+        is_plain_placeholder = false;
+        let p = pre.as_str().to_lowercase();
+        res.push_str(&format!("{{{}}}", pos.len()));
+        let call = if language::is_article_or_so(p.as_str()) {
+            fn_call_from_segs(
+                &["ranting", "adapt_article"],
+                vec![
+                    get_method_call(
+                        noun.clone(),
+                        "indefinite_article",
+                        vec![get_lit_bool(false)],
+                    ),
+                    get_lit_str(p.as_str()),
+                    is_pl.clone(),
+                    get_lit_bool(uc),
+                ],
+            )
+        } else {
+            assert!(post.is_none(), "verb before and after?");
+            fn_call_from_segs(
+                &["ranting", "inflect_verb"],
+                vec![
+                    get_method_call(noun.clone(), "subjective", vec![]),
+                    get_lit_str(p.as_str()),
+                    is_pl.clone(),
+                    get_lit_bool(uc),
+                ],
+            )
+        };
+        pos.push(call);
+        res.push_str(caps.name("s_pre").map_or("", |m| m.as_str()));
+        uc = false;
+    }
+
+    if let Some(etc1) = caps.name("etc1") {
+        is_plain_placeholder = false;
+        res.push_str(etc1.as_str());
+    }
+    if let Some(expr) = nr {
+        res.push_str(caps.name("sp1").map_or("", |m| m.as_str()));
+        res.push_str(&format!("{{{}{}}}", pos.len(), fmt));
+        pos.push(expr);
+    }
+    // also if case is None, the noun should be printed.
+    let opt_case = caps.name("case").map(|m| m.as_str());
+    if opt_case != Some("?") {
+        res.push_str(noun_space.map_or("", |m| m.as_str()));
+        match opt_case.and_then(language::get_case_from_str) {
+            Some(case) if case.ends_with("ive") => {
+                res.push_str(&format!("{{{}}}", pos.len()));
+                let segs = &["ranting".to_string(), format!("inflect_{case}")];
+                let arg_vec = vec![
+                    get_method_call(noun.clone(), "subjective", vec![]),
+                    is_pl.clone(),
+                    get_lit_bool(uc),
+                ];
+                pos.push(fn_call_from_segs(segs, arg_vec));
+            }
+            Some(word_angular) => {
+                let word = word_angular.trim_end_matches('>');
+                res.push_str(&format!("{{{}}}", pos.len()));
+                let segs = &["ranting", "inflect_noun"];
+                let arg_vec = vec![
+                    get_method_call(noun.clone(), "mut_name", vec![get_lit_str(word)]),
+                    get_method_call(noun.clone(), "is_plural", vec![]),
+                    is_pl.clone(),
+                    get_lit_bool(uc),
+                ];
+                pos.push(fn_call_from_segs(segs, arg_vec));
+            }
+            None if is_plain_placeholder && caps.name("etc2").is_none() && post.is_none() => {
+                res.push_str(&format!("{{{}{fmt}}}", pos.len()));
+                pos.push(noun.clone());
+            }
+            None => {
+                res.push_str(&format!("{{{}}}", pos.len()));
+                let segs = &["ranting", "inflect_noun"];
+                let arg_vec = vec![
+                    get_method_call(noun.clone(), "name", vec![get_lit_bool(false)]),
+                    get_method_call(noun.clone(), "is_plural", vec![]),
+                    is_pl.clone(),
+                    get_lit_bool(uc),
+                ];
+                pos.push(fn_call_from_segs(segs, arg_vec));
+            }
+        }
+        uc = false;
+    } else if noun_space.is_none() {
+        post_space = "";
+    }
+    if let Some(etc2) = caps.name("etc2") {
+        res.push_str(etc2.as_str());
+    }
+    if let Some(post) = post.map(|m| m.as_str()) {
+        res.push_str(&format!("{post_space}{{{}}}", pos.len()));
+        let arg_vec;
+        let segs = match post {
+            "'" | "'s" => {
+                arg_vec = vec![
+                    get_method_call(noun.clone(), "name", vec![get_lit_bool(false)]),
+                    get_method_call(noun, "is_plural", vec![]),
+                    is_pl,
+                ];
+                &["ranting", "adapt_possesive_s"]
+            }
+            verb => {
+                arg_vec = vec![
+                    get_method_call(noun, "subjective", vec![]),
+                    get_lit_str(verb),
+                    is_pl,
+                    get_lit_bool(uc),
+                ];
+                &["ranting", "inflect_verb"]
+            }
+        };
+        pos.push(fn_call_from_segs(segs, arg_vec));
+    }
+    Ok(res)
+}
 
 #[proc_macro]
 pub fn ack(input: TokenStream1) -> TokenStream1 {
-    let res = do_say(input);
-    quote!(return Ok(#res)).into()
+    let input = parse_macro_input!(input as Say);
+    quote!(return Ok(#input)).into()
 }
 
 #[proc_macro]
 pub fn nay(input: TokenStream1) -> TokenStream1 {
-    let res = do_say(input);
-    quote!(return Err(#res)).into()
+    let input = parse_macro_input!(input as Say);
+    quote!(return Err(#input)).into()
 }
 
 #[proc_macro]
 pub fn say(input: TokenStream1) -> TokenStream1 {
-    let res = do_say(input);
-    quote!(#res).into()
+    let input = parse_macro_input!(input as Say);
+    quote!(#input).into()
 }
 
 /// Implies `#[derive(Ranting)]` and includes `name` and `subject` in structs.
@@ -39,35 +408,30 @@ pub fn derive_ranting(_args: TokenStream1, input: TokenStream1) -> TokenStream1 
     let mut ast = parse_macro_input!(input as DeriveInput);
     match &mut ast.data {
         syn::Data::Struct(ref mut struct_data) => {
-            match &mut struct_data.fields {
-                syn::Fields::Named(fields) => {
-                    fields.named.push(
-                        syn::Field::parse_named
-                            .parse2(quote! { name: String })
-                            .unwrap(),
-                    );
-                    fields.named.push(
-                        syn::Field::parse_named
-                            .parse2(quote! { subject: String })
-                            .unwrap(),
-                    );
-                }
-                _ => (),
+            if let syn::Fields::Named(fields) = &mut struct_data.fields {
+                fields.named.push(
+                    syn::Field::parse_named
+                        .parse2(quote! { name: String })
+                        .unwrap(),
+                );
+                fields.named.push(
+                    syn::Field::parse_named
+                        .parse2(quote! { subject: String })
+                        .unwrap(),
+                );
             }
 
-            return quote! {
+            quote! {
                 #[derive(Ranting)]
                 #ast
             }
-            .into();
+            .into()
         }
-        syn::Data::Enum(_) => {
-            return quote! {
-                #[derive(ranting::strum_macros::Display, Ranting)]
-                #ast
-            }
-            .into();
+        syn::Data::Enum(_) => quote! {
+            #[derive(ranting::strum_macros::Display, Ranting)]
+            #ast
         }
+        .into(),
         _ => panic!("`add_field` has to be used with structs or enums"),
     }
 }
@@ -82,282 +446,4 @@ pub fn inner_derive_ranting(input: TokenStream1) -> TokenStream1 {
         options.is_enum = true;
     }
     ranting_q(options, &input.ident).into()
-}
-
-fn do_say(input: TokenStream1) -> TokenStream {
-    let mut token_it = input.into_iter().peekable();
-
-    let mut lit = match lit_first(token_it.next()) {
-        Ok(lit) => lit.to_string().trim_matches('"').to_string(),
-        Err(e) => return e.into_compile_error(),
-    };
-    let mut given = vec![];
-    while token_it.peek().is_some() {
-        match comma_next(&mut token_it) {
-            Ok(tok) => given.push(tok),
-            Err(e) => return e.into_compile_error(),
-        }
-    }
-
-    // regex to capture the placholders or sentence ends
-    // useful: https://regex101.com/r/Ly7O1x/3/
-    lazy_static! {
-        static ref RE: Regex = Regex::new(language::RANTING_PLACEHOLDER).unwrap();
-    }
-    //eprintln!("{:?}", RE.to_string());
-    let mut err = None;
-    let mut positional = vec![];
-    //let original = lit.to_string();
-
-    lit = RE
-        .replace_all(&lit, |caps: &Captures| {
-            match handle_param(caps, &given, &mut positional) {
-                Ok(s) => s,
-                Err(e) => {
-                    err = Some(e);
-                    String::new()
-                }
-            }
-        })
-        .to_string();
-
-    //eprintln!("{}\n {}", original, lit.as_str());
-    if let Some(e) = err {
-        return e.into_compile_error();
-    }
-    //eprintln!("{}\n {}", original, quote!(format!(#lit(, #positional)*)).to_string());
-    quote!(format!(#lit #(, #positional)*))
-}
-
-fn lit_first(o: Option<TokenTree>) -> Result<Literal, Error> {
-    match o {
-        Some(TokenTree::Literal(l)) => Ok(l),
-        Some(TokenTree::Ident(i)) => Err(Error::new(
-            i.span().into(),
-            "expected Literal, not Identifier",
-        )),
-        Some(TokenTree::Punct(p)) => {
-            Err(Error::new(p.span().into(), "expected Literal, not Punct"))
-        }
-        Some(TokenTree::Group(g)) => {
-            Err(Error::new(g.span().into(), "expected Literal, not Group"))
-        }
-        None => Err(Error::new(Span::mixed_site().into(), "expected Literal")),
-    }
-}
-
-fn comma_next(it: &mut dyn Iterator<Item = TokenTree>) -> Result<String, Error> {
-    let t: TokenTree = it.next().unwrap();
-
-    let res = match t {
-        TokenTree::Punct(p) => (p.as_char() == ',')
-            .then_some(it.next())
-            .flatten()
-            .ok_or_else(|| Error::new(p.span().into(), "expected token after Punct")),
-        TokenTree::Literal(l) => Err(Error::new(l.span().into(), "expected Punct, not Literal")),
-        TokenTree::Ident(i) => Err(Error::new(
-            i.span().into(),
-            "expected Punct, not Identifier",
-        )),
-        TokenTree::Group(g) => Err(Error::new(g.span().into(), "expected Punct, not Group")),
-    };
-
-    match parse::<Expr>(res?.into())? {
-        Expr::Path(ExprPath { path, .. }) => Ok(path.to_token_stream().to_string()),
-        Expr::Lit(ExprLit {
-            lit: Int(lit_int), ..
-        }) => Ok(lit_int.to_token_stream().to_string()),
-        e => Err(Error::new(
-            Span::mixed_site().into(),
-            format!("unexpected expression: {e:?}"),
-        )),
-    }
-}
-
-// arguments become positionals
-fn handle_param(
-    caps: &Captures,
-    given: &Vec<String>,
-    pos: &mut Vec<TokenStream>,
-) -> Result<String, Error> {
-    let mut is_plain_placeholder = true;
-    let mut is_pl = String::new();
-    let mut nr = String::new();
-    let mut noun_space = caps.name("sp1");
-    let mut post_space = caps.name("sp3").map_or("", |m| m.as_str());
-    let post = caps.name("post1").or(caps.name("post2"));
-
-    if let Some(plurality) = caps.name("plurality") {
-        is_plain_placeholder = false;
-        match plurality.as_str().trim().split_at(1) {
-            ("+", "") => is_pl.push_str("true"),
-            ("-", "") => is_pl.push_str("false"),
-            ("#", x) | ("?", x) => {
-                noun_space = caps.name("sp2");
-                let mut x = x;
-                // "#", "#?" or "?#" are captured in RE but not "??" or "##".
-                if let Some(nr) = x.strip_prefix(&['?', '#']) {
-                    x = nr; // nr not assigned!
-                } else {
-                    nr = x.to_string();
-                }
-                if let Ok(u) = x.trim_end().parse::<usize>() {
-                    x = given
-                        .get(u)
-                        .ok_or(Error::new(
-                            Span::mixed_site().into(),
-                            format!("A #var, positional {u}, is out of bounds"),
-                        ))?
-                        .as_str();
-                    if !nr.is_empty() {
-                        // keep leading whitespace if displayed.
-                        nr = nr
-                            .split_once(|c: char| c.is_ascii_digit())
-                            .map_or("", |s| s.0)
-                            .to_string()
-                            + x;
-                    }
-                }
-                is_pl = format!("{x} != 1");
-            }
-            (a, b) => panic!("Unrecognized plurality '{a}{b}'"),
-        }
-    }
-
-    // could be a struct or enum with a Ranting trait or just be a regular
-    //  placeholder if withou all other SayPlaceholder elements.
-    let mut noun = caps.name("noun").map(|s| s.as_str()).ok_or(Error::new(
-        Span::mixed_site().into(),
-        "The Noun is missing in a placeholder.",
-    ))?;
-    let fmt = caps.name("fmt").map_or("", |s| s.as_str());
-
-    // a positional.
-    if let Ok(u) = noun.parse::<usize>() {
-        noun = given
-            .get(u)
-            .ok_or(Error::new(
-                Span::mixed_site().into(),
-                format!("A Noun, positional {u}, is out of bounds"),
-            ))?
-            .as_str();
-    }
-
-    if is_pl.is_empty() {
-        is_pl = format!("{noun}.is_plural()");
-    }
-    let mut res = caps.name("sentence").map_or("", |s| s.as_str()).to_owned();
-
-    // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
-    // 2) uc if article or so is or 3) the noun is first or after start or `. '
-    let mut uc = if let Some(c) = caps.name("uc") {
-        is_plain_placeholder = false;
-        c.as_str() == "^"
-    } else {
-        // or if article has uc or the noun is first or at new sentence
-        caps.name("pre")
-            .filter(|s| s.as_str().starts_with(|c: char| c.is_uppercase()))
-            .or(caps
-                .name("sentence")
-                .filter(|m| m.start() == 0 || m.as_str() != ""))
-            .is_some()
-    };
-
-    // This may be an article or certain verbs that can occur before the noun:
-    if let Some(pre) = caps.name("pre") {
-        is_plain_placeholder = false;
-        let p = pre.as_str().to_lowercase();
-        res.push_str(&format!("{{{}}}", pos.len()));
-        if language::is_article_or_so(p.as_str()) {
-            pos.push(
-                format!(
-                "ranting::adapt_article({noun}.indefinite_article(false), \"{p}\", {is_pl}, {uc})"
-            )
-                .parse()
-                .unwrap(),
-            );
-        } else {
-            assert!(post.is_none(), "verb before and after?");
-            pos.push(
-                format!(
-                    "ranting::inflect_verb({noun}.subjective(), \"{}\", {is_pl}, {uc})",
-                    p.as_str()
-                )
-                .parse()
-                .unwrap(),
-            );
-        }
-        res.push_str(caps.name("s_pre").map_or("", |m| m.as_str()));
-        uc = false;
-    }
-
-    if let Some(etc1) = caps.name("etc1") {
-        is_plain_placeholder = false;
-        res.push_str(&format!("{}", etc1.as_str()));
-    }
-    if !nr.is_empty() {
-        res.push_str(caps.name("sp1").map_or("", |m| m.as_str()));
-        res.push_str(&format!("{{{}{}}}", pos.len(), fmt));
-        pos.push(format!("{nr}").parse().unwrap());
-    }
-    // also if case is None, the noun should be printed.
-    let opt_case = caps.name("case").map(|m| m.as_str());
-    if opt_case != Some("?") {
-        res.push_str(noun_space.map_or("", |m| m.as_str()));
-        match opt_case.and_then(|s| language::get_case_from_str(s)) {
-            Some(case) if case.ends_with("ive") => {
-                res.push_str(&format!("{{{}}}", pos.len()));
-                pos.push(
-                    format!("ranting::inflect_{case}({noun}.subjective(), {is_pl}, {uc})")
-                        .parse()
-                        .unwrap(),
-                )
-            }
-            Some(word_angular) => {
-                let word = word_angular.trim_end_matches('>');
-                res.push_str(&format!("{{{}}}", pos.len()));
-                pos.push(format!(
-                    // {noun}.name would break working for Ranting trait generics
-                    "ranting::inflect_noun({noun}.mut_name(\"{word}\").as_str(), {noun}.is_plural(), {is_pl}, {uc})"
-                ).parse().unwrap())
-            }
-            None if is_plain_placeholder && caps.name("etc2").is_none() && post.is_none() => {
-                res.push_str(&format!("{{{}{fmt}}}", pos.len()));
-                pos.push(format!("{noun}").parse().unwrap()); // for non-Ranting variables
-            }
-            None => {
-                res.push_str(&format!("{{{}}}", pos.len()));
-                pos.push(format!(
-                    // {noun}.name would break working for Ranting trait generics
-                    "ranting::inflect_noun({noun}.name(false).as_str(), {noun}.is_plural(), {is_pl}, {uc})"
-                ).parse().unwrap())
-            }
-        }
-        uc = false;
-    } else if noun_space.is_none() {
-        post_space = "";
-    }
-    if let Some(etc2) = caps.name("etc2") {
-        res.push_str(&format!("{}", etc2.as_str()));
-    }
-    if let Some(post) = post.map(|m| m.as_str()) {
-        res.push_str(&format!("{post_space}{{{}}}", pos.len()));
-        match post {
-            "'" | "'s" => {
-                pos.push(format!(
-                    "ranting::adapt_possesive_s({noun}.name(false).as_str(), {noun}.is_plural(), {is_pl})"
-                ).parse().unwrap());
-            }
-            verb => {
-                pos.push(
-                    format!(
-                        "ranting::inflect_verb({noun}.subjective(), \"{verb}\", {is_pl}, {uc})"
-                    )
-                    .parse()
-                    .unwrap(),
-                );
-            }
-        }
-    }
-    Ok(res)
 }
