@@ -89,7 +89,7 @@ pub fn is_article_or_so(word: &str) -> bool {
     matches!(word, "some" | "a" | "an" | "the" | "these" | "those")
 }
 
-/// can convert a `'s` or `'` after a noun to `'` or `'s` as appropriate for singular or plural.
+/// can convert a `'s` or `'` after a noun as appropriate for singular or plural.
 pub fn adapt_possesive_s<'a, S: AsRef<str> + 'a>(
     name: S,
     is_default_plural: bool,
@@ -107,6 +107,15 @@ pub fn adapt_possesive_s<'a, S: AsRef<str> + 'a>(
         "'s"
     } else {
         "'"
+    }
+}
+
+// In English singular possesive s i always the same.
+pub(crate) fn adapt_possesive_s_wo_subj(c: char) -> Option<char> {
+    if c == '-' {
+        Some('\'')
+    } else {
+        None
     }
 }
 
@@ -352,8 +361,7 @@ pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> Str
             "were" => format!("{}as{post}", if uc { 'W' } else { 'w' }),
             _ => uc_1st_if(verb, uc),
         },
-        "you" | "we" | "they" | "ye" | "thou" => uc_1st_if(verb, uc),
-        _ => match part {
+        "he" | "she" | "it" => match part {
             "'re" | "'ve" => format!("'{}", if uc { 'S' } else { 's' }),
             "are" => format!("{}s{post}", if uc { 'I' } else { 'i' }),
             "have" => format!("{}as{post}", if uc { 'H' } else { 'h' }),
@@ -374,6 +382,16 @@ pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> Str
                 }
             }
         },
+        _ => uc_1st_if(verb, uc),
+    }
+}
+
+// In English verbs are the same if 1st, 2nd or 3rd person plural.
+pub(crate) fn inflect_verb_wo_subj(verb: &str, c: char, uc: bool) -> Option<String> {
+    if c == '+' {
+        Some(inflect_verb("we", verb, true, uc))
+    } else {
+        None
     }
 }
 

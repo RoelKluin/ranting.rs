@@ -27,5 +27,5 @@ default = ["ranting_derive/default"]
 ## allows inflection of the `Ranting` name as specified by placeholder markers `+`, `-` or `#var`.
 inflector = ["Inflector", "ranting_derive/default"]
 
-## allows debugging.
+## Print during compilation each `say!()` pattern with its `format!()` conversion.
 debug = ["Inflector", "ranting_derive/debug"]
