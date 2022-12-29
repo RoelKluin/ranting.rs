@@ -233,10 +233,13 @@ fn handle_param(caps: &Captures, given: &[Expr], pos: &mut Vec<Expr>) -> Result<
     // could be a struct or enum with a Ranting trait or just be a regular
     //  placeholder if withou all other SayPlaceholder elements.
     let noun = get_caps_expr(caps, given, "noun")?;
+    let plurality = caps
+        .name("plurality")
+        .and_then(|m| m.as_str().chars().next());
 
-    let is_pl = if let Some(plurality) = caps.name("plurality") {
+    let is_pl = if let Some(c) = plurality {
         is_plain_placeholder = false;
-        match plurality.as_str().chars().next().unwrap() {
+        match c {
             '+' => get_lit_bool(true),
             '-' => get_lit_bool(false),
             c => {
@@ -279,33 +282,46 @@ fn handle_param(caps: &Captures, given: &[Expr], pos: &mut Vec<Expr>) -> Result<
     if let Some(pre) = caps.name("pre") {
         is_plain_placeholder = false;
         let p = pre.as_str().to_lowercase();
-        let call = if language::is_article_or_so(p.as_str()) {
-            fn_call_from_segs(
-                &["ranting", "adapt_article"],
-                vec![
-                    get_method_call(
-                        noun.clone(),
-                        "indefinite_article",
-                        vec![get_lit_bool(false)],
-                    ),
-                    get_lit_str(p.as_str()),
-                    is_pl.clone(),
-                    get_lit_bool(uc),
-                ],
-            )
+
+        if language::is_article_or_so(p.as_str()) {
+            if let Some(c) = plurality.filter(|&c| c == '-' || c == '+') {
+                let a = language::adapt_article(p.as_str(), p.as_str(), c == '+', uc);
+                res.push_str(a.as_str());
+            } else {
+                let call = fn_call_from_segs(
+                    &["ranting", "adapt_article"],
+                    vec![
+                        get_method_call(
+                            noun.clone(),
+                            "indefinite_article",
+                            vec![get_lit_bool(false)],
+                        ),
+                        get_lit_str(p.as_str()),
+                        is_pl.clone(),
+                        get_lit_bool(uc),
+                    ],
+                );
+                res_pos_push(&mut res, pos, call, None);
+            }
         } else {
             assert!(post.is_none(), "verb before and after?");
-            fn_call_from_segs(
-                &["ranting", "inflect_verb"],
-                vec![
-                    get_method_call(noun.clone(), "subjective", vec![]),
-                    get_lit_str(p.as_str()),
-                    is_pl.clone(),
-                    get_lit_bool(uc),
-                ],
-            )
-        };
-        res_pos_push(&mut res, pos, call, None);
+            if let Some(verb) =
+                plurality.and_then(|c| language::inflect_verb_wo_subj(p.as_str(), c, uc))
+            {
+                res.push_str(verb.as_str());
+            } else {
+                let call = fn_call_from_segs(
+                    &["ranting", "inflect_verb"],
+                    vec![
+                        get_method_call(noun.clone(), "subjective", vec![]),
+                        get_lit_str(p.as_str()),
+                        is_pl.clone(),
+                        get_lit_bool(uc),
+                    ],
+                );
+                res_pos_push(&mut res, pos, call, None);
+            }
+        }
         res.push_str(caps.name("s_pre").map_or("", |m| m.as_str()));
         uc = false;
     }
@@ -366,26 +382,41 @@ fn handle_param(caps: &Captures, given: &[Expr], pos: &mut Vec<Expr>) -> Result<
     }
     if let Some(post) = post.map(|m| m.as_str()) {
         res.push_str(post_space);
-        let call = match post {
-            "'" | "'s" => fn_call_from_segs(
-                &["ranting", "adapt_possesive_s"],
-                vec![
-                    get_method_call(noun.clone(), "name", vec![get_lit_bool(false)]),
-                    get_method_call(noun, "is_plural", vec![]),
-                    is_pl,
-                ],
-            ),
-            verb => fn_call_from_segs(
-                &["ranting", "inflect_verb"],
-                vec![
-                    get_method_call(noun, "subjective", vec![]),
-                    get_lit_str(verb),
-                    is_pl,
-                    get_lit_bool(uc),
-                ],
-            ),
+        match post {
+            "'" | "'s" => {
+                if let Some(c) = plurality.and_then(|c| language::adapt_possesive_s_wo_subj(c)) {
+                    res.push(c);
+                } else {
+                    let call = fn_call_from_segs(
+                        &["ranting", "adapt_possesive_s"],
+                        vec![
+                            get_method_call(noun.clone(), "name", vec![get_lit_bool(false)]),
+                            get_method_call(noun, "is_plural", vec![]),
+                            is_pl,
+                        ],
+                    );
+                    res_pos_push(&mut res, pos, call, None);
+                }
+            }
+            verb => {
+                if let Some(verb) =
+                    plurality.and_then(|c| language::inflect_verb_wo_subj(verb, c, uc))
+                {
+                    res.push_str(verb.as_str());
+                } else {
+                    let call = fn_call_from_segs(
+                        &["ranting", "inflect_verb"],
+                        vec![
+                            get_method_call(noun, "subjective", vec![]),
+                            get_lit_str(verb),
+                            is_pl,
+                            get_lit_bool(uc),
+                        ],
+                    );
+                    res_pos_push(&mut res, pos, call, None);
+                }
+            }
         };
-        res_pos_push(&mut res, pos, call, None);
     }
     Ok(res)
 }
