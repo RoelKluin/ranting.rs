@@ -144,11 +144,16 @@ pub fn inflect_adjective(subject: &str, as_plural: bool, uc: bool) -> &str {
 }
 
 /// singular-/pluralize noun name according to nr
-pub fn inflect_noun(name: &str, is_default_plural: bool, as_plural: bool, uc: bool) -> String {
+pub fn inflect_noun<S: AsRef<str>>(
+    name: S,
+    is_default_plural: bool,
+    as_plural: bool,
+    uc: bool,
+) -> String {
     if is_default_plural == as_plural {
-        uc_1st_if(name, uc)
+        uc_1st_if(name.as_ref(), uc)
     } else {
-        let plural = language::inflect_name(name, as_plural);
+        let plural = language::inflect_name(name.as_ref(), as_plural);
         uc_1st_if(plural.as_str(), uc)
     }
 }

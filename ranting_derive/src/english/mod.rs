@@ -14,7 +14,7 @@ pub(crate) static RANTING_PLACEHOLDER: &str = r"(?x)
         (?P<etc1>(?:\s+[\w-]+)+?)??
         (?P<sp1>\s+)
     )?+
-    (?P<plurality>[+-]|(?:\??\#|\#\?)\w+(?P<sp2>\s+))?+
+    (?:(?P<plurality>[+-]|\??\#(?P<nr>\w+)(?P<sp2>\s+)))?+
     (?P<case>(?:[`:@~*?]|<[^>]*>))?+
     (?P<noun>[\w-]+)
     (?:
@@ -38,8 +38,5 @@ pub(crate) fn get_case_from_str(s: &str) -> Option<String> {
 
 /// Return whether a word is one of `some` `a` `an` `the` `these` `those`
 pub fn is_article_or_so(word: &str) -> bool {
-    match word {
-        "some" | "a" | "an" | "the" | "these" | "those" => true,
-        _ => false,
-    }
+    matches!(word, "some" | "a" | "an" | "the" | "these" | "those")
 }

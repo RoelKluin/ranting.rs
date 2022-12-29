@@ -9,7 +9,12 @@ use crate::uc_1st_if;
 use inflector::string::{pluralize::to_plural, singularize::to_singular};
 
 /// can convert a `'s` or `'` after a noun to `'` or `'s` as appropriate for singular or plural.
-pub fn adapt_possesive_s(name: &str, is_default_plural: bool, asked_plural: bool) -> &str {
+pub fn adapt_possesive_s<'a, S: AsRef<str> + 'a>(
+    name: S,
+    is_default_plural: bool,
+    asked_plural: bool,
+) -> &'a str {
+    let name = name.as_ref();
     if !asked_plural
         || name.contains(|c: char| c.is_ascii_uppercase())
         || (if is_default_plural == asked_plural {
