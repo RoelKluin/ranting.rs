@@ -16,12 +16,32 @@ pub(crate) struct RantingOptions {
 /// An abstract thing, which may be a person and have a gender
 pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
     let is_plural = opt.is_plural.unwrap_or(false);
-    let get_name_q = if opt.is_enum {
+    let name_fn_q = if opt.is_enum {
         quote! {
-            self.to_string().to_lowercase()
+            fn name(&self, mut uc: bool) -> String {
+                let mut lc_spaced = String::new();
+
+                for c in self.to_string().chars() {
+                    if c.is_lowercase() {
+                        lc_spaced.push(c);
+                        uc = false;
+                    } else {
+                        lc_spaced.push(c);
+                    } else if let Some(l) = c.to_lowercase().next() {
+                        lc_spaced.push(' ');
+                        lc_spaced.push(l);
+                    }
+
+                }
+                lc_spaced
+            }
         }
     } else {
-        quote! { self.name }
+        quote! {
+            fn name(&self, uc: bool) -> String {
+                ranting::uc_1st_if(self.name.as_str(), uc)
+            }
+        }
     };
     let dismplay_impl = if opt.is_enum {
         quote! {
@@ -31,22 +51,19 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
         quote! {
             impl std::fmt::Display for #ident {
                 fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                    write!(formatter, "{}", #get_name_q)
+                    write!(formatter, "{}", self.name(false))
                 }
             }
         }
     };
     quote! {
         impl Ranting for #ident {
+            #name_fn_q
             fn subjective(&self) -> &str {
                 self.subject.as_str()
             }
             fn is_plural(&self) -> bool {
                 ranting::is_subjective_plural(self.subjective()).unwrap_or(#is_plural)
-            }
-            fn name(&self, uc: bool) -> String {
-                let name = #get_name_q.to_string();
-                ranting::uc_1st_if(name.as_str(), uc)
             }
             fn mut_name(&mut self, _word: &str) -> String {
                 self.name(false)
