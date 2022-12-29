@@ -22,7 +22,7 @@ use syn::{
 // TODO: replace Span::mixed_site() with more precise location.
 
 struct Say {
-    lit: String,
+    lit_str: String,
     params: Vec<Expr>,
 }
 
@@ -31,7 +31,7 @@ impl Parse for Say {
         if input.is_empty() {
             return Err(syn::Error::new(Span::call_site(), "missing format string"));
         }
-        let mut lit = input.parse::<LitStr>()?.value();
+        let lit = input.parse::<LitStr>()?;
 
         let params_in = if input.is_empty() {
             vec![]
@@ -48,11 +48,11 @@ impl Parse for Say {
         }
         let mut err = None;
         #[cfg(feature = "debug")]
-        eprintln!("{}", lit.to_string());
+        eprintln!("{}", lit.value());
         let mut params = vec![];
 
-        lit = RE
-            .replace_all(&lit, |caps: &Captures| {
+        let lit_str = RE
+            .replace_all(&lit.value(), |caps: &Captures| {
                 match handle_param(caps, &params_in, &mut params) {
                     Ok(s) => s,
                     Err(e) => {
@@ -63,17 +63,17 @@ impl Parse for Say {
             })
             .to_string();
 
-        if let Some(e) = err {
-            return Err(e);
+        match err {
+            Some(e) => Err(e),
+            None => Ok(Say { lit_str, params }),
         }
-        Ok(Say { lit, params })
     }
 }
 
 impl ToTokens for Say {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut macro_tokens = TokenStream::new();
-        let expr = get_lit_str(self.lit.as_str());
+        let expr = get_lit_str(self.lit_str.as_str());
 
         expr.to_tokens(&mut macro_tokens);
         for param in self.params.iter() {
@@ -207,6 +207,16 @@ fn get_caps_expr(caps: &Captures, given: &[Expr], name: &str) -> Result<Expr, Er
     }
 }
 
+fn res_pos_push(res: &mut String, pos: &mut Vec<Expr>, expr: Expr, ofmt: Option<&str>) {
+    res.push('{');
+    res.push_str(pos.len().to_string().as_str());
+    if let Some(fmt) = ofmt {
+        res.push_str(fmt);
+    }
+    res.push('}');
+    pos.push(expr);
+}
+
 // arguments become positionals
 fn handle_param(caps: &Captures, given: &[Expr], pos: &mut Vec<Expr>) -> Result<String, Error> {
     let mut is_plain_placeholder = true;
@@ -214,7 +224,7 @@ fn handle_param(caps: &Captures, given: &[Expr], pos: &mut Vec<Expr>) -> Result<
     let mut noun_space = caps.name("sp1");
     let mut post_space = caps.name("sp3").map_or("", |m| m.as_str());
     let post = caps.name("post1").or_else(|| caps.name("post2"));
-    let fmt = caps.name("fmt").map_or("", |s| s.as_str());
+    let ofmt = caps.name("fmt").map(|s| s.as_str());
 
     // could be a struct or enum with a Ranting trait or just be a regular
     //  placeholder if withou all other SayPlaceholder elements.
@@ -247,25 +257,24 @@ fn handle_param(caps: &Captures, given: &[Expr], pos: &mut Vec<Expr>) -> Result<
 
     // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
     // 2) uc if article or so is or 3) the noun is first or after start or `. '
-    let mut uc = if let Some(c) = caps.name("uc") {
+    let mut uc = if let Some(m) = caps.name("uc") {
         is_plain_placeholder = false;
-        c.as_str() == "^"
+        m.as_str() == "^"
     } else {
         // or if article has uc or the noun is first or at new sentence
         caps.name("pre")
             .filter(|s| s.as_str().starts_with(|c: char| c.is_uppercase()))
-            .or_else(|| {
-                caps.name("sentence")
-                    .filter(|m| m.start() == 0 || m.as_str() != "")
-            })
             .is_some()
+            || caps
+                .name("sentence")
+                .filter(|m| m.start() == 0 || m.as_str() != "")
+                .is_some()
     };
 
     // This may be an article or certain verbs that can occur before the noun:
     if let Some(pre) = caps.name("pre") {
         is_plain_placeholder = false;
         let p = pre.as_str().to_lowercase();
-        res.push_str(&format!("{{{}}}", pos.len()));
         let call = if language::is_article_or_so(p.as_str()) {
             fn_call_from_segs(
                 &["ranting", "adapt_article"],
@@ -292,7 +301,7 @@ fn handle_param(caps: &Captures, given: &[Expr], pos: &mut Vec<Expr>) -> Result<
                 ],
             )
         };
-        pos.push(call);
+        res_pos_push(&mut res, pos, call, None);
         res.push_str(caps.name("s_pre").map_or("", |m| m.as_str()));
         uc = false;
     }
@@ -303,8 +312,7 @@ fn handle_param(caps: &Captures, given: &[Expr], pos: &mut Vec<Expr>) -> Result<
     }
     if let Some(expr) = nr {
         res.push_str(caps.name("sp1").map_or("", |m| m.as_str()));
-        res.push_str(&format!("{{{}{}}}", pos.len(), fmt));
-        pos.push(expr);
+        res_pos_push(&mut res, pos, expr, ofmt);
     }
     // also if case is None, the noun should be printed.
     let opt_case = caps.name("case").map(|m| m.as_str());
@@ -312,18 +320,16 @@ fn handle_param(caps: &Captures, given: &[Expr], pos: &mut Vec<Expr>) -> Result<
         res.push_str(noun_space.map_or("", |m| m.as_str()));
         match opt_case.and_then(language::get_case_from_str) {
             Some(case) if case.ends_with("ive") => {
-                res.push_str(&format!("{{{}}}", pos.len()));
                 let segs = &["ranting".to_string(), format!("inflect_{case}")];
                 let arg_vec = vec![
                     get_method_call(noun.clone(), "subjective", vec![]),
                     is_pl.clone(),
                     get_lit_bool(uc),
                 ];
-                pos.push(fn_call_from_segs(segs, arg_vec));
+                res_pos_push(&mut res, pos, fn_call_from_segs(segs, arg_vec), None);
             }
             Some(word_angular) => {
                 let word = word_angular.trim_end_matches('>');
-                res.push_str(&format!("{{{}}}", pos.len()));
                 let segs = &["ranting", "inflect_noun"];
                 let arg_vec = vec![
                     get_method_call(noun.clone(), "mut_name", vec![get_lit_str(word)]),
@@ -331,14 +337,12 @@ fn handle_param(caps: &Captures, given: &[Expr], pos: &mut Vec<Expr>) -> Result<
                     is_pl.clone(),
                     get_lit_bool(uc),
                 ];
-                pos.push(fn_call_from_segs(segs, arg_vec));
+                res_pos_push(&mut res, pos, fn_call_from_segs(segs, arg_vec), None);
             }
             None if is_plain_placeholder && caps.name("etc2").is_none() && post.is_none() => {
-                res.push_str(&format!("{{{}{fmt}}}", pos.len()));
-                pos.push(noun.clone());
+                res_pos_push(&mut res, pos, noun.clone(), ofmt);
             }
             None => {
-                res.push_str(&format!("{{{}}}", pos.len()));
                 let segs = &["ranting", "inflect_noun"];
                 let arg_vec = vec![
                     get_method_call(noun.clone(), "name", vec![get_lit_bool(false)]),
@@ -346,7 +350,7 @@ fn handle_param(caps: &Captures, given: &[Expr], pos: &mut Vec<Expr>) -> Result<
                     is_pl.clone(),
                     get_lit_bool(uc),
                 ];
-                pos.push(fn_call_from_segs(segs, arg_vec));
+                res_pos_push(&mut res, pos, fn_call_from_segs(segs, arg_vec), None);
             }
         }
         uc = false;
@@ -357,28 +361,27 @@ fn handle_param(caps: &Captures, given: &[Expr], pos: &mut Vec<Expr>) -> Result<
         res.push_str(etc2.as_str());
     }
     if let Some(post) = post.map(|m| m.as_str()) {
-        res.push_str(&format!("{post_space}{{{}}}", pos.len()));
-        let arg_vec;
-        let segs = match post {
-            "'" | "'s" => {
-                arg_vec = vec![
+        res.push_str(post_space);
+        let call = match post {
+            "'" | "'s" => fn_call_from_segs(
+                &["ranting", "adapt_possesive_s"],
+                vec![
                     get_method_call(noun.clone(), "name", vec![get_lit_bool(false)]),
                     get_method_call(noun, "is_plural", vec![]),
                     is_pl,
-                ];
-                &["ranting", "adapt_possesive_s"]
-            }
-            verb => {
-                arg_vec = vec![
+                ],
+            ),
+            verb => fn_call_from_segs(
+                &["ranting", "inflect_verb"],
+                vec![
                     get_method_call(noun, "subjective", vec![]),
                     get_lit_str(verb),
                     is_pl,
                     get_lit_bool(uc),
-                ];
-                &["ranting", "inflect_verb"]
-            }
+                ],
+            ),
         };
-        pos.push(fn_call_from_segs(segs, arg_vec));
+        res_pos_push(&mut res, pos, call, None);
     }
     Ok(res)
 }
