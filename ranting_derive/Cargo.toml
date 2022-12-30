@@ -10,15 +10,18 @@ readme = "README.md"
 documentation = "https://docs.rs/ranting_derive/0.1.2/ranting_derive/"
 
 [dependencies]
-syn = { version = "1.0.98", default-features = false }
+syn = { version = "1.0.98", features = ["full"] }
 quote = "1.0.20"
 proc-macro2 = "1.0.49"
 lazy_static = "1.4.0"
 darling = "0.14.1"
 litrs = "0.2.3"
 regex = "1.6.0"
+strum_macros = "0.24"
+strum = "0.24"
 itertools = "0.10.3"
 proc-macro-error = "1.0.4"
+Inflector = { version = "0.11.4", optional = true }
 
 [lib]
 proc-macro = true
@@ -26,7 +29,7 @@ proc-macro = true
 ### FEATURES #################################################################
 
 [features]
-default = ["syn/full"]
+default = []
 
 ## allows debugging.
-debug = ["syn/extra-traits", "syn/full"]
+debug = ["Inflector"]

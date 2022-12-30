@@ -9,12 +9,14 @@
 #[allow(dead_code)]
 mod english;
 use english as language;
+pub use language::SubjectPronoun;
 
 pub use in_definite;
-pub use ranting_derive::derive_ranting;
+//pub(crate) use ranting_derive::derive_ranting;
+use std::str::FromStr;
 
 // TODO: make this a feature:
-pub use strum_macros;
+//pub(crate) use strum_macros;
 
 /// A wrapper for `return Ok(say!())`
 ///
@@ -93,23 +95,24 @@ pub use ranting_derive::say;
 // with all trait functions, derive works everywhere but here due to Ranting collision
 pub struct Noun {
     name: String,
-    subject: String,
+    subject: SubjectPronoun,
 }
 impl Noun {
     pub fn new(name: &str, subject: &str) -> Self {
         Noun {
             name: name.to_string(),
-            subject: subject.to_string(),
+            subject: SubjectPronoun::from_str(subject)
+                .unwrap_or_else(|_| panic!("invalid subject pronoun: '{subject}'")),
         }
     }
 }
 
 impl Ranting for Noun {
-    fn subjective(&self) -> &str {
-        self.subject.as_str()
+    fn subjective(&self) -> SubjectPronoun {
+        self.subject
     }
     fn is_plural(&self) -> bool {
-        is_subjective_plural(self.subjective()).unwrap_or(false)
+        is_subjective_plural(self.subjective())
     }
     fn name(&self, uc: bool) -> String {
         uc_1st_if(self.name.as_str(), uc)
@@ -141,8 +144,8 @@ pub use language::adapt_article;
 pub use language::adapt_possesive_s;
 
 /// singular-/pluralize subjective according to nr
-pub fn inflect_adjective(subject: &str, as_plural: bool, uc: bool) -> &str {
-    adjective(inflect_subjective(subject, as_plural, false), uc)
+pub fn inflect_adjective(subject: SubjectPronoun, as_plural: bool, uc: bool) -> &'static str {
+    adjective(pluralize_pronoun(subject, as_plural), uc)
 }
 
 /// singular-/pluralize noun name according to nr
@@ -161,20 +164,20 @@ pub fn inflect_noun<S: AsRef<str>>(
 }
 
 /// singular-/pluralize subjective according to nr
-pub fn inflect_objective(subject: &str, as_plural: bool, uc: bool) -> &str {
-    objective(inflect_subjective(subject, as_plural, false), uc)
+pub fn inflect_objective(subject: SubjectPronoun, as_plural: bool, uc: bool) -> &'static str {
+    objective(pluralize_pronoun(subject, as_plural), uc)
 }
 
 /// singular-/pluralize subjective according to nr
-pub fn inflect_possesive(subject: &str, as_plural: bool, uc: bool) -> &str {
-    possesive(inflect_subjective(subject, as_plural, false), uc)
+pub fn inflect_possesive(subject: SubjectPronoun, as_plural: bool, uc: bool) -> &'static str {
+    possesive(pluralize_pronoun(subject, as_plural), uc)
 }
 
 pub use language::inflect_subjective;
+pub(crate) use language::pluralize_pronoun;
 
 pub use language::inflect_verb;
 pub use language::is_subjective_plural;
-pub use language::subjective;
 pub use language::uc_1st_if;
 
 use language::adjective;
@@ -188,7 +191,7 @@ use language::possesive;
 // Space after should then also be omitted.
 #[rustfmt::skip]
 pub trait Ranting: std::fmt::Display {
-    fn subjective(&self) -> &str;
+    fn subjective(&self) -> SubjectPronoun;
     fn is_plural(&self) -> bool;
     fn name(&self, uc: bool) -> String;
     fn mut_name(&mut self, _word: &str) -> String;
