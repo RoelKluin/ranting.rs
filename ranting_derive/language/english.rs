@@ -30,24 +30,18 @@ pub(crate) static RANTING_PLACEHOLDER: &str = r"(?x)
     (?P<fmt>:[^}]+)?+
 \}";
 
-#[derive(Debug, EnumString, Copy, Clone)]
+#[derive(EnumString, Copy, Clone)]
+#[strum(serialize_all = "lowercase")]
 pub enum SubjectPronoun {
+    #[strum(serialize = "I")]
     I,
-    #[strum(serialize = "you")]
     You,
-    #[strum(serialize = "thou")]
     Thou,
-    #[strum(serialize = "he")]
     He,
-    #[strum(serialize = "she")]
     She,
-    #[strum(serialize = "it")]
     It,
-    #[strum(serialize = "we")]
     We,
-    #[strum(serialize = "ye")]
     Ye,
-    #[strum(serialize = "they")]
     They,
 }
 
