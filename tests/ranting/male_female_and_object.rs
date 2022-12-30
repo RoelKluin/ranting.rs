@@ -61,9 +61,6 @@ impl Person {
             inventory: HashMap::new(),
         }
     }
-    fn subjective(&self) -> &str {
-        self.subject.as_str()
-    }
     fn respond_to<T, U>(
         &mut self,
         actor: &T,

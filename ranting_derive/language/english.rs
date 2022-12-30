@@ -1,8 +1,9 @@
 // (c) Roel Kluin 2022 GPL v3
 //!
 //! Functions used by [Ranting](../ranting_derive/index.html) trait placeholders.
+use strum_macros::EnumString;
 
-#[cfg(feature = "inflector")]
+#[cfg(any(feature = "inflector", feature = "debug"))]
 use inflector::string::{pluralize::to_plural, singularize::to_singular};
 
 // regex to capture the placholders or sentence ends
@@ -28,6 +29,55 @@ pub(crate) static RANTING_PLACEHOLDER: &str = r"(?x)
     )?
     (?P<fmt>:[^}]+)?+
 \}";
+
+#[derive(Debug, EnumString, Copy, Clone)]
+pub enum SubjectPronoun {
+    I,
+    #[strum(serialize = "you")]
+    You,
+    #[strum(serialize = "thou")]
+    Thou,
+    #[strum(serialize = "he")]
+    He,
+    #[strum(serialize = "she")]
+    She,
+    #[strum(serialize = "it")]
+    It,
+    #[strum(serialize = "we")]
+    We,
+    #[strum(serialize = "ye")]
+    Ye,
+    #[strum(serialize = "they")]
+    They,
+}
+
+static SUBJECTIVE_PRONOUN: [[&str; 9]; 2] = [
+    ["I", "you", "thou", "he", "she", "it", "we", "ye", "they"],
+    ["I", "You", "Thou", "He", "She", "It", "We", "Ye", "They"],
+];
+
+static OBJECTIVE_PRONOUN: [[&str; 9]; 2] = [
+    ["me", "you", "thee", "him", "her", "it", "us", "you", "them"],
+    ["Me", "You", "Thee", "Him", "Her", "It", "Us", "You", "Them"],
+];
+
+static POSSESIVE_PRONOUN: [[&str; 9]; 2] = [
+    [
+        "my", "your", "thy", "his", "her", "its", "our", "your", "their",
+    ],
+    [
+        "My", "Your", "Thy", "His", "Her", "Its", "Our", "Your", "Their",
+    ],
+];
+
+static ADJECTIVE_PRONOUN: [[&str; 9]; 2] = [
+    [
+        "mine", "yours", "thine", "his", "hers", "its", "ours", "yours", "theirs",
+    ],
+    [
+        "Mine", "Yours", "Thine", "His", "Hers", "Its", "Ours", "Yours", "Theirs",
+    ],
+];
 
 /// upper cases first character if uc is true, or second in a contraction.
 ///
@@ -112,11 +162,7 @@ pub fn adapt_possesive_s<'a, S: AsRef<str> + 'a>(
 
 // In English singular possesive s i always the same.
 pub(crate) fn adapt_possesive_s_wo_subj(c: char) -> Option<char> {
-    if c == '-' {
-        Some('\'')
-    } else {
-        None
-    }
+    (c == '-').then_some('\'')
 }
 
 /// Given an article, the default, a requested one, inflect and to_upper() it as specified.
@@ -134,58 +180,37 @@ pub fn adapt_article(default: &str, requested: &str, as_plural: bool, uc: bool) 
 }
 
 /// Return the adjective for a subject or panic.
-pub(crate) fn adjective(subject: &str, uc: bool) -> &str {
-    match subject {
-        "I" if uc => "Mine",
-        "you" if uc => "Yours",
-        "ye" if uc => "Yours",
-        "he" if uc => "His",
-        "she" if uc => "Hers",
-        "it" if uc => "Its",
-        "we" if uc => "Ours",
-        "they" if uc => "Theirs",
-        "I" => "mine",
-        "you" | "ye" => "yours",
-        "he" => "his",
-        "she" => "hers",
-        "it" => "its",
-        "we" => "ours",
-        "they" => "theirs",
-        "thou" => "thine",
-        x => panic!("'{x}' is not recognized as subjective"),
-    }
+pub(crate) fn adjective(subject: SubjectPronoun, uc: bool) -> &'static str {
+    ADJECTIVE_PRONOUN[uc as usize][subject as usize]
 }
 
 /// Returns Ok(true) if the subjective is plural, an Error if unrecognized or indiscernible.
 /// ```
-///     use ranting::is_subjective_plural;
-///     let subjective: &str = "we";
-///     assert!(is_subjective_plural(subjective).expect("unsure"));
+/// # use std::str::FromStr;
+/// # use ranting::*;
 ///
+/// # fn main() {
+/// for subject in ["I", "you", "thou", "she", "he", "it"]
+///     .into_iter()
+///     .map(SubjectPronoun::from_str)
+/// {
+///     assert!(!is_subjective_plural(subject.unwrap()));
+/// }
+/// for subject in ["we", "ye", "they"]
+///     .into_iter()
+///     .map(SubjectPronoun::from_str)
+/// {
+///     assert!(is_subjective_plural(subject.unwrap()));
+/// }
+/// # }
 /// ```
-///
-pub fn is_subjective_plural(subjective: &str) -> Result<bool, String> {
-    match subjective {
-        "we" | "they" | "ye" => Ok(true),
-        "you" => Err("'you' could be either singular or plural".to_string()),
-        "I" | "she" | "he" | "it" | "thou" => Ok(false),
-        x => Err(format!("'{x}' is not recognized as subjective")),
-    }
+pub fn is_subjective_plural(subjective: SubjectPronoun) -> bool {
+    (subjective as usize) >= 6
 }
 
 /// Return the subjective the same for subjective except the case can differ.
-pub fn subjective(subjective: &str, uc: bool) -> &str {
-    match subjective {
-        "you" if uc => "You",
-        "thou" if uc => "Thou",
-        "he" if uc => "He",
-        "she" if uc => "She",
-        "it" if uc => "It",
-        "we" if uc => "We",
-        "ye" if uc => "Ye",
-        "they" if uc => "They",
-        alt => alt,
-    }
+pub fn subjective(subject: SubjectPronoun, uc: bool) -> &'static str {
+    SUBJECTIVE_PRONOUN[uc as usize][subject as usize]
 }
 
 /// Inflect a subject pronoun to singular or plural and uppercase first character as indicated
@@ -214,88 +239,40 @@ pub fn subjective(subjective: &str, uc: bool) -> &str {
 ///     .to_string());
 /// # }
 /// ```
-pub fn inflect_subjective(subject: &str, as_plural: bool, uc: bool) -> &str {
-    if as_plural == is_subjective_plural(subject).unwrap_or(false) {
-        subjective(subject, uc)
+pub fn pluralize_pronoun(subject: SubjectPronoun, as_plural: bool) -> SubjectPronoun {
+    if as_plural == is_subjective_plural(subject) {
+        subject
     } else if as_plural {
-        if uc {
-            match subject {
-                "I" | "we" => "We",
-                "he" | "she" | "it" | "they" => "They",
-                "you" => "You",
-                "thou" | "ye" => "Ye",
-                x => panic!("'{x}' is not recognized as subjective"),
-            }
-        } else {
-            match subject {
-                "I" => "we",
-                "he" | "she" | "it" => "they",
-                "thou" => "ye",
-                alt => alt,
-            }
+        match subject {
+            SubjectPronoun::I => SubjectPronoun::We,
+            SubjectPronoun::Thou => SubjectPronoun::Ye,
+            SubjectPronoun::He | SubjectPronoun::She | SubjectPronoun::It => SubjectPronoun::They,
+            x => x,
         }
     } else {
         match subject {
-            "you" if uc => "You",
-            "thou" if uc => "Thou",
-            "he" if uc => "He",
-            "she" if uc => "She",
-            "it" if uc => "It",
-            "they" if uc => "It",
-            "ye" if uc => "Thou",
-            "we" => "I",
-            "they" => "it",
-            "ye" => "thou",
-            alt => alt,
+            SubjectPronoun::We => SubjectPronoun::I,
+            SubjectPronoun::Ye => SubjectPronoun::Thou,
+            SubjectPronoun::They => SubjectPronoun::It,
+            x => x,
         }
     }
 }
 
-/// Return the objective for a subjective. Can panic. see inflect_subjective().
-pub(crate) fn objective(subject: &str, uc: bool) -> &str {
-    match subject {
-        "I" if uc => "Me",
-        "you" if uc => "You",
-        "he" if uc => "Him",
-        "she" if uc => "Her",
-        "it" if uc => "It",
-        "we" if uc => "Us",
-        "ye" if uc => "You",
-        "they" if uc => "Them",
-        "thou" if uc => "Thee",
-        "I" => "me",
-        "thou" => "thee",
-        "he" => "him",
-        "she" => "her",
-        "we" => "us",
-        "ye" => "you",
-        "they" => "them",
-        alt => alt,
-    }
+/// singular-/pluralize subjective according to nr
+pub fn inflect_subjective(subject: SubjectPronoun, as_plural: bool, uc: bool) -> &'static str {
+    let subject = pluralize_pronoun(subject, as_plural);
+    SUBJECTIVE_PRONOUN[uc as usize][subject as usize]
 }
 
-/// Return the objective for a subjective. Can panic. see inflect_subjective().
-pub(crate) fn possesive(subject: &str, uc: bool) -> &str {
-    match subject {
-        "I" if uc => "My",
-        "you" if uc => "Your",
-        "he" if uc => "His",
-        "she" if uc => "Her",
-        "it" if uc => "Its",
-        "we" if uc => "Our",
-        "ye" if uc => "Your",
-        "they" if uc => "Their",
-        "thou" if uc => "Thy",
-        "I" => "my",
-        "thou" => "thy",
-        "he" => "his",
-        "she" => "her",
-        "it" => "its",
-        "we" => "our",
-        "you" | "ye" => "your",
-        "they" => "their",
-        x => panic!("'{x}' is not recognized as subjective"),
-    }
+/// Return the objective for a subjective. Can panic. see pluralize_pronoun().
+pub(crate) fn objective(subject: SubjectPronoun, uc: bool) -> &'static str {
+    OBJECTIVE_PRONOUN[uc as usize][subject as usize]
+}
+
+/// Return the objective for a subjective. Can panic. see pluralize_pronoun().
+pub(crate) fn possesive(subject: SubjectPronoun, uc: bool) -> &'static str {
+    POSSESIVE_PRONOUN[uc as usize][subject as usize]
 }
 
 /// Given a subject and a verb, inflect it and to_upper() it as specified.
@@ -306,7 +283,7 @@ pub(crate) fn possesive(subject: &str, uc: bool) -> &str {
 /// ```rust
 /// # use ranting::{Noun, say, Ranting};
 /// fn deny(w: Noun) -> String {
-///     say!("{:w don't}, {:w can't}, {:?w won't} {:?w mustn't} {:?w haven't} {:?w weren't}. ")
+///     say!("{:w don't}, {:w can't}, {:?w won't}, {:?w mustn't}, {:?w haven't}, {:?w weren't}, or {weren't :w}? ")
 /// }
 ///
 /// # fn main() {
@@ -315,11 +292,11 @@ pub(crate) fn possesive(subject: &str, uc: bool) -> &str {
 ///     .iter()
 ///     .map(|s| deny(Noun::new(format!("subject {s}").as_str(), s)))
 ///     .collect::<String>(),
-///     "I don't, I can't, won't mustn't haven't wasn't. \
-///     You don't, you can't, won't mustn't haven't weren't. \
-///     It doesn't, it can't, won't mustn't hasn't wasn't. \
-///     We don't, we can't, won't mustn't haven't weren't. \
-///     They don't, they can't, won't mustn't haven't weren't. "
+///     "I don't, I can't, won't, mustn't, haven't, wasn't, or wasn't I? \
+///     You don't, you can't, won't, mustn't, haven't, weren't, or weren't you? \
+///     It doesn't, it can't, won't, mustn't, hasn't, wasn't, or wasn't it? \
+///     We don't, we can't, won't, mustn't, haven't, weren't, or weren't we? \
+///     They don't, they can't, won't, mustn't, haven't, weren't, or weren't they? "
 ///     .to_string());
 /// # }
 /// ```
@@ -344,15 +321,15 @@ pub(crate) fn possesive(subject: &str, uc: bool) -> &str {
 /// # }
 /// ```
 ///
-pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> String {
+pub fn inflect_verb(subject: SubjectPronoun, verb: &str, as_plural: bool, uc: bool) -> String {
     let verb = verb.trim();
 
     let (part, post) = verb
         .strip_suffix("n't")
         .map_or((verb, ""), |start| (start, "n't"));
 
-    match inflect_subjective(subject, as_plural, false) {
-        "I" => match part {
+    match pluralize_pronoun(subject, as_plural) {
+        SubjectPronoun::I => match part {
             "'re" => format!("'{}", if uc { 'M' } else { 'm' }),
             "are" => match post {
                 "n't" => format!("{}in't", if uc { 'A' } else { 'a' }),
@@ -361,7 +338,7 @@ pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> Str
             "were" => format!("{}as{post}", if uc { 'W' } else { 'w' }),
             _ => uc_1st_if(verb, uc),
         },
-        "he" | "she" | "it" => match part {
+        SubjectPronoun::He | SubjectPronoun::She | SubjectPronoun::It => match part {
             "'re" | "'ve" => format!("'{}", if uc { 'S' } else { 's' }),
             "are" => format!("{}s{post}", if uc { 'I' } else { 'i' }),
             "have" => format!("{}as{post}", if uc { 'H' } else { 'h' }),
@@ -388,11 +365,7 @@ pub fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> Str
 
 // In English verbs are the same if 1st, 2nd or 3rd person plural.
 pub(crate) fn inflect_verb_wo_subj(verb: &str, c: char, uc: bool) -> Option<String> {
-    if c == '+' {
-        Some(inflect_verb("we", verb, true, uc))
-    } else {
-        None
-    }
+    (c == '+').then_some(inflect_verb(SubjectPronoun::We, verb, true, uc))
 }
 
 /// ```rust
@@ -405,7 +378,7 @@ pub(crate) fn inflect_verb_wo_subj(verb: &str, c: char, uc: bool) -> Option<Stri
 /// fn singularize(w: &Noun) -> String {
 ///     say!("{,-:w do} or {don't #0 w}? Less of {Some w}.", 1)
 /// }
-/// # #[cfg(feature = "inflector")]
+/// # #[cfg(any(feature = "inflector", feature = "debug"))]
 /// # fn main() {
 /// let one = Noun::new("ox", "it");
 ///
@@ -421,7 +394,7 @@ pub(crate) fn inflect_verb_wo_subj(verb: &str, c: char, uc: bool) -> Option<Stri
 /// );
 /// # }
 /// ```
-#[cfg(feature = "inflector")]
+#[cfg(any(feature = "inflector", feature = "debug"))]
 pub(crate) fn inflect_name(name: &str, as_plural: bool) -> String {
     if as_plural {
         to_plural(name)
@@ -430,7 +403,7 @@ pub(crate) fn inflect_name(name: &str, as_plural: bool) -> String {
     }
 }
 
-#[cfg(not(feature = "inflector"))]
+#[cfg(not(any(feature = "inflector", feature = "debug")))]
 pub(crate) fn inflect_name(_name: &str, _as_plural: bool) -> String {
     panic!("Inflection requires the \"inflector\" feature.");
 }

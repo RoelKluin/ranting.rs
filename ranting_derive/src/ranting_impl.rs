@@ -59,11 +59,12 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
     quote! {
         impl Ranting for #ident {
             #name_fn_q
-            fn subjective(&self) -> &str {
-                self.subject.as_str()
+            fn subjective(&self) -> ranting::SubjectPronoun {
+                use std::str::FromStr;
+                ranting::SubjectPronoun::from_str(self.subject.as_str()).unwrap()
             }
             fn is_plural(&self) -> bool {
-                ranting::is_subjective_plural(self.subjective()).unwrap_or(#is_plural)
+                #is_plural || ranting::is_subjective_plural(self.subjective())
             }
             fn mut_name(&mut self, _word: &str) -> String {
                 self.name(false)

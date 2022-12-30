@@ -384,7 +384,7 @@ fn handle_param(caps: &Captures, given: &[Expr], pos: &mut Vec<Expr>) -> Result<
         res.push_str(post_space);
         match post {
             "'" | "'s" => {
-                if let Some(c) = plurality.and_then(|c| language::adapt_possesive_s_wo_subj(c)) {
+                if let Some(c) = plurality.and_then(language::adapt_possesive_s_wo_subj) {
                     res.push(c);
                 } else {
                     let call = fn_call_from_segs(
