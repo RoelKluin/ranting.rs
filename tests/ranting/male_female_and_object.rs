@@ -61,15 +61,15 @@ impl Person {
             inventory: HashMap::new(),
         }
     }
-    fn respond_to<T, U>(
+    fn respond_to<'a, 'b, T, U>(
         &mut self,
-        actor: &T,
+        actor: &'a T,
         act: &str,
-        nr_obj: Option<(usize, &U)>,
+        nr_obj: Option<(usize, &'b U)>,
     ) -> Result<String, String>
     where
-        T: Ranting,
-        U: Ranting,
+        &'a T: Ranting,
+        &'b U: Ranting,
     {
         match (act, nr_obj) {
             ("give", Some((_, trash))) if trash.name(false).as_str() == "trash" => {
