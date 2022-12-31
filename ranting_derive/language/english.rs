@@ -90,6 +90,17 @@ pub enum IrregularPluralVerb {
     Wo, // for won't
 }
 
+#[derive(EnumString, PartialEq, Copy, Clone)]
+#[strum(serialize_all = "lowercase")]
+pub enum ArticleOrSo {
+    The,
+    #[strum(serialize = "a", serialize = "an", serialize = "some")]
+    A,
+    These,
+    Those,
+}
+static ARTICLE_OR_SO: [&str; 8] = ["the", "some", "these", "those", "a", "an", "this", "that"];
+
 /// A word that may be uppercased and has a base and separate extension. (e.g. plural for a verb)
 pub struct ExtCased<'a> {
     s: &'a str,
@@ -133,21 +144,6 @@ impl<'a> fmt::Display for Cased<'a> {
         }
     }
 }
-
-#[derive(EnumString, Copy, Clone)]
-#[strum(serialize_all = "lowercase")]
-pub enum ArticleOrSo {
-    The,
-    #[strum(serialize = "a", serialize = "an", serialize = "some")]
-    A,
-    These,
-    Those,
-}
-static ARTICLE_OR_SO: [&str; 8] = ["a", "an", "this", "that", "the", "some", "these", "those"];
-
-/*static IRREGULAR_PLURAL_VERB [] = [
-    "'re", "'ve", "are", "were", "have", "do", "ca", "
-]*/
 
 /// upper cases first character if uc is true, or second in a contraction.
 ///
@@ -193,14 +189,14 @@ pub fn uc_1st_if(s: &str, uc: bool) -> String {
 }
 
 /// Return the case for a character.
-pub(crate) fn get_case_from_str(s: &str) -> Option<String> {
+pub(crate) fn get_case_from_str(s: &str) -> Option<&str> {
     match s {
-        ":" => Some("subjective".to_string()),
-        "@" => Some("objective".to_string()),
-        "`" => Some("possesive".to_string()),
-        "~" => Some("adjective".to_string()),
+        ":" => Some("subjective"),
+        "@" => Some("objective"),
+        "`" => Some("possesive"),
+        "~" => Some("adjective"),
         "*" => None,
-        _ => Some(s.trim_start_matches('<').to_string()),
+        _ => Some(s.trim_start_matches('<')),
     }
 }
 
@@ -240,17 +236,18 @@ pub fn is_indefinite_article(article_or_so: &str) -> bool {
 }
 
 /// Given an article, the default, a requested one, inflect and to_upper() it as specified.
-pub fn adapt_article(default: &str, requested: &str, as_plural: bool, uc: bool) -> String {
-    match (as_plural, requested) {
-        (_, "the") => format!("{}he", if uc { 'T' } else { 't' }),
-        (false, "some") | (false, "a") | (false, "an") => uc_1st_if(default, uc),
-        (false, "these") => format!("{}his", if uc { 'T' } else { 't' }),
-        (false, "those") => format!("{}hat", if uc { 'T' } else { 't' }),
-        (true, "some") | (true, "a") | (true, "an") => format!("{}ome", if uc { 'S' } else { 's' }),
-        (true, "those") => format!("{}hose", if uc { 'T' } else { 't' }),
-        (true, "these") => format!("{}hese", if uc { 'T' } else { 't' }),
-        _ => panic!("Unimplemented article {requested}"),
+pub fn adapt_article<'a>(
+    mut s: &'a str,
+    requested: &'a str,
+    as_plural: bool,
+    uc: bool,
+) -> Cased<'a> {
+    match ArticleOrSo::from_str(requested).expect("Not an article") {
+        t if t == ArticleOrSo::The || as_plural => s = ARTICLE_OR_SO[t as usize],
+        ArticleOrSo::A => {}
+        t => s = ARTICLE_OR_SO[(t as usize) + 4],
     }
+    Cased { s, uc }
 }
 
 /// Return the adjective for a subject or panic.
