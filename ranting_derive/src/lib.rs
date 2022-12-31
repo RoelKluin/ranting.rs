@@ -194,6 +194,16 @@ fn get_lit_int(repr: &str) -> Expr {
     })
 }
 
+fn if_else_expr(cond: Expr, then_branch: syn::Block, else_block: Expr) -> Expr {
+    Expr::If(syn::ExprIf {
+        attrs: vec![],
+        if_token: syn::Token![if](Span::mixed_site()),
+        cond: Box::new(cond),
+        then_branch,
+        else_branch: Some((syn::Token![else](Span::mixed_site()), Box::new(else_block))),
+    })
+}
+
 /// construct a path expression, e.g. to an identifier or a call in a visible mod.
 fn path_from<S: AsRef<str>>(path: S) -> Expr {
     Expr::Path(syn::ExprPath {
@@ -210,7 +220,7 @@ fn path_from<S: AsRef<str>>(path: S) -> Expr {
 }
 
 /// Construct a call expression with the given path
-fn fn_call_from_segs<S: AsRef<str>, I: Iterator<Item = Expr>>(path: S, it: I) -> Expr {
+fn fn_call_from_path<S: AsRef<str>, I: Iterator<Item = Expr>>(path: S, it: I) -> Expr {
     Expr::Call(syn::ExprCall {
         attrs: vec![],
         func: std::boxed::Box::new(path_from(path)),
@@ -261,7 +271,8 @@ fn res_pos_push(res: &mut String, pos: &mut Vec<Expr>, expr: Expr, ofmt: Option<
     pos.push(expr);
 }
 
-// arguments become positionals
+// Placeholder parts are examined, added are replacements known at compile time,
+// or placeholders are split in many and positionals are added.
 fn handle_param(
     caps: &Captures,
     given: &[Expr],
@@ -338,7 +349,7 @@ fn handle_param(
                 let a_fn_expr =
                     get_method_call(&noun, "indefinite_article", iter::once(get_lit_bool(false)));
                 let it = [a_fn_expr, get_lit_str(p), is_pl.clone(), get_lit_bool(uc)].into_iter();
-                let call = fn_call_from_segs("ranting::adapt_article", it);
+                let call = fn_call_from_path("ranting::adapt_article", it);
                 res_pos_push(&mut res, pos, call, None);
             }
         } else {
@@ -350,7 +361,7 @@ fn handle_param(
             } else {
                 let method = get_method_call(&noun, "subjective", iter::empty());
                 let it = [method, get_lit_str(p), is_pl.clone(), get_lit_bool(uc)].into_iter();
-                let call = fn_call_from_segs("ranting::inflect_verb", it);
+                let call = fn_call_from_path("ranting::inflect_verb", it);
                 res_pos_push(&mut res, pos, call, None);
             }
         }
@@ -375,7 +386,7 @@ fn handle_param(
                 let path = format!("ranting::inflect_{case}");
                 let method = get_method_call(&noun, "subjective", iter::empty());
                 let it = [method, is_pl.clone(), get_lit_bool(uc)].into_iter();
-                let call = fn_call_from_segs(path, it);
+                let call = fn_call_from_path(path, it);
                 res_pos_push(&mut res, pos, call, None);
             }
             Some(word) => {
@@ -383,7 +394,7 @@ fn handle_param(
                 let m1 = get_method_call(&noun, "mut_name", iter::once(get_lit_str(w)));
                 let m2 = get_method_call(&noun, "is_plural", iter::empty());
                 let it = [m1, m2, is_pl.clone(), get_lit_bool(uc)].into_iter();
-                let call = fn_call_from_segs("ranting::inflect_noun", it);
+                let call = fn_call_from_path("ranting::inflect_noun", it);
                 res_pos_push(&mut res, pos, call, None);
             }
             None if is_plain_placeholder && caps.name("etc2").is_none() && post.is_none() => {
@@ -393,7 +404,7 @@ fn handle_param(
                 let m1 = get_method_call(&noun, "name", iter::once(get_lit_bool(false)));
                 let m2 = get_method_call(&noun, "is_plural", iter::empty());
                 let it = [m1, m2, is_pl.clone(), get_lit_bool(uc)].into_iter();
-                let call = fn_call_from_segs("ranting::inflect_noun", it);
+                let call = fn_call_from_path("ranting::inflect_noun", it);
                 res_pos_push(&mut res, pos, call, None);
             }
         }
@@ -414,7 +425,7 @@ fn handle_param(
                     let m1 = get_method_call(&noun, "name", iter::once(get_lit_bool(false)));
                     let m2 = get_method_call(&noun, "is_plural", iter::empty());
                     let it = [m1, m2, is_pl].into_iter();
-                    let call = fn_call_from_segs("ranting::adapt_possesive_s", it);
+                    let call = fn_call_from_path("ranting::adapt_possesive_s", it);
                     res_pos_push(&mut res, pos, call, None);
                 }
             }
@@ -425,7 +436,7 @@ fn handle_param(
                 } else {
                     let method = get_method_call(&noun, "subjective", iter::empty());
                     let it = [method, get_lit_str(v), is_pl, get_lit_bool(uc)].into_iter();
-                    let call = fn_call_from_segs("ranting::inflect_verb", it);
+                    let call = fn_call_from_path("ranting::inflect_verb", it);
                     res_pos_push(&mut res, pos, call, None);
                 }
             }
