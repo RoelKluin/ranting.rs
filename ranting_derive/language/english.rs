@@ -205,24 +205,13 @@ pub fn is_article_or_so(word: &str) -> bool {
     matches!(word, "some" | "a" | "an" | "the" | "these" | "those")
 }
 
-/// can convert a `'s` or `'` after a noun as appropriate for singular or plural.
-pub fn adapt_possesive_s<'a, S: AsRef<str> + 'a>(
-    name: S,
-    is_default_plural: bool,
-    asked_plural: bool,
-) -> &'a str {
-    let name = name.as_ref();
-    if !asked_plural
-        || name.contains(|c: char| c.is_ascii_uppercase())
-        || (if is_default_plural == asked_plural {
-            !name.ends_with('s')
-        } else {
-            !inflect_name(name, true).ends_with('s')
-        })
-    {
-        "'s"
+pub fn is_name_or_plural(name: &str, is_plural: bool) -> bool {
+    if name.contains(|c: char| c.is_ascii_uppercase()) {
+        true
+    } else if is_plural {
+        !name.ends_with('s')
     } else {
-        "'"
+        !inflect_name(name, true).ends_with('s')
     }
 }
 
@@ -445,12 +434,12 @@ pub(crate) fn inflect_verb_wo_subj(verb: &str, c: char, uc: bool) -> Option<ExtC
 
 /// ```rust
 /// # use ranting::{Noun, say, Ranting};
-/// fn pluralize(w: &Noun) -> String {
+/// fn pluralize(w:Noun) -> String {
 ///     let ct = 2;
 ///     say!("{+w do} or {^don't #0 w}? More of {Some w}.", ct)
 /// }
 ///
-/// fn singularize(w: &Noun) -> String {
+/// fn singularize(w: Noun) -> String {
 ///     say!("{,-:w do} or {don't #0 w}? Less of {Some w}.", 1)
 /// }
 /// # #[cfg(any(feature = "inflector", feature = "debug"))]
@@ -458,13 +447,13 @@ pub(crate) fn inflect_verb_wo_subj(verb: &str, c: char, uc: bool) -> Option<ExtC
 /// let one = Noun::new("ox", "it");
 ///
 /// assert_eq!(
-///     pluralize(&one),
+///     pluralize(one),
 ///     "Oxen do or Don't 2 oxen? More of An ox.".to_string()
 /// );
 ///
 /// let two = Noun::new("foo_bars", "they");
 /// assert_eq!(
-///     singularize(&two),
+///     singularize(two),
 ///     "it does or doesn't 1 foo_bar? Less of Some foo_bars.".to_string()
 /// );
 /// # }

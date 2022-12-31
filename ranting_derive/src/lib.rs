@@ -301,14 +301,14 @@ fn handle_param(
             }
             Some(word) => {
                 let w = word.trim_end_matches('>');
-                parse_quote!(ranting::inflect_noun(#noun.mut_name(#w), #noun.is_plural(), #is_pl, #uc))
+                parse_quote!(ranting::mutate_noun(&mut #noun, #w, #is_pl, #uc))
             }
             None if is_plain_placeholder && caps.name("etc2").is_none() && post.is_none() => {
                 opt_format = ofmt;
                 noun.clone()
             }
             None => {
-                parse_quote!(ranting::inflect_noun(#noun.name(false), #noun.is_plural(), #is_pl, #uc))
+                parse_quote!(ranting::inflect_noun(&#noun, #is_pl, #uc))
             }
         };
         res_pos_push(&mut res, pos, expr, opt_format);
@@ -326,7 +326,7 @@ fn handle_param(
                 if let Some(c) = plurality.and_then(language::adapt_possesive_s_wo_subj) {
                     res.push(c);
                 } else {
-                    let call = parse_quote!(ranting::adapt_possesive_s(#noun.name(false), #noun.is_plural(), #is_pl));
+                    let call = parse_quote!(ranting::adapt_possesive_s(&#noun, #is_pl));
                     res_pos_push(&mut res, pos, call, None);
                 }
             }

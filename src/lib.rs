@@ -142,20 +142,25 @@ impl std::fmt::Display for Noun {
 }
 
 pub use language::adapt_article;
-pub use language::adapt_possesive_s;
 
-/// singular-/pluralize subjective according to nr
+/// can convert a `'s` or `'` after a noun as appropriate for singular or plural.
+pub fn adapt_possesive_s(noun: &dyn Ranting, asked_plural: bool) -> &str {
+    if !asked_plural || language::is_name_or_plural(noun.name(false).as_str(), noun.is_plural()) {
+        "'s"
+    } else {
+        "'"
+    }
+}
+
+/// singular-/pluralize adjective
 pub fn inflect_adjective<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool) -> Cased<'a> {
     adjective(pluralize_pronoun(subject, as_plural), uc)
 }
 
-/// singular-/pluralize noun name according to nr
-pub fn inflect_noun<S: AsRef<str>>(
-    name: S,
-    is_default_plural: bool,
-    as_plural: bool,
-    uc: bool,
-) -> String {
+/// retrieve singular-/pluralize noun name
+pub fn inflect_noun(noun: &dyn Ranting, as_plural: bool, uc: bool) -> String {
+    let name = noun.name(false);
+    let is_default_plural = noun.is_plural();
     if is_default_plural == as_plural {
         uc_1st_if(name.as_ref(), uc)
     } else {
@@ -164,12 +169,24 @@ pub fn inflect_noun<S: AsRef<str>>(
     }
 }
 
-/// singular-/pluralize subjective according to nr
+/// retrieve singular-/plural of noun name, a command is passed along and its state may change.
+pub fn mutate_noun(noun: &mut dyn Ranting, command: &str, as_plural: bool, uc: bool) -> String {
+    let name = noun.mut_name(command);
+    let is_default_plural = noun.is_plural();
+    if is_default_plural == as_plural {
+        uc_1st_if(name.as_ref(), uc)
+    } else {
+        let plural = language::inflect_name(name.as_ref(), as_plural);
+        uc_1st_if(plural.as_str(), uc)
+    }
+}
+
+/// singular-/pluralize objective
 pub fn inflect_objective<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool) -> Cased<'a> {
     objective(pluralize_pronoun(subject, as_plural), uc)
 }
 
-/// singular-/pluralize subjective according to nr
+/// singular-/pluralize possesive
 pub fn inflect_possesive<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool) -> Cased<'a> {
     possesive(pluralize_pronoun(subject, as_plural), uc)
 }
