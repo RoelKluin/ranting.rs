@@ -73,7 +73,46 @@ static ADJECTIVE_PRONOUN: [[&str; 9]; 2] = [
     ],
 ];
 
-/// upper cases first character if uc is true, or second in a contraction.
+static IRREGULAR_VERBS_1ST: [&str; 4] = ["am", "aint", "was", "'m"];
+static IRREGULAR_VERBS_3RD: [&str; 5] = ["is", "was", "'s", "has", "does"];
+
+#[derive(EnumString, Copy, Clone)]
+#[strum(serialize_all = "lowercase")]
+pub enum IrregularPluralVerb {
+    Are,
+    Were,
+    #[strum(serialize = "'re")]
+    Re,
+    #[strum(serialize = "'ve")]
+    Ve,
+    #[strum(serialize = "'d")]
+    D,
+    Have,
+    Do,
+    Had,
+    Could,
+    Would,
+    Should,
+    Might,
+    Must,
+    Can,
+    May,
+    Shall,
+    Will,
+}
+
+#[derive(EnumString, Copy, Clone)]
+#[strum(serialize_all = "lowercase")]
+pub enum ArticleOrSo {
+    The,
+    #[strum(serialize = "a", serialize = "an", serialize = "some")]
+    A,
+    These,
+    Those,
+}static ARTICLE_OR_SO: [[&str; 8]; 2] = [
+    ["a", "an", "this", "that", "the", "some", "these", "those"],
+    ["A", "An", "This", "That", "The", "Some", "These", "Those"],
+];/// upper cases first character if uc is true, or second in a contraction.
 ///
 /// # Example
 ///
@@ -173,7 +212,7 @@ pub fn adapt_article(default: &str, requested: &str, as_plural: bool, uc: bool) 
         (false, "some") | (false, "a") | (false, "an") => uc_1st_if(default, uc),
         (false, "these") => format!("{}his", if uc { 'T' } else { 't' }),
         (false, "those") => format!("{}hat", if uc { 'T' } else { 't' }),
-        (true, "some") | (_, "a") | (_, "an") => format!("{}ome", if uc { 'S' } else { 's' }),
+        (true, "some") | (true, "a") | (true, "an") => format!("{}ome", if uc { 'S' } else { 's' }),
         (true, "those") => format!("{}hose", if uc { 'T' } else { 't' }),
         (true, "these") => format!("{}hese", if uc { 'T' } else { 't' }),
         _ => panic!("Unimplemented article {requested}"),
