@@ -9,7 +9,7 @@
 #[allow(dead_code)]
 mod english;
 use english as language;
-pub use language::SubjectPronoun;
+pub use language::{Cased, SubjectPronoun};
 
 pub use in_definite;
 //pub(crate) use ranting_derive::derive_ranting;
@@ -145,7 +145,7 @@ pub use language::adapt_article;
 pub use language::adapt_possesive_s;
 
 /// singular-/pluralize subjective according to nr
-pub fn inflect_adjective(subject: SubjectPronoun, as_plural: bool, uc: bool) -> &'static str {
+pub fn inflect_adjective<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool) -> Cased<'a> {
     adjective(pluralize_pronoun(subject, as_plural), uc)
 }
 
@@ -165,12 +165,12 @@ pub fn inflect_noun<S: AsRef<str>>(
 }
 
 /// singular-/pluralize subjective according to nr
-pub fn inflect_objective(subject: SubjectPronoun, as_plural: bool, uc: bool) -> &'static str {
+pub fn inflect_objective<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool) -> Cased<'a> {
     objective(pluralize_pronoun(subject, as_plural), uc)
 }
 
 /// singular-/pluralize subjective according to nr
-pub fn inflect_possesive(subject: SubjectPronoun, as_plural: bool, uc: bool) -> &'static str {
+pub fn inflect_possesive<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool) -> Cased<'a> {
     possesive(pluralize_pronoun(subject, as_plural), uc)
 }
 

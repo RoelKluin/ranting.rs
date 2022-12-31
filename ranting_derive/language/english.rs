@@ -1,6 +1,8 @@
 // (c) Roel Kluin 2022 GPL v3
 //!
 //! Functions used by [Ranting](../ranting_derive/index.html) trait placeholders.
+use std::fmt;
+use std::str::FromStr;
 use strum_macros::EnumString;
 
 #[cfg(any(feature = "inflector", feature = "debug"))]
@@ -45,32 +47,17 @@ pub enum SubjectPronoun {
     They,
 }
 
-static SUBJECTIVE_PRONOUN: [[&str; 9]; 2] = [
-    ["I", "you", "thou", "he", "she", "it", "we", "ye", "they"],
-    ["I", "You", "Thou", "He", "She", "It", "We", "Ye", "They"],
+static SUBJECTIVE_PRONOUN: [&str; 9] = ["I", "you", "thou", "he", "she", "it", "we", "ye", "they"];
+
+static OBJECTIVE_PRONOUN: [&str; 9] =
+    ["me", "you", "thee", "him", "her", "it", "us", "you", "them"];
+
+static POSSESIVE_PRONOUN: [&str; 9] = [
+    "my", "your", "thy", "his", "her", "its", "our", "your", "their",
 ];
 
-static OBJECTIVE_PRONOUN: [[&str; 9]; 2] = [
-    ["me", "you", "thee", "him", "her", "it", "us", "you", "them"],
-    ["Me", "You", "Thee", "Him", "Her", "It", "Us", "You", "Them"],
-];
-
-static POSSESIVE_PRONOUN: [[&str; 9]; 2] = [
-    [
-        "my", "your", "thy", "his", "her", "its", "our", "your", "their",
-    ],
-    [
-        "My", "Your", "Thy", "His", "Her", "Its", "Our", "Your", "Their",
-    ],
-];
-
-static ADJECTIVE_PRONOUN: [[&str; 9]; 2] = [
-    [
-        "mine", "yours", "thine", "his", "hers", "its", "ours", "yours", "theirs",
-    ],
-    [
-        "Mine", "Yours", "Thine", "His", "Hers", "Its", "Ours", "Yours", "Theirs",
-    ],
+static ADJECTIVE_PRONOUN: [&str; 9] = [
+    "mine", "yours", "thine", "his", "hers", "its", "ours", "yours", "theirs",
 ];
 
 static IRREGULAR_VERBS_1ST: [&str; 4] = ["am", "aint", "was", "'m"];
@@ -85,10 +72,10 @@ pub enum IrregularPluralVerb {
     Re,
     #[strum(serialize = "'ve")]
     Ve,
-    #[strum(serialize = "'d")]
-    D,
     Have,
     Do,
+    #[strum(serialize = "'d")]
+    D,
     Had,
     Could,
     Would,
@@ -99,6 +86,52 @@ pub enum IrregularPluralVerb {
     May,
     Shall,
     Will,
+    Ca, // for can't
+    Wo, // for won't
+}
+
+/// A word that may be uppercased and has a base and separate extension. (e.g. plural for a verb)
+pub struct ExtCased<'a> {
+    s: &'a str,
+    uc: bool,
+    ext: &'a str,
+}
+
+impl<'a> fmt::Display for ExtCased<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let cased = Cased {
+            s: self.s,
+            uc: self.uc,
+        };
+        write!(f, "{}{}", cased, self.ext)
+    }
+}
+
+/// A word that may be uppercased - without a string copy.
+pub struct Cased<'a> {
+    s: &'a str,
+    uc: bool,
+}
+
+impl<'a> fmt::Display for Cased<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.uc {
+            let mut it = self.s.chars();
+            let fst = it.next().ok_or(fmt::Error)?;
+            if fst.is_ascii_punctuation() {
+                // in case of a contraction, lowercase the next character.
+                let snd = it.next().ok_or(fmt::Error)?;
+                let offs = fst.len_utf8() + snd.len_utf8();
+                let etc = self.s.get(offs..).unwrap_or("");
+                write!(f, "{fst}{}{etc}", snd.to_uppercase())
+            } else {
+                let etc = self.s.get(fst.len_utf8()..).unwrap_or("");
+                write!(f, "{}{etc}", fst.to_uppercase())
+            }
+        } else {
+            write!(f, "{}", self.s)
+        }
+    }
 }
 
 #[derive(EnumString, Copy, Clone)]
@@ -109,10 +142,14 @@ pub enum ArticleOrSo {
     A,
     These,
     Those,
-}static ARTICLE_OR_SO: [[&str; 8]; 2] = [
-    ["a", "an", "this", "that", "the", "some", "these", "those"],
-    ["A", "An", "This", "That", "The", "Some", "These", "Those"],
-];/// upper cases first character if uc is true, or second in a contraction.
+}
+static ARTICLE_OR_SO: [&str; 8] = ["a", "an", "this", "that", "the", "some", "these", "those"];
+
+/*static IRREGULAR_PLURAL_VERB [] = [
+    "'re", "'ve", "are", "were", "have", "do", "ca", "
+]*/
+
+/// upper cases first character if uc is true, or second in a contraction.
 ///
 /// # Example
 ///
@@ -199,10 +236,7 @@ pub(crate) fn adapt_possesive_s_wo_subj(c: char) -> Option<char> {
 }
 
 pub fn is_indefinite_article(article_or_so: &str) -> bool {
-    match article_or_so {
-        "some" | "a" | "an" => true,
-        _ => false,
-    }
+    matches!(article_or_so, "some" | "a" | "an")
 }
 
 /// Given an article, the default, a requested one, inflect and to_upper() it as specified.
@@ -220,8 +254,9 @@ pub fn adapt_article(default: &str, requested: &str, as_plural: bool, uc: bool) 
 }
 
 /// Return the adjective for a subject or panic.
-pub(crate) fn adjective(subject: SubjectPronoun, uc: bool) -> &'static str {
-    ADJECTIVE_PRONOUN[uc as usize][subject as usize]
+pub(crate) fn adjective<'a>(subject: SubjectPronoun, uc: bool) -> Cased<'a> {
+    let s = ADJECTIVE_PRONOUN[subject as usize];
+    Cased { s, uc }
 }
 
 /// Returns Ok(true) if the subjective is plural, an Error if unrecognized or indiscernible.
@@ -249,8 +284,9 @@ pub fn is_subjective_plural(subjective: SubjectPronoun) -> bool {
 }
 
 /// Return the subjective the same for subjective except the case can differ.
-pub fn subjective(subject: SubjectPronoun, uc: bool) -> &'static str {
-    SUBJECTIVE_PRONOUN[uc as usize][subject as usize]
+pub fn subjective<'a>(subject: SubjectPronoun, uc: bool) -> Cased<'a> {
+    let s = SUBJECTIVE_PRONOUN[subject as usize];
+    Cased { s, uc }
 }
 
 /// Inflect a subject pronoun to singular or plural and uppercase first character as indicated
@@ -300,19 +336,22 @@ pub fn pluralize_pronoun(subject: SubjectPronoun, as_plural: bool) -> SubjectPro
 }
 
 /// singular-/pluralize subjective according to nr
-pub fn inflect_subjective(subject: SubjectPronoun, as_plural: bool, uc: bool) -> &'static str {
+pub fn inflect_subjective<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool) -> Cased<'a> {
     let subject = pluralize_pronoun(subject, as_plural);
-    SUBJECTIVE_PRONOUN[uc as usize][subject as usize]
+    let s = SUBJECTIVE_PRONOUN[subject as usize];
+    Cased { s, uc }
 }
 
 /// Return the objective for a subjective. Can panic. see pluralize_pronoun().
-pub(crate) fn objective(subject: SubjectPronoun, uc: bool) -> &'static str {
-    OBJECTIVE_PRONOUN[uc as usize][subject as usize]
+pub(crate) fn objective<'a>(subject: SubjectPronoun, uc: bool) -> Cased<'a> {
+    let s = OBJECTIVE_PRONOUN[subject as usize];
+    Cased { s, uc }
 }
 
 /// Return the objective for a subjective. Can panic. see pluralize_pronoun().
-pub(crate) fn possesive(subject: SubjectPronoun, uc: bool) -> &'static str {
-    POSSESIVE_PRONOUN[uc as usize][subject as usize]
+pub(crate) fn possesive<'a>(subject: SubjectPronoun, uc: bool) -> Cased<'a> {
+    let s = POSSESIVE_PRONOUN[subject as usize];
+    Cased { s, uc }
 }
 
 /// Given a subject and a verb, inflect it and to_upper() it as specified.
@@ -361,50 +400,49 @@ pub(crate) fn possesive(subject: SubjectPronoun, uc: bool) -> &'static str {
 /// # }
 /// ```
 ///
-pub fn inflect_verb(subject: SubjectPronoun, verb: &str, as_plural: bool, uc: bool) -> String {
+pub fn inflect_verb(subject: SubjectPronoun, verb: &str, as_plural: bool, uc: bool) -> ExtCased {
     let verb = verb.trim();
 
-    let (part, post) = verb
+    let (mut s, mut ext) = verb
         .strip_suffix("n't")
         .map_or((verb, ""), |start| (start, "n't"));
 
     match pluralize_pronoun(subject, as_plural) {
-        SubjectPronoun::I => match part {
-            "'re" => format!("'{}", if uc { 'M' } else { 'm' }),
-            "are" => match post {
-                "n't" => format!("{}in't", if uc { 'A' } else { 'a' }),
-                _ => format!("{}m", if uc { 'A' } else { 'a' }),
-            },
-            "were" => format!("{}as{post}", if uc { 'W' } else { 'w' }),
-            _ => uc_1st_if(verb, uc),
-        },
-        SubjectPronoun::He | SubjectPronoun::She | SubjectPronoun::It => match part {
-            "'re" | "'ve" => format!("'{}", if uc { 'S' } else { 's' }),
-            "are" => format!("{}s{post}", if uc { 'I' } else { 'i' }),
-            "have" => format!("{}as{post}", if uc { 'H' } else { 'h' }),
-            "were" => format!("{}as{post}", if uc { 'W' } else { 'w' }),
-            "do" => format!("{}oes{post}", if uc { 'D' } else { 'd' }),
-            "ca" | "wo" | "had" | "could" | "would" | "should" | "might" | "must" | "can"
-            | "may" | "shall" | "will" | "'d" => uc_1st_if(part, uc) + post,
-            v => {
-                if v.ends_with(&['s', 'o', 'x']) || v.ends_with("ch") || v.ends_with("sh") {
-                    format!("{}es", v)
-                } else if let Some(p) = v
-                    .strip_suffix('y')
-                    .filter(|p| !p.ends_with(&['a', 'e', 'u', 'o']))
-                {
-                    format!("{}ies", p)
-                } else {
-                    format!("{}s", v)
-                }
+        SubjectPronoun::I => match IrregularPluralVerb::from_str(s) {
+            Ok(IrregularPluralVerb::Are) if ext != "n't" => {
+                s = IRREGULAR_VERBS_1ST[0];
             }
+
+            Ok(e) => {
+                s = IRREGULAR_VERBS_1ST.get((e as usize) + 1).unwrap_or(&s);
+            }
+            _ => {}
         },
-        _ => uc_1st_if(verb, uc),
+        SubjectPronoun::He | SubjectPronoun::She | SubjectPronoun::It => {
+            if let Ok(mut val) = IrregularPluralVerb::from_str(s).map(|e| e as usize) {
+                if val >= IrregularPluralVerb::Ve as usize {
+                    val -= 1;
+                }
+                s = IRREGULAR_VERBS_3RD.get(val).unwrap_or(&s);
+            } else if s.ends_with(&['s', 'o', 'x']) || s.ends_with("ch") || s.ends_with("sh") {
+                ext = "es";
+            } else if let Some(p) = s
+                .strip_suffix('y')
+                .filter(|p| !p.ends_with(&['a', 'e', 'u', 'o']))
+            {
+                s = p;
+                ext = "ies";
+            } else {
+                ext = "s";
+            }
+        }
+        _ => {}
     }
+    ExtCased { s, ext, uc }
 }
 
 // In English verbs are the same if 1st, 2nd or 3rd person plural.
-pub(crate) fn inflect_verb_wo_subj(verb: &str, c: char, uc: bool) -> Option<String> {
+pub(crate) fn inflect_verb_wo_subj(verb: &str, c: char, uc: bool) -> Option<ExtCased> {
     (c == '+').then_some(inflect_verb(SubjectPronoun::We, verb, true, uc))
 }
 
