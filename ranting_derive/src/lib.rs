@@ -96,7 +96,7 @@ pub fn inner_derive_ranting(input: TokenStream1) -> TokenStream1 {
 impl syn::parse::Parse for Say {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         if input.is_empty() {
-            return Err(Error::new(Span::call_site(), "missing format string"));
+            return Err(Error::new(Span::mixed_site(), "missing format string"));
         }
         let lit = input.parse::<syn::LitStr>()?;
 
@@ -212,6 +212,7 @@ fn path_from<S: AsRef<str>>(path: S) -> Expr {
         path: syn::Path {
             leading_colon: None,
             segments: Punctuated::from_iter(path.as_ref().split("::").map(|s| syn::PathSegment {
+                // XXX: Span::mixed_site() here gives errors.
                 ident: syn::Ident::new(s, Span::call_site()),
                 arguments: syn::PathArguments::None,
             })),
