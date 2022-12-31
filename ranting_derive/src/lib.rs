@@ -358,7 +358,7 @@ fn handle_param(
             if let Some(verb) =
                 plurality.and_then(|c| language::inflect_verb_wo_subj(p.as_str(), c, uc))
             {
-                res.push_str(verb.as_str());
+                res.push_str(format!("{}", verb).as_str());
             } else {
                 let method = get_method_call(&noun, "subjective", iter::empty());
                 let it = [method, get_lit_str(p), is_pl.clone(), get_lit_bool(uc)].into_iter();
@@ -433,7 +433,7 @@ fn handle_param(
             v => {
                 if let Some(verb) = plurality.and_then(|c| language::inflect_verb_wo_subj(v, c, uc))
                 {
-                    res.push_str(verb.as_str());
+                    res.push_str(format!("{}", verb).as_str());
                 } else {
                     let method = get_method_call(&noun, "subjective", iter::empty());
                     let it = [method, get_lit_str(v), is_pl, get_lit_bool(uc)].into_iter();
