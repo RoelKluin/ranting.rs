@@ -16,7 +16,7 @@ use quote::quote;
 use ranting_impl::*;
 use regex::{Captures, Regex};
 use std::iter;
-use syn::{self, parse::Parser, punctuated::Punctuated, Error, Expr, Token};
+use syn::{self, parse::Parser, parse_quote, punctuated::Punctuated, Error, Expr, Token};
 
 // TODO: replace Span::mixed_site() with more precise location.
 
@@ -140,68 +140,16 @@ impl syn::parse::Parse for Say {
 /// Construct the format!() macro call. Print result with `--features debug`
 impl ToTokens for Say {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let mac = Expr::Macro(syn::ExprMacro {
-            attrs: vec![],
-            mac: syn::Macro {
-                path: syn::Path {
-                    leading_colon: None,
-                    segments: Punctuated::from_iter(iter::once(syn::PathSegment {
-                        ident: syn::Ident::new("format", Span::mixed_site()),
-                        arguments: syn::PathArguments::None,
-                    })),
-                },
-                bang_token: Token![!]([Span::mixed_site()]),
-                delimiter: syn::MacroDelimiter::Paren(syn::token::Paren {
-                    span: Span::mixed_site(),
-                }),
-                tokens: TokenStream::from_iter(
-                    iter::once(get_lit_str(self.lit_str.as_str()).into_token_stream())
-                        .chain(self.params.iter().map(|e| e.into_token_stream()))
-                        .intersperse(Punct::new(',', Spacing::Alone).into_token_stream()),
-                ),
-            },
-        });
-        mac.to_tokens(tokens);
+        let lit = self.lit_str.as_str();
+        let macro_tokens = TokenStream::from_iter(
+            iter::once(parse_quote!(#lit))
+                .chain(self.params.iter().map(|e| e.into_token_stream()))
+                .intersperse(Punct::new(',', Spacing::Alone).into_token_stream()),
+        );
+        *tokens = quote!(format!(#macro_tokens));
         #[cfg(feature = "debug")]
         eprintln!("{}", tokens.to_string());
     }
-}
-
-/// construct a litteral boolean expression
-fn get_lit_bool(value: bool) -> Expr {
-    Expr::Lit(syn::ExprLit {
-        attrs: vec![],
-        lit: syn::Lit::Bool(syn::LitBool {
-            value,
-            span: Span::mixed_site(),
-        }),
-    })
-}
-
-/// construct a litteral &str expression
-fn get_lit_str<S: AsRef<str>>(value: S) -> Expr {
-    Expr::Lit(syn::ExprLit {
-        attrs: vec![],
-        lit: syn::Lit::Str(syn::LitStr::new(value.as_ref(), Span::mixed_site())),
-    })
-}
-
-/// construct a litteral int expression. Type could be multiple
-fn get_lit_int(repr: &str) -> Expr {
-    Expr::Lit(syn::ExprLit {
-        attrs: vec![],
-        lit: syn::Lit::Int(syn::LitInt::new(repr, Span::mixed_site())),
-    })
-}
-
-fn if_else_expr(cond: Expr, then_branch: syn::Block, else_block: Expr) -> Expr {
-    Expr::If(syn::ExprIf {
-        attrs: vec![],
-        if_token: syn::Token![if](Span::mixed_site()),
-        cond: Box::new(cond),
-        then_branch,
-        else_branch: Some((syn::Token![else](Span::mixed_site()), Box::new(else_block))),
-    })
 }
 
 /// construct a path expression, e.g. to an identifier or a call in a visible mod.
@@ -217,33 +165,6 @@ fn path_from<S: AsRef<str>>(path: S) -> Expr {
                 arguments: syn::PathArguments::None,
             })),
         },
-    })
-}
-
-/// Construct a call expression with the given path
-fn fn_call_from_path<S: AsRef<str>, I: Iterator<Item = Expr>>(path: S, it: I) -> Expr {
-    Expr::Call(syn::ExprCall {
-        attrs: vec![],
-        func: std::boxed::Box::new(path_from(path)),
-        paren_token: syn::token::Paren {
-            span: Span::mixed_site(),
-        },
-        args: Punctuated::from_iter(it),
-    })
-}
-
-/// Construct a method call expression on a given expression (e.g. an identifier)
-fn get_method_call<I: Iterator<Item = Expr>>(path: &Expr, method: &str, args: I) -> Expr {
-    Expr::MethodCall(syn::ExprMethodCall {
-        attrs: vec![],
-        receiver: Box::new(path.clone()),
-        dot_token: Token![.]([Span::mixed_site()]),
-        method: syn::Ident::new(method, Span::mixed_site()),
-        paren_token: syn::token::Paren {
-            span: Span::mixed_site(),
-        },
-        args: Punctuated::from_iter(args),
-        turbofish: None,
     })
 }
 
@@ -295,29 +216,24 @@ fn handle_param(
         .name("plurality")
         .and_then(|m| m.as_str().chars().next());
 
-    let is_pl = if let Some(c) = plurality {
+    let is_pl: Expr = if let Some(c) = plurality {
         is_plain_placeholder = false;
         match c {
-            '+' => get_lit_bool(true),
-            '-' => get_lit_bool(false),
+            '+' => parse_quote!(true),
+            '-' => parse_quote!(false),
             c => {
                 noun_space = caps.name("sp2");
                 let expr = get_match_expr(caps.name("nr"), given)
                     .map_err(|s| Error::new(Span::mixed_site(), format!("nr: {s}")))?;
                 // "#", "#?" or "?#" are captured in RE but not "??" or "##".
                 if c != '?' {
-                    nr = Some(expr.clone()); // nr not assigned!
+                    nr = Some(expr.clone());
                 }
-                Expr::Binary(syn::ExprBinary {
-                    attrs: vec![],
-                    left: Box::new(expr),
-                    op: syn::BinOp::Ne(Token![!=]([Span::mixed_site(); 2])),
-                    right: Box::new(get_lit_int("1")),
-                })
+                parse_quote!(#expr != 1)
             }
         }
     } else {
-        get_method_call(&noun, "is_plural", iter::empty())
+        parse_quote!(#noun.is_plural())
     };
     let mut res = caps.name("sentence").map_or("", |s| s.as_str()).to_owned();
 
@@ -345,12 +261,9 @@ fn handle_param(
         if language::is_article_or_so(p.as_str()) {
             if let Some(c) = plurality.filter(|&c| c == '-' || c == '+') {
                 let a = language::adapt_article(p.as_str(), p.as_str(), c == '+', uc);
-                res.push_str(a.as_str());
+                res.push_str(format!("{}", a).as_str());
             } else {
-                let a_fn_expr =
-                    get_method_call(&noun, "indefinite_article", iter::once(get_lit_bool(false)));
-                let it = [a_fn_expr, get_lit_str(p), is_pl.clone(), get_lit_bool(uc)].into_iter();
-                let call = fn_call_from_path("ranting::adapt_article", it);
+                let call = parse_quote!(ranting::adapt_article(#noun.indefinite_article(#uc), #p, #is_pl, #uc));
                 res_pos_push(&mut res, pos, call, None);
             }
         } else {
@@ -360,9 +273,7 @@ fn handle_param(
             {
                 res.push_str(format!("{}", verb).as_str());
             } else {
-                let method = get_method_call(&noun, "subjective", iter::empty());
-                let it = [method, get_lit_str(p), is_pl.clone(), get_lit_bool(uc)].into_iter();
-                let call = fn_call_from_path("ranting::inflect_verb", it);
+                let call = parse_quote!(ranting::inflect_verb(#noun.subjective(), #p, #is_pl, #uc));
                 res_pos_push(&mut res, pos, call, None);
             }
         }
@@ -382,33 +293,25 @@ fn handle_param(
     let opt_case = caps.name("case").map(|m| m.as_str());
     if opt_case != Some("?") {
         res.push_str(noun_space.map_or("", |m| m.as_str()));
-        match opt_case.and_then(language::get_case_from_str) {
+        let mut opt_format = None;
+        let expr = match opt_case.and_then(language::get_case_from_str) {
             Some(case) if case.ends_with("ive") => {
-                let path = format!("ranting::inflect_{case}");
-                let method = get_method_call(&noun, "subjective", iter::empty());
-                let it = [method, is_pl.clone(), get_lit_bool(uc)].into_iter();
-                let call = fn_call_from_path(path, it);
-                res_pos_push(&mut res, pos, call, None);
+                let path = path_from(format!("ranting::inflect_{case}"));
+                parse_quote!(#path(#noun.subjective(), #is_pl, #uc))
             }
             Some(word) => {
                 let w = word.trim_end_matches('>');
-                let m1 = get_method_call(&noun, "mut_name", iter::once(get_lit_str(w)));
-                let m2 = get_method_call(&noun, "is_plural", iter::empty());
-                let it = [m1, m2, is_pl.clone(), get_lit_bool(uc)].into_iter();
-                let call = fn_call_from_path("ranting::inflect_noun", it);
-                res_pos_push(&mut res, pos, call, None);
+                parse_quote!(ranting::inflect_noun(#noun.mut_name(#w), #noun.is_plural(), #is_pl, #uc))
             }
             None if is_plain_placeholder && caps.name("etc2").is_none() && post.is_none() => {
-                res_pos_push(&mut res, pos, noun.clone(), ofmt);
+                opt_format = ofmt;
+                noun.clone()
             }
             None => {
-                let m1 = get_method_call(&noun, "name", iter::once(get_lit_bool(false)));
-                let m2 = get_method_call(&noun, "is_plural", iter::empty());
-                let it = [m1, m2, is_pl.clone(), get_lit_bool(uc)].into_iter();
-                let call = fn_call_from_path("ranting::inflect_noun", it);
-                res_pos_push(&mut res, pos, call, None);
+                parse_quote!(ranting::inflect_noun(#noun.name(false), #noun.is_plural(), #is_pl, #uc))
             }
-        }
+        };
+        res_pos_push(&mut res, pos, expr, opt_format);
         uc = false;
     } else if noun_space.is_none() {
         post_space = "";
@@ -423,10 +326,7 @@ fn handle_param(
                 if let Some(c) = plurality.and_then(language::adapt_possesive_s_wo_subj) {
                     res.push(c);
                 } else {
-                    let m1 = get_method_call(&noun, "name", iter::once(get_lit_bool(false)));
-                    let m2 = get_method_call(&noun, "is_plural", iter::empty());
-                    let it = [m1, m2, is_pl].into_iter();
-                    let call = fn_call_from_path("ranting::adapt_possesive_s", it);
+                    let call = parse_quote!(ranting::adapt_possesive_s(#noun.name(false), #noun.is_plural(), #is_pl));
                     res_pos_push(&mut res, pos, call, None);
                 }
             }
@@ -435,13 +335,12 @@ fn handle_param(
                 {
                     res.push_str(format!("{}", verb).as_str());
                 } else {
-                    let method = get_method_call(&noun, "subjective", iter::empty());
-                    let it = [method, get_lit_str(v), is_pl, get_lit_bool(uc)].into_iter();
-                    let call = fn_call_from_path("ranting::inflect_verb", it);
+                    let call =
+                        parse_quote!(ranting::inflect_verb(#noun.subjective(), #v, #is_pl, #uc));
                     res_pos_push(&mut res, pos, call, None);
                 }
             }
-        };
+        }
     }
     Ok(res)
 }
