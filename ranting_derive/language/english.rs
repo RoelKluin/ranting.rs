@@ -159,6 +159,13 @@ pub(crate) fn adapt_possesive_s_wo_subj(c: char) -> Option<char> {
     (c == '-').then_some('\'')
 }
 
+pub fn is_indefinite_article(article_or_so: &str) -> bool {
+    match article_or_so {
+        "some" | "a" | "an" => true,
+        _ => false,
+    }
+}
+
 /// Given an article, the default, a requested one, inflect and to_upper() it as specified.
 pub fn adapt_article(default: &str, requested: &str, as_plural: bool, uc: bool) -> String {
     match (as_plural, requested) {

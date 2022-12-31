@@ -134,6 +134,7 @@ impl Ranting for Noun {
         }
     }
 }
+
 impl std::fmt::Display for Noun {
     fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(formatter, "{}", self.name)
