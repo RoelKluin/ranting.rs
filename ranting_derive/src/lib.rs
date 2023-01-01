@@ -12,7 +12,6 @@ use darling::{FromDeriveInput, ToTokens};
 use lazy_static::lazy_static;
 use proc_macro::{self, TokenStream as TokenStream1};
 use proc_macro2::{Punct, Spacing, Span, TokenStream};
-use quote::quote;
 use ranting_impl::*;
 use regex::{Captures, Regex};
 use std::iter;
@@ -23,19 +22,22 @@ use syn::{self, parse::Parser, parse_quote, punctuated::Punctuated, Error, Expr,
 #[proc_macro]
 pub fn ack(input: TokenStream1) -> TokenStream1 {
     let input = syn::parse_macro_input!(input as Say);
-    quote!(return Ok(#input)).into()
+    let tokens: TokenStream = parse_quote!(return Ok(#input));
+    tokens.into()
 }
 
 #[proc_macro]
 pub fn nay(input: TokenStream1) -> TokenStream1 {
     let input = syn::parse_macro_input!(input as Say);
-    quote!(return Err(#input)).into()
+    let tokens: TokenStream = parse_quote!(return Err(#input));
+    tokens.into()
 }
 
 #[proc_macro]
 pub fn say(input: TokenStream1) -> TokenStream1 {
     let input = syn::parse_macro_input!(input as Say);
-    quote!(#input).into()
+    let tokens: TokenStream = parse_quote!(#input);
+    tokens.into()
 }
 
 /// after parsing, Say basicly contains the format!() litteral string and its (optional) parameters
@@ -54,27 +56,28 @@ pub fn derive_ranting(_args: TokenStream1, input: TokenStream1) -> TokenStream1 
             if let syn::Fields::Named(fields) = &mut struct_data.fields {
                 fields.named.push(
                     syn::Field::parse_named
-                        .parse2(quote! { name: String })
+                        .parse2(parse_quote! { name: String })
                         .unwrap(),
                 );
                 fields.named.push(
                     syn::Field::parse_named
-                        .parse2(quote! { subject: String })
+                        .parse2(parse_quote! { subject: String })
                         .unwrap(),
                 );
             }
-
-            quote! {
+            let tokens: TokenStream = parse_quote! {
                 #[derive(Ranting)]
                 #ast
-            }
-            .into()
+            };
+            tokens.into()
         }
-        syn::Data::Enum(_) => quote! {
-            #[derive(ranting::strum_macros::Display, Ranting)]
-            #ast
+        syn::Data::Enum(_) => {
+            let tokens: TokenStream = parse_quote! {
+                #[derive(ranting::strum_macros::Display, Ranting)]
+                #ast
+            };
+            tokens.into()
         }
-        .into(),
         _ => panic!("`add_field` has to be used with structs or enums"),
     }
 }
@@ -146,7 +149,7 @@ impl ToTokens for Say {
                 .chain(self.params.iter().map(|e| e.into_token_stream()))
                 .intersperse(Punct::new(',', Spacing::Alone).into_token_stream()),
         );
-        *tokens = quote!(format!(#macro_tokens));
+        *tokens = parse_quote!(format!(#macro_tokens));
         #[cfg(feature = "debug")]
         eprintln!("{}", tokens.to_string());
     }

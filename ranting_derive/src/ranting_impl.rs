@@ -2,8 +2,7 @@
 
 use darling::FromDeriveInput;
 use proc_macro2::TokenStream;
-use quote::quote;
-use syn::Ident;
+use syn::{parse_quote, Ident};
 
 #[derive(FromDeriveInput, Default)]
 #[darling(default, attributes(ranting))]
@@ -16,8 +15,8 @@ pub(crate) struct RantingOptions {
 /// An abstract thing, which may be a person and have a gender
 pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
     let is_plural = opt.is_plural.unwrap_or(false);
-    let name_fn_q = if opt.is_enum {
-        quote! {
+    let name_fn_q: TokenStream = if opt.is_enum {
+        parse_quote! {
             fn name(&self, mut uc: bool) -> String {
                 let mut lc_spaced = String::new();
 
@@ -37,18 +36,16 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
             }
         }
     } else {
-        quote! {
+        parse_quote! {
             fn name(&self, uc: bool) -> String {
                 ranting::uc_1st_if(self.name.as_str(), uc)
             }
         }
     };
     let dismplay_impl = if opt.is_enum {
-        quote! {
-            // no-op
-        }
+        TokenStream::new() // no-op
     } else {
-        quote! {
+        parse_quote! {
             impl std::fmt::Display for #ident {
                 fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                     write!(formatter, "{}", self.name(false))
@@ -56,7 +53,7 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
             }
         }
     };
-    let ranting_functions = quote! {
+    let ranting_functions: TokenStream = parse_quote! {
         #name_fn_q
         fn subjective(&self) -> ranting::SubjectPronoun {
             use std::str::FromStr;
@@ -82,7 +79,7 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
             }
         }
     };
-    quote! {
+    parse_quote! {
         impl Ranting for #ident {
             #ranting_functions
         }
