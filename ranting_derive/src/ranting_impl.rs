@@ -56,84 +56,41 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
             }
         }
     };
+    let ranting_functions = quote! {
+        #name_fn_q
+        fn subjective(&self) -> ranting::SubjectPronoun {
+            use std::str::FromStr;
+            ranting::SubjectPronoun::from_str(self.subject.as_str()).unwrap()
+        }
+        fn is_plural(&self) -> bool {
+            #is_plural || ranting::is_subjective_plural(self.subjective())
+        }
+        fn mut_name(&mut self, _word: &str) -> String {
+            self.name(false)
+        }
+        fn requires_article(&self) -> bool {
+            true
+        }
+        fn indefinite_article(&self, uc: bool) -> &str {
+            if self.is_plural() {
+                return if uc { "Some" } else { "some" };
+            }
+            match ranting::in_definite::get_a_or_an(self.name.as_str()) {
+                "a" if uc => "A",
+                "an" if uc => "An",
+                lc => lc,
+            }
+        }
+    };
     quote! {
         impl Ranting for #ident {
-            #name_fn_q
-            fn subjective(&self) -> ranting::SubjectPronoun {
-                use std::str::FromStr;
-                ranting::SubjectPronoun::from_str(self.subject.as_str()).unwrap()
-            }
-            fn is_plural(&self) -> bool {
-                #is_plural || ranting::is_subjective_plural(self.subjective())
-            }
-            fn mut_name(&mut self, _word: &str) -> String {
-                self.name(false)
-            }
-            fn requires_article(&self) -> bool {
-                true
-            }
-            fn indefinite_article(&self, uc: bool) -> &str {
-                if self.is_plural() {
-                    return if uc { "Some" } else { "some" };
-                }
-                match ranting::in_definite::get_a_or_an(self.name.as_str()) {
-                    "a" if uc => "A",
-                    "an" if uc => "An",
-                    lc => lc,
-                }
-            }
+            #ranting_functions
         }
         impl Ranting for &#ident {
-            #name_fn_q
-            fn subjective(&self) -> ranting::SubjectPronoun {
-                use std::str::FromStr;
-                ranting::SubjectPronoun::from_str(self.subject.as_str()).unwrap()
-            }
-            fn is_plural(&self) -> bool {
-                #is_plural || ranting::is_subjective_plural(self.subjective())
-            }
-            fn mut_name(&mut self, _word: &str) -> String {
-                self.name(false)
-            }
-            fn requires_article(&self) -> bool {
-                true
-            }
-            fn indefinite_article(&self, uc: bool) -> &str {
-                if self.is_plural() {
-                    return if uc { "Some" } else { "some" };
-                }
-                match ranting::in_definite::get_a_or_an(self.name.as_str()) {
-                    "a" if uc => "A",
-                    "an" if uc => "An",
-                    lc => lc,
-                }
-            }
+            #ranting_functions
         }
         impl Ranting for &mut #ident {
-            #name_fn_q
-            fn subjective(&self) -> ranting::SubjectPronoun {
-                use std::str::FromStr;
-                ranting::SubjectPronoun::from_str(self.subject.as_str()).unwrap()
-            }
-            fn is_plural(&self) -> bool {
-                #is_plural || ranting::is_subjective_plural(self.subjective())
-            }
-            fn mut_name(&mut self, _word: &str) -> String {
-                self.name(false)
-            }
-            fn requires_article(&self) -> bool {
-                true
-            }
-            fn indefinite_article(&self, uc: bool) -> &str {
-                if self.is_plural() {
-                    return if uc { "Some" } else { "some" };
-                }
-                match ranting::in_definite::get_a_or_an(self.name.as_str()) {
-                    "a" if uc => "A",
-                    "an" if uc => "An",
-                    lc => lc,
-                }
-            }
+            #ranting_functions
         }
         #dismplay_impl
     }
