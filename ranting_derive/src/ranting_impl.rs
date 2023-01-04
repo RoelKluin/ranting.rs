@@ -21,14 +21,15 @@ pub(crate) fn ranting_q(opt: RantingOptions, ident: &Ident) -> TokenStream {
                 let mut lc_spaced = String::new();
 
                 for c in self.to_string().chars() {
-                    if c.is_lowercase() {
-                        lc_spaced.push(c);
-                        uc = false;
-                    } else {
-                        lc_spaced.push(c);
-                    } else if let Some(l) = c.to_lowercase().next() {
-                        lc_spaced.push(' ');
-                        lc_spaced.push(l);
+                    if !c.is_lowercase() {
+                        if uc {
+                            uc = false;
+                        } else if let Some(l) = c.to_lowercase().next() {
+                            lc_spaced.push(' ');
+                            c = l;
+                        }
+                    }
+                    lc_spaced.push(c);
                     }
 
                 }
