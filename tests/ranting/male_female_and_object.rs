@@ -1,27 +1,22 @@
 // (c) Roel Kluin 2022 GPL v3
 
-use ranting::Ranting;
+use ranting::*;
 use ranting_derive::*;
 use std::collections::HashMap;
 
-#[derive(Ranting)]
-struct Object {
-    name: String,
-    subject: String,
-}
-
-#[derive(Ranting)]
+#[derive_ranting]
+#[ranting(name = "$", plural_end = "$")]
 struct Meadowers {
     name: String,
-    subject: String,
-    pub count: u32,
+    plural_end: String,
+    count: u32,
 }
 
 impl Meadowers {
-    fn new(name: &str, count: u32) -> Self {
+    fn new(name: &str, plural_end: &str, count: u32) -> Self {
         Meadowers {
-            name: name.to_string(),
-            subject: "it".to_string(),
+            name: String::from(name),
+            plural_end: String::from(plural_end),
             count,
         }
     }
@@ -37,19 +32,11 @@ impl Meadowers {
     }
 }
 
-impl Object {
-    fn new(name: &str, subject: &str) -> Self {
-        Object {
-            name: name.to_string(),
-            subject: subject.to_string(),
-        }
-    }
-}
-
-#[derive(Ranting)]
+#[derive_ranting]
+#[ranting(name = "$", subject = "$")]
 struct Person {
     name: String,
-    subject: String,
+    subject: SubjectPronoun,
     inventory: HashMap<String, usize>,
 }
 
@@ -57,7 +44,7 @@ impl Person {
     fn new(name: &str, subject: &str) -> Self {
         Person {
             name: name.to_string(),
-            subject: subject.to_string(),
+            subject: SubjectPronoun::try_from(subject).unwrap(),
             inventory: HashMap::new(),
         }
     }
@@ -106,23 +93,23 @@ fn male_female_and_object() {
     let mut anna = Person::new("Anna", "I");
     let mut bob = Person::new("Bob", "he");
 
-    let mut pack = Meadowers::new("animal", 0);
+    let mut pack = Meadowers::new("animal", "s", 0);
     assert_eq!(pack.count(), "Now there are 0 animals in the meadow.");
 
     assert_eq!(
-        pack.join(Meadowers::new("raven", 1)),
+        pack.join(Meadowers::new("raven", "s", 1)),
         "The raven joins the animals in the meadow."
     );
     assert_eq!(pack.count(), "Now there is 1 animal in the meadow.");
 
     assert_eq!(
-        pack.join(Meadowers::new("sheep", 3)),
+        pack.join(Meadowers::new("sheep", "", 3)),
         "The sheep join the animals in the meadow."
     );
     assert_eq!(pack.count(), "Now there are 4 animals in the meadow.");
 
-    let rubbish = Object::new("trash", "they");
-    let coin = Object::new("coin", "it");
+    let rubbish = Noun::new("trash", "they");
+    let coin = Object::new("coin");
 
     let ret = anna.respond_to(&bob, "give", Some((1, &rubbish)));
     assert_eq!(

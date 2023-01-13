@@ -5,8 +5,9 @@ use std::fmt;
 use std::str::FromStr;
 use strum_macros::EnumString;
 
-#[cfg(any(feature = "inflector", feature = "debug"))]
-use inflector::string::{pluralize::to_plural, singularize::to_singular};
+// sentence always captures: to obtain the placeholder offset.
+pub(crate) static PH_START: &str =
+    r"(?P<before>(?:[.?!]\s+|[^{])?+(\{\{)*)\{(?P<content>[^{}][^}]*)?\}";
 
 // regex to capture the placholders or sentence ends
 // useful: https://regex101.com/r/Ly7O1x/3/
@@ -203,16 +204,6 @@ pub(crate) fn get_case_from_str(s: &str) -> Option<&str> {
 /// Return whether a word is one of `some` `a` `an` `the` `these` `those`
 pub fn is_article_or_so(word: &str) -> bool {
     matches!(word, "some" | "a" | "an" | "the" | "these" | "those")
-}
-
-pub fn is_name_or_plural(name: &str, is_plural: bool) -> bool {
-    if name.contains(|c: char| c.is_ascii_uppercase()) {
-        true
-    } else if is_plural {
-        !name.ends_with('s')
-    } else {
-        !inflect_name(name, true).ends_with('s')
-    }
 }
 
 // In English singular possesive s i always the same.
@@ -430,44 +421,4 @@ pub fn inflect_verb(subject: SubjectPronoun, verb: &str, as_plural: bool, uc: bo
 // In English verbs are the same if 1st, 2nd or 3rd person plural.
 pub(crate) fn inflect_verb_wo_subj(verb: &str, c: char, uc: bool) -> Option<ExtCased> {
     (c == '+').then_some(inflect_verb(SubjectPronoun::We, verb, true, uc))
-}
-
-/// ```rust
-/// # use ranting::{Noun, say, Ranting};
-/// fn pluralize(w:Noun) -> String {
-///     let ct = 2;
-///     say!("{+w do} or {^don't #0 w}? More of {Some w}.", ct)
-/// }
-///
-/// fn singularize(w: Noun) -> String {
-///     say!("{,-:w do} or {don't #0 w}? Less of {Some w}.", 1)
-/// }
-/// # #[cfg(any(feature = "inflector", feature = "debug"))]
-/// # fn main() {
-/// let one = Noun::new("ox", "it");
-///
-/// assert_eq!(
-///     pluralize(one),
-///     "Oxen do or Don't 2 oxen? More of An ox.".to_string()
-/// );
-///
-/// let two = Noun::new("foo_bars", "they");
-/// assert_eq!(
-///     singularize(two),
-///     "it does or doesn't 1 foo_bar? Less of Some foo_bars.".to_string()
-/// );
-/// # }
-/// ```
-#[cfg(any(feature = "inflector", feature = "debug"))]
-pub(crate) fn inflect_name(name: &str, as_plural: bool) -> String {
-    if as_plural {
-        to_plural(name)
-    } else {
-        to_singular(name)
-    }
-}
-
-#[cfg(not(any(feature = "inflector", feature = "debug")))]
-pub(crate) fn inflect_name(_name: &str, _as_plural: bool) -> String {
-    panic!("Inflection requires the \"inflector\" feature.");
 }
