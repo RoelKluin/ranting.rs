@@ -5,6 +5,8 @@
 //! ## Feature flags
 #![doc = document_features::document_features!()]
 
+extern crate self as ranting;
+
 #[path = "../ranting_derive/language/english.rs"]
 #[allow(dead_code)]
 mod english;
@@ -90,9 +92,11 @@ pub use ranting_derive::nay;
 /// ```
 pub use ranting_derive::say;
 
-/// Basicly a struct with the Ranting trait. In general you would want to `#[derive(Ranting)]` instead
-/// and override a few derived default functions.
+/// A struct with the Ranting trait. Instead you may want to `#[derive(Ranting)]` and override a
+/// few derived default functions.
 // with all trait functions, derive works everywhere but here due to Ranting collision
+#[derive(ranting_derive::Ranting)]
+#[ranting(name = "", subject = "", lc = "true")]
 pub struct Noun {
     name: String,
     subject: SubjectPronoun,
@@ -104,40 +108,6 @@ impl Noun {
             subject: SubjectPronoun::from_str(subject)
                 .unwrap_or_else(|_| panic!("invalid subject pronoun: '{subject}'")),
         }
-    }
-}
-
-impl Ranting for Noun {
-    fn subjective(&self) -> SubjectPronoun {
-        self.subject
-    }
-    fn is_plural(&self) -> bool {
-        is_subjective_plural(self.subjective())
-    }
-    fn name(&self, uc: bool) -> String {
-        uc_1st_if(self.name.as_str(), uc)
-    }
-    fn mut_name(&mut self, _word: &str) -> String {
-        self.name(false)
-    }
-    fn requires_article(&self) -> bool {
-        true
-    }
-    fn indefinite_article(&self, uc: bool) -> &str {
-        if self.is_plural() {
-            return if uc { "Some" } else { "some" };
-        }
-        match in_definite::get_a_or_an(self.name.as_str()) {
-            "a" if uc => "A",
-            "an" if uc => "An",
-            lc => lc,
-        }
-    }
-}
-
-impl std::fmt::Display for Noun {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(formatter, "{}", self.name)
     }
 }
 
@@ -213,6 +183,7 @@ pub trait Ranting: std::fmt::Display {
     fn is_plural(&self) -> bool;
     fn name(&self, uc: bool) -> String;
     fn mut_name(&mut self, _word: &str) -> String;
-    fn indefinite_article(&self, uc: bool) -> &str;
+    fn indefinite_article(&self, uc: bool) -> String;
     fn requires_article(&self) -> bool;
+    fn inflect_noun(&self, as_plural: bool, uc: bool) -> String;
 }

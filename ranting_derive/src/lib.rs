@@ -15,7 +15,7 @@ use proc_macro2::{Punct, Spacing, Span, TokenStream};
 use ranting_impl::*;
 use regex::{Captures, Regex};
 use std::iter;
-use syn::{self, parse::Parser, parse_quote, punctuated::Punctuated, Error, Expr, Token};
+use syn::{self, parse_quote, punctuated::Punctuated, Error, Expr, Token};
 
 // TODO: replace Span::mixed_site() with more precise location.
 
@@ -52,19 +52,7 @@ struct Say {
 pub fn derive_ranting(_args: TokenStream1, input: TokenStream1) -> TokenStream1 {
     let mut ast = syn::parse_macro_input!(input as syn::DeriveInput);
     match &mut ast.data {
-        syn::Data::Struct(ref mut struct_data) => {
-            if let syn::Fields::Named(fields) = &mut struct_data.fields {
-                fields.named.push(
-                    syn::Field::parse_named
-                        .parse2(parse_quote! { name: String })
-                        .unwrap(),
-                );
-                fields.named.push(
-                    syn::Field::parse_named
-                        .parse2(parse_quote! { subject: String })
-                        .unwrap(),
-                );
-            }
+        syn::Data::Struct(_) => {
             let tokens: TokenStream = parse_quote! {
                 #[derive(Ranting)]
                 #ast
@@ -86,12 +74,12 @@ pub fn derive_ranting(_args: TokenStream1, input: TokenStream1) -> TokenStream1 
 #[proc_macro_derive(Ranting, attributes(ranting))]
 pub fn inner_derive_ranting(input: TokenStream1) -> TokenStream1 {
     let input = syn::parse_macro_input!(input);
-    let mut options =
-        RantingOptions::from_derive_input(&input).expect("Invalid Thing trait options");
+    let mut is_enum = false;
+    let options = RantingOptions::from_derive_input(&input).expect("Invalid Thing trait options");
     if let syn::Data::Enum(_) = &input.data {
-        options.is_enum = true;
+        is_enum = true;
     }
-    ranting_q(options, &input.ident).into()
+    ranting_q(options, is_enum, &input.ident).into()
 }
 
 /// Split placeholders in multiple and extend params accordingly.
@@ -266,7 +254,7 @@ fn handle_param(
                 let a = language::adapt_article(p.as_str(), p.as_str(), c == '+', uc);
                 res.push_str(format!("{}", a).as_str());
             } else {
-                let call = parse_quote!(ranting::adapt_article(#noun.indefinite_article(#uc), #p, #is_pl, #uc));
+                let call = parse_quote!(ranting::adapt_article(#noun.indefinite_article(#uc).as_str(), #p, #is_pl, #uc));
                 res_pos_push(&mut res, pos, call, None);
             }
         } else {
