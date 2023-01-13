@@ -90,7 +90,7 @@ pub enum IrregularPluralVerb {
     Wo, // for won't
 }
 
-#[derive(EnumString, PartialEq, Copy, Clone)]
+#[derive(EnumString, PartialEq, Eq, Copy, Clone)]
 #[strum(serialize_all = "lowercase")]
 pub enum ArticleOrSo {
     The,
@@ -220,8 +220,8 @@ pub(crate) fn adapt_possesive_s_wo_subj(c: char) -> Option<char> {
     (c == '-').then_some('\'')
 }
 
-pub fn is_indefinite_article(article_or_so: &str) -> bool {
-    matches!(article_or_so, "some" | "a" | "an")
+pub fn is_indefinite_article<T: AsRef<str>>(article_or_so: T) -> bool {
+    matches!(article_or_so.as_ref(), "some" | "a" | "an")
 }
 
 /// Given an article, the default, a requested one, inflect and to_upper() it as specified.
