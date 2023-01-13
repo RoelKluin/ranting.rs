@@ -2,21 +2,6 @@ use ranting::*;
 use ranting_derive::*;
 
 // by setting name and subject empty, these must come from the
-#[derive_ranting]
-#[ranting(name = "", subject = "", lc = "true")]
-struct Person {
-    name: String,
-    subject: SubjectPronoun,
-}
-
-impl Person {
-    fn new(name: &str, subject: &str) -> Self {
-        Person {
-            name: String::from(name),
-            subject: SubjectPronoun::try_from(subject).unwrap(),
-        }
-    }
-}
 
 fn say_name<T: Ranting>(who: T) -> String {
     say!("{:who do} say {`who} name is {who}.")
@@ -25,11 +10,11 @@ fn say_name<T: Ranting>(who: T) -> String {
 #[test]
 fn test_name() {
     assert_eq!(
-        say_name(Person::new("Jane", "I")),
+        say_name(Noun::new("Jane", "I")),
         "I do say my name is Jane.".to_string()
     );
     assert_eq!(
-        say_name(Person::new("Tarzan", "he")),
+        say_name(Noun::new("Tarzan", "he")),
         "He does say his name is Tarzan.".to_string()
     );
 }

@@ -25,13 +25,13 @@ use std::str::FromStr;
 /// # Examples
 ///
 /// ```rust
-/// # use ranting::{Noun, ack, Ranting};
-/// fn question(harr: Noun, friends: Noun, lad: Noun) -> Result<String, String> {
+/// # use ranting::{Object, Noun, ack, Ranting};
+/// fn question(harr: Object, friends: Noun, lad: Noun) -> Result<String, String> {
 ///     ack!("{harr shall} {+:friends do} with {the drunken *lad}?");
 /// }
 ///
 /// # fn main() {
-/// let harr = Noun::new("what", "it");
+/// let harr = Object::new("what");
 /// let friends = Noun::new("crew", "we");
 /// let lad = Noun::new("sailor", "he");
 ///
@@ -68,9 +68,9 @@ pub use ranting_derive::nay;
 /// # Examples
 ///
 /// ```rust
-/// # use ranting::{Noun, say, Ranting};
+/// # use ranting::{Noun, Object, say, Ranting};
 /// fn inflect(with: Noun) -> String {
-///     let n = Noun::new("noun", "it");
+///     let n = Object::new("noun");
 ///     say!("{Some n} with {0} {?n inflect} as {:0}, {@0}, {`0} and {~0}.", with)
 /// }
 ///
@@ -92,11 +92,10 @@ pub use ranting_derive::nay;
 /// ```
 pub use ranting_derive::say;
 
-/// A struct with the Ranting trait. Instead you may want to `#[derive(Ranting)]` and override a
-/// few derived default functions.
-// with all trait functions, derive works everywhere but here due to Ranting collision
+/// Has the Ranting trait. Instead you may want to /// `#[derive(Ranting)]` and maube override a few
+/// derived default functions. By setting name and subject to "$", these must come from the struct.
 #[derive(ranting_derive::Ranting)]
-#[ranting(name = "", subject = "", lc = "true")]
+#[ranting(name = "$", subject = "$")]
 pub struct Noun {
     name: String,
     subject: SubjectPronoun,
@@ -111,11 +110,25 @@ impl Noun {
     }
 }
 
+/// Similar, but always neutrum.
+#[derive(ranting_derive::Ranting)]
+#[ranting(name = "$")]
+pub struct Object {
+    name: String,
+}
+impl Object {
+    pub fn new(name: &str) -> Self {
+        Object {
+            name: name.to_string(),
+        }
+    }
+}
+
 pub use language::adapt_article;
 
 /// can convert a `'s` or `'` after a noun as appropriate for singular or plural.
 pub fn adapt_possesive_s(noun: &dyn Ranting, asked_plural: bool) -> &str {
-    if !asked_plural || language::is_name_or_plural(noun.name(false).as_str(), noun.is_plural()) {
+    if !asked_plural || is_name_or_singular(noun) {
         "'s"
     } else {
         "'"
@@ -129,26 +142,18 @@ pub fn inflect_adjective<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool)
 
 /// retrieve singular-/pluralize noun name
 pub fn inflect_noun(noun: &dyn Ranting, as_plural: bool, uc: bool) -> String {
-    let name = noun.name(false);
-    let is_default_plural = noun.is_plural();
-    if is_default_plural == as_plural {
-        uc_1st_if(name.as_ref(), uc)
+    if noun.is_plural() == as_plural {
+        noun.name(uc)
     } else {
-        let plural = language::inflect_name(name.as_ref(), as_plural);
-        uc_1st_if(plural.as_str(), uc)
+        noun.inflect(as_plural, uc)
     }
 }
 
-/// retrieve singular-/plural of noun name, a command is passed along and its state may change.
-pub fn mutate_noun(noun: &mut dyn Ranting, command: &str, as_plural: bool, uc: bool) -> String {
-    let name = noun.mut_name(command);
-    let is_default_plural = noun.is_plural();
-    if is_default_plural == as_plural {
-        uc_1st_if(name.as_ref(), uc)
-    } else {
-        let plural = language::inflect_name(name.as_ref(), as_plural);
-        uc_1st_if(plural.as_str(), uc)
-    }
+fn is_name_or_singular(noun: &dyn Ranting) -> bool {
+    noun.name(false)
+        .trim_start_matches('\'')
+        .starts_with(|c: char| c.is_uppercase())
+        || !noun.is_plural()
 }
 
 /// singular-/pluralize objective
@@ -185,5 +190,5 @@ pub trait Ranting: std::fmt::Display {
     fn mut_name(&mut self, _word: &str) -> String;
     fn indefinite_article(&self, uc: bool) -> String;
     fn requires_article(&self) -> bool;
-    fn inflect_noun(&self, as_plural: bool, uc: bool) -> String;
+    fn inflect(&self, as_plural: bool, uc: bool) -> String;
 }

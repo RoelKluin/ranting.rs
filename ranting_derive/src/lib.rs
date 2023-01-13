@@ -207,7 +207,7 @@ fn handle_param(
         .name("plurality")
         .and_then(|m| m.as_str().chars().next());
 
-    let is_pl: Expr = if let Some(c) = plurality {
+    let as_pl: Expr = if let Some(c) = plurality {
         is_plain_placeholder = false;
         match c {
             '+' => parse_quote!(true),
@@ -254,7 +254,7 @@ fn handle_param(
                 let a = language::adapt_article(p.as_str(), p.as_str(), c == '+', uc);
                 res.push_str(format!("{}", a).as_str());
             } else {
-                let call = parse_quote!(ranting::adapt_article(#noun.indefinite_article(#uc).as_str(), #p, #is_pl, #uc));
+                let call = parse_quote!(ranting::adapt_article(#noun.indefinite_article(#uc).as_str(), #p, #as_pl, #uc));
                 res_pos_push(&mut res, pos, call, None);
             }
         } else {
@@ -264,7 +264,7 @@ fn handle_param(
             {
                 res.push_str(format!("{}", verb).as_str());
             } else {
-                let call = parse_quote!(ranting::inflect_verb(#noun.subjective(), #p, #is_pl, #uc));
+                let call = parse_quote!(ranting::inflect_verb(#noun.subjective(), #p, #as_pl, #uc));
                 res_pos_push(&mut res, pos, call, None);
             }
         }
@@ -288,18 +288,18 @@ fn handle_param(
         let expr = match opt_case.and_then(language::get_case_from_str) {
             Some(case) if case.ends_with("ive") => {
                 let path = path_from(format!("ranting::inflect_{case}"));
-                parse_quote!(#path(#noun.subjective(), #is_pl, #uc))
+                parse_quote!(#path(#noun.subjective(), #as_pl, #uc))
             }
             Some(word) => {
                 let w = word.trim_end_matches('>');
-                parse_quote!(ranting::mutate_noun(&mut #noun, #w, #is_pl, #uc))
+                parse_quote!(#noun.mutate_noun(#w, #uc))
             }
             None if is_plain_placeholder && caps.name("etc2").is_none() && post.is_none() => {
                 opt_format = ofmt;
                 noun.clone()
             }
             None => {
-                parse_quote!(ranting::inflect_noun(&#noun, #is_pl, #uc))
+                parse_quote!(#noun.inflect(#as_pl, #uc))
             }
         };
         res_pos_push(&mut res, pos, expr, opt_format);
@@ -317,7 +317,7 @@ fn handle_param(
                 if let Some(c) = plurality.and_then(language::adapt_possesive_s_wo_subj) {
                     res.push(c);
                 } else {
-                    let call = parse_quote!(ranting::adapt_possesive_s(&#noun, #is_pl));
+                    let call = parse_quote!(ranting::adapt_possesive_s(&#noun, #as_pl));
                     res_pos_push(&mut res, pos, call, None);
                 }
             }
@@ -327,7 +327,7 @@ fn handle_param(
                     res.push_str(format!("{}", verb).as_str());
                 } else {
                     let call =
-                        parse_quote!(ranting::inflect_verb(#noun.subjective(), #v, #is_pl, #uc));
+                        parse_quote!(ranting::inflect_verb(#noun.subjective(), #v, #as_pl, #uc));
                     res_pos_push(&mut res, pos, call, None);
                 }
             }
