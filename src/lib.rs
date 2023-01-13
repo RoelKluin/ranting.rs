@@ -92,7 +92,7 @@ pub use ranting_derive::nay;
 /// ```
 pub use ranting_derive::say;
 
-/// Has the Ranting trait. Instead you may want to /// `#[derive(Ranting)]` and maube override a few
+/// Has the Ranting trait. Instead you may want to `#[derive(Ranting)]` and maybe override a few
 /// derived default functions. By setting name and subject to "$", these must come from the struct.
 #[derive(ranting_derive::Ranting)]
 #[ranting(name = "$", subject = "$")]
