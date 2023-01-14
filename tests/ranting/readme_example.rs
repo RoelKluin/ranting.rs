@@ -1,9 +1,7 @@
 use ranting::*;
 use ranting_derive::*;
 
-// by setting name and subject empty, these must come from the
-
-fn say_name<T: Ranting>(who: T) -> String {
+fn say_name(who: Noun) -> String {
     say!("{:who do} say {`who} name is {who}.")
 }
 

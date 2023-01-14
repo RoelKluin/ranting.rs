@@ -16,18 +16,16 @@ pub(crate) static RANTING_PLACEHOLDER: &str = r"(?x)
 (?P<sentence>(?:[.?!]\s+)?+)  # sentence always captures: to obtain the placeholder offset.
 \{
     (?P<uc>[,^])?+
-    (?:
-        (?P<pre>[aA]n?|[sS]ome|[tT]h(?:[eo]s)?e|
-        '[rv]e|[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
-        (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)?+
-        (?P<etc1>(?:\s+[\w-]+)+?)??
-        (?P<sp1>\s+)
-    )?+
-    (?:(?P<plurality>[+-]|\??\#(?P<nr>\w+)(?P<sp2>\s+)))?+
+    (?:(?P<pre>\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se|
+    '[rv]e|[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
+    (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)
+    (?P<sp1>\s+))?+
+    (?:(?P<etc1>[\w-]+(?:\s+[\w-]+)*?)(?P<sp2>\s+))??
+    (?:(?P<plurality>[+-]|\??\#(?P<nr>\w+)(?P<sp3>\s+)))?+
     (?P<case>(?:[`:@~*?]|<[^>]*>))?+
     (?P<noun>[\w-]+)
     (?:
-        (?P<sp3>\s+)(?P<etc2>(?:[\w-]+\s+)+?)??(?P<post1>(?:[\w-]+')?[\w-]+)?|
+        (?P<sp4>\s+)(?P<etc2>(?:[\w-]+\s+)+?)??(?P<post1>(?:[\w-]+')?[\w-]+)?|
         (?P<post2>'\w*)
     )?
     (?P<fmt>:[^}]+)?+
@@ -216,18 +214,22 @@ pub fn is_indefinite_article<T: AsRef<str>>(article_or_so: T) -> bool {
 }
 
 /// Given an article, the default, a requested one, inflect and to_upper() it as specified.
-pub fn adapt_article<'a>(
-    mut s: &'a str,
-    requested: &'a str,
+pub fn adapt_article(
+    mut s: String,
+    requested: &str,
+    ws: &str,
     as_plural: bool,
     uc: bool,
-) -> Cased<'a> {
-    match ArticleOrSo::from_str(requested).expect("Not an article") {
-        t if t == ArticleOrSo::The || as_plural => s = ARTICLE_OR_SO[t as usize],
-        ArticleOrSo::A => {}
-        t => s = ARTICLE_OR_SO[(t as usize) + 4],
+) -> String {
+    if !s.is_empty() {
+        let art = match ArticleOrSo::from_str(requested).expect("Not an article") {
+            t if t == ArticleOrSo::The || as_plural => ARTICLE_OR_SO[t as usize],
+            ArticleOrSo::A => s.as_str(),
+            t => ARTICLE_OR_SO[(t as usize) + 4],
+        };
+        s = uc_1st_if(art, uc) + ws
     }
-    Cased { s, uc }
+    s
 }
 
 /// Return the adjective for a subject or panic.
@@ -359,7 +361,7 @@ pub(crate) fn possesive<'a>(subject: SubjectPronoun, uc: bool) -> Cased<'a> {
 /// ```rust
 /// # use ranting::{Noun, say, Ranting};
 /// fn allow(w: Noun) -> String {
-///     say!("{:w're} {can :?w} {:?w see} {:?w may} {do :w}, {:w've}, {:w were}. ")
+///     say!("{:w're} {can ?w} {?w see} {?w may} {do :w}, {:w've}, {:w were}. ")
 /// }
 ///
 /// # fn main() {
