@@ -188,7 +188,7 @@ pub trait Ranting: std::fmt::Display {
     fn is_plural(&self) -> bool;
     fn name(&self, uc: bool) -> String;
     fn mut_name(&mut self, _word: &str) -> String;
-    fn indefinite_article(&self, uc: bool) -> String;
+    fn indefinite_article(&self, optional_article: bool, uc: bool) -> String;
     fn requires_article(&self) -> bool;
     fn inflect(&self, as_plural: bool, uc: bool) -> String;
 }

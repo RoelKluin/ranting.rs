@@ -9,7 +9,7 @@ This library provides [`Ranting`](https://docs.rs/ranting/0.1.2/ranting/trait.Ra
 
 ```toml
 [dependencies]
-ranting = "0.1"
+ranting = "0.1.2"
 ```
 
 <br>
@@ -21,21 +21,22 @@ ranting = "0.1"
 
 ```rust
 use ranting::*;
+use ranting_derive::*;
 
-fn name(who: Noun) -> String {
+fn say_name(who: Noun) -> String {
     say!("{:who do} say {`who} name is {who}.")
 }
 
-# fn main() {
-assert_eq!(
-    name(Noun::new("Jane", "I")),
-    "I do say my name is Jane.".to_string()
-);
-assert_eq!(
-    name(Noun::new("Tarzan", "he")),
-    "He does say his name is Tarzan.".to_string()
-);
-# }
+fn main() {
+    assert_eq!(
+        say_name(Noun::new("Jane", "I")),
+        "I do say my name is Jane.".to_string()
+    );
+    assert_eq!(
+        say_name(Noun::new("Tarzan", "he")),
+        "He does say his name is Tarzan.".to_string()
+    );
+}
 ```
 
 - Here, `Noun` has the `Ranting` trait. You can use `#[derive(Ranting)]` on a struct or enum fo similar
@@ -50,21 +51,28 @@ assert_eq!(
   to be uppercase. Also an article or verb with an uppercase enforces using an uppercase.
 
 ```rust
-# use ranting::*;
-fn state(who: Noun, liberty: &str) -> String {
+fn state<T: Ranting>(who: T, liberty: &str) -> String {
     say!("{haven't :who} a {liberty} to say {a who's} land is {~who}?")
 }
 
-# fn main() {
-assert_eq!(
-    state(Noun::new("earl", "he"), "right"),
-    "Hasn't he a right to say an earl's land is his?".to_string()
-);
-assert_eq!(
-    state(Noun::new("farmers", "they"), "right"),
-    "Haven't they a right to say some farmers' land is theirs?".to_string()
-);
-# }
+#[derive_ranting]
+#[ranting(subject = "he")]
+struct Earl {}
+
+#[derive_ranting]
+#[ranting(subject = "they")]
+struct Farmers {}
+
+fn main() {
+    assert_eq!(
+        state(Earl {}, "right"),
+        "Hasn't he a right to say an earl's land is his?".to_string()
+    );
+    assert_eq!(
+        state(Farmers {}, "right"),
+        "Haven't they a right to say some farmers' land is theirs?".to_string()
+    );
+}
 ```
 
 - An article, possesive `'s` or verbs before the noun are also adapted. Normal variables just follow their
@@ -82,8 +90,9 @@ assert_eq!(
   * `@` - object
   * `` ` `` - possesive
   * `~` - adjective
-  * '*' - display the name, and mark that this is the Ranting element in the placeholder.
-  * '<word>' - similarly, but passes `"word"` and mutates the Ranting element.
+  * `*` - display the name, and mark that this is the Ranting element in the placeholder.
+  * `<word>` - similarly, but passes `"word"` and can mutate the Ranting element. To have any effect
+    `fn mutname(&mut self, command: &str) -> String` must be overridden in the struct.
 
 - If a Noun or plurality is hidden with a leading question mark, its inflection still applies.
 
