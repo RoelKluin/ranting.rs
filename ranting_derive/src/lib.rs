@@ -17,7 +17,7 @@ use ranting_impl::*;
 use regex::{Captures, Regex};
 use std::iter;
 use str_lit::*;
-use syn::{self, parse_quote, punctuated::Punctuated, spanned::Spanned, Error, Expr, Token};
+use syn::{self, parse_quote, punctuated::Punctuated, Error, Expr, Token};
 
 // TODO: replace Span::mixed_site() with more precise location.
 
@@ -120,8 +120,8 @@ impl syn::parse::Parse for Say {
             .replace_all(&text, |caps: &Captures| {
                 let pre = caps.name("pre");
                 let fmt = caps.name("fmt").map_or("", |s| s.as_str());
-                if let Some(p) = caps.name("plain").map(|m| m.as_str()) {
-                    match get_opt_num_ph_expr(p, &params_in) {
+                if let Some(plain) = caps.name("plain") {
+                    match get_opt_num_ph_expr(plain.as_str(), &params_in) {
                         Ok(expr) => {
                             let len = params.len().to_string();
                             params.push(expr);
@@ -131,29 +131,37 @@ impl syn::parse::Parse for Say {
                                 + fmt
                                 + "}"
                         }
-                        Err(e) => {
-                            err = Some(e);
+                        Err(s) => {
+                            err = Some((plain.start(), plain.end(), s));
                             String::new()
                         }
                     }
                 } else {
-                    let r = caps.name("ranting").unwrap().as_str();
+                    let ranting = caps.name("ranting").unwrap();
+                    if !PHE.is_match(ranting.as_str()) {
+                        err = Some((
+                            ranting.start(),
+                            ranting.end(),
+                            "Error in placeholder".to_string(),
+                        ));
+                        return String::new();
+                    }
                     let at_sentence_start = pre
                         .filter(|m| m.start() == 0 || m.as_str().starts_with(&['.', '?', '!']))
                         .is_some();
                     pre.map_or("", |s| s.as_str()).to_string()
-                        + &PHE.replace(r, |caps: &Captures| {
+                        + &PHE.replace(ranting.as_str(), |caps: &Captures| {
                             match handle_param(
                                 caps,
                                 &params_in,
                                 &mut params,
-                                lit.span(),
                                 at_sentence_start,
                                 fmt,
                             ) {
                                 Ok(s) => s,
-                                Err(e) => {
-                                    err = Some(e);
+                                Err((start, end, msg)) => {
+                                    let offs = ranting.start();
+                                    err = Some((start + offs, end + offs, msg));
                                     String::new()
                                 }
                             }
@@ -162,7 +170,7 @@ impl syn::parse::Parse for Say {
             })
             .to_string();
         match err {
-            Some(e) => Err(e),
+            Some((start, end, msg)) => Err(src.slice(start..end).error(msg.as_str())),
             None => Ok(Say { lit_str, params }),
         }
     }
@@ -199,26 +207,15 @@ fn path_from<S: AsRef<str>>(path: S) -> Expr {
     })
 }
 
-fn get_opt_num_ph_expr(p: &str, given: &[Expr]) -> Result<Expr, Error> {
+/// The expression for a match. if numeric, retreive the expression from the positionals
+fn get_opt_num_ph_expr(p: &str, given: &[Expr]) -> Result<Expr, String> {
     match p.parse::<usize>() {
         Err(_) => Ok(path_from(p)),
         Ok(u) => match given.get(u) {
             Some(e) => Ok(e.clone()),
-            None => Err(Error::new(
-                Span::mixed_site(),
-                format!("positional {u} is out of bounds"),
-            )),
+            None => Err(format!("positional {u} is out of bounds")),
         },
     }
-}
-
-/// The expression for a match. if numeric, retreive the expression from the positionals
-fn get_match_expr(m: Option<regex::Match>, given: &[Expr]) -> Result<Expr, Error> {
-    let part = m.map(|s| s.as_str()).ok_or(Error::new(
-        Span::mixed_site(),
-        "missing in the placeholder.".to_string(),
-    ))?;
-    get_opt_num_ph_expr(part, given)
 }
 
 /// Append to the lit_str placeholder part and extend params. The fmt is appended if Some().
@@ -236,10 +233,9 @@ fn handle_param(
     caps: &Captures,
     given: &[Expr],
     pos: &mut Vec<Expr>,
-    span: Span,
     at_sentence_start: bool,
     nr_fmt: &str,
-) -> Result<String, Error> {
+) -> Result<String, (usize, usize, String)> {
     // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
     // 2) uc if article or so is or 3) the noun is first or after start or `. '
     let mut uc = if let Some(m) = caps.name("uc") {
@@ -263,7 +259,8 @@ fn handle_param(
 
     // could be a struct or enum with a Ranting trait or just be a regular
     //  placeholder if withou all other SayPlaceholder elements.
-    let noun = get_match_expr(caps.name("noun"), given)?;
+    let cap = caps.name("noun").unwrap();
+    let noun = get_opt_num_ph_expr(cap.as_str(), given).map_err(|s| (cap.start(), cap.end(), s))?;
     let mut art_space = caps.name("sp1").map_or("", |m| m.as_str());
     let mut nr_space = caps.name("sp2").map_or("", |m| m.as_str());
     let mut noun_space = caps.name("sp3").map_or("", |m| m.as_str());
@@ -289,7 +286,9 @@ fn handle_param(
             '+' => parse_quote!(true),
             '-' => parse_quote!(false),
             c => {
-                let expr = get_match_expr(caps.name("nr"), given)?;
+                let cap = caps.name("nr").unwrap();
+                let expr = get_opt_num_ph_expr(cap.as_str(), given)
+                    .map_err(|s| (cap.start(), cap.end(), s))?;
                 // "#", "#?" or "?#" are captured in RE but not "??" or "##".
                 if c != '?' {
                     nr = Some(expr.clone());

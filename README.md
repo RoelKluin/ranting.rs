@@ -24,7 +24,7 @@ use ranting::*;
 use ranting_derive::*;
 
 fn say_name(who: Noun) -> String {
-    say!("{:who do} say {`who} name is {who}.")
+    say!("{=who do} say {`who} name is {who}.")
 }
 
 fn main() {
@@ -44,7 +44,7 @@ fn main() {
 
 - A placeholder to display a Ranting variable has the structure:
 <br>
-  `{[,^]?(article |verb )?([+-]|#var )?[':@~?*]noun( verb):fmt}`
+  `{[,^]?(article |verb )?([+-]|#var )?['=@~?*]noun( verb):fmt}`
 <br>
 
 - With `,` and `^` lower- and uppercase are enforced, but a placeholder at sentence start is assumed
@@ -52,7 +52,7 @@ fn main() {
 
 ```rust
 fn state<T: Ranting>(who: T, liberty: &str) -> String {
-    say!("{haven't :who} a {liberty} to say {a who's} land is {~who}?")
+    say!("{haven't =who} a {liberty} to say {a who's} land is {~who}?")
 }
 
 #[derive_ranting]
@@ -86,7 +86,7 @@ fn main() {
 
 - A Noun or pronoun is displayed dependent on its leading character or string marker.
   * '?' - subject in inflection, but neither variable nor its space is displayed.
-  * `:` - subject
+  * `=` - subject
   * `@` - object
   * `` ` `` - possesive
   * `~` - adjective
