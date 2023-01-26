@@ -117,7 +117,7 @@ impl syn::parse::Parse for Say {
         let mut err = None;
 
         let lit_str = PH
-            .replace_all(&text, |caps: &Captures| {
+            .replace_all(text, |caps: &Captures| {
                 let pre = caps.name("pre");
                 let fmt = caps.name("fmt").map_or("", |s| s.as_str());
                 if let Some(plain) = caps.name("plain") {
@@ -323,7 +323,7 @@ fn handle_param(
                 }
                 x if x.starts_with('.') => false,
                 x if x.ends_with('?') => true,
-                x if x.ends_with(|c: char| c.to_digit(10).is_some()) => !x.starts_with('0'), // width or fill
+                x if x.ends_with(|c: char| c.is_ascii_digit()) => !x.starts_with('0'), // width or fill
                 x => {
                     if !x.is_empty() {
                         eprintln!("Unhandled formatting '{x}'")
@@ -346,7 +346,7 @@ fn handle_param(
         if language::is_article_or_so(p.as_str()) {
             if let Some(c) = plurality.filter(|&c| !optional_article && (c == '-' || c == '+')) {
                 let a = language::adapt_article(p.clone(), p.as_str(), art_space, c == '+', uc);
-                res.push_str(format!("{}", a).as_str());
+                res.push_str(&a);
             } else {
                 let call = parse_quote!(ranting::adapt_article(#noun.indefinite_article(#optional_article, #uc), #p, #art_space, #as_pl, #uc));
                 res_pos_push(&mut res, pos, call, fmt.as_str());

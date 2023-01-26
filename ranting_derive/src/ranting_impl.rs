@@ -156,10 +156,8 @@ pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> To
         "$" => parse_quote!(self.plural_end.as_str()),
         n => parse_quote!(#n),
     };
-    let plurality_action: TokenStream;
-    let is_plural: TokenStream = if subject_str == "$" {
-        plurality_action = get_plurality_fns(subject_str, singular_end, plural_end, false);
-        parse_quote!(ranting::is_subjective_plural(self.subjective()))
+    let plurality_action: TokenStream = if subject_str == "$" {
+        get_plurality_fns(subject_str, singular_end, plural_end, false)
     } else {
         let subject =
             crate::language::SubjectPronoun::from_str(subject_str).expect("not a subject");
@@ -167,8 +165,7 @@ pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> To
         let is_pl = opt
             .is_plural
             .unwrap_or_else(|| crate::language::is_subjective_plural(subject));
-        plurality_action = get_plurality_fns(subject_str, singular_end, plural_end, is_pl);
-        parse_quote!(#is_pl)
+        get_plurality_fns(subject_str, singular_end, plural_end, is_pl)
     };
 
     let no_article = opt.no_article.to_owned();

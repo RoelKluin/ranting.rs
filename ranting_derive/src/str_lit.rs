@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use proc_macro2::{Literal, Span};
+use proc_macro2::Literal;
 use syn::{
     parse::{Parse, ParseStream},
     Error,
@@ -31,30 +31,13 @@ impl StrLit {
         }
     }
 
-    pub fn is_raw(&self) -> bool {
-        self.text.starts_with("r")
-    }
-
     pub fn to_slice(&self) -> StrLitSlice {
-        // find the position of the opening quote. raw strings may have a prefix of any length,
-        // which needs to be skipped. This information used to be provided by syn, but was removed
-        // at some point. This approach is a dirty hack, which relies on the
-        // .to_token_stream().to_string() call in the Parse impl below returning the full string
-        // with the prefix intact, so that we can parse it ourselves.
-        // it also requires all strings to start with a " character, which they should?
+        // find the position of the opening quote.
         let quote_position = self.text.find('"').unwrap();
         let prefix_length = quote_position + '"'.len_utf8();
 
-        let suffix_length = if prefix_length > 1 {
-            // raw strings have a suffix of the same length as the prefix, but without the 'r'
-            prefix_length - 'r'.len_utf8()
-        } else {
-            // non-raw strings only have the " suffix
-            '"'.len_utf8()
-        };
-
         let start = prefix_length;
-        let end = self.text.len() - suffix_length;
+        let end = self.text.len() - '"'.len_utf8();
 
         StrLitSlice {
             src: self,
@@ -73,9 +56,6 @@ pub struct StrLitSlice<'a> {
 impl<'a> StrLitSlice<'a> {
     pub fn text(&self) -> &str {
         &self.src.text[self.range.clone()]
-    }
-    pub fn is_raw(&self) -> bool {
-        self.src.is_raw()
     }
 
     #[track_caller]
@@ -112,19 +92,6 @@ impl<'a> StrLitSlice<'a> {
             src: self.src,
             range: self.range.start + start..self.range.start + end,
         }
-    }
-
-    /// Provides a span for the slice if possible. Otherwise, returns the entire span.
-    pub fn span(&self) -> Span {
-        self.src
-            .span_provider
-            .subspan(self.range.clone())
-            .unwrap_or_else(|| self.src.span_provider.span())
-    }
-
-    /// Generates a Result::Err with the given message for the slice.
-    pub fn err<T>(&self, message: &str) -> Result<T, Error> {
-        Err(self.error(message))
     }
 
     /// Generates a crate::Error with the given message for the slice.
