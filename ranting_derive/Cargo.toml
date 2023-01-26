@@ -22,6 +22,7 @@ strum = "0.24"
 itertools = "0.10.3"
 proc-macro-error = "1.0.4"
 Inflector = { version = "0.11.4", optional = true }
+unicode-width = "0.1.5"
 
 [lib]
 proc-macro = true

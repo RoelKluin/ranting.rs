@@ -27,7 +27,7 @@ use std::str::FromStr;
 /// ```rust
 /// # use ranting::{Object, Noun, ack, Ranting};
 /// fn question(harr: Object, friends: Noun, lad: Noun) -> Result<String, String> {
-///     ack!("{harr shall} {+:friends do} with {the drunken *lad}?");
+///     ack!("{harr shall} {+=friends do} with {the drunken *lad}?");
 /// }
 ///
 /// # fn main() {
@@ -50,7 +50,7 @@ pub use ranting_derive::ack;
 /// ```rust
 /// # use ranting::{Noun, nay, Ranting};
 /// fn home(p: Noun) -> Result<String, String> {
-///     nay!("{:p can't} get in {`p} house.")
+///     nay!("{=p can't} get in {`p} house.")
 /// }
 ///
 /// # fn main() {
@@ -71,7 +71,7 @@ pub use ranting_derive::nay;
 /// # use ranting::{Noun, Object, say, Ranting};
 /// fn inflect(with: Noun) -> String {
 ///     let n = Object::new("noun");
-///     say!("{Some n} with {0} {?n inflect} as {:0}, {@0}, {`0} and {~0}.", with)
+///     say!("{Some n} with {0} {?n inflect} as {=0}, {@0}, {`0} and {~0}.", with)
 /// }
 ///
 /// # fn main() {
