@@ -7,14 +7,12 @@ use strum_macros::EnumString;
 
 // sentence always captures: to obtain the placeholder offset.
 pub(crate) static PH_START: &str =
-    r"(?P<before>(?:[.?!]\s+|[^{])?+(\{\{)*)\{(?P<content>[^{}][^}]*)?\}";
+    r"(?P<pre>(?:^|[.?!]\s+|\{\{)?+)\{(?:(?P<plain>\w*+)|(?P<ranting>[^{}:]*+))(?P<fmt>:.*?)?\}";
 
 // regex to capture the placholders or sentence ends
 // useful: https://regex101.com/r/Ly7O1x/3/
 /// The components captured in a Ranting trait placeholder are defined here.
-pub(crate) static RANTING_PLACEHOLDER: &str = r"(?x)
-(?P<sentence>(?:[.?!]\s+)?+)  # sentence always captures: to obtain the placeholder offset.
-\{
+pub(crate) static PH_EXT: &str = r"^(?x)
     (?P<uc>[,^])?+
     (?:(?P<pre>\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se|
     '[rv]e|[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
@@ -22,14 +20,12 @@ pub(crate) static RANTING_PLACEHOLDER: &str = r"(?x)
     (?P<sp1>\s+))?+
     (?:(?P<etc1>[\w-]+(?:\s+[\w-]+)*?)(?P<sp2>\s+))??
     (?:(?P<plurality>[+-]|\??\#(?P<nr>\w+)(?P<sp3>\s+)))?+
-    (?P<case>(?:[`:@~*?]|<[^>]*>))?+
+    (?P<case>(?:[`=@~*?]|<[^>]*>))?+
     (?P<noun>[\w-]+)
     (?:
         (?P<sp4>\s+)(?P<etc2>(?:[\w-]+\s+)+?)??(?P<post1>(?:[\w-]+')?[\w-]+)?|
         (?P<post2>'\w*)
-    )?
-    (?P<fmt>:[^}]+)?+
-\}";
+    )?$";
 
 #[derive(EnumString, Copy, Clone)]
 #[strum(serialize_all = "lowercase")]
@@ -151,7 +147,7 @@ impl<'a> fmt::Display for Cased<'a> {
 /// ```rust
 /// # use ranting::{Noun, say, Ranting};
 /// fn upper(w: Noun) -> String {
-///     say!("{:?w're} {the w}? {:?w'd} say for {`w}self! {:?w've} got here all of {@w}. ")
+///     say!("{=?w're} {the w}? {=?w'd} say for {`w}self! {=?w've} got here all of {@w}. ")
 /// }
 ///
 /// # fn main() {
@@ -190,7 +186,7 @@ pub fn uc_1st_if(s: &str, uc: bool) -> String {
 /// Return the case for a character.
 pub(crate) fn get_case_from_str(s: &str) -> Option<&str> {
     match s {
-        ":" => Some("subjective"),
+        "=" => Some("subjective"),
         "@" => Some("objective"),
         "`" => Some("possesive"),
         "~" => Some("adjective"),
@@ -200,6 +196,18 @@ pub(crate) fn get_case_from_str(s: &str) -> Option<&str> {
 }
 
 /// Return whether a word is one of `some` `a` `an` `the` `these` `those`
+///
+/// # Example
+///
+/// ```
+/// # use ranting::{Noun, say, Ranting};
+/// # fn main() {
+///     let ball = Noun::new("ball", "it");
+///      assert_eq!(say!("{a 0}, {the 0}, {these 0}, {those 0}", ball),
+///      "A ball, the ball, this ball, that ball".to_string())
+/// # }
+/// ```
+
 pub fn is_article_or_so(word: &str) -> bool {
     matches!(word, "some" | "a" | "an" | "the" | "these" | "those")
 }
@@ -275,7 +283,7 @@ pub fn subjective<'a>(subject: SubjectPronoun, uc: bool) -> Cased<'a> {
 /// ```rust
 /// # use ranting::{Noun, say, Ranting};
 /// fn get_subject(word: Noun) -> String {
-///     say!("{:word are} - for {word}.")
+///     say!("{=word are} - for {word}.")
 /// }
 ///
 /// # fn main() {
@@ -341,7 +349,7 @@ pub(crate) fn possesive<'a>(subject: SubjectPronoun, uc: bool) -> Cased<'a> {
 /// ```rust
 /// # use ranting::{Noun, say, Ranting};
 /// fn deny(w: Noun) -> String {
-///     say!("{:w don't}, {:w can't}, {:?w won't}, {:?w mustn't}, {:?w haven't}, {:?w weren't}, or {weren't :w}? ")
+///     say!("{=w don't}, {=w can't}, {=?w won't}, {=?w mustn't}, {=?w haven't}, {=?w weren't}, or {weren't =w}? ")
 /// }
 ///
 /// # fn main() {
@@ -361,7 +369,7 @@ pub(crate) fn possesive<'a>(subject: SubjectPronoun, uc: bool) -> Cased<'a> {
 /// ```rust
 /// # use ranting::{Noun, say, Ranting};
 /// fn allow(w: Noun) -> String {
-///     say!("{:w're} {can ?w} {?w see} {?w may} {do :w}, {:w've}, {:w were}. ")
+///     say!("{=w're} {can ?w} {?w see} {?w may} {do =w}, {=w've}, {=w were}. ")
 /// }
 ///
 /// # fn main() {

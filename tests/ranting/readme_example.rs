@@ -2,7 +2,7 @@ use ranting::*;
 use ranting_derive::*;
 
 fn say_name(who: Noun) -> String {
-    say!("{:who do} say {`who} name is {who}.")
+    say!("{=who do} say {`who} name is {who}.")
 }
 
 #[test]
@@ -18,7 +18,7 @@ fn test_name() {
 }
 
 fn state<T: Ranting>(who: T, liberty: &str) -> String {
-    say!("{haven't :who} a {liberty} to say {a who's} land is {~who}?")
+    say!("{haven't =who} a {liberty} to say {a who's} land is {~who}?")
 }
 
 #[derive_ranting]

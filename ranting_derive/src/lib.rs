@@ -2,6 +2,7 @@
 #![feature(iter_intersperse)]
 
 mod ranting_impl;
+mod str_lit;
 
 #[path = "../language/english.rs"]
 #[allow(dead_code)]
@@ -15,7 +16,8 @@ use proc_macro2::{Punct, Spacing, Span, TokenStream};
 use ranting_impl::*;
 use regex::{Captures, Regex};
 use std::iter;
-use syn::{self, parse_quote, punctuated::Punctuated, Error, Expr, Token};
+use str_lit::*;
+use syn::{self, parse_quote, punctuated::Punctuated, spanned::Spanned, Error, Expr, Token};
 
 // TODO: replace Span::mixed_site() with more precise location.
 
@@ -86,10 +88,14 @@ pub fn inner_derive_ranting(input: TokenStream1) -> TokenStream1 {
 // currently via a regex; convenient, but suboptimal because pattern error indication is lacking.
 impl syn::parse::Parse for Say {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        lazy_static! {
+            static ref PH: Regex = Regex::new(language::PH_START).unwrap();
+            static ref PHE: Regex = Regex::new(language::PH_EXT).unwrap();
+        }
         if input.is_empty() {
             return Err(Error::new(Span::mixed_site(), "missing format string"));
         }
-        let lit = input.parse::<syn::LitStr>()?;
+        let lit = input.parse::<StrLit>()?;
 
         let params_in = if input.is_empty() {
             vec![]
@@ -101,26 +107,60 @@ impl syn::parse::Parse for Say {
                 .into_iter()
                 .collect()
         };
-        lazy_static! {
-            static ref RE: Regex = Regex::new(language::RANTING_PLACEHOLDER).unwrap();
-        }
-        let mut err = None;
+        let src = lit.to_slice();
+        let text = src.text();
         #[cfg(feature = "debug")]
-        eprintln!("{}", lit.value());
+        eprintln!("{}", text);
+
         let mut params = vec![];
 
-        let lit_str = RE
-            .replace_all(&lit.value(), |caps: &Captures| {
-                match handle_param(caps, &params_in, &mut params, lit.span()) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        err = Some(e);
-                        String::new()
+        let mut err = None;
+
+        let lit_str = PH
+            .replace_all(&text, |caps: &Captures| {
+                let pre = caps.name("pre");
+                let fmt = caps.name("fmt").map_or("", |s| s.as_str());
+                if let Some(p) = caps.name("plain").map(|m| m.as_str()) {
+                    match get_opt_num_ph_expr(p, &params_in) {
+                        Ok(expr) => {
+                            let len = params.len().to_string();
+                            params.push(expr);
+                            pre.map_or("", |s| s.as_str()).to_string()
+                                + "{"
+                                + len.as_str()
+                                + fmt
+                                + "}"
+                        }
+                        Err(e) => {
+                            err = Some(e);
+                            String::new()
+                        }
                     }
+                } else {
+                    let r = caps.name("ranting").unwrap().as_str();
+                    let at_sentence_start = pre
+                        .filter(|m| m.start() == 0 || m.as_str().starts_with(&['.', '?', '!']))
+                        .is_some();
+                    pre.map_or("", |s| s.as_str()).to_string()
+                        + &PHE.replace(r, |caps: &Captures| {
+                            match handle_param(
+                                caps,
+                                &params_in,
+                                &mut params,
+                                lit.span(),
+                                at_sentence_start,
+                                fmt,
+                            ) {
+                                Ok(s) => s,
+                                Err(e) => {
+                                    err = Some(e);
+                                    String::new()
+                                }
+                            }
+                        })
                 }
             })
             .to_string();
-
         match err {
             Some(e) => Err(e),
             None => Ok(Say { lit_str, params }),
@@ -159,18 +199,26 @@ fn path_from<S: AsRef<str>>(path: S) -> Expr {
     })
 }
 
-/// The expression for a match. if numeric, retreive the expression from the positionals
-fn get_match_expr(m: Option<regex::Match>, given: &[Expr]) -> Result<Expr, String> {
-    match m.map(|s| s.as_str()) {
-        Some(part) => match part.parse::<usize>() {
-            Err(_) => Ok(path_from(part)),
-            Ok(u) => given
-                .get(u)
-                .cloned()
-                .ok_or_else(|| format!("{part}, positional {u} is out of bounds")),
+fn get_opt_num_ph_expr(p: &str, given: &[Expr]) -> Result<Expr, Error> {
+    match p.parse::<usize>() {
+        Err(_) => Ok(path_from(p)),
+        Ok(u) => match given.get(u) {
+            Some(e) => Ok(e.clone()),
+            None => Err(Error::new(
+                Span::mixed_site(),
+                format!("positional {u} is out of bounds"),
+            )),
         },
-        None => Err("missing in the placeholder.".to_string()),
     }
+}
+
+/// The expression for a match. if numeric, retreive the expression from the positionals
+fn get_match_expr(m: Option<regex::Match>, given: &[Expr]) -> Result<Expr, Error> {
+    let part = m.map(|s| s.as_str()).ok_or(Error::new(
+        Span::mixed_site(),
+        "missing in the placeholder.".to_string(),
+    ))?;
+    get_opt_num_ph_expr(part, given)
 }
 
 /// Append to the lit_str placeholder part and extend params. The fmt is appended if Some().
@@ -189,26 +237,23 @@ fn handle_param(
     given: &[Expr],
     pos: &mut Vec<Expr>,
     span: Span,
+    at_sentence_start: bool,
+    nr_fmt: &str,
 ) -> Result<String, Error> {
-    let mut is_plain_placeholder = true;
-
     // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
     // 2) uc if article or so is or 3) the noun is first or after start or `. '
     let mut uc = if let Some(m) = caps.name("uc") {
-        is_plain_placeholder = false;
         m.as_str() == "^"
     } else {
         // or if article has uc or the noun is first or at new sentence
-        caps.name("pre")
-            .filter(|s| {
-                s.as_str()
-                    .trim_start_matches('?')
-                    .starts_with(|c: char| c.is_uppercase())
-            })
-            .is_some()
+        at_sentence_start
             || caps
-                .name("sentence")
-                .filter(|m| m.start() == 0 || m.as_str() != "")
+                .name("pre")
+                .filter(|s| {
+                    s.as_str()
+                        .trim_start_matches('?')
+                        .starts_with(|c: char| c.is_uppercase())
+                })
                 .is_some()
     };
 
@@ -218,8 +263,7 @@ fn handle_param(
 
     // could be a struct or enum with a Ranting trait or just be a regular
     //  placeholder if withou all other SayPlaceholder elements.
-    let noun = get_match_expr(caps.name("noun"), given)
-        .map_err(|s| Error::new(Span::mixed_site(), format!("noun: {s}")))?;
+    let noun = get_match_expr(caps.name("noun"), given)?;
     let mut art_space = caps.name("sp1").map_or("", |m| m.as_str());
     let mut nr_space = caps.name("sp2").map_or("", |m| m.as_str());
     let mut noun_space = caps.name("sp3").map_or("", |m| m.as_str());
@@ -241,13 +285,11 @@ fn handle_param(
     }
     let mut nr: Option<Expr> = None;
     let as_pl: Expr = if let Some(c) = plurality {
-        is_plain_placeholder = false;
         match c {
             '+' => parse_quote!(true),
             '-' => parse_quote!(false),
             c => {
-                let expr = get_match_expr(caps.name("nr"), given)
-                    .map_err(|s| Error::new(Span::mixed_site(), format!("nr: {s}")))?;
+                let expr = get_match_expr(caps.name("nr"), given)?;
                 // "#", "#?" or "?#" are captured in RE but not "??" or "##".
                 if c != '?' {
                     nr = Some(expr.clone());
@@ -268,7 +310,6 @@ fn handle_param(
 
     let mut res = caps.name("sentence").map_or("", |s| s.as_str()).to_owned();
     let post = caps.name("post1").or_else(|| caps.name("post2"));
-    let nr_fmt = caps.name("fmt").map_or("", |s| s.as_str());
     let fmt = nr_fmt
         .split(':')
         .filter(|&s| {
@@ -297,7 +338,6 @@ fn handle_param(
 
     // This may be an article or certain verbs that can occur before the noun:
     if let Some(pre) = caps.name("pre") {
-        is_plain_placeholder = false;
         let mut p = pre.as_str().to_lowercase();
         let mut optional_article = false;
         if let Some(s) = p.as_str().strip_prefix('?') {
@@ -327,7 +367,6 @@ fn handle_param(
         uc = false;
     }
     if let Some(etc1) = caps.name("etc1") {
-        is_plain_placeholder = false;
         res.push_str(etc1.as_str());
         if nr.is_none() {
             res.push_str(nr_space);
@@ -340,7 +379,6 @@ fn handle_param(
     // also if case is None, the noun should be printed.
     if visible_noun {
         res.push_str(noun_space);
-        let mut use_fmt = fmt.as_str();
         let expr = match opt_case.and_then(language::get_case_from_str) {
             Some(case) if case.ends_with("ive") => {
                 let path = path_from(format!("ranting::inflect_{case}"));
@@ -350,15 +388,11 @@ fn handle_param(
                 let w = word.trim_end_matches('>');
                 parse_quote!(#noun.mutate_noun(#w, #uc))
             }
-            None if is_plain_placeholder && caps.name("etc2").is_none() && post.is_none() => {
-                use_fmt = nr_fmt;
-                noun.clone()
-            }
             None => {
                 parse_quote!(#noun.inflect(#as_pl, #uc))
             }
         };
-        res_pos_push(&mut res, pos, expr, use_fmt);
+        res_pos_push(&mut res, pos, expr, fmt.as_str());
         uc = false;
     }
     if let Some(etc2) = caps.name("etc2") {

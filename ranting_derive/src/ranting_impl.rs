@@ -29,6 +29,7 @@ pub(crate) struct RantingOptions {
     pub(crate) is_plural: Option<bool>,
     // set if name should always be with an upper case. Not required if name is given or in struct.
     pub(crate) uc: bool,
+    pub(crate) no_article: bool,
 }
 
 fn get_namefn_for(mut opt: RantingOptions, is_enum: bool) -> TokenStream {
@@ -79,15 +80,12 @@ fn get_namefn_for(mut opt: RantingOptions, is_enum: bool) -> TokenStream {
     }
 }
 
-fn get_plurality_fns(opt: &RantingOptions, subject_str: &str) -> TokenStream {
-    let singular_end: TokenStream = match opt.singular_end.as_str() {
-        "$" => parse_quote!(self.singular_end.as_str()),
-        n => parse_quote!(#n),
-    };
-    let plural_end: TokenStream = match opt.plural_end.as_str() {
-        "$" => parse_quote!(self.plural_end.as_str()),
-        n => parse_quote!(#n),
-    };
+fn get_plurality_fns(
+    subject_str: &str,
+    singular_end: TokenStream,
+    plural_end: TokenStream,
+    is_plural: bool,
+) -> TokenStream {
     if subject_str == "$" {
         parse_quote! {
             fn subjective(&self) -> ranting::SubjectPronoun {
@@ -108,13 +106,6 @@ fn get_plurality_fns(opt: &RantingOptions, subject_str: &str) -> TokenStream {
             }
         }
     } else {
-        let subject =
-            crate::language::SubjectPronoun::from_str(subject_str).expect("not a subject");
-
-        let is_plural = opt
-            .is_plural
-            .unwrap_or_else(|| crate::language::is_subjective_plural(subject));
-
         let shared_plural_fns: TokenStream = parse_quote! {
             fn is_plural(&self) -> bool { #is_plural }
             fn subjective(&self) -> ranting::SubjectPronoun {
@@ -155,9 +146,32 @@ fn get_plurality_fns(opt: &RantingOptions, subject_str: &str) -> TokenStream {
 /// An abstract thing, which may be a person and have a gender
 pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> TokenStream {
     // TODO: span of attribute?
-    let subject = opt.subject.to_owned();
+    let subject_string = opt.subject.to_owned();
+    let subject_str = subject_string.as_str();
+    let singular_end: TokenStream = match opt.singular_end.as_str() {
+        "$" => parse_quote!(self.singular_end.as_str()),
+        n => parse_quote!(#n),
+    };
+    let plural_end: TokenStream = match opt.plural_end.as_str() {
+        "$" => parse_quote!(self.plural_end.as_str()),
+        n => parse_quote!(#n),
+    };
+    let plurality_action: TokenStream;
+    let is_plural: TokenStream = if subject_str == "$" {
+        plurality_action = get_plurality_fns(subject_str, singular_end, plural_end, false);
+        parse_quote!(ranting::is_subjective_plural(self.subjective()))
+    } else {
+        let subject =
+            crate::language::SubjectPronoun::from_str(subject_str).expect("not a subject");
 
-    let plurality_action: TokenStream = get_plurality_fns(&opt, subject.as_str());
+        let is_pl = opt
+            .is_plural
+            .unwrap_or_else(|| crate::language::is_subjective_plural(subject));
+        plurality_action = get_plurality_fns(subject_str, singular_end, plural_end, is_pl);
+        parse_quote!(#is_pl)
+    };
+
+    let no_article = opt.no_article.to_owned();
     let name_fn_q = get_namefn_for(opt, is_enum);
 
     let display_impl = if is_enum {
@@ -180,15 +194,18 @@ pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> To
         fn requires_article(&self) -> bool {
             true
         }
-        fn indefinite_article(&self, uc: bool) -> String {
-            if self.is_plural() {
-                return if uc { "Some" } else { "some" }.to_string();
-            }
-            let name = self.name(false);
-            match ranting::in_definite::get_a_or_an(name.as_str()) {
-                "a" if uc => "A".to_string(),
-                "an" if uc => "An".to_string(),
-                lc => lc.to_string(),
+        fn indefinite_article(&self, optional_article: bool, uc: bool) -> String {
+            if #no_article && optional_article {
+                String::default()
+            } else if self.is_plural() {
+                if uc { "Some" } else { "some" }.to_string()
+            } else {
+                let name = self.name(false);
+                match ranting::in_definite::get_a_or_an(name.as_str()) {
+                    "a" if uc => "A".to_string(),
+                    "an" if uc => "An".to_string(),
+                    lc => lc.to_string(),
+                }
             }
         }
     };
