@@ -1,6 +1,6 @@
 [package]
 name = "ranting"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Roel Kluin <Roel.Kluin@gmail.com>"]
 edition = "2021"
 license-file = "LICENSE.txt"
@@ -10,10 +10,10 @@ repository = "https://github.com/RoelKluin/ranting.rs"
 readme = "README.md"
 keywords = ["placeholder", "inflection", "verbs", "nouns", "indefinite-article"]
 categories = ["text-processing", "template-engine"]
-documentation = "https://docs.rs/ranting/0.1.2/ranting/"
+documentation = "https://docs.rs/ranting/0.2.0/ranting/"
 
 [dependencies]
-ranting_derive = { version = "=0.1.2", path = "ranting_derive", default-features = false }
+ranting_derive = { version = "=0.2.0", path = "ranting_derive", default-features = false }
 in_definite = "0.2"
 strum_macros = "0.24"
 strum = "0.24"

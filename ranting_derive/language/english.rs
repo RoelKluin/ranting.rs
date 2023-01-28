@@ -27,6 +27,7 @@ pub(crate) static PH_EXT: &str = r"^(?x)
         (?P<post2>'\w*)
     )?$";
 
+/// An enum with pronouns in subjective form.
 #[derive(EnumString, Copy, Clone)]
 #[strum(serialize_all = "lowercase")]
 pub enum SubjectPronoun {
@@ -213,8 +214,8 @@ pub fn is_article_or_so(word: &str) -> bool {
 }
 
 // In English singular possesive s i always the same.
-pub(crate) fn adapt_possesive_s_wo_subj(c: char) -> Option<char> {
-    (c == '-').then_some('\'')
+pub(crate) fn adapt_possesive_s_wo_subj(c: char) -> Option<&'static str> {
+    (c == '-').then_some("'s")
 }
 
 pub fn is_indefinite_article<T: AsRef<str>>(article_or_so: T) -> bool {
@@ -322,7 +323,7 @@ pub fn pluralize_pronoun(subject: SubjectPronoun, as_plural: bool) -> SubjectPro
     }
 }
 
-/// singular-/pluralize subjective according to nr
+/// singular-/pluralize subjective with as_plural and set uc to capitalize first character
 pub fn inflect_subjective<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool) -> Cased<'a> {
     let subject = pluralize_pronoun(subject, as_plural);
     let s = SUBJECTIVE_PRONOUN[subject as usize];
@@ -341,8 +342,7 @@ pub(crate) fn possesive<'a>(subject: SubjectPronoun, uc: bool) -> Cased<'a> {
     Cased { s, uc }
 }
 
-/// Given a subject and a verb, inflect it and to_upper() it as specified.
-/// Inflect a subject pronoun to singular or plural and uppercase first character as indicated
+/// Given a subject and a verb, inflect it and to_upper() as specified.
 ///
 /// # Examples
 ///

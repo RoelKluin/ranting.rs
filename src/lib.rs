@@ -1,6 +1,6 @@
 // (c) Roel Kluin 2022 GPL v3
 //!
-//! Functions are used by [Ranting](https://docs.rs/ranting_derive/0.1.2/ranting_derive/) trait placeholders.
+//! Functions are used by [Ranting](https://docs.rs/ranting_derive/0.2.0/ranting_derive/) trait placeholders.
 //!
 //! ## Feature flags
 #![doc = document_features::document_features!()]
@@ -62,8 +62,8 @@ pub use ranting_derive::ack;
 /// ```
 pub use ranting_derive::nay;
 
-/// As `format!()` but with inflection within placeholders for Ranting elements. Other elements
-/// adhere to their Display or Debug traits.
+/// As `format!()` but allows inflection of Ranting trait elements in the placeholder. If not
+/// to normal Display or Debug trait behavior.
 ///
 /// # Examples
 ///
@@ -126,21 +126,36 @@ impl Object {
 
 pub use language::adapt_article;
 
-/// can convert a `'s` or `'` after a noun as appropriate for singular or plural.
+/// convert to `'s` or `'` as appropriate for singular or plural of a noun.
+///
+/// # Examples
+///
+/// ```rust
+/// # use ranting::*;
+/// # fn main() {
+///
+/// let school = Object::new("school");
+/// let principal = Noun::new("principal", "she");
+/// let myles = Noun::new("Myles", "he");
+///
+/// assert_eq!(say!("{the school'} {principal are} also {myles'}, but only one of all {the +school's} {+principal} in town."),
+///     "The school's principal is also Myles's, but only one of all the schools' principals in town.".to_string());
+/// # }
+/// ```
 pub fn adapt_possesive_s(noun: &dyn Ranting, asked_plural: bool) -> &str {
-    if !asked_plural || is_name_or_singular(noun) {
-        "'s"
-    } else {
+    if asked_plural && !is_name(noun) {
         "'"
+    } else {
+        "'s"
     }
 }
 
-/// singular-/pluralize adjective
+/// singular-/pluralize adjective with as_plural and set uc to capitalize first character
 pub fn inflect_adjective<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool) -> Cased<'a> {
     adjective(pluralize_pronoun(subject, as_plural), uc)
 }
 
-/// retrieve singular-/pluralize noun name
+/// retrieve singular-/pluralize noun name with as_plural and uc to capitalize first
 pub fn inflect_noun(noun: &dyn Ranting, as_plural: bool, uc: bool) -> String {
     if noun.is_plural() == as_plural {
         noun.name(uc)
@@ -149,19 +164,18 @@ pub fn inflect_noun(noun: &dyn Ranting, as_plural: bool, uc: bool) -> String {
     }
 }
 
-fn is_name_or_singular(noun: &dyn Ranting) -> bool {
+fn is_name(noun: &dyn Ranting) -> bool {
     noun.name(false)
         .trim_start_matches('\'')
         .starts_with(|c: char| c.is_uppercase())
-        || !noun.is_plural()
 }
 
-/// singular-/pluralize objective
+/// singular-/pluralize objective with as_plural and uc apitalizes first
 pub fn inflect_objective<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool) -> Cased<'a> {
     objective(pluralize_pronoun(subject, as_plural), uc)
 }
 
-/// singular-/pluralize possesive
+/// singular-/pluralize possesive with as_plural and you can uc first
 pub fn inflect_possesive<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool) -> Cased<'a> {
     possesive(pluralize_pronoun(subject, as_plural), uc)
 }
@@ -177,8 +191,8 @@ use language::adjective;
 use language::objective;
 use language::possesive;
 
-/// By overriding these one can adapt default behavior, which affects the
-/// [placeholder](https://docs.rs/ranting_derive/0.1.2/ranting_derive/) interpretation.
+/// By overriding functions one can adapt default behavior, which affects the
+/// [placeholder](https://docs.rs/ranting_derive/0.2.0/ranting_derive/) behavior.
 // TODO: add function for 'the': some words require an article to be printed.
 // E.g. names, languages, elements, food grains, meals (unless particular), sports.
 // Space after should then also be omitted.
