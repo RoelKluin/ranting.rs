@@ -5,7 +5,7 @@ Ranting&ensp;╰(°Д°)/
 [<img alt="crates.io" src="https://img.shields.io/crates/v/ranting.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/ranting)
 [<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-ranting-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/ranting/0.2.0/ranting/)
 
-This library provides [`Ranting`](https://docs.rs/ranting/0.1.3/ranting/trait.Ranting.html), a trait for inflection within [`say!()`](https://docs.rs/ranting_derive/0.2.0/ranting_derive/macro.say.html) litteral string placeholders.
+This library provides [`Ranting`](https://docs.rs/ranting/0.2.0/ranting/trait.Ranting.html), a trait for inflection within [`say!()`](https://docs.rs/ranting_derive/0.2.0/ranting_derive/macro.say.html) litteral string placeholders.
 
 ```toml
 [dependencies]
