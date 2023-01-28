@@ -7,7 +7,6 @@
 
 extern crate self as ranting;
 
-#[path = "../ranting_derive/language/english.rs"]
 #[allow(dead_code)]
 mod english;
 use english as language;
