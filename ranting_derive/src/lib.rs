@@ -401,10 +401,10 @@ fn handle_param(
         res.push_str(post_space);
         match post {
             "'" | "'s" => {
-                if let Some(c) = plurality.and_then(language::adapt_possesive_s_wo_subj) {
-                    res.push(c);
+                if let Some(s) = plurality.and_then(language::adapt_possesive_s_wo_subj) {
+                    res.push_str(s);
                 } else {
-                    let call = parse_quote!(ranting::adapt_possesive_s(&#noun, #as_pl));
+                    let call: Expr = parse_quote!(ranting::adapt_possesive_s(&#noun, #as_pl));
                     res_pos_push(&mut res, pos, call, fmt.as_str());
                 }
             }
