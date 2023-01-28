@@ -142,6 +142,7 @@ pub use language::adapt_article;
 ///     "The school's principal is also Myles's, but only one of all the schools' principals in town.".to_string());
 /// # }
 /// ```
+// a combined plural may require some tricks: "The star and cross' design was pattented by Bob."
 pub fn adapt_possesive_s(noun: &dyn Ranting, asked_plural: bool) -> &str {
     if asked_plural && !is_name(noun) {
         "'"
