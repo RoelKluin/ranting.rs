@@ -109,7 +109,7 @@ fn male_female_and_object() {
     assert_eq!(pack.count(), "Now there are 4 animals in the meadow.");
 
     let rubbish = Noun::new("trash", "they");
-    let coin = Object::new("coin");
+    let coin = Noun::new("coin", "it");
 
     let ret = anna.respond_to(&bob, "give", Some((1, &rubbish)));
     assert_eq!(

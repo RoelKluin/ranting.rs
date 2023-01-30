@@ -29,6 +29,7 @@ pub(crate) struct RantingOptions {
     pub(crate) is_plural: Option<bool>,
     // set if name should always be with an upper case. Not required if name is given or in struct.
     pub(crate) uc: bool,
+    // set if no article should be displayed in most cases (e.g. names, sports or meals)
     pub(crate) no_article: bool,
 }
 

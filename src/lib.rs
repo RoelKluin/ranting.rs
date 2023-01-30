@@ -13,7 +13,6 @@ use english as language;
 pub use language::{Cased, SubjectPronoun};
 
 pub use in_definite;
-//pub(crate) use ranting_derive::derive_ranting;
 use std::str::FromStr;
 
 // TODO: make this a feature:
@@ -24,13 +23,13 @@ use std::str::FromStr;
 /// # Examples
 ///
 /// ```rust
-/// # use ranting::{Object, Noun, ack, Ranting};
-/// fn question(harr: Object, friends: Noun, lad: Noun) -> Result<String, String> {
+/// # use ranting::{Noun, ack, Ranting};
+/// fn question(harr: Noun, friends: Noun, lad: Noun) -> Result<String, String> {
 ///     ack!("{harr shall} {+=friends do} with {the drunken *lad}?");
 /// }
 ///
 /// # fn main() {
-/// let harr = Object::new("what");
+/// let harr = Noun::new("what", "it");
 /// let friends = Noun::new("crew", "we");
 /// let lad = Noun::new("sailor", "he");
 ///
@@ -67,9 +66,9 @@ pub use ranting_derive::nay;
 /// # Examples
 ///
 /// ```rust
-/// # use ranting::{Noun, Object, say, Ranting};
+/// # use ranting::{Noun, say, Ranting};
 /// fn inflect(with: Noun) -> String {
-///     let n = Object::new("noun");
+///     let n = Noun::new("noun", "it");
 ///     say!("{Some n} with {0} {?n inflect} as {=0}, {@0}, {`0} and {~0}.", with)
 /// }
 ///
@@ -109,20 +108,6 @@ impl Noun {
     }
 }
 
-/// Similar, but always neutrum.
-#[derive(ranting_derive::Ranting)]
-#[ranting(name = "$")]
-pub struct Object {
-    name: String,
-}
-impl Object {
-    pub fn new(name: &str) -> Self {
-        Object {
-            name: name.to_string(),
-        }
-    }
-}
-
 pub use language::adapt_article;
 
 /// convert to `'s` or `'` as appropriate for singular or plural of a noun.
@@ -133,7 +118,7 @@ pub use language::adapt_article;
 /// # use ranting::*;
 /// # fn main() {
 ///
-/// let school = Object::new("school");
+/// let school = Noun::new("school", "it");
 /// let principal = Noun::new("principal", "she");
 /// let myles = Noun::new("Myles", "he");
 ///
@@ -150,17 +135,17 @@ pub fn adapt_possesive_s(noun: &dyn Ranting, asked_plural: bool) -> &str {
     }
 }
 
-/// singular-/pluralize adjective with as_plural and set uc to capitalize first character
-pub fn inflect_adjective<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool) -> Cased<'a> {
-    adjective(pluralize_pronoun(subject, as_plural), uc)
+/// Inflect adjective pronoun as to_plural indicates. The first character is a capital if uc is set.
+pub fn inflect_adjective<'a>(subject: SubjectPronoun, to_plural: bool, uc: bool) -> Cased<'a> {
+    adjective(pluralize_pronoun(subject, to_plural), uc)
 }
 
-/// retrieve singular-/pluralize noun name with as_plural and uc to capitalize first
-pub fn inflect_noun(noun: &dyn Ranting, as_plural: bool, uc: bool) -> String {
-    if noun.is_plural() == as_plural {
+/// Inflect noun name as to_plural indicates. The first character is a capital if uc is set.
+pub fn inflect_noun(noun: &dyn Ranting, to_plural: bool, uc: bool) -> String {
+    if noun.is_plural() == to_plural {
         noun.name(uc)
     } else {
-        noun.inflect(as_plural, uc)
+        noun.inflect(to_plural, uc)
     }
 }
 
@@ -170,20 +155,49 @@ fn is_name(noun: &dyn Ranting) -> bool {
         .starts_with(|c: char| c.is_uppercase())
 }
 
-/// singular-/pluralize objective with as_plural and uc apitalizes first
-pub fn inflect_objective<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool) -> Cased<'a> {
-    objective(pluralize_pronoun(subject, as_plural), uc)
+/// Inflect objective pronoun as to_plural indicates. The first character is a capital if uc is set.
+pub fn inflect_objective<'a>(subject: SubjectPronoun, to_plural: bool, uc: bool) -> Cased<'a> {
+    objective(pluralize_pronoun(subject, to_plural), uc)
 }
 
-/// singular-/pluralize possesive with as_plural and you can uc first
-pub fn inflect_possesive<'a>(subject: SubjectPronoun, as_plural: bool, uc: bool) -> Cased<'a> {
-    possesive(pluralize_pronoun(subject, as_plural), uc)
+/// Inflect possesive pronoun as to_plural indicates. The first character is a capital if uc is set.
+pub fn inflect_possesive<'a>(subject: SubjectPronoun, to_plural: bool, uc: bool) -> Cased<'a> {
+    possesive(pluralize_pronoun(subject, to_plural), uc)
 }
 
 pub use language::inflect_subjective;
 pub(crate) use language::pluralize_pronoun;
 
 pub use language::inflect_verb;
+
+/// ```
+/// # use std::str::FromStr;
+/// # use ranting::*;
+/// # use ranting_derive::*;
+///
+/// #[derive_ranting]
+/// #[ranting(subject = "you", is_plural = true)]
+/// struct OpponentTeam {}
+///
+/// #[derive_ranting]
+/// #[ranting(subject = "he")]
+/// struct ChessPlayer {}
+///
+/// fn big_words_to<T: Ranting>(who: T) -> String {
+///     say!("I will grant {@0} {`0} fight, but {=0 are} going to loose today.", who)
+/// }
+///
+/// # fn main() {
+///     let team = OpponentTeam {};
+///     assert_eq!(big_words_to(team),
+///         "I will grant you your fight, but you are going to loose today.");
+///
+///     let magnus = ChessPlayer {};
+///
+///     assert_eq!(big_words_to(magnus),
+///         "I will grant him his fight, but he is going to loose today.");
+/// # }
+/// ```
 pub use language::is_subjective_plural;
 pub use language::uc_1st_if;
 
@@ -204,5 +218,5 @@ pub trait Ranting: std::fmt::Display {
     fn mut_name(&mut self, _word: &str) -> String;
     fn indefinite_article(&self, optional_article: bool, uc: bool) -> String;
     fn requires_article(&self) -> bool;
-    fn inflect(&self, as_plural: bool, uc: bool) -> String;
+    fn inflect(&self, to_plural: bool, uc: bool) -> String;
 }

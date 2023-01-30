@@ -222,7 +222,8 @@ pub fn is_indefinite_article<T: AsRef<str>>(article_or_so: T) -> bool {
     matches!(article_or_so.as_ref(), "some" | "a" | "an")
 }
 
-/// Given an article, the default, a requested one, inflect and to_upper() it as specified.
+// XXX: Should be pub only for ranting_derive
+/// (for internal use) Given an article, the default, a requested one, inflect and to_upper() it as specified.
 pub fn adapt_article(
     mut s: String,
     requested: &str,
@@ -247,26 +248,7 @@ pub(crate) fn adjective<'a>(subject: SubjectPronoun, uc: bool) -> Cased<'a> {
     Cased { s, uc }
 }
 
-/// Returns Ok(true) if the subjective is plural, an Error if unrecognized or indiscernible.
-/// ```
-/// # use std::str::FromStr;
-/// # use ranting::*;
-///
-/// # fn main() {
-/// for subject in ["I", "you", "thou", "she", "he", "it"]
-///     .into_iter()
-///     .map(SubjectPronoun::from_str)
-/// {
-///     assert!(!is_subjective_plural(subject.unwrap()));
-/// }
-/// for subject in ["we", "ye", "they"]
-///     .into_iter()
-///     .map(SubjectPronoun::from_str)
-/// {
-///     assert!(is_subjective_plural(subject.unwrap()));
-/// }
-/// # }
-/// ```
+/// Returns true if the subjective is plural. You is assumed singular. A Ranting
 pub fn is_subjective_plural(subjective: SubjectPronoun) -> bool {
     (subjective as usize) >= 6
 }
@@ -431,4 +413,28 @@ pub fn inflect_verb(subject: SubjectPronoun, verb: &str, as_plural: bool, uc: bo
 // In English verbs are the same if 1st, 2nd or 3rd person plural.
 pub(crate) fn inflect_verb_wo_subj(verb: &str, c: char, uc: bool) -> Option<ExtCased> {
     (c == '+').then_some(inflect_verb(SubjectPronoun::We, verb, true, uc))
+}
+
+#[cfg(test)]
+mod tests {
+    use ranting::*;
+    use std::str::FromStr;
+    #[test]
+    fn singular_subjective() {
+        for subject in ["I", "you", "thou", "she", "he", "it"]
+            .into_iter()
+            .map(SubjectPronoun::from_str)
+        {
+            assert!(!is_subjective_plural(subject.unwrap()));
+        }
+    }
+    #[test]
+    fn plural_subjective() {
+        for subject in ["we", "ye", "they"]
+            .into_iter()
+            .map(SubjectPronoun::from_str)
+        {
+            assert!(is_subjective_plural(subject.unwrap()));
+        }
+    }
 }
