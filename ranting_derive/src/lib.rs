@@ -1,13 +1,13 @@
 // (c) RoelKluin 2022 GPL v3
 #![feature(iter_intersperse)]
 
+mod language;
 mod ranting_impl;
 mod str_lit;
 
-#[path = "../language/english.rs"]
 #[allow(dead_code)]
-mod english;
-use english as language;
+use language::english as lang;
+use language::english_shared as lang_shared;
 
 use darling::{FromDeriveInput, ToTokens};
 use lazy_static::lazy_static;
@@ -56,14 +56,14 @@ pub fn derive_ranting(_args: TokenStream1, input: TokenStream1) -> TokenStream1 
     match &mut ast.data {
         syn::Data::Struct(_) => {
             let tokens: TokenStream = parse_quote! {
-                #[derive(Ranting)]
+                #[derive(ranting_derive::Ranting)]
                 #ast
             };
             tokens.into()
         }
         syn::Data::Enum(_) => {
             let tokens: TokenStream = parse_quote! {
-                #[derive(ranting::strum_macros::Display, Ranting)]
+                #[derive(ranting::strum_macros::Display, ranting_derive::Ranting)]
                 #ast
             };
             tokens.into()
@@ -89,8 +89,8 @@ pub fn inner_derive_ranting(input: TokenStream1) -> TokenStream1 {
 impl syn::parse::Parse for Say {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         lazy_static! {
-            static ref PH: Regex = Regex::new(language::PH_START).unwrap();
-            static ref PHE: Regex = Regex::new(language::PH_EXT).unwrap();
+            static ref PH: Regex = Regex::new(lang::PH_START).unwrap();
+            static ref PHE: Regex = Regex::new(lang::PH_EXT).unwrap();
         }
         if input.is_empty() {
             return Err(Error::new(Span::mixed_site(), "missing format string"));
@@ -343,9 +343,9 @@ fn handle_param(
             p = s.to_string();
             optional_article = true;
         }
-        if language::is_article_or_so(p.as_str()) {
+        if lang::is_article_or_so(p.as_str()) {
             if let Some(c) = plurality.filter(|&c| !optional_article && (c == '-' || c == '+')) {
-                let a = language::adapt_article(p.clone(), p.as_str(), art_space, c == '+', uc);
+                let a = lang_shared::adapt_article(p.clone(), p.as_str(), art_space, c == '+', uc);
                 res.push_str(&a);
             } else {
                 let call = parse_quote!(ranting::adapt_article(#noun.indefinite_article(#optional_article, #uc), #p, #art_space, #as_pl, #uc));
@@ -354,7 +354,7 @@ fn handle_param(
         } else {
             assert!(post.is_none(), "verb before and after?");
             if let Some(verb) =
-                plurality.and_then(|c| language::inflect_verb_wo_subj(p.as_str(), c, uc))
+                plurality.and_then(|c| lang::inflect_verb_wo_subj(p.as_str(), c, uc))
             {
                 res.push_str(format!("{}", verb).as_str());
             } else {
@@ -378,7 +378,7 @@ fn handle_param(
     // also if case is None, the noun should be printed.
     if visible_noun {
         res.push_str(noun_space);
-        let expr = match opt_case.and_then(language::get_case_from_str) {
+        let expr = match opt_case.and_then(lang::get_case_from_str) {
             Some(case) if case.ends_with("ive") => {
                 let path = path_from(format!("ranting::inflect_{case}"));
                 parse_quote!(#path(#noun.subjective(), #as_pl, #uc))
@@ -401,7 +401,7 @@ fn handle_param(
         res.push_str(post_space);
         match post {
             "'" | "'s" => {
-                if let Some(s) = plurality.and_then(language::adapt_possesive_s_wo_subj) {
+                if let Some(s) = plurality.and_then(lang::adapt_possesive_s_wo_subj) {
                     res.push_str(s);
                 } else {
                     let call: Expr = parse_quote!(ranting::adapt_possesive_s(&#noun, #as_pl));
@@ -409,8 +409,7 @@ fn handle_param(
                 }
             }
             v => {
-                if let Some(verb) = plurality.and_then(|c| language::inflect_verb_wo_subj(v, c, uc))
-                {
+                if let Some(verb) = plurality.and_then(|c| lang::inflect_verb_wo_subj(v, c, uc)) {
                     res.push_str(format!("{}", verb).as_str());
                 } else {
                     let call =

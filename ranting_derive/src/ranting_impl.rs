@@ -1,10 +1,10 @@
 // (c) RoelKluin 2022 GPL v3
 
+use crate::language::english_shared as language;
 use darling::FromDeriveInput;
 use proc_macro2::TokenStream;
-use syn::{parse_quote, Ident};
-
 use std::str::FromStr;
+use syn::{parse_quote, Ident};
 
 fn string_it() -> String {
     String::from("it")
@@ -35,7 +35,7 @@ pub(crate) struct RantingOptions {
 
 fn get_namefn_for(mut opt: RantingOptions, is_enum: bool) -> TokenStream {
     let get_name: TokenStream = if is_enum {
-        parse_quote!(self)
+        parse_quote!(self.to_string())
     } else if let Some(name) = opt.name {
         match name.as_str() {
             "$" => {
@@ -160,12 +160,11 @@ pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> To
     let plurality_action: TokenStream = if subject_str == "$" {
         get_plurality_fns(subject_str, singular_end, plural_end, false)
     } else {
-        let subject =
-            crate::language::SubjectPronoun::from_str(subject_str).expect("not a subject");
+        let subject = language::SubjectPronoun::from_str(subject_str).expect("not a subject");
 
         let is_pl = opt
             .is_plural
-            .unwrap_or_else(|| crate::language::is_subjective_plural(subject));
+            .unwrap_or_else(|| language::is_subjective_plural(subject));
         get_plurality_fns(subject_str, singular_end, plural_end, is_pl)
     };
 
@@ -199,7 +198,7 @@ pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> To
                 if uc { "Some" } else { "some" }.to_string()
             } else {
                 let name = self.name(false);
-                match ranting::in_definite::get_a_or_an(name.as_str()) {
+                match ranting::get_a_or_an(name.as_str()) {
                     "a" if uc => "A".to_string(),
                     "an" if uc => "An".to_string(),
                     lc => lc.to_string(),

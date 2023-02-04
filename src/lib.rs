@@ -7,13 +7,20 @@
 
 extern crate self as ranting;
 
-#[allow(dead_code)]
-mod english;
-use english as language;
-pub use language::{Cased, SubjectPronoun};
+pub(crate) mod language;
 
-pub use in_definite;
+use crate::language::english_shared::pluralize_pronoun;
+pub use crate::language::english_shared::SubjectPronoun;
+pub use crate::language::roman_shared::{uc_1st_if, Cased};
 use std::str::FromStr;
+
+pub use in_definite::get_a_or_an;
+
+#[allow(dead_code)]
+use language::english as lang;
+
+pub use language::english::inflect_subjective;
+pub use language::english_shared::{adapt_article, inflect_verb, is_subjective_plural};
 
 // TODO: make this a feature:
 //pub(crate) use strum_macros;
@@ -108,8 +115,6 @@ impl Noun {
     }
 }
 
-pub use language::adapt_article;
-
 /// convert to `'s` or `'` as appropriate for singular or plural of a noun.
 ///
 /// # Examples
@@ -165,11 +170,6 @@ pub fn inflect_possesive<'a>(subject: SubjectPronoun, to_plural: bool, uc: bool)
     possesive(pluralize_pronoun(subject, to_plural), uc)
 }
 
-pub use language::inflect_subjective;
-pub(crate) use language::pluralize_pronoun;
-
-pub use language::inflect_verb;
-
 /// ```
 /// # use std::str::FromStr;
 /// # use ranting::*;
@@ -198,12 +198,9 @@ pub use language::inflect_verb;
 ///         "I will grant him his fight, but he is going to loose today.");
 /// # }
 /// ```
-pub use language::is_subjective_plural;
-pub use language::uc_1st_if;
-
-use language::adjective;
-use language::objective;
-use language::possesive;
+use lang::adjective;
+use lang::objective;
+use lang::possesive;
 
 /// By overriding functions one can adapt default behavior, which affects the
 /// [placeholder](https://docs.rs/ranting_derive/0.2.0/ranting_derive/) behavior.
