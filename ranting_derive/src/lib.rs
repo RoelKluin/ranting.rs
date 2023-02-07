@@ -340,7 +340,7 @@ fn handle_param(
         }
     };
 
-    let mut res = caps.name("sentence").map_or("", |s| s.as_str()).to_owned();
+    let mut res = "".to_owned();
     let fmt = nr_fmt
         .split(':')
         .filter(|&s| {
