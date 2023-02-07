@@ -14,7 +14,7 @@ use lazy_static::lazy_static;
 use proc_macro::{self, TokenStream as TokenStream1};
 use proc_macro2::{Punct, Spacing, Span, TokenStream};
 use ranting_impl::*;
-use regex::{Captures, Regex};
+use regex::{Captures, Match, Regex};
 use std::iter;
 use str_lit::*;
 use syn::{self, parse_quote, punctuated::Punctuated, Error, Expr, Token};
@@ -227,6 +227,21 @@ fn res_pos_push(res: &mut String, pos: &mut Vec<Expr>, expr: Expr, fmt: &str) {
     pos.push(expr);
 }
 
+fn cap_and_space<'a>(cap: Option<Match<'a>>, space_is_right: bool) -> (&'a str, &'a str) {
+    cap.and_then(|s| {
+        if space_is_right {
+            s.as_str()
+                .rfind(|c: char| !c.is_whitespace())
+                .map(|u| s.as_str().split_at(u + 1))
+        } else {
+            s.as_str()
+                .find(|c: char| !c.is_whitespace())
+                .map(|u| s.as_str().split_at(u))
+        }
+    })
+    .unwrap_or(("", ""))
+}
+
 // Placeholder parts are examined, added are replacements known at compile time,
 // or placeholders are split in many and positionals are added.
 fn handle_param(
@@ -257,61 +272,15 @@ fn handle_param(
     //  placeholder if withou all other SayPlaceholder elements.
     let cap = caps.name("noun").unwrap();
     let noun = get_opt_num_ph_expr(cap.as_str(), given).map_err(|s| (cap.start(), cap.end(), s))?;
-    let pre;
-    let mut art_space;
-    (pre, art_space) = caps
-        .name("pre")
-        .and_then(|s| {
-            s.as_str()
-                .rfind(|c: char| !c.is_whitespace())
-                .map(|u| s.as_str().split_at(u + 1))
-        })
-        .unwrap_or(("", ""));
+    let (pre, mut art_space) = cap_and_space(caps.name("pre"), true);
+    let (etc1, mut etc1_nr_space) = cap_and_space(caps.name("etc1"), true);
 
-    let etc1;
-    let mut etc1_nr_space;
-    (etc1, etc1_nr_space) = caps
-        .name("etc1")
-        .and_then(|s| {
-            s.as_str()
-                .rfind(|c: char| !c.is_whitespace())
-                .map(|u| s.as_str().split_at(u + 1))
-        })
-        .unwrap_or(("", ""));
-
-    let nr;
-    let mut noun_space;
     let nr_cap = caps.name("nr");
-    (nr, noun_space) = nr_cap
-        .and_then(|s| {
-            s.as_str()
-                .rfind(|c: char| !c.is_whitespace())
-                .map(|u| s.as_str().split_at(u + 1))
-        })
-        .unwrap_or(("", ""));
+    let (nr, mut noun_space) = cap_and_space(caps.name("nr"), true);
     let plurality = nr.chars().next();
 
-    let etc2;
-    let mut etc2_space;
-    (etc2_space, etc2) = caps
-        .name("etc2")
-        .and_then(|s| {
-            s.as_str()
-                .find(|c: char| !c.is_whitespace())
-                .map(|u| s.as_str().split_at(u))
-        })
-        .unwrap_or(("", ""));
-
-    let post;
-    let mut post_space;
-    (post_space, post) = caps
-        .name("post")
-        .and_then(|s| {
-            s.as_str()
-                .find(|c: char| !c.is_whitespace())
-                .map(|u| s.as_str().split_at(u))
-        })
-        .unwrap_or(("", ""));
+    let (mut etc2_space, etc2) = cap_and_space(caps.name("etc2"), false);
+    let (mut post_space, post) = cap_and_space(caps.name("post"), false);
 
     let opt_case = caps.name("case").map(|m| m.as_str());
     let visible_noun = opt_case.map(|s| s.starts_with('?')) != Some(true);
