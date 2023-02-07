@@ -8,17 +8,18 @@ use super::roman_shared::ExtCased;
 pub(crate) static PH_START: &str =
     r"(?P<pre>(?:^|[.?!]\s+|\{\{)?+)\{(?:(?P<plain>\w*+)|(?P<ranting>[^{}:]*+))(?P<fmt>:.*?)?\}";
 
+// TODO: do not capture space separate but split off from parts.
 // regex to capture the placholders or sentence ends
 // useful: https://regex101.com/r/Ly7O1x/3/
 /// The components captured in a Ranting trait placeholder are defined here.
 pub(crate) static PH_EXT: &str = r"^(?x)
     (?P<uc>[,^])?+
-    (?:(?P<pre>\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se|
+    (?P<pre>(?:\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se|
     '[rv]e|[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
     (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)
-    (?P<sp1>\s+))?+
-    (?:(?P<etc1>[\w-]+(?:\s+[\w-]+)*?)(?P<sp2>\s+))??
-    (?:(?P<plurality>[+-]|\??\#(?P<nr>\w+)(?P<sp3>\s+)))?+
+    \s+)?+
+    (?P<etc1>[\w-]+(?:\s+[\w-]+)*\s+?)??
+    (?P<nr>[+-]|\??\#\w+\s+)?+
     (?P<case>(?:[`=@~*?]|<[^>]*>))?+
     (?P<noun>[\w-]+)
     (?:(?P<sp4>\s+)(?P<etc2>(?:[\w-]+\s+)+?)??(?P<post1>(?:[\w-]+')?[\w-]+)?|(?P<post2>'\w*))?$";

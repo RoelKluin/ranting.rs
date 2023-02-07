@@ -253,17 +253,44 @@ fn handle_param(
                 .is_some()
     };
 
-    let plurality = caps
-        .name("plurality")
-        .and_then(|m| m.as_str().chars().next());
-
     // could be a struct or enum with a Ranting trait or just be a regular
     //  placeholder if withou all other SayPlaceholder elements.
     let cap = caps.name("noun").unwrap();
     let noun = get_opt_num_ph_expr(cap.as_str(), given).map_err(|s| (cap.start(), cap.end(), s))?;
-    let mut art_space = caps.name("sp1").map_or("", |m| m.as_str());
-    let mut nr_space = caps.name("sp2").map_or("", |m| m.as_str());
-    let mut noun_space = caps.name("sp3").map_or("", |m| m.as_str());
+    let pre;
+    let mut art_space;
+    (pre, art_space) = caps
+        .name("pre")
+        .and_then(|s| {
+            s.as_str()
+                .rfind(|c: char| !c.is_whitespace())
+                .map(|u| s.as_str().split_at(u + 1))
+        })
+        .unwrap_or(("", ""));
+
+    let etc1;
+    let mut etc1_nr_space;
+    (etc1, etc1_nr_space) = caps
+        .name("etc1")
+        .and_then(|s| {
+            s.as_str()
+                .rfind(|c: char| !c.is_whitespace())
+                .map(|u| s.as_str().split_at(u + 1))
+        })
+        .unwrap_or(("", ""));
+
+    let nr;
+    let mut noun_space;
+    let nr_cap = caps.name("nr");
+    (nr, noun_space) = nr_cap
+        .and_then(|s| {
+            s.as_str()
+                .rfind(|c: char| !c.is_whitespace())
+                .map(|u| s.as_str().split_at(u + 1))
+        })
+        .unwrap_or(("", ""));
+    let plurality = nr.chars().next();
+
     let mut post_space = caps.name("sp4").map_or("", |m| m.as_str());
     let opt_case = caps.name("case").map(|m| m.as_str());
     let visible_noun = opt_case.map(|s| s.starts_with('?')) != Some(true);
@@ -271,8 +298,8 @@ fn handle_param(
         if noun_space.is_empty() {
             if !post_space.is_empty() {
                 post_space = "";
-            } else if !nr_space.is_empty() {
-                nr_space = "";
+            } else if !etc1_nr_space.is_empty() {
+                etc1_nr_space = "";
             } else if !art_space.is_empty() {
                 art_space = "";
             }
@@ -280,20 +307,23 @@ fn handle_param(
             noun_space = "";
         }
     }
-    let mut nr: Option<Expr> = None;
+    let mut opt_nr: Option<Expr> = None;
     let as_pl: Expr = if let Some(c) = plurality {
         match c {
             '+' => parse_quote!(true),
             '-' => parse_quote!(false),
             c => {
-                let cap = caps.name("nr").unwrap();
-                let expr = get_opt_num_ph_expr(cap.as_str(), given)
-                    .map_err(|s| (cap.start(), cap.end(), s))?;
+                let expr = get_opt_num_ph_expr(nr.trim_start_matches(&['?', '#']), given).map_err(
+                    |s| {
+                        let cap = nr_cap.unwrap();
+                        (cap.start(), cap.end(), s)
+                    },
+                )?;
                 // "#", "#?" or "?#" are captured in RE but not "??" or "##".
                 if c != '?' {
-                    nr = Some(expr.clone());
-                } else if caps.name("etc1").is_some() {
-                    nr_space = "";
+                    opt_nr = Some(expr.clone());
+                } else if !etc1.is_empty() {
+                    etc1_nr_space = "";
                 } else if !art_space.is_empty() {
                     art_space = "";
                 } else if !noun_space.is_empty() {
@@ -336,8 +366,8 @@ fn handle_param(
         .join(":");
 
     // This may be an article or certain verbs that can occur before the noun:
-    if let Some(pre) = caps.name("pre") {
-        let mut p = pre.as_str().to_lowercase();
+    if !pre.is_empty() {
+        let mut p = pre.to_lowercase();
         let mut optional_article = false;
         if let Some(s) = p.as_str().strip_prefix('?') {
             p = s.to_string();
@@ -365,14 +395,14 @@ fn handle_param(
         }
         uc = false;
     }
-    if let Some(etc1) = caps.name("etc1") {
-        res.push_str(etc1.as_str());
-        if nr.is_none() {
-            res.push_str(nr_space);
+    if !etc1.is_empty() {
+        res.push_str(etc1);
+        if opt_nr.is_none() {
+            res.push_str(etc1_nr_space);
         }
     }
-    if let Some(expr) = nr {
-        res.push_str(nr_space);
+    if let Some(expr) = opt_nr {
+        res.push_str(etc1_nr_space);
         res_pos_push(&mut res, pos, expr, nr_fmt);
     }
     // also if case is None, the noun should be printed.

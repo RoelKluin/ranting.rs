@@ -64,7 +64,7 @@ static IRREGULAR_VERBS_1ST: [&str; 4] = ["am", "aint", "was", "'m"];
 static IRREGULAR_VERBS_3RD: [&str; 5] = ["is", "was", "'s", "has", "does"];
 
 #[allow(dead_code)]
-pub(super) struct Rant {
+pub(super) struct PlaceHolder {
     uc: bool,
     pre: String,
     sp1: String,
