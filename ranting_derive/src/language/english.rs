@@ -42,12 +42,7 @@ pub fn is_article_or_so(word: &str) -> bool {
     matches!(word, "some" | "a" | "an" | "the" | "these" | "those")
 }
 
-// In English singular possesive s i always the same.
-pub(crate) fn adapt_possesive_s_wo_subj(c: char) -> Option<&'static str> {
-    (c == '-').then_some("'s")
-}
-
 // In English verbs are the same if 1st, 2nd or 3rd person plural.
-pub(crate) fn inflect_verb_wo_subj(verb: &str, c: char, uc: bool) -> Option<ExtCased> {
-    (c == '+').then_some(inflect_verb(SubjectPronoun::We, verb, true, uc))
+pub(crate) fn plural_verb(verb: &str, uc: bool) -> ExtCased {
+    inflect_verb(SubjectPronoun::We, verb, true, uc)
 }

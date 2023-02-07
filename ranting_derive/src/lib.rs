@@ -227,16 +227,21 @@ fn res_pos_push(res: &mut String, pos: &mut Vec<Expr>, expr: Expr, fmt: &str) {
     pos.push(expr);
 }
 
-fn cap_and_space<'a>(cap: Option<Match<'a>>, space_is_right: bool) -> (&'a str, &'a str) {
+fn split_at_find_start<'a>(s: &'a str, fun: fn(char) -> bool) -> Option<(&'a str, &'a str)> {
+    s.find(fun).map(|u| s.split_at(u))
+}
+
+fn split_at_find_end_space<'a>(s: &'a str) -> Option<(&'a str, &'a str)> {
+    s.rfind(|c: char| !c.is_whitespace())
+        .map(|u| s.split_at(u + 1))
+}
+
+fn cap_and_space<'a>(cap: Option<Match<'a>>, space_at_end: bool) -> (&'a str, &'a str) {
     cap.and_then(|s| {
-        if space_is_right {
-            s.as_str()
-                .rfind(|c: char| !c.is_whitespace())
-                .map(|u| s.as_str().split_at(u + 1))
+        if space_at_end {
+            split_at_find_end_space(s.as_str())
         } else {
-            s.as_str()
-                .find(|c: char| !c.is_whitespace())
-                .map(|u| s.as_str().split_at(u))
+            split_at_find_start(s.as_str(), |c: char| !c.is_whitespace())
         }
     })
     .unwrap_or(("", ""))
@@ -253,13 +258,13 @@ fn handle_param(
 ) -> Result<String, (usize, usize, String)> {
     // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
     // 2) uc if article or so is or 3) the noun is first or after start or `. '
+    let pre_caps = caps.name("pre");
     let mut uc = if let Some(m) = caps.name("uc") {
         m.as_str() == "^"
     } else {
         // or if article has uc or the noun is first or at new sentence
         at_sentence_start
-            || caps
-                .name("pre")
+            || pre_caps
                 .filter(|s| {
                     s.as_str()
                         .trim_start_matches('?')
@@ -272,12 +277,21 @@ fn handle_param(
     //  placeholder if withou all other SayPlaceholder elements.
     let cap = caps.name("noun").unwrap();
     let noun = get_opt_num_ph_expr(cap.as_str(), given).map_err(|s| (cap.start(), cap.end(), s))?;
-    let (pre, mut art_space) = cap_and_space(caps.name("pre"), true);
+    let (pre, mut art_space) = cap_and_space(pre_caps, true);
     let (etc1, mut etc1_nr_space) = cap_and_space(caps.name("etc1"), true);
 
     let nr_cap = caps.name("nr");
-    let (nr, mut noun_space) = cap_and_space(caps.name("nr"), true);
-    let plurality = nr.chars().next();
+    let (mut nr, mut noun_space) = cap_and_space(nr_cap, true);
+    let plurality;
+    // None, no alpha found => all are punct; occurs with '+' or '-'.
+    (plurality, nr) = split_at_find_start(nr, |c| c.is_alphanumeric()).unwrap_or((nr, ""));
+    let mut nr_expr = None;
+    if !nr.is_empty() {
+        nr_expr = Some(get_opt_num_ph_expr(nr, given).map_err(|s| {
+            let cap = nr_cap.unwrap();
+            (cap.start(), cap.end(), s)
+        })?);
+    }
 
     let (mut etc2_space, etc2) = cap_and_space(caps.name("etc2"), false);
     let (mut post_space, post) = cap_and_space(caps.name("post"), false);
@@ -300,38 +314,30 @@ fn handle_param(
         }
     }
     let mut opt_nr: Option<Expr> = None;
-    let as_pl: Expr = if let Some(c) = plurality {
-        match c {
-            '+' => parse_quote!(true),
-            '-' => parse_quote!(false),
-            c => {
-                let expr = get_opt_num_ph_expr(nr.trim_start_matches(&['?', '#']), given).map_err(
-                    |s| {
-                        let cap = nr_cap.unwrap();
-                        (cap.start(), cap.end(), s)
-                    },
-                )?;
-                // "#", "#?" or "?#" are captured in RE but not "??" or "##".
-                if c != '?' {
-                    opt_nr = Some(expr.clone());
-                } else if !etc1.is_empty() {
-                    etc1_nr_space = "";
-                } else if !art_space.is_empty() {
-                    art_space = "";
-                } else if !noun_space.is_empty() {
-                    if !etc2_space.is_empty() {
-                        noun_space = etc2_space;
-                        etc2_space = "";
-                    } else {
-                        noun_space = post_space;
-                        post_space = "";
-                    }
+    let as_pl: Expr = match plurality {
+        "" => parse_quote!(#noun.is_plural()),
+        "+" => parse_quote!(true),
+        "-" => parse_quote!(false),
+        s => {
+            let expr = nr_expr.unwrap();
+            // "#", "#?" or "?#" are captured in RE but not "??" or "##".
+            if s != "?#" {
+                opt_nr = Some(expr.clone());
+            } else if !etc1.is_empty() {
+                etc1_nr_space = "";
+            } else if !art_space.is_empty() {
+                art_space = "";
+            } else if !noun_space.is_empty() {
+                if !etc2_space.is_empty() {
+                    noun_space = etc2_space;
+                    etc2_space = "";
+                } else {
+                    noun_space = post_space;
+                    post_space = "";
                 }
-                parse_quote!(#expr != 1)
             }
+            parse_quote!(#expr != 1)
         }
-    } else {
-        parse_quote!(#noun.is_plural())
     };
 
     let mut res = caps.name("sentence").map_or("", |s| s.as_str()).to_owned();
@@ -370,8 +376,14 @@ fn handle_param(
             optional_article = true;
         }
         if lang::is_article_or_so(p.as_str()) {
-            if let Some(c) = plurality.filter(|&c| !optional_article && (c == '-' || c == '+')) {
-                let a = lang_shared::adapt_article(p.clone(), p.as_str(), art_space, c == '+', uc);
+            if !optional_article && (plurality == "-" || plurality == "+") {
+                let a = lang_shared::adapt_article(
+                    p.clone(),
+                    p.as_str(),
+                    art_space,
+                    plurality == "+",
+                    uc,
+                );
                 res.push_str(&a);
             } else {
                 let call = parse_quote!(ranting::adapt_article(#noun.indefinite_article(#optional_article, #uc), #p, #art_space, #as_pl, #uc));
@@ -379,9 +391,8 @@ fn handle_param(
             }
         } else {
             assert!(post.is_empty(), "verb before and after?");
-            if let Some(verb) =
-                plurality.and_then(|c| lang::inflect_verb_wo_subj(p.as_str(), c, uc))
-            {
+            if plurality == "+" {
+                let verb = lang::plural_verb(p.as_str(), uc);
                 res.push_str(format!("{}", verb).as_str());
             } else {
                 let call = parse_quote!(ranting::inflect_verb(#noun.subjective(), #p, #as_pl, #uc));
@@ -426,15 +437,16 @@ fn handle_param(
         res.push_str(post_space);
         match post {
             "'" | "'s" => {
-                if let Some(s) = plurality.and_then(lang::adapt_possesive_s_wo_subj) {
-                    res.push_str(s);
+                if plurality == "-" {
+                    res.push_str("'s");
                 } else {
                     let call: Expr = parse_quote!(ranting::adapt_possesive_s(&#noun, #as_pl));
                     res_pos_push(&mut res, pos, call, fmt.as_str());
                 }
             }
             v => {
-                if let Some(verb) = plurality.and_then(|c| lang::inflect_verb_wo_subj(v, c, uc)) {
+                if plurality == "+" {
+                    let verb = lang::plural_verb(v, uc);
                     res.push_str(format!("{}", verb).as_str());
                 } else {
                     let call =
