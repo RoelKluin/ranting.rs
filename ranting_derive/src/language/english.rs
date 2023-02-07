@@ -22,7 +22,8 @@ pub(crate) static PH_EXT: &str = r"^(?x)
     (?P<nr>[+-]|\??\#\w+\s+)?+
     (?P<case>(?:[`=@~*?]|<[^>]*>))?+
     (?P<noun>[\w-]+)
-    (?:(?P<sp4>\s+)(?P<etc2>(?:[\w-]+\s+)+?)??(?P<post1>(?:[\w-]+')?[\w-]+)?|(?P<post2>'\w*))?$";
+    (?P<etc2>(?:\s+[\w-]+)+?)??
+    (?P<post>\s+(?:[\w-]+')?[\w-]+|'\w*)?$";
 
 /// Return the case for a character.
 pub(crate) fn get_case_from_str(s: &str) -> Option<&str> {
