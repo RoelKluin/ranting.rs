@@ -291,12 +291,35 @@ fn handle_param(
         .unwrap_or(("", ""));
     let plurality = nr.chars().next();
 
-    let mut post_space = caps.name("sp4").map_or("", |m| m.as_str());
+    let etc2;
+    let mut etc2_space;
+    (etc2_space, etc2) = caps
+        .name("etc2")
+        .and_then(|s| {
+            s.as_str()
+                .find(|c: char| !c.is_whitespace())
+                .map(|u| s.as_str().split_at(u))
+        })
+        .unwrap_or(("", ""));
+
+    let post;
+    let mut post_space;
+    (post_space, post) = caps
+        .name("post")
+        .and_then(|s| {
+            s.as_str()
+                .find(|c: char| !c.is_whitespace())
+                .map(|u| s.as_str().split_at(u))
+        })
+        .unwrap_or(("", ""));
+
     let opt_case = caps.name("case").map(|m| m.as_str());
     let visible_noun = opt_case.map(|s| s.starts_with('?')) != Some(true);
     if !visible_noun {
         if noun_space.is_empty() {
-            if !post_space.is_empty() {
+            if !etc2_space.is_empty() {
+                etc2_space = "";
+            } else if !post_space.is_empty() {
                 post_space = "";
             } else if !etc1_nr_space.is_empty() {
                 etc1_nr_space = "";
@@ -327,8 +350,13 @@ fn handle_param(
                 } else if !art_space.is_empty() {
                     art_space = "";
                 } else if !noun_space.is_empty() {
-                    noun_space = post_space;
-                    post_space = "";
+                    if !etc2_space.is_empty() {
+                        noun_space = etc2_space;
+                        etc2_space = "";
+                    } else {
+                        noun_space = post_space;
+                        post_space = "";
+                    }
                 }
                 parse_quote!(#expr != 1)
             }
@@ -338,7 +366,6 @@ fn handle_param(
     };
 
     let mut res = caps.name("sentence").map_or("", |s| s.as_str()).to_owned();
-    let post = caps.name("post1").or_else(|| caps.name("post2"));
     let fmt = nr_fmt
         .split(':')
         .filter(|&s| {
@@ -382,7 +409,7 @@ fn handle_param(
                 res_pos_push(&mut res, pos, call, fmt.as_str());
             }
         } else {
-            assert!(post.is_none(), "verb before and after?");
+            assert!(post.is_empty(), "verb before and after?");
             if let Some(verb) =
                 plurality.and_then(|c| lang::inflect_verb_wo_subj(p.as_str(), c, uc))
             {
@@ -424,10 +451,9 @@ fn handle_param(
         res_pos_push(&mut res, pos, expr, fmt.as_str());
         uc = false;
     }
-    if let Some(etc2) = caps.name("etc2") {
-        res.push_str(etc2.as_str());
-    }
-    if let Some(post) = post.map(|m| m.as_str()) {
+    res.push_str(etc2_space);
+    res.push_str(etc2);
+    if !post.is_empty() {
         res.push_str(post_space);
         match post {
             "'" | "'s" => {
