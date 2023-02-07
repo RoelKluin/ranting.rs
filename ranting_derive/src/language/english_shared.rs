@@ -67,14 +67,10 @@ static IRREGULAR_VERBS_3RD: [&str; 5] = ["is", "was", "'s", "has", "does"];
 pub(super) struct PlaceHolder {
     uc: bool,
     pre: String,
-    sp1: String,
     etc1: String,
-    sp2: String,
     plurality: String,
-    sp3: String,
     case: String,
     noun: String,
-    sp4: String,
     etc2: String,
     post: String,
 }
