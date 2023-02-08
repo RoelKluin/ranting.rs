@@ -231,15 +231,14 @@ fn split_at_find_start<'a>(s: &'a str, fun: fn(char) -> bool) -> Option<(&'a str
     s.find(fun).map(|u| s.split_at(u))
 }
 
-fn split_at_find_end_space<'a>(s: &'a str) -> Option<(&'a str, &'a str)> {
-    s.rfind(|c: char| !c.is_whitespace())
-        .map(|u| s.split_at(u + 1))
+fn split_at_find_end<'a>(s: &'a str, fun: fn(char) -> bool) -> Option<(&'a str, &'a str)> {
+    s.rfind(fun).map(|u| s.split_at(u + 1))
 }
 
 fn cap_and_space<'a>(cap: Option<Match<'a>>, space_at_end: bool) -> (&'a str, &'a str) {
     cap.and_then(|s| {
         if space_at_end {
-            split_at_find_end_space(s.as_str())
+            split_at_find_end(s.as_str(), |c: char| !c.is_whitespace())
         } else {
             split_at_find_start(s.as_str(), |c: char| !c.is_whitespace())
         }
@@ -302,8 +301,16 @@ fn handle_param(
         })?);
     }
 
-    let (mut etc2_space, etc2) = cap_and_space(caps.name("etc2"), false);
-    let (mut post_space, post) = cap_and_space(caps.name("post"), false);
+    let (mut post_space, mut post) = cap_and_space(caps.name("post"), false);
+    let mut etc2;
+    (etc2, post) = split_at_find_end(pre, |c| c.is_whitespace()).unwrap_or(("", post));
+    let mut etc2_space = "";
+    if !etc2.is_empty() {
+        etc2_space = post_space;
+        (etc2, post_space) = split_at_find_end(etc2, |c| c.is_alphanumeric()).unwrap_or((etc2, ""));
+    }
+
+    //let (mut etc2_space, etc2) = cap_and_space(caps.name("etc2"), false);
 
     let opt_case = caps.name("case").map(|m| m.as_str());
     let visible_noun = opt_case.map(|s| s.starts_with('?')) != Some(true);
