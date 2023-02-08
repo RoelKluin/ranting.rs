@@ -64,18 +64,6 @@ static IRREGULAR_VERBS_1ST: [&str; 4] = ["am", "aint", "was", "'m"];
 static IRREGULAR_VERBS_3RD: [&str; 5] = ["is", "was", "'s", "has", "does"];
 
 #[allow(dead_code)]
-pub(super) struct PlaceHolder {
-    uc: bool,
-    pre: String,
-    etc1: String,
-    plurality: String,
-    case: String,
-    noun: String,
-    etc2: String,
-    post: String,
-}
-
-#[allow(dead_code)]
 // XXX: Should be pub only for ranting_derive
 /// (for internal use) Given an article, the default, a requested one, inflect and to_upper() it as specified.
 pub fn adapt_article(
