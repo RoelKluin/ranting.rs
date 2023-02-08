@@ -258,13 +258,13 @@ fn handle_param(
 ) -> Result<String, (usize, usize, String)> {
     // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
     // 2) uc if article or so is or 3) the noun is first or after start or `. '
-    let pre_caps = caps.name("pre");
+    let pre_cap = caps.name("pre");
     let mut uc = if let Some(m) = caps.name("uc") {
         m.as_str() == "^"
     } else {
         // or if article has uc or the noun is first or at new sentence
         at_sentence_start
-            || pre_caps
+            || pre_cap
                 .filter(|s| {
                     s.as_str()
                         .trim_start_matches('?')
@@ -277,7 +277,7 @@ fn handle_param(
     //  placeholder if withou all other SayPlaceholder elements.
     let cap = caps.name("noun").unwrap();
     let noun = get_opt_num_ph_expr(cap.as_str(), given).map_err(|s| (cap.start(), cap.end(), s))?;
-    let (pre, mut art_space) = cap_and_space(pre_caps, true);
+    let (pre, mut art_space) = cap_and_space(pre_cap, true);
     let (etc1, mut etc1_nr_space) = cap_and_space(caps.name("etc1"), true);
 
     let nr_cap = caps.name("nr");
