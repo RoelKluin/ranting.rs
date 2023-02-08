@@ -277,8 +277,17 @@ fn handle_param(
     //  placeholder if withou all other SayPlaceholder elements.
     let cap = caps.name("noun").unwrap();
     let noun = get_opt_num_ph_expr(cap.as_str(), given).map_err(|s| (cap.start(), cap.end(), s))?;
-    let (pre, mut art_space) = cap_and_space(pre_cap, true);
-    let (etc1, mut etc1_nr_space) = cap_and_space(caps.name("etc1"), true);
+    let (mut pre, mut art_space) = cap_and_space(pre_cap, true);
+
+    let mut etc1;
+    (pre, etc1) = split_at_find_start(pre, |c| c.is_whitespace()).unwrap_or((pre, ""));
+
+    let mut nr_space = "";
+    if !etc1.is_empty() {
+        nr_space = art_space;
+        (art_space, etc1) =
+            split_at_find_start(etc1, |c| c.is_alphanumeric()).unwrap_or(("", etc1));
+    }
 
     let nr_cap = caps.name("nr");
     let (mut nr, mut noun_space) = cap_and_space(nr_cap, true);
@@ -304,8 +313,8 @@ fn handle_param(
                 etc2_space = "";
             } else if !post_space.is_empty() {
                 post_space = "";
-            } else if !etc1_nr_space.is_empty() {
-                etc1_nr_space = "";
+            } else if !nr_space.is_empty() {
+                nr_space = "";
             } else if !art_space.is_empty() {
                 art_space = "";
             }
@@ -323,8 +332,8 @@ fn handle_param(
             // "#", "#?" or "?#" are captured in RE but not "??" or "##".
             if s != "?#" {
                 opt_nr = Some(expr.clone());
-            } else if !etc1.is_empty() {
-                etc1_nr_space = "";
+            } else if !nr_space.is_empty() {
+                nr_space = "";
             } else if !art_space.is_empty() {
                 art_space = "";
             } else if !noun_space.is_empty() {
@@ -405,11 +414,11 @@ fn handle_param(
     if !etc1.is_empty() {
         res.push_str(etc1);
         if opt_nr.is_none() {
-            res.push_str(etc1_nr_space);
+            res.push_str(nr_space);
         }
     }
     if let Some(expr) = opt_nr {
-        res.push_str(etc1_nr_space);
+        res.push_str(nr_space);
         res_pos_push(&mut res, pos, expr, nr_fmt);
     }
     // also if case is None, the noun should be printed.

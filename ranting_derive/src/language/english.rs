@@ -17,8 +17,7 @@ pub(crate) static PH_EXT: &str = r"^(?x)
     (?P<pre>(?:\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se|
     '[rv]e|[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
     (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)
-    \s+)?+
-    (?P<etc1>[\w-]+(?:\s+[\w-]+)*\s+?)??
+    (?:\s+[\w-]+)*?\s+)?+
     (?P<nr>[+-]|\??\#\w+\s+)?+
     (?P<case>(?:[`=@~*?]|<[^>]*>))?+
     (?P<noun>[\w-]+)
