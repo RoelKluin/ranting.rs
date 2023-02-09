@@ -276,7 +276,25 @@ fn handle_param(
     //  placeholder if withou all other SayPlaceholder elements.
     let cap = caps.name("noun").unwrap();
     let noun = get_opt_num_ph_expr(cap.as_str(), given).map_err(|s| (cap.start(), cap.end(), s))?;
-    let (mut pre, mut art_space) = cap_and_space(pre_cap, true);
+
+    let mut pre = pre_cap.map_or("", |m| m.as_str());
+    let (mut nr, nr_s, nr_e) = caps
+        .name("nr")
+        .map_or(("", 0, 0), |m| (m.as_str(), m.start(), m.end()));
+    let mut post = caps.name("post").map_or("", |m| m.as_str());
+
+    let plurality;
+    // None, no alpha found => all are punct; occurs with '+' or '-'.
+    (plurality, nr) = split_at_find_start(nr, |c| c.is_alphanumeric()).unwrap_or((nr, ""));
+    let mut noun_space;
+    (nr, noun_space) = split_at_find_end(nr, |c: char| !c.is_whitespace()).unwrap_or(("", ""));
+    let mut nr_expr = None;
+    if !nr.is_empty() {
+        nr_expr = Some(get_opt_num_ph_expr(nr, given).map_err(|s| (nr_s, nr_e, s))?);
+    }
+
+    let mut art_space;
+    (pre, art_space) = split_at_find_end(pre, |c: char| !c.is_whitespace()).unwrap_or(("", ""));
 
     let mut etc1;
     (pre, etc1) = split_at_find_start(pre, |c| c.is_whitespace()).unwrap_or((pre, ""));
@@ -288,20 +306,9 @@ fn handle_param(
             split_at_find_start(etc1, |c| c.is_alphanumeric()).unwrap_or(("", etc1));
     }
 
-    let nr_cap = caps.name("nr");
-    let (mut nr, mut noun_space) = cap_and_space(nr_cap, true);
-    let plurality;
-    // None, no alpha found => all are punct; occurs with '+' or '-'.
-    (plurality, nr) = split_at_find_start(nr, |c| c.is_alphanumeric()).unwrap_or((nr, ""));
-    let mut nr_expr = None;
-    if !nr.is_empty() {
-        nr_expr = Some(get_opt_num_ph_expr(nr, given).map_err(|s| {
-            let cap = nr_cap.unwrap();
-            (cap.start(), cap.end(), s)
-        })?);
-    }
-
-    let (mut post_space, mut post) = cap_and_space(caps.name("post"), false);
+    let mut post_space;
+    (post_space, post) =
+        split_at_find_start(post, |c: char| !c.is_whitespace()).unwrap_or(("", post));
     let mut etc2;
     (etc2, post) = split_at_find_end(pre, |c| c.is_whitespace()).unwrap_or(("", post));
     let mut etc2_space = "";
@@ -309,8 +316,6 @@ fn handle_param(
         etc2_space = post_space;
         (etc2, post_space) = split_at_find_end(etc2, |c| c.is_alphanumeric()).unwrap_or((etc2, ""));
     }
-
-    //let (mut etc2_space, etc2) = cap_and_space(caps.name("etc2"), false);
 
     let opt_case = caps.name("case").map(|m| m.as_str());
     let visible_noun = opt_case.map(|s| s.starts_with('?')) != Some(true);
