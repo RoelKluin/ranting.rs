@@ -185,25 +185,8 @@ pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> To
     let ranting_functions: TokenStream = parse_quote! {
         #name_fn_q
         #plurality_action
-        fn mut_name(&mut self, _command: &str) -> String {
-            self.name(false)
-        }
-        fn requires_article(&self) -> bool {
-            true
-        }
-        fn indefinite_article(&self, optional_article: bool, uc: bool) -> String {
-            if #no_article && optional_article {
-                String::default()
-            } else if self.is_plural() {
-                if uc { "Some" } else { "some" }.to_string()
-            } else {
-                let name = self.name(false);
-                match ranting::get_a_or_an(name.as_str()) {
-                    "a" if uc => "A".to_string(),
-                    "an" if uc => "An".to_string(),
-                    lc => lc.to_string(),
-                }
-            }
+        fn skip_article(&self) -> bool {
+            #no_article
         }
     };
     parse_quote! {

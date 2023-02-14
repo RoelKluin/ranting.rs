@@ -9,18 +9,16 @@ extern crate self as ranting;
 
 pub(crate) mod language;
 
-use crate::language::english_shared::pluralize_pronoun;
-pub use crate::language::english_shared::SubjectPronoun;
-pub use crate::language::roman_shared::{uc_1st_if, Cased};
+pub use language::english_shared::{is_subjective_plural, SubjectPronoun};
+pub use language::roman_shared::uc_1st_if;
+
+use in_definite::get_a_or_an;
+use language::english::{
+    adapt_article, adjective, inflect_subjective, inflect_verb, objective, pluralize_pronoun,
+    possesive,
+};
+use language::roman_shared::{Cased, ExtCased};
 use std::str::FromStr;
-
-pub use in_definite::get_a_or_an;
-
-#[allow(dead_code)]
-use language::english as lang;
-
-pub use language::english::inflect_subjective;
-pub use language::english_shared::{adapt_article, inflect_verb, is_subjective_plural};
 
 // TODO: make this a feature:
 //pub(crate) use strum_macros;
@@ -97,6 +95,112 @@ pub use ranting_derive::nay;
 /// ```
 pub use ranting_derive::say;
 
+/// The say macro parses placeholders and passes captures to here which returns a string.
+pub fn handle_placeholder<R>(noun: &R, nr: String, mut uc: bool, caps: [&str; 5]) -> String
+where
+    R: Ranting,
+{
+    let [mut pre, plurality, noun_space, case, mut post] = caps;
+    let mut res = String::new();
+    let as_pl = match plurality {
+        "" => noun.is_plural(),
+        "+" => true,
+        "-" => false,
+        // FIXME this is hackish. What is we want to say("{a 1.0% increase are} not a lot")?
+        _ => nr.trim() != "1",
+    };
+
+    let art_space;
+    (pre, art_space) = split_at_find_end(pre, |c: char| !c.is_whitespace()).unwrap_or((pre, ""));
+
+    let etc1;
+    (pre, etc1) = split_at_find_start(pre, |c| c.is_whitespace()).unwrap_or((pre, ""));
+
+    let post_space;
+    (post_space, post) =
+        split_at_find_start(post, |c: char| !c.is_whitespace()).unwrap_or(("", post));
+
+    let etc2;
+    (etc2, post) = split_at_find_end(post, |c| c.is_whitespace()).unwrap_or(("", post));
+
+    let subjective = noun.subjective();
+
+    // This may be an article or certain verbs that can occur before the noun:
+    if !pre.is_empty() {
+        let mut p = pre.to_lowercase();
+        let mut optional_article = false;
+        if let Some(s) = p.as_str().strip_prefix('?') {
+            p = s.to_string();
+            optional_article = true;
+        }
+        if is_article_or_so(p.as_str()) {
+            let art = match p.as_str() {
+                "a" | "an" | "some" | "the" if optional_article && noun.skip_article() => {
+                    String::new()
+                }
+                "a" | "an" | "some" => {
+                    let singular = noun.inflect(false, false);
+                    get_a_or_an(singular.as_str()).to_string()
+                }
+                art => art.to_string(),
+            };
+            let a = ranting::adapt_article(art, p.as_str(), art_space, as_pl, uc);
+            res.push_str(&a);
+        } else {
+            assert!(post.is_empty(), "verb before and after?");
+            let verb = inflect_verb(subjective, p.as_str(), as_pl, uc);
+            res.push_str(&format!("{verb}{art_space}"));
+        }
+        uc = false;
+    }
+    if !etc1.is_empty() {
+        res.push_str(etc1);
+    }
+    if !plurality.contains('?') {
+        res.push_str(&nr);
+    }
+
+    if case != "?" {
+        res.push_str(noun_space);
+        let s = match case {
+            "=" => format!("{}", inflect_subjective(subjective, as_pl, uc)),
+            "@" => format!("{}", inflect_objective(subjective, as_pl, uc)),
+            "`" => format!("{}", inflect_possesive(subjective, as_pl, uc)),
+            "~" => format!("{}", inflect_adjective(subjective, as_pl, uc)),
+            _ => noun.inflect(as_pl, uc),
+        };
+        res.push_str(&s);
+        res.push_str(post_space);
+        uc = false;
+    }
+    res.push_str(etc2);
+    if !post.is_empty() {
+        match post {
+            "'" | "'s" => {
+                res.push_str(adapt_possesive_s(noun, as_pl));
+            }
+            v => {
+                let verb = inflect_verb(subjective, v, as_pl, uc);
+                res.push_str(&format!("{verb}"));
+            }
+        }
+    }
+    res
+}
+
+fn split_at_find_start(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
+    s.find(fun).map(|u| s.split_at(u))
+}
+
+fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
+    s.rfind(fun).map(|u| s.split_at(u + 1))
+}
+
+/// Return whether a word is one of `some` `a` `an` `the` `these` `those`
+fn is_article_or_so(word: &str) -> bool {
+    matches!(word, "some" | "a" | "an" | "the" | "these" | "those")
+}
+
 /// Has the Ranting trait. Instead you may want to `#[derive(Ranting)]` and maybe override a few
 /// derived default functions. By setting name and subject to "$", these must come from the struct.
 #[derive(ranting_derive::Ranting)]
@@ -132,7 +236,7 @@ impl Noun {
 /// # }
 /// ```
 // a combined plural may require some tricks: "The star and cross' design was pattented by Bob."
-pub fn adapt_possesive_s(noun: &dyn Ranting, asked_plural: bool) -> &str {
+fn adapt_possesive_s(noun: &dyn Ranting, asked_plural: bool) -> &str {
     if asked_plural && !is_name(noun) {
         "'"
     } else {
@@ -141,17 +245,8 @@ pub fn adapt_possesive_s(noun: &dyn Ranting, asked_plural: bool) -> &str {
 }
 
 /// Inflect adjective pronoun as to_plural indicates. The first character is a capital if uc is set.
-pub fn inflect_adjective<'a>(subject: SubjectPronoun, to_plural: bool, uc: bool) -> Cased<'a> {
+fn inflect_adjective<'a>(subject: SubjectPronoun, to_plural: bool, uc: bool) -> Cased<'a> {
     adjective(pluralize_pronoun(subject, to_plural), uc)
-}
-
-/// Inflect noun name as to_plural indicates. The first character is a capital if uc is set.
-pub fn inflect_noun(noun: &dyn Ranting, to_plural: bool, uc: bool) -> String {
-    if noun.is_plural() == to_plural {
-        noun.name(uc)
-    } else {
-        noun.inflect(to_plural, uc)
-    }
 }
 
 fn is_name(noun: &dyn Ranting) -> bool {
@@ -161,12 +256,12 @@ fn is_name(noun: &dyn Ranting) -> bool {
 }
 
 /// Inflect objective pronoun as to_plural indicates. The first character is a capital if uc is set.
-pub fn inflect_objective<'a>(subject: SubjectPronoun, to_plural: bool, uc: bool) -> Cased<'a> {
+fn inflect_objective<'a>(subject: SubjectPronoun, to_plural: bool, uc: bool) -> Cased<'a> {
     objective(pluralize_pronoun(subject, to_plural), uc)
 }
 
 /// Inflect possesive pronoun as to_plural indicates. The first character is a capital if uc is set.
-pub fn inflect_possesive<'a>(subject: SubjectPronoun, to_plural: bool, uc: bool) -> Cased<'a> {
+fn inflect_possesive<'a>(subject: SubjectPronoun, to_plural: bool, uc: bool) -> Cased<'a> {
     possesive(pluralize_pronoun(subject, to_plural), uc)
 }
 
@@ -198,9 +293,6 @@ pub fn inflect_possesive<'a>(subject: SubjectPronoun, to_plural: bool, uc: bool)
 ///         "I will grant him his fight, but he is going to loose today.");
 /// # }
 /// ```
-use lang::adjective;
-use lang::objective;
-use lang::possesive;
 
 /// By overriding functions one can adapt default behavior, which affects the
 /// [placeholder](https://docs.rs/ranting_derive/0.2.0/ranting_derive/) behavior.
@@ -212,8 +304,6 @@ pub trait Ranting: std::fmt::Display {
     fn subjective(&self) -> SubjectPronoun;
     fn is_plural(&self) -> bool;
     fn name(&self, uc: bool) -> String;
-    fn mut_name(&mut self, _word: &str) -> String;
-    fn indefinite_article(&self, optional_article: bool, uc: bool) -> String;
-    fn requires_article(&self) -> bool;
+    fn skip_article(&self) -> bool;
     fn inflect(&self, to_plural: bool, uc: bool) -> String;
 }
