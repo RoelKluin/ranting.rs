@@ -13,9 +13,12 @@ pub(crate) static PH_START: &str =
 #[allow(dead_code)]
 pub(crate) static PH_EXT: &str = r"^(?x)
     (?P<uc>[,^])?+
-    (?P<pre>(?:\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se|
-    '[rv]e|[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
-    (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)
+    (?P<pre>(?:
+        (?:[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
+        (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)
+        (?:\s+(?:\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se))?
+        |(?:\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se)
+    )
     (?:\s+[\w-]+)*?\s+)?+
     (?P<nr>[+-]|\??\#\w+\s+)?+
     (?P<case>[`=@~*?])?+

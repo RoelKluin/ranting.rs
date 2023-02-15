@@ -95,21 +95,22 @@ pub(crate) fn inflect_verb(
 // XXX: Should be pub only for ranting_derive
 /// (for internal use) Given an article, the default, a requested one, inflect and to_upper() it as specified.
 pub(crate) fn adapt_article(
-    mut s: String,
+    s: &str,
     requested: &str,
     ws: &str,
     as_plural: bool,
     uc: bool,
 ) -> String {
-    if !s.is_empty() {
+    if s.is_empty() {
+        s.to_string()
+    } else {
         let art = match ArticleOrSo::from_str(requested).expect("Not an article") {
             t if t == ArticleOrSo::The || as_plural => ARTICLE_OR_SO[t as usize],
-            ArticleOrSo::A => s.as_str(),
+            ArticleOrSo::A => s,
             t => ARTICLE_OR_SO[(t as usize) + 4],
         };
-        s = uc_1st_if(art, uc) + ws
+        uc_1st_if(art, uc) + ws
     }
-    s
 }
 
 /// Inflect a subject pronoun to singular or plural and uppercase first character as indicated
