@@ -2,10 +2,8 @@
 //!
 //! Functions used by [Ranting](../ranting_derive/index.html) trait placeholders.
 use super::english_shared::SubjectPronoun;
-use super::roman_shared::Cased;
 use crate::is_subjective_plural;
 use crate::uc_1st_if;
-use crate::ExtCased;
 use std::str::FromStr;
 use strum_macros::EnumString;
 
@@ -48,15 +46,55 @@ pub(super) enum IrregularPluralVerb {
 
 static ARTICLE_OR_SO: [&str; 8] = ["the", "some", "these", "those", "a", "an", "this", "that"];
 
-#[allow(dead_code)]
 static IRREGULAR_VERBS_1ST: [&str; 4] = ["am", "aint", "was", "'m"];
-#[allow(dead_code)]
 static IRREGULAR_VERBS_3RD: [&str; 5] = ["is", "was", "'s", "has", "does"];
 
-#[allow(dead_code)]
+/// Given a subject and a verb, inflect it and to_upper() as specified.
+pub(crate) fn inflect_verb(
+    subject: SubjectPronoun,
+    verb: &str,
+    as_plural: bool,
+    uc: bool,
+) -> String {
+    let verb = verb.trim();
+
+    let (mut s, ext) = verb
+        .strip_suffix("n't")
+        .map_or((verb, ""), |start| (start, "n't"));
+
+    match pluralize_pronoun(subject, as_plural) {
+        SubjectPronoun::I => {
+            match IrregularPluralVerb::from_str(s) {
+                Ok(IrregularPluralVerb::Are) if ext != "n't" => s = IRREGULAR_VERBS_1ST[0],
+                Ok(e) => s = IRREGULAR_VERBS_1ST.get((e as usize) + 1).unwrap_or(&s),
+                _ => {}
+            }
+            uc_1st_if(s, uc) + ext
+        }
+        SubjectPronoun::He | SubjectPronoun::She | SubjectPronoun::It => {
+            if let Ok(mut val) = IrregularPluralVerb::from_str(s).map(|e| e as usize) {
+                if val >= IrregularPluralVerb::Ve as usize {
+                    val -= 1;
+                }
+                uc_1st_if(IRREGULAR_VERBS_3RD.get(val).unwrap_or(&s), uc) + ext
+            } else if s.ends_with(&['s', 'o', 'x']) || s.ends_with("ch") || s.ends_with("sh") {
+                uc_1st_if(s, uc) + "es"
+            } else if let Some(p) = s
+                .strip_suffix('y')
+                .filter(|p| !p.ends_with(&['a', 'e', 'u', 'o']))
+            {
+                uc_1st_if(p, uc) + "ies"
+            } else {
+                uc_1st_if(s, uc) + "s"
+            }
+        }
+        _ => uc_1st_if(s, uc) + ext,
+    }
+}
+
 // XXX: Should be pub only for ranting_derive
 /// (for internal use) Given an article, the default, a requested one, inflect and to_upper() it as specified.
-pub fn adapt_article(
+pub(crate) fn adapt_article(
     mut s: String,
     requested: &str,
     ws: &str,
@@ -95,47 +133,28 @@ pub(crate) fn pluralize_pronoun(subject: SubjectPronoun, as_plural: bool) -> Sub
     }
 }
 
-#[allow(dead_code)]
-/// Given a subject and a verb, inflect it and to_upper() as specified.
-pub fn inflect_verb(subject: SubjectPronoun, verb: &str, as_plural: bool, uc: bool) -> ExtCased {
-    let verb = verb.trim();
+/// Inflect possesive pronoun as to_plural indicates. The first character capitalized with uc set.
+pub(crate) fn inflect_adjective(subject: SubjectPronoun, as_plural: bool, uc: bool) -> String {
+    let nr = pluralize_pronoun(subject, as_plural) as usize;
+    uc_1st_if(ADJECTIVE_PRONOUN[nr], uc)
+}
 
-    let (mut s, mut ext) = verb
-        .strip_suffix("n't")
-        .map_or((verb, ""), |start| (start, "n't"));
+/// singular-/pluralize subjective with as_plural and set uc to capitalize first character
+pub(crate) fn inflect_subjective(subject: SubjectPronoun, as_plural: bool, uc: bool) -> String {
+    let nr = pluralize_pronoun(subject, as_plural) as usize;
+    uc_1st_if(SUBJECTIVE_PRONOUN[nr], uc)
+}
 
-    match pluralize_pronoun(subject, as_plural) {
-        SubjectPronoun::I => match IrregularPluralVerb::from_str(s) {
-            Ok(IrregularPluralVerb::Are) if ext != "n't" => {
-                s = IRREGULAR_VERBS_1ST[0];
-            }
+/// Inflect objective pronoun as to_plural indicates. The first character capitalized with uc set.
+pub(crate) fn inflect_objective(subject: SubjectPronoun, to_plural: bool, uc: bool) -> String {
+    let nr = pluralize_pronoun(subject, to_plural) as usize;
+    uc_1st_if(OBJECTIVE_PRONOUN[nr], uc)
+}
 
-            Ok(e) => {
-                s = IRREGULAR_VERBS_1ST.get((e as usize) + 1).unwrap_or(&s);
-            }
-            _ => {}
-        },
-        SubjectPronoun::He | SubjectPronoun::She | SubjectPronoun::It => {
-            if let Ok(mut val) = IrregularPluralVerb::from_str(s).map(|e| e as usize) {
-                if val >= IrregularPluralVerb::Ve as usize {
-                    val -= 1;
-                }
-                s = IRREGULAR_VERBS_3RD.get(val).unwrap_or(&s);
-            } else if s.ends_with(&['s', 'o', 'x']) || s.ends_with("ch") || s.ends_with("sh") {
-                ext = "es";
-            } else if let Some(p) = s
-                .strip_suffix('y')
-                .filter(|p| !p.ends_with(&['a', 'e', 'u', 'o']))
-            {
-                s = p;
-                ext = "ies";
-            } else {
-                ext = "s";
-            }
-        }
-        _ => {}
-    }
-    ExtCased { s, ext, uc }
+/// Inflect possesive pronoun as to_plural indicates. The first character capitalized with uc set.
+pub(crate) fn inflect_possesive(subject: SubjectPronoun, to_plural: bool, uc: bool) -> String {
+    let nr = pluralize_pronoun(subject, to_plural) as usize;
+    uc_1st_if(POSSESIVE_PRONOUN[nr], uc)
 }
 
 static OBJECTIVE_PRONOUN: [&str; 9] =
@@ -150,35 +169,6 @@ static ADJECTIVE_PRONOUN: [&str; 9] = [
 ];
 
 static SUBJECTIVE_PRONOUN: [&str; 9] = ["I", "you", "thou", "he", "she", "it", "we", "ye", "they"];
-
-/// Return the adjective for a subject or panic.
-pub(crate) fn adjective<'a>(subject: SubjectPronoun, uc: bool) -> Cased<'a> {
-    let s = ADJECTIVE_PRONOUN[subject as usize];
-    Cased { s, uc }
-}
-
-/// singular-/pluralize subjective with as_plural and set uc to capitalize first character
-pub(crate) fn inflect_subjective<'a>(
-    subject: SubjectPronoun,
-    as_plural: bool,
-    uc: bool,
-) -> Cased<'a> {
-    let subject = pluralize_pronoun(subject, as_plural);
-    let s = SUBJECTIVE_PRONOUN[subject as usize];
-    Cased { s, uc }
-}
-
-/// Return the objective for a subjective. Can panic. see pluralize_pronoun().
-pub(crate) fn objective<'a>(subject: SubjectPronoun, uc: bool) -> Cased<'a> {
-    let s = OBJECTIVE_PRONOUN[subject as usize];
-    Cased { s, uc }
-}
-
-/// Return the objective for a subjective. Can panic. see pluralize_pronoun().
-pub(crate) fn possesive<'a>(subject: SubjectPronoun, uc: bool) -> Cased<'a> {
-    let s = POSSESIVE_PRONOUN[subject as usize];
-    Cased { s, uc }
-}
 
 #[cfg(test)]
 mod tests {
