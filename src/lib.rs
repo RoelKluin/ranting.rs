@@ -93,17 +93,22 @@ pub use ranting_derive::nay;
 /// ```
 pub use ranting_derive::say;
 
-fn article_if<R>(noun: &R, s: &str, optional_article: bool) -> String
+fn get_article_or_so<R>(noun: &R, s: &str, space: &str, as_pl: bool, uc: bool) -> Option<String>
 where
     R: Ranting,
 {
-    match s {
-        "a" | "an" | "some" | "the" if optional_article && noun.skip_article() => "".to_string(),
+    if noun.skip_article() && !s.starts_with('!') && !matches!(s, "these" | "those") {
+        return Some("".to_string());
+    }
+    match s.trim_start_matches('!') {
+        "the" => Some(uc_1st_if(s, uc)),
         "a" | "an" | "some" => {
             let singular = noun.inflect(false, false);
-            get_a_or_an(singular.as_str()).to_string()
+            let a_or_an = uc_1st_if(get_a_or_an(&singular), uc);
+            Some(ranting::adapt_article(&a_or_an, s, space, as_pl, uc))
         }
-        art => art.to_string(),
+        "these" | "those" => Some(ranting::adapt_article(s, s, space, as_pl, uc)),
+        _ => None,
     }
 }
 
@@ -133,19 +138,11 @@ where
     // This may be an article or certain verbs that can occur before the noun:
     if !pre.is_empty() {
         let p = pre.to_lowercase();
-        let mut s = p.as_str();
-        let mut optional_article = false;
-        if let Some(clean) = s.strip_prefix('?') {
-            s = clean;
-            optional_article = true;
-        }
-        if is_article_or_so(s) {
-            let art = article_if(noun, s, optional_article);
-            let a = ranting::adapt_article(art.as_str(), s, space, as_pl, uc);
+        if let Some(a) = get_article_or_so(noun, p.as_str(), space, as_pl, uc) {
             res.push_str(&a);
         } else {
             assert!(post.is_empty(), "verb before and after?");
-            let verb = inflect_verb(subjective, s, as_pl, uc);
+            let verb = inflect_verb(subjective, p.as_str(), as_pl, uc);
             res.push_str(&verb);
             if !etc1.is_empty() {
                 let art_space;
@@ -154,9 +151,7 @@ where
                 res.push_str(art_space);
                 let s;
                 (s, etc1) = split_at_find_start(etc1, |c| c.is_whitespace()).unwrap_or((etc1, ""));
-                if is_article_or_so(s) {
-                    let art = article_if(noun, s, optional_article);
-                    let a = ranting::adapt_article(art.as_str(), s, space, as_pl, false);
+                if let Some(a) = get_article_or_so(noun, s, space, as_pl, false) {
                     res.push_str(&a);
                 } else {
                     res.push_str(s);
@@ -231,11 +226,6 @@ fn split_at_find_start(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
 
 fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
     s.rfind(fun).map(|u| s.split_at(u + 1))
-}
-
-/// Return whether a word is one of `some` `a` `an` `the` `these` `those`
-fn is_article_or_so(word: &str) -> bool {
-    matches!(word, "some" | "a" | "an" | "the" | "these" | "those")
 }
 
 /// Has the Ranting trait. Instead you may want to `#[derive(Ranting)]` and maybe override a few
