@@ -8,6 +8,7 @@
 extern crate self as ranting;
 
 pub(crate) mod language;
+pub use strum_macros as _rant_strum_macros;
 
 pub use language::english_shared::{is_subjective_plural, SubjectPronoun};
 
@@ -92,6 +93,9 @@ pub use ranting_derive::nay;
 /// # }
 /// ```
 pub use ranting_derive::say;
+
+pub use ranting_derive::boxed_ranting_trait;
+pub use ranting_derive::ref_ranting_trait;
 
 fn get_article_or_so<R>(noun: &R, s: &str, space: &str, as_pl: bool, uc: bool) -> Option<String>
 where
