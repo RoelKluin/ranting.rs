@@ -93,13 +93,26 @@ pub use ranting_derive::nay;
 /// ```
 pub use ranting_derive::say;
 
+fn article_if<R>(noun: &R, s: &str, optional_article: bool) -> String
+where
+    R: Ranting,
+{
+    match s {
+        "a" | "an" | "some" | "the" if optional_article && noun.skip_article() => "".to_string(),
+        "a" | "an" | "some" => {
+            let singular = noun.inflect(false, false);
+            get_a_or_an(singular.as_str()).to_string()
+        }
+        art => art.to_string(),
+    }
+}
+
 /// The say macro parses placeholders and passes captures to here which returns a string.
 pub fn handle_placeholder<R>(noun: &R, nr: String, mut uc: bool, caps: [&str; 5]) -> String
 where
     R: Ranting,
 {
     let [mut pre, plurality, noun_space, case, mut post] = caps;
-    let mut res = String::new();
     let as_pl = match plurality {
         "" => noun.is_plural(),
         "+" => true,
@@ -108,56 +121,57 @@ where
         _ => nr.trim() != "1",
     };
 
-    let art_space;
-    (pre, art_space) = split_at_find_end(pre, |c: char| !c.is_whitespace()).unwrap_or((pre, ""));
+    let mut space;
+    (pre, space) = split_at_find_end(pre, |c: char| !c.is_whitespace()).unwrap_or((pre, ""));
 
-    let etc1;
+    let mut etc1;
     (pre, etc1) = split_at_find_start(pre, |c| c.is_whitespace()).unwrap_or((pre, ""));
 
-    let post_space;
-    (post_space, post) =
-        split_at_find_start(post, |c: char| !c.is_whitespace()).unwrap_or(("", post));
-
-    let etc2;
-    (etc2, post) = split_at_find_end(post, |c| c.is_whitespace()).unwrap_or(("", post));
-
     let subjective = noun.subjective();
+    let mut res = String::new();
 
     // This may be an article or certain verbs that can occur before the noun:
     if !pre.is_empty() {
-        let mut p = pre.to_lowercase();
+        let p = pre.to_lowercase();
+        let mut s = p.as_str();
         let mut optional_article = false;
-        if let Some(s) = p.as_str().strip_prefix('?') {
-            p = s.to_string();
+        if let Some(clean) = s.strip_prefix('?') {
+            s = clean;
             optional_article = true;
         }
-        if is_article_or_so(p.as_str()) {
-            let art = match p.as_str() {
-                "a" | "an" | "some" | "the" if optional_article && noun.skip_article() => {
-                    String::new()
-                }
-                "a" | "an" | "some" => {
-                    let singular = noun.inflect(false, false);
-                    get_a_or_an(singular.as_str()).to_string()
-                }
-                art => art.to_string(),
-            };
-            let a = ranting::adapt_article(art, p.as_str(), art_space, as_pl, uc);
+        if is_article_or_so(s) {
+            let art = article_if(noun, s, optional_article);
+            let a = ranting::adapt_article(art.as_str(), s, space, as_pl, uc);
             res.push_str(&a);
         } else {
             assert!(post.is_empty(), "verb before and after?");
-            let verb = inflect_verb(subjective, p.as_str(), as_pl, uc);
+            let verb = inflect_verb(subjective, s, as_pl, uc);
             res.push_str(&verb);
-            res.push_str(art_space);
+            if !etc1.is_empty() {
+                let art_space;
+                (art_space, etc1) =
+                    split_at_find_start(etc1, |c| !c.is_whitespace()).unwrap_or(("", etc1));
+                res.push_str(art_space);
+                let s;
+                (s, etc1) = split_at_find_start(etc1, |c| c.is_whitespace()).unwrap_or((etc1, ""));
+                if is_article_or_so(s) {
+                    let art = article_if(noun, s, optional_article);
+                    let a = ranting::adapt_article(art.as_str(), s, space, as_pl, false);
+                    res.push_str(&a);
+                } else {
+                    res.push_str(s);
+                }
+            }
         }
-        uc = false;
-    }
-    if !etc1.is_empty() {
         res.push_str(etc1);
+        res.push_str(space);
+        uc = false;
     }
     if !plurality.contains('?') {
         res.push_str(&nr);
     }
+
+    (space, post) = split_at_find_start(post, |c: char| !c.is_whitespace()).unwrap_or(("", post));
 
     if case != "?" {
         res.push_str(noun_space);
@@ -169,9 +183,12 @@ where
             _ => noun.inflect(as_pl, uc),
         };
         res.push_str(&s);
-        res.push_str(post_space);
+        res.push_str(space);
         uc = false;
     }
+    let etc2;
+    (etc2, post) = split_at_find_end(post, |c| c.is_whitespace()).unwrap_or(("", post));
+
     res.push_str(etc2);
     if !post.is_empty() {
         match post {
