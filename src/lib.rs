@@ -10,14 +10,12 @@ extern crate self as ranting;
 pub(crate) mod language;
 
 pub use language::english_shared::{is_subjective_plural, SubjectPronoun};
-pub use language::roman_shared::uc_1st_if;
 
 use in_definite::get_a_or_an;
 use language::english::{
-    adapt_article, adjective, inflect_subjective, inflect_verb, objective, pluralize_pronoun,
-    possesive,
+    adapt_article, inflect_adjective, inflect_objective, inflect_possesive, inflect_subjective,
+    inflect_verb,
 };
-use language::roman_shared::{Cased, ExtCased};
 use std::str::FromStr;
 
 // TODO: make this a feature:
@@ -149,7 +147,8 @@ where
         } else {
             assert!(post.is_empty(), "verb before and after?");
             let verb = inflect_verb(subjective, p.as_str(), as_pl, uc);
-            res.push_str(&format!("{verb}{art_space}"));
+            res.push_str(&verb);
+            res.push_str(art_space);
         }
         uc = false;
     }
@@ -163,10 +162,10 @@ where
     if case != "?" {
         res.push_str(noun_space);
         let s = match case {
-            "=" => format!("{}", inflect_subjective(subjective, as_pl, uc)),
-            "@" => format!("{}", inflect_objective(subjective, as_pl, uc)),
-            "`" => format!("{}", inflect_possesive(subjective, as_pl, uc)),
-            "~" => format!("{}", inflect_adjective(subjective, as_pl, uc)),
+            "=" => inflect_subjective(subjective, as_pl, uc),
+            "@" => inflect_objective(subjective, as_pl, uc),
+            "`" => inflect_possesive(subjective, as_pl, uc),
+            "~" => inflect_adjective(subjective, as_pl, uc),
             _ => noun.inflect(as_pl, uc),
         };
         res.push_str(&s);
@@ -181,11 +180,32 @@ where
             }
             v => {
                 let verb = inflect_verb(subjective, v, as_pl, uc);
-                res.push_str(&format!("{verb}"));
+                res.push_str(&verb);
             }
         }
     }
     res
+}
+
+/// upper cases first character if uc is true, or second in a contraction.
+pub fn uc_1st_if(s: &str, uc: bool) -> String {
+    if uc {
+        let mut c = s.chars();
+        c.next()
+            .map(|t| match t {
+                '\'' => {
+                    t.to_string()
+                        + &c.next()
+                            .map(|c| c.to_uppercase().collect::<String>())
+                            .unwrap_or_default()
+                }
+                _ => t.to_uppercase().collect::<String>(),
+            })
+            .unwrap_or_default()
+            + c.as_str()
+    } else {
+        s.to_string()
+    }
 }
 
 fn split_at_find_start(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
@@ -244,25 +264,10 @@ fn adapt_possesive_s(noun: &dyn Ranting, asked_plural: bool) -> &str {
     }
 }
 
-/// Inflect adjective pronoun as to_plural indicates. The first character is a capital if uc is set.
-fn inflect_adjective<'a>(subject: SubjectPronoun, to_plural: bool, uc: bool) -> Cased<'a> {
-    adjective(pluralize_pronoun(subject, to_plural), uc)
-}
-
 fn is_name(noun: &dyn Ranting) -> bool {
     noun.name(false)
         .trim_start_matches('\'')
         .starts_with(|c: char| c.is_uppercase())
-}
-
-/// Inflect objective pronoun as to_plural indicates. The first character is a capital if uc is set.
-fn inflect_objective<'a>(subject: SubjectPronoun, to_plural: bool, uc: bool) -> Cased<'a> {
-    objective(pluralize_pronoun(subject, to_plural), uc)
-}
-
-/// Inflect possesive pronoun as to_plural indicates. The first character is a capital if uc is set.
-fn inflect_possesive<'a>(subject: SubjectPronoun, to_plural: bool, uc: bool) -> Cased<'a> {
-    possesive(pluralize_pronoun(subject, to_plural), uc)
 }
 
 /// ```
