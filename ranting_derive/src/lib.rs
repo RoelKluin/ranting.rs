@@ -47,6 +47,59 @@ struct Say {
     params: Vec<Expr>,
 }
 
+#[proc_macro]
+pub fn boxed_ranting_trait(input: TokenStream1) -> TokenStream1 {
+    let trait_name = syn::parse_macro_input!(input as Expr);
+
+    let tokens: TokenStream = parse_quote! {
+        impl Ranting for Box<dyn #trait_name> {
+            fn name(&self, uc: bool) -> String {
+                (**self).name(uc)
+            }
+            fn subjective(&self) -> ranting::SubjectPronoun {
+                (**self).subjective()
+            }
+            fn is_plural(&self) -> bool {
+                (**self).is_plural()
+            }
+            fn inflect(&self, as_plural: bool, uc: bool) -> String {
+                (**self).inflect(as_plural, uc)
+            }
+            fn skip_article(&self) -> bool {
+                (**self).skip_article()
+            }
+        }
+    };
+    eprintln!("{}", tokens.to_string());
+    tokens.into()
+}
+
+#[proc_macro]
+pub fn ref_ranting_trait(input: TokenStream1) -> TokenStream1 {
+    let trait_name = syn::parse_macro_input!(input as Expr);
+    let tokens: TokenStream = parse_quote! {
+        impl Ranting for &'_ dyn #trait_name {
+            fn name(&self, uc: bool) -> String {
+                (**self).name(uc)
+            }
+            fn subjective(&self) -> ranting::SubjectPronoun {
+                (**self).subjective()
+            }
+            fn is_plural(&self) -> bool {
+                (**self).is_plural()
+            }
+            fn inflect(&self, as_plural: bool, uc: bool) -> String {
+                (**self).inflect(as_plural, uc)
+            }
+            fn skip_article(&self) -> bool {
+                (**self).skip_article()
+            }
+        }
+    };
+    eprintln!("{}", tokens.to_string());
+    tokens.into()
+}
+
 /// Implies `#[derive(Ranting)]` and includes `name` and `subject` in structs.
 /// For an enum `"it"` and the variant's name are assumed.
 #[proc_macro_attribute]
@@ -62,7 +115,7 @@ pub fn derive_ranting(_args: TokenStream1, input: TokenStream1) -> TokenStream1 
         }
         syn::Data::Enum(_) => {
             let tokens: TokenStream = parse_quote! {
-                #[derive(ranting::strum_macros::Display, ranting_derive::Ranting)]
+                #[derive(ranting::_rant_strum_macros::Display, ranting_derive::Ranting)]
                 #ast
             };
             tokens.into()

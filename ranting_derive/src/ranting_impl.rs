@@ -65,7 +65,8 @@ fn get_namefn_for(mut opt: RantingOptions, is_enum: bool) -> TokenStream {
     };
     parse_quote! {
         fn name(&self, uc: bool) -> String {
-            let mut chrs = #get_name.chars();
+            let name = #get_name;
+            let mut chrs = name.chars();
             let oulc = #first_char;
             let mut lc_spaced = String::from(oulc.expect("name is empty?"));
             for c in chrs {
