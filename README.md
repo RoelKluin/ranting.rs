@@ -39,16 +39,16 @@ fn main() {
 }
 ```
 
-- `Noun` is a struct with the `Ranting` trait. You can use `#[derive(Ranting)]` on a struct or enum fo similar
-  behavior. A struct should also hve a name and a subject String variable. Use I .. they, thou or ye.
+- `Noun` is a struct with the `Ranting` trait. You can use `#[derive(Ranting)]` on a struct or enum for similar
+  behavior. To specify the subject use I .. they, thou or ye.
 
 - A placeholder to display a Ranting variable has the structure:
 <br>
-  `{[,^]?(article |verb )?([+-]|#var )?['=@~?*]noun( verb):fmt}`
+  ``{[,^]?(article |verb )?([+-]|#var )?[`=@~?*]noun( verb):fmt}``
 <br>
 
-- With `,` and `^` lower- and uppercase are enforced, but a placeholder at sentence start is assumed to be
-  uppercase. Also an article or verb with an uppercase enforces using an uppercase.
+- With `,` and `^` lower- and uppercase are enforced, but a placeholder at sentence start is uppercase by default.
+  Also an article or verb with an uppercase causess an uppercase for the first character.
 
 ```rust
 fn state<T: Ranting>(who: T, liberty: &str) -> String {
@@ -75,14 +75,12 @@ fn main() {
 }
 ```
 
-- An article, possesive `'s` or verbs before the noun are also adapted. Normal variables just follow their Display or
-  Debug traits.
+- An article, possesive `'s` or verbs before the noun are also adapted. Normal placeholders just follow their Display or
+  Debug traits within `say!()`.
 
-- With the "inflector" feature, a given Ranting trait can also be inflected to plural or singular.
-
-- To force plurality use `+`, for a singular use `-`. If prependeded by `#var`, plurality of the noun is adapted to the
-  numeric variable var. Which is displayed, unless prepended with a '?'. Other words within the placeholder are adapted
-  as well.
+- A given Ranting Enum or Struct can also be inflected to plural or singular. To force plurality use `+`, for a singular
+  use `-`. If prependeded by `#var`, plurality of the noun is adapted to the numeric variable var. Which is displayed,
+  unless prepended with a '?'. Other words within the placeholder are adapted as well.
 
 - A Noun or pronoun is displayed dependent on its leading character or string marker.
   * `?` - subject in inflection, but neither variable nor its space is displayed.
@@ -90,17 +88,28 @@ fn main() {
   * `@` - object
   * `` ` `` - possesive
   * `~` - adjective
-  * `*` - display the name, and mark that this is the Ranting element in the placeholder.
-  * `<word>` - similarly, but passes `"word"` as argument to a  function that mutates the Ranting element. However, to
-    have any effect `fn mutname(&mut self, command: &str) -> String` must be overridden in the struct implementation.
+  * `*` - display the name (as is the default) but also mark this word as the Ranting element in the placeholder.
+          "A {*can can} contain water."
+  (removed the mutname variant)
 
 - If a Noun or numeric plurality has a leading question mark, it is hidden but its inferred inflection does apply.
 
 - An 'article' can be one of `a`, `an`, `some`, `the`, `those` or `these`. These and those are converted to
-  this and that if the pronoun is singular.
+  this and that if the pronoun is singular. A question mark indicates its display dependends (see no_article).
 
 - `ack!()` and `nay!()` provide an Ok() / Err() return with a `say!()` formatted string included. Intended for allow or
   deny ranting responses. Not for error handling, because true errors should be easy to search in code.
+
+- A struct can receive via attributes:  
+  * subject ["it"] - indicates the pronoun, if "$", the struct is assumed to contain a String 'subject'
+  * name [Struct or Enum name; lowercase] - the display name. when "$' the struct contains a name String.
+  * singular_end [""] - for inflection, what name + singular_end if the plurality is '-'? can also be "$"
+  * plural_end ["s"] - likewise, name end if plurality is '+' or #var != 1.
+  * is_plural [as subject] - if subject is "you", this indicates whether that means plural or not.
+  * uc [false] - indicate if the word should always start with an uppercase.
+  * no_article [false] - indicate that the word should be without article if the article if prepended with a '?'.
+    say!("{?the 0} was great!", activity) // e.g. for activity = tennis with no_article=true.
+    (The latter two do not yet have the "$" variant)
 
 Positional argument and numeric references are supported, but named arguments or empty arguments are not, currecntly.
 ```
