@@ -1,4 +1,5 @@
 // (c) Roel Kluin 2022 GPL v3
+use std::str::FromStr;
 use strum_macros::EnumString;
 
 // sentence always captures: to obtain the placeholder offset.
@@ -28,7 +29,7 @@ pub(crate) static PH_EXT: &str = r"^(?x)
 /// An enum with pronouns in subjective form.
 #[derive(EnumString, Copy, Clone)]
 #[strum(serialize_all = "lowercase")]
-pub enum SubjectPronoun {
+pub(crate) enum SubjectPronoun {
     #[strum(serialize = "I")]
     I,
     You,
@@ -41,7 +42,11 @@ pub enum SubjectPronoun {
     They,
 }
 
+pub fn is_subject(subject: &str) -> bool {
+    SubjectPronoun::from_str(subject).is_ok()
+}
+
 /// Returns true if the subjective is plural. You is assumed singular. A Ranting
-pub fn is_subjective_plural(subjective: SubjectPronoun) -> bool {
-    (subjective as usize) >= 6
+pub fn is_subjective_plural(subject: &str) -> bool {
+    (SubjectPronoun::from_str(subject).expect("not a subject") as usize) >= 6
 }

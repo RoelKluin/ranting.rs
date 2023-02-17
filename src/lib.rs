@@ -10,14 +10,13 @@ extern crate self as ranting;
 pub(crate) mod language;
 pub use strum_macros as _rant_strum_macros;
 
-pub use language::english_shared::{is_subjective_plural, SubjectPronoun};
+pub use language::english_shared::{is_subject, is_subjective_plural};
 
 use in_definite::get_a_or_an;
 use language::english::{
     adapt_article, inflect_adjective, inflect_objective, inflect_possesive, inflect_subjective,
     inflect_verb,
 };
-use std::str::FromStr;
 
 // TODO: make this a feature:
 //pub(crate) use strum_macros;
@@ -238,14 +237,14 @@ fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
 #[ranting(name = "$", subject = "$")]
 pub struct Noun {
     name: String,
-    subject: SubjectPronoun,
+    subject: String,
 }
 impl Noun {
     pub fn new(name: &str, subject: &str) -> Self {
+        assert!(is_subject(subject), "not a subject");
         Noun {
             name: name.to_string(),
-            subject: SubjectPronoun::from_str(subject)
-                .unwrap_or_else(|_| panic!("invalid subject pronoun: '{subject}'")),
+            subject: subject.to_string(),
         }
     }
 }
@@ -317,7 +316,7 @@ fn is_name(noun: &dyn Ranting) -> bool {
 // Space after should then also be omitted.
 #[rustfmt::skip]
 pub trait Ranting: std::fmt::Display {
-    fn subjective(&self) -> SubjectPronoun;
+    fn subjective(&self) -> &str;
     fn is_plural(&self) -> bool;
     fn name(&self, uc: bool) -> String;
     fn skip_article(&self) -> bool;

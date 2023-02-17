@@ -36,7 +36,7 @@ impl Meadowers {
 #[ranting(name = "$", subject = "$")]
 struct Person {
     name: String,
-    subject: SubjectPronoun,
+    subject: String,
     inventory: HashMap<String, usize>,
 }
 
@@ -44,7 +44,7 @@ impl Person {
     fn new(name: &str, subject: &str) -> Self {
         Person {
             name: name.to_string(),
-            subject: SubjectPronoun::try_from(subject).unwrap(),
+            subject: subject.to_string(),
             inventory: HashMap::new(),
         }
     }
