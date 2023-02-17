@@ -3,7 +3,6 @@
 use crate::language::english_shared as language;
 use darling::FromDeriveInput;
 use proc_macro2::TokenStream;
-use std::str::FromStr;
 use syn::{parse_quote, Ident};
 
 fn string_it() -> String {
@@ -90,11 +89,11 @@ fn get_plurality_fns(
 ) -> TokenStream {
     if subject_str == "$" {
         parse_quote! {
-            fn subjective(&self) -> ranting::SubjectPronoun {
-                self.subject
+            fn subjective(&self) -> &str {
+                self.subject.as_str()
             }
             fn is_plural(&self) -> bool {
-                ranting::is_subjective_plural(self.subjective())
+                ranting::is_subjective_plural(&self.subjective())
             }
             fn inflect(&self, as_plural: bool, uc: bool) -> String {
                 let mut name = self.name(uc);
@@ -110,9 +109,8 @@ fn get_plurality_fns(
     } else {
         let shared_plural_fns: TokenStream = parse_quote! {
             fn is_plural(&self) -> bool { #is_plural }
-            fn subjective(&self) -> ranting::SubjectPronoun {
-                use std::str::FromStr;
-                ranting::SubjectPronoun::from_str(#subject_str).unwrap()
+            fn subjective(&self) -> &str {
+                #subject_str
             }
         };
 
@@ -161,11 +159,10 @@ pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> To
     let plurality_action: TokenStream = if subject_str == "$" {
         get_plurality_fns(subject_str, singular_end, plural_end, false)
     } else {
-        let subject = language::SubjectPronoun::from_str(subject_str).expect("not a subject");
-
+        assert!(language::is_subject(subject_str), "Not a subject");
         let is_pl = opt
             .is_plural
-            .unwrap_or_else(|| language::is_subjective_plural(subject));
+            .unwrap_or_else(|| language::is_subjective_plural(subject_str));
         get_plurality_fns(subject_str, singular_end, plural_end, is_pl)
     };
 

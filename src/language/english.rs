@@ -50,12 +50,7 @@ static IRREGULAR_VERBS_1ST: [&str; 4] = ["am", "aint", "was", "'m"];
 static IRREGULAR_VERBS_3RD: [&str; 5] = ["is", "was", "'s", "has", "does"];
 
 /// Given a subject and a verb, inflect it and to_upper() as specified.
-pub(crate) fn inflect_verb(
-    subject: SubjectPronoun,
-    verb: &str,
-    as_plural: bool,
-    uc: bool,
-) -> String {
+pub(crate) fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> String {
     let verb = verb.trim();
 
     let (mut s, ext) = verb
@@ -63,7 +58,7 @@ pub(crate) fn inflect_verb(
         .map_or((verb, ""), |start| (start, "n't"));
 
     match pluralize_pronoun(subject, as_plural) {
-        SubjectPronoun::I => {
+        "I" => {
             match IrregularPluralVerb::from_str(s) {
                 Ok(IrregularPluralVerb::Are) if ext != "n't" => s = IRREGULAR_VERBS_1ST[0],
                 Ok(e) => s = IRREGULAR_VERBS_1ST.get((e as usize) + 1).unwrap_or(&s),
@@ -71,7 +66,7 @@ pub(crate) fn inflect_verb(
             }
             uc_1st_if(s, uc) + ext
         }
-        SubjectPronoun::He | SubjectPronoun::She | SubjectPronoun::It => {
+        "he" | "she" | "it" => {
             if let Ok(mut val) = IrregularPluralVerb::from_str(s).map(|e| e as usize) {
                 if val >= IrregularPluralVerb::Ve as usize {
                     val -= 1;
@@ -114,47 +109,51 @@ pub(crate) fn adapt_article(
 }
 
 /// Inflect a subject pronoun to singular or plural and uppercase first character as indicated
-pub(crate) fn pluralize_pronoun(subject: SubjectPronoun, as_plural: bool) -> SubjectPronoun {
+pub(crate) fn pluralize_pronoun(subject: &str, as_plural: bool) -> &str {
     if as_plural == is_subjective_plural(subject) {
         subject
     } else if as_plural {
         match subject {
-            SubjectPronoun::I => SubjectPronoun::We,
-            SubjectPronoun::Thou => SubjectPronoun::Ye,
-            SubjectPronoun::He | SubjectPronoun::She | SubjectPronoun::It => SubjectPronoun::They,
+            "I" => "we",
+            "thou" => "ye",
+            "he" | "she" | "it" => "they",
             x => x,
         }
     } else {
         match subject {
-            SubjectPronoun::We => SubjectPronoun::I,
-            SubjectPronoun::Ye => SubjectPronoun::Thou,
-            SubjectPronoun::They => SubjectPronoun::It,
+            "we" => "I",
+            "ye" => "thou",
+            "they" => "it",
             x => x,
         }
     }
 }
 
 /// Inflect possesive pronoun as to_plural indicates. The first character capitalized with uc set.
-pub(crate) fn inflect_adjective(subject: SubjectPronoun, as_plural: bool, uc: bool) -> String {
-    let nr = pluralize_pronoun(subject, as_plural) as usize;
+pub(crate) fn inflect_adjective(subject: &str, to_plural: bool, uc: bool) -> String {
+    let pluralized = pluralize_pronoun(subject, to_plural);
+    let nr = SubjectPronoun::from_str(pluralized).expect("Not a subject") as usize;
     uc_1st_if(ADJECTIVE_PRONOUN[nr], uc)
 }
 
-/// singular-/pluralize subjective with as_plural and set uc to capitalize first character
-pub(crate) fn inflect_subjective(subject: SubjectPronoun, as_plural: bool, uc: bool) -> String {
-    let nr = pluralize_pronoun(subject, as_plural) as usize;
+/// singular-/pluralize subjective with as to_plural and set uc to capitalize first character
+pub(crate) fn inflect_subjective(subject: &str, to_plural: bool, uc: bool) -> String {
+    let pluralized = pluralize_pronoun(subject, to_plural);
+    let nr = SubjectPronoun::from_str(pluralized).expect("Not a subject") as usize;
     uc_1st_if(SUBJECTIVE_PRONOUN[nr], uc)
 }
 
 /// Inflect objective pronoun as to_plural indicates. The first character capitalized with uc set.
-pub(crate) fn inflect_objective(subject: SubjectPronoun, to_plural: bool, uc: bool) -> String {
-    let nr = pluralize_pronoun(subject, to_plural) as usize;
+pub(crate) fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> String {
+    let pluralized = pluralize_pronoun(subject, to_plural);
+    let nr = SubjectPronoun::from_str(pluralized).expect("Not a subject") as usize;
     uc_1st_if(OBJECTIVE_PRONOUN[nr], uc)
 }
 
 /// Inflect possesive pronoun as to_plural indicates. The first character capitalized with uc set.
-pub(crate) fn inflect_possesive(subject: SubjectPronoun, to_plural: bool, uc: bool) -> String {
-    let nr = pluralize_pronoun(subject, to_plural) as usize;
+pub(crate) fn inflect_possesive(subject: &str, to_plural: bool, uc: bool) -> String {
+    let pluralized = pluralize_pronoun(subject, to_plural);
+    let nr = SubjectPronoun::from_str(pluralized).expect("Not a subject") as usize;
     uc_1st_if(POSSESIVE_PRONOUN[nr], uc)
 }
 
@@ -174,23 +173,16 @@ static SUBJECTIVE_PRONOUN: [&str; 9] = ["I", "you", "thou", "he", "she", "it", "
 #[cfg(test)]
 mod tests {
     use ranting::*;
-    use std::str::FromStr;
     #[test]
     fn singular_subjective() {
-        for subject in ["I", "you", "thou", "she", "he", "it"]
-            .into_iter()
-            .map(SubjectPronoun::from_str)
-        {
-            assert!(!is_subjective_plural(subject.unwrap()));
+        for subject in ["I", "you", "thou", "she", "he", "it"].into_iter() {
+            assert!(!is_subjective_plural(subject));
         }
     }
     #[test]
     fn plural_subjective() {
-        for subject in ["we", "ye", "they"]
-            .into_iter()
-            .map(SubjectPronoun::from_str)
-        {
-            assert!(is_subjective_plural(subject.unwrap()));
+        for subject in ["we", "ye", "they"].into_iter() {
+            assert!(is_subjective_plural(subject));
         }
     }
     #[test]
