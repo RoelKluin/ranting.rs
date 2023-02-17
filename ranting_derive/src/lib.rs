@@ -47,16 +47,13 @@ struct Say {
     params: Vec<Expr>,
 }
 
-#[proc_macro]
-pub fn boxed_ranting_trait(input: TokenStream1) -> TokenStream1 {
-    let trait_name = syn::parse_macro_input!(input as Expr);
-
-    let tokens: TokenStream = parse_quote! {
-        impl Ranting for Box<dyn #trait_name> {
+fn ref_expr_ranting_trait(ref_expr: TokenStream) -> TokenStream {
+    parse_quote! {
+        impl Ranting for #ref_expr {
             fn name(&self, uc: bool) -> String {
                 (**self).name(uc)
             }
-            fn subjective(&self) -> ranting::SubjectPronoun {
+            fn subjective(&self) -> &str {
                 (**self).subjective()
             }
             fn is_plural(&self) -> bool {
@@ -69,35 +66,19 @@ pub fn boxed_ranting_trait(input: TokenStream1) -> TokenStream1 {
                 (**self).skip_article()
             }
         }
-    };
-    eprintln!("{}", tokens.to_string());
-    tokens.into()
+    }
+}
+
+#[proc_macro]
+pub fn boxed_ranting_trait(input: TokenStream1) -> TokenStream1 {
+    let trait_name = syn::parse_macro_input!(input as Expr);
+    ref_expr_ranting_trait(parse_quote!(&'_ dyn #trait_name)).into()
 }
 
 #[proc_macro]
 pub fn ref_ranting_trait(input: TokenStream1) -> TokenStream1 {
     let trait_name = syn::parse_macro_input!(input as Expr);
-    let tokens: TokenStream = parse_quote! {
-        impl Ranting for &'_ dyn #trait_name {
-            fn name(&self, uc: bool) -> String {
-                (**self).name(uc)
-            }
-            fn subjective(&self) -> ranting::SubjectPronoun {
-                (**self).subjective()
-            }
-            fn is_plural(&self) -> bool {
-                (**self).is_plural()
-            }
-            fn inflect(&self, as_plural: bool, uc: bool) -> String {
-                (**self).inflect(as_plural, uc)
-            }
-            fn skip_article(&self) -> bool {
-                (**self).skip_article()
-            }
-        }
-    };
-    eprintln!("{}", tokens.to_string());
-    tokens.into()
+    ref_expr_ranting_trait(parse_quote!(Box<dyn #trait_name>)).into()
 }
 
 /// Implies `#[derive(Ranting)]` and includes `name` and `subject` in structs.
