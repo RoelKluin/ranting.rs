@@ -114,29 +114,26 @@ fn get_plurality_fns(
             }
         };
 
-        if is_plural {
+        let (name1, name2): (TokenStream, TokenStream) = if is_plural {
             // action: SayAction, to have a single function that returns strings?
-            parse_quote! {
-                #shared_plural_fns
-                fn inflect(&self, as_plural: bool, uc: bool) -> String {
-                    let mut name = self.name(uc);
-                    if as_plural {
-                        name
-                    } else  {
-                        name.strip_suffix(#plural_end).expect("plural extension mismatch").to_string() + #singular_end
-                    }
-                }
-            }
+            (
+                parse_quote!(name),
+                parse_quote!(name.strip_suffix(#plural_end).expect("plural extension mismatch").to_string() + #singular_end),
+            )
         } else {
-            parse_quote! {
-                #shared_plural_fns
-                fn inflect(&self, as_plural: bool, uc: bool) -> String {
-                    let mut name = self.name(uc);
-                    if as_plural {
-                        name.strip_suffix(#singular_end).expect("singular extension mismatch").to_string() + #plural_end
-                    } else {
-                        name
-                    }
+            (
+                parse_quote!(name.strip_suffix(#singular_end).expect("singular extension mismatch").to_string() + #plural_end),
+                parse_quote!(name),
+            )
+        };
+        parse_quote! {
+            #shared_plural_fns
+            fn inflect(&self, as_plural: bool, uc: bool) -> String {
+                let mut name = self.name(uc);
+                if as_plural {
+                    #name1
+                } else {
+                    #name2
                 }
             }
         }
