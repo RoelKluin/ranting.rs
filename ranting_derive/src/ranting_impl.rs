@@ -18,8 +18,8 @@ pub(crate) struct RantingOptions {
     // If empty, the struct must contain the subject: SubjectPronoun.
     #[darling(default = "string_it")]
     pub(crate) subject: String,
-    // defaults to struct / enum variant name. If empty, the struct must contain a name: String.
-    pub(crate) name: Option<String>,
+    // defaults to struct / enum variant name. If "$", the struct must contain a name: String.
+    pub(crate) name: String,
     // pluralize: (singular extension to remove, plural ext to add). Singularize with the inverse.
     pub(crate) singular_end: String,
     #[darling(default = "string_s")]
@@ -35,8 +35,8 @@ pub(crate) struct RantingOptions {
 fn get_namefn_for(mut opt: RantingOptions, is_enum: bool) -> TokenStream {
     let get_name: TokenStream = if is_enum {
         parse_quote!(self.to_string())
-    } else if let Some(name) = opt.name {
-        match name.as_str() {
+    } else if !opt.name.is_empty() {
+        match opt.name.as_str() {
             "$" => {
                 return parse_quote! {
                     fn name(&self, uc: bool) -> String {
