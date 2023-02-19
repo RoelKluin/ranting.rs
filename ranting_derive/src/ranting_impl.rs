@@ -24,8 +24,8 @@ pub(crate) struct RantingOptions {
     pub(crate) singular_end: String,
     #[darling(default = "string_s")]
     pub(crate) plural_end: String,
-    // whether the subject form is plural - if subject is 'you'; default false.
-    pub(crate) is_plural: Option<bool>,
+    // if the subject is "you, whether the subject is plural; default false.
+    pub(crate) plural_you: bool,
     // set if name should always be with an upper case. Not required if name is given or in struct.
     pub(crate) uc: bool,
     // set if no article should be displayed in most cases (e.g. names, sports or meals)
@@ -81,39 +81,46 @@ fn get_namefn_for(mut opt: RantingOptions, is_enum: bool) -> TokenStream {
     }
 }
 
-fn get_plurality_fns(
-    subject_str: &str,
-    singular_end: TokenStream,
-    plural_end: TokenStream,
-    is_plural: bool,
-) -> TokenStream {
+fn get_plurality_fns(opt: &RantingOptions) -> TokenStream {
+    let singular_end: TokenStream = match opt.singular_end.as_str() {
+        "$" => parse_quote!(self.singular_end.as_str()),
+        n => parse_quote!(#n),
+    };
+    let plural_end: TokenStream = match opt.plural_end.as_str() {
+        "$" => parse_quote!(self.plural_end.as_str()),
+        n => parse_quote!(#n),
+    };
+    let subject_str = opt.subject.as_str();
     if subject_str == "$" {
         parse_quote! {
             fn subjective(&self) -> &str {
                 self.subject.as_str()
             }
             fn is_plural(&self) -> bool {
-                ranting::is_subjective_plural(&self.subjective())
+                ranting::is_subjective_plural(self.subject.as_str())
             }
             fn inflect(&self, as_plural: bool, uc: bool) -> String {
                 let mut name = self.name(uc);
                 if as_plural == self.is_plural() {
                     name
-                } else if as_plural {
-                    name.strip_suffix(#singular_end).expect("singular extension mismatch").to_string() + #plural_end
                 } else {
-                    name.strip_suffix(#plural_end).expect("plural extension mismatch").to_string() + #singular_end
+                    if as_plural {
+                        name.strip_suffix(#singular_end)
+                            .expect("Ranting implementation error: name is not singular or does not match singular_end attribute").to_string()
+                            + #plural_end
+                    } else {
+                        name.strip_suffix(#plural_end)
+                            .expect("Ranting implementation error: name is not plural or does not match plural_end attribute").to_string()
+                            + #singular_end
+                    }
                 }
             }
         }
     } else {
-        let shared_plural_fns: TokenStream = parse_quote! {
-            fn is_plural(&self) -> bool { #is_plural }
-            fn subjective(&self) -> &str {
-                #subject_str
-            }
+        let is_plural = match subject_str {
+            "you" => opt.plural_you,
+            _ => language::is_subjective_plural(subject_str),
         };
-
         let (name1, name2): (TokenStream, TokenStream) = if is_plural {
             // action: SayAction, to have a single function that returns strings?
             (
@@ -127,7 +134,10 @@ fn get_plurality_fns(
             )
         };
         parse_quote! {
-            #shared_plural_fns
+            fn is_plural(&self) -> bool { #is_plural }
+            fn subjective(&self) -> &str {
+                #subject_str
+            }
             fn inflect(&self, as_plural: bool, uc: bool) -> String {
                 let mut name = self.name(uc);
                 if as_plural {
@@ -143,25 +153,8 @@ fn get_plurality_fns(
 /// An abstract thing, which may be a person and have a gender
 pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> TokenStream {
     // TODO: span of attribute?
-    let subject_string = opt.subject.to_owned();
-    let subject_str = subject_string.as_str();
-    let singular_end: TokenStream = match opt.singular_end.as_str() {
-        "$" => parse_quote!(self.singular_end.as_str()),
-        n => parse_quote!(#n),
-    };
-    let plural_end: TokenStream = match opt.plural_end.as_str() {
-        "$" => parse_quote!(self.plural_end.as_str()),
-        n => parse_quote!(#n),
-    };
-    let plurality_action: TokenStream = if subject_str == "$" {
-        get_plurality_fns(subject_str, singular_end, plural_end, false)
-    } else {
-        assert!(language::is_subject(subject_str), "Not a subject");
-        let is_pl = opt
-            .is_plural
-            .unwrap_or_else(|| language::is_subjective_plural(subject_str));
-        get_plurality_fns(subject_str, singular_end, plural_end, is_pl)
-    };
+
+    let plurality_action: TokenStream = get_plurality_fns(&opt);
 
     let no_article = opt.no_article.to_owned();
     let name_fn_q = get_namefn_for(opt, is_enum);
