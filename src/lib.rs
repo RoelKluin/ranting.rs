@@ -286,7 +286,7 @@ fn is_name(noun: &dyn Ranting) -> bool {
 /// # use ranting_derive::*;
 ///
 /// #[derive_ranting]
-/// #[ranting(subject = "you", is_plural = true)]
+/// #[ranting(subject = "you", plural_you = true)]
 /// struct OpponentTeam {}
 ///
 /// #[derive_ranting]
