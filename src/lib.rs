@@ -8,7 +8,9 @@
 extern crate self as ranting;
 
 pub(crate) mod language;
-pub use strum_macros as _rant_strum_macros;
+
+/// just required for ranting_derive
+pub use strum_macros as rant_strum_macros;
 
 pub use language::english_shared::{is_subject, is_subjective_plural};
 
@@ -93,7 +95,10 @@ pub use ranting_derive::nay;
 /// ```
 pub use ranting_derive::say;
 
+/// If you want to implement Ranting on a `Box<&dyn Trait>` where Trait has Ranting
 pub use ranting_derive::boxed_ranting_trait;
+
+/// If you want to implement Ranting on a `&'_ dyn Trait` where Trait has Ranting
 pub use ranting_derive::ref_ranting_trait;
 
 fn get_article_or_so<R>(noun: &R, s: &str, space: &str, as_pl: bool, uc: bool) -> Option<String>
@@ -309,16 +314,19 @@ fn is_name(noun: &dyn Ranting) -> bool {
 /// # }
 /// ```
 
-/// By overriding functions one can adapt default behavior, which affects the
-/// [placeholder](https://docs.rs/ranting_derive/0.2.0/ranting_derive/) behavior.
-// TODO: add function for 'the': some words require an article to be printed.
 // E.g. names, languages, elements, food grains, meals (unless particular), sports.
 // Space after should then also be omitted.
-#[rustfmt::skip]
+/// By overriding functions one can adapt default behavior, which affects the
+/// [placeholder](https://docs.rs/ranting_derive/0.2.0/ranting_derive/) behavior.
 pub trait Ranting: std::fmt::Display {
-    fn subjective(&self) -> &str;
-    fn is_plural(&self) -> bool;
     fn name(&self, uc: bool) -> String;
-    fn skip_article(&self) -> bool;
+    fn subjective(&self) -> &str;
+    // if the subejct may be "you" in both singular and plural form, you may want to override:
+    fn is_plural(&self) -> bool;
+    // if name can change this should be overridden to lookup each singular_end and plural_end:
     fn inflect(&self, to_plural: bool, uc: bool) -> String;
+    // Some words only have an article when emphasizing: names, languages, elements, food grains,
+    // meals (unless particular), sports.
+    // if name can change and sometimes goes without article (e.g. a sport) lookup & override:
+    fn skip_article(&self) -> bool;
 }
