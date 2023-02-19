@@ -96,7 +96,7 @@ pub fn derive_ranting(_args: TokenStream1, input: TokenStream1) -> TokenStream1 
         }
         syn::Data::Enum(_) => {
             let tokens: TokenStream = parse_quote! {
-                #[derive(ranting::_rant_strum_macros::Display, ranting_derive::Ranting)]
+                #[derive(ranting::rant_strum_macros::Display, ranting_derive::Ranting)]
                 #ast
             };
             tokens.into()
