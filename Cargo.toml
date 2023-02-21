@@ -18,6 +18,7 @@ in_definite = "0.2"
 strum_macros = "0.24"
 strum = "0.24"
 document-features = "0.2"
+english-numbers = "0.3"
 
 ### FEATURES #################################################################
 

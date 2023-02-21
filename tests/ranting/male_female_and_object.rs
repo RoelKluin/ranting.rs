@@ -22,7 +22,7 @@ impl Meadowers {
     }
     fn count(&self) -> String {
         let count = self.count;
-        say!("Now there {are #count self} in the meadow.")
+        say!("Now there {are #count self} in the meadow; {$count ?self}.")
     }
     fn join(&mut self, newcomer: Meadowers) -> String {
         let count = newcomer.count;
@@ -94,19 +94,19 @@ fn male_female_and_object() {
     let mut bob = Person::new("Bob", "he");
 
     let mut pack = Meadowers::new("animal", "s", 0);
-    assert_eq!(pack.count(), "Now there are 0 animals in the meadow.");
+    assert_eq!(pack.count(), "Now there are 0 animals in the meadow; zero.");
 
     assert_eq!(
         pack.join(Meadowers::new("raven", "s", 1)),
         "The raven joins the animals in the meadow."
     );
-    assert_eq!(pack.count(), "Now there is 1 animal in the meadow.");
+    assert_eq!(pack.count(), "Now there is 1 animal in the meadow; one.");
 
     assert_eq!(
         pack.join(Meadowers::new("sheep", "", 3)),
         "The sheep join the animals in the meadow."
     );
-    assert_eq!(pack.count(), "Now there are 4 animals in the meadow.");
+    assert_eq!(pack.count(), "Now there are 4 animals in the meadow; four.");
 
     let rubbish = Noun::new("trash", "they");
     let coin = Noun::new("coin", "it");
