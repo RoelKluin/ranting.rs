@@ -331,19 +331,29 @@ fn handle_param(
     };
     let len = pos.len().to_string();
     let noun_space;
-    let nr_expr: Expr = if plurality.contains('#') {
+    let nr_expr: Expr = if plurality.contains(&['#', '$']) {
         let nr_space;
         (pre, nr_space) = split_at_find_end(pre, |c: char| !c.is_whitespace()).unwrap_or((pre, ""));
         (nr, noun_space) = split_at_find_end(nr, |c: char| !c.is_whitespace()).unwrap_or((nr, ""));
-        let nr_expr = get_opt_num_ph_expr(nr, given).map_err(|s| (nr_s, nr_e, s))?;
-
+        let nr_expr: TokenStream = match get_opt_num_ph_expr(nr, given) {
+            Ok(n) if plurality != "$" => parse_quote!(#n),
+            Ok(n) => parse_quote!(ranting::rant_convert_numbers(#n as i64)),
+            Err(s) => return Err((nr_s, nr_e, s)),
+        };
         let nr_fmt_strlit = if nr_fmt.is_empty() {
             format!("{nr_space}{{}}")
         } else {
+            if plurality != "$" {
+                return Err((
+                    nr_s,
+                    nr_e,
+                    "number formatting not allowed for `{nr}' converted to words.".to_string(),
+                ));
+            }
             format!("{nr_space}{{:{}}}", join(&nr_fmt, ":"))
         };
         parse_quote!(format!(#nr_fmt_strlit, #nr_expr))
-    } else {
+    } else if nr_fmt.is_empty() {
         if pre.is_empty() {
             noun_space = "";
         } else {
@@ -351,6 +361,13 @@ fn handle_param(
                 .expect("pre without end space?");
         }
         parse_quote!("".to_string())
+    } else {
+        let m = caps.get(0).unwrap();
+        return Err((
+            m.start(),
+            m.end(),
+            "number formatting, for placeholder without a number.".to_string(),
+        ));
     };
     pos.push(parse_quote!(ranting::handle_placeholder(&#noun, #nr_expr, #uc, [#pre, #plurality, #noun_space, #case, #post])));
     Ok(format!("{{{len}{fmt}}}"))

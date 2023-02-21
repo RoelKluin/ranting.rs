@@ -9,6 +9,7 @@ extern crate self as ranting;
 
 pub(crate) mod language;
 
+pub use english_numbers::convert_no_fmt as rant_convert_numbers;
 /// just required for ranting_derive
 pub use strum_macros as rant_strum_macros;
 
@@ -130,8 +131,12 @@ where
         "" => noun.is_plural(),
         "+" => true,
         "-" => false,
-        // FIXME this is hackish. What is we want to say("{a 1.0% increase are} not a lot")?
-        _ => nr.trim() != "1",
+        // A bit hackish but should work also for e.g. 1.0%
+        "$" => nr.trim_start() != "one",
+        _ => {
+            let s = nr.trim_start();
+            s.split('.').next().unwrap_or(s) != "1"
+        }
     };
 
     let mut space;
