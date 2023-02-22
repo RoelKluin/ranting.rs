@@ -1,25 +1,27 @@
 // (c) Roel Kluin 2022 GPL v3
 //!
-//! Functions are used by [Ranting](https://docs.rs/ranting_derive/0.2.0/ranting_derive/) trait placeholders.
+//! Functions to handle [Ranting](https://docs.rs/ranting_derive/0.2.1/ranting_derive/) trait placeholders.
 //!
 //! ## Feature flags
 #![doc = document_features::document_features!()]
 
 extern crate self as ranting;
 
-pub(crate) mod language;
+mod language;
 
+#[doc(hidden)]
 pub use english_numbers::convert_no_fmt as rant_convert_numbers;
-/// just required for ranting_derive
+
+// required for ranting_derive
+#[doc(hidden)]
 pub use strum_macros as rant_strum_macros;
 
-pub use language::english_shared::{is_subject, is_subjective_plural};
-
 use in_definite::get_a_or_an;
+pub use language::english::inflect_possesive;
 use language::english::{
-    adapt_article, inflect_adjective, inflect_objective, inflect_possesive, inflect_subjective,
-    inflect_verb,
+    adapt_article, inflect_adjective, inflect_objective, inflect_subjective, inflect_verb,
 };
+pub use language::english_shared::{is_subject, is_subjective_plural};
 
 // TODO: make this a feature:
 //pub(crate) use strum_macros;
@@ -66,8 +68,9 @@ pub use ranting_derive::ack;
 /// ```
 pub use ranting_derive::nay;
 
-/// As `format!()` but allows inflection of Ranting trait elements in the placeholder. If not
-/// to normal Display or Debug trait behavior.
+/// Functions like `format!()` for normal placeholders, but allows extended placeholders including
+/// e.g. articles or verbs beside a Noun or a variable with the Ranting trait. These are inflected
+/// accordingly, and adjustable by punctuation prefixes.
 ///
 /// # Examples
 ///
@@ -121,12 +124,21 @@ where
     }
 }
 
-/// The say macro parses placeholders and passes captures to here which returns a string.
-pub fn handle_placeholder<R>(noun: &R, nr: String, mut uc: bool, caps: [&str; 5]) -> String
+/// The say macro parses placeholders and passes captures to this function which returns a string.
+pub fn handle_placeholder<R>(
+    noun: &R,
+    poss: String,
+    nr: String,
+    mut uc: bool,
+    caps: [&str; 5],
+) -> String
 where
     R: Ranting,
 {
     let [mut pre, plurality, noun_space, case, mut post] = caps;
+    let has_possesive = pre.contains('`');
+
+    let pre_string = pre.replace('`', poss.as_str());
     let as_pl = match plurality {
         "" => noun.is_plural(),
         "+" => true,
@@ -140,7 +152,8 @@ where
     };
 
     let mut space;
-    (pre, space) = split_at_find_end(pre, |c: char| !c.is_whitespace()).unwrap_or((pre, ""));
+    (pre, space) = split_at_find_end(&pre_string, |c: char| !c.is_whitespace())
+        .unwrap_or((pre_string.as_str(), ""));
 
     let mut etc1;
     (pre, etc1) = split_at_find_start(pre, |c| c.is_whitespace()).unwrap_or((pre, ""));
@@ -153,6 +166,8 @@ where
         let p = pre.to_lowercase();
         if let Some(a) = get_article_or_so(noun, p.as_str(), space, as_pl, uc) {
             res.push_str(&a);
+        } else if has_possesive {
+            res.push_str(&pre);
         } else {
             assert!(post.is_empty(), "verb before and after?");
             let verb = inflect_verb(subjective, p.as_str(), as_pl, uc);
@@ -241,9 +256,10 @@ fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
     s.rfind(fun).map(|u| s.split_at(u + 1))
 }
 
-/// Has the Ranting trait. Instead you may want to `#[derive(Ranting)]` and maybe override a few
-/// derived default functions. By setting name and subject to "$", these must come from the struct.
+/// Has the Ranting trait. Often you may want to `#[derive(Ranting)]` and sometimes override some
+/// of the trait functions.
 #[derive(ranting_derive::Ranting)]
+// By setting name and subject to "$", these must come from the struct.
 #[ranting(name = "$", subject = "$")]
 pub struct Noun {
     name: String,
@@ -283,18 +299,21 @@ fn adapt_possesive_s(noun: &dyn Ranting, asked_plural: bool) -> &str {
         "'s"
     }
 }
-
 fn is_name(noun: &dyn Ranting) -> bool {
     noun.name(false)
         .trim_start_matches('\'')
         .starts_with(|c: char| c.is_uppercase())
 }
 
+/// The trait required for a struct or enum to function as a noun in a placeholder, derived with `#[derive_ranting]`.
+/// Functions are used in `say!()` placeholders replacements.
+///
+/// # Examples
+///
 /// ```
 /// # use std::str::FromStr;
 /// # use ranting::*;
 /// # use ranting_derive::*;
-///
 /// #[derive_ranting]
 /// #[ranting(subject = "you", plural_you = true)]
 /// struct OpponentTeam {}
@@ -304,34 +323,38 @@ fn is_name(noun: &dyn Ranting) -> bool {
 /// struct ChessPlayer {}
 ///
 /// fn big_words_to<T: Ranting>(who: T) -> String {
-///     say!("I will grant {@0} {`0} fight, but {=0 are} going to loose today.", who)
+///     say!("I will grant {@0} {`0} fight, but {=0 are} going to lose today.", who)
 /// }
 ///
 /// # fn main() {
-///     let team = OpponentTeam {};
-///     assert_eq!(big_words_to(team),
-///         "I will grant you your fight, but you are going to loose today.");
+/// let team = OpponentTeam {};
+/// assert_eq!(big_words_to(team),
+///     "I will grant you your fight, but you are going to lose today.");
 ///
-///     let magnus = ChessPlayer {};
-///
-///     assert_eq!(big_words_to(magnus),
-///         "I will grant him his fight, but he is going to loose today.");
+/// let magnus = ChessPlayer {};
+/// assert_eq!(big_words_to(magnus),
+///     "I will grant him his fight, but he is going to lose today.");
 /// # }
 /// ```
-
-// E.g. names, languages, elements, food grains, meals (unless particular), sports.
-// Space after should then also be omitted.
-/// By overriding functions one can adapt default behavior, which affects the
-/// [placeholder](https://docs.rs/ranting_derive/0.2.0/ranting_derive/) behavior.
+// By overriding functions one can adapt default behavior, which affects the
+// [placeholder](https://docs.rs/ranting_derive/0.2.1/ranting_derive/) behavior.
 pub trait Ranting: std::fmt::Display {
+    /// return the name, which is struct name or the `#{ranting(name = "..")]` value, or self.name
+    /// if the name attribute was set to "$"
     fn name(&self, uc: bool) -> String;
+    /// return the subject: "it" or the `#{ranting(subject = "..")]` value; self.subject if "$".
     fn subjective(&self) -> &str;
-    // if the subejct may be "you" in both singular and plural form, you may want to override:
+    /// return if plural (the subject, or if you, the `#{ranting(plural_you = "true/false")]` value,
+    /// default false
+    // if the subject can be "you" in both forms, you may want to override the function.
     fn is_plural(&self) -> bool;
+    /// return the singular or plural form as configured, starting with capital if uc is set.
+    /// use `#{ranting(singular_end = "..", plural_end = "..")]` if not plural = singular + "s"
     // if name can change this should be overridden to lookup each singular_end and plural_end:
     fn inflect(&self, to_plural: bool, uc: bool) -> String;
-    // Some words only have an article when emphasizing: names, languages, elements, food grains,
-    // meals (unless particular), sports.
+    /// If an article is only required when emphasizing, set `#{ranting(no_article = "true")]`,
+    /// and this function will return accordingly (used by placeholders).
+    // examples: Names, languages, elements, food grains, meals (unless particular), sports.
     // if name can change and sometimes goes without article (e.g. a sport) lookup & override:
     fn skip_article(&self) -> bool;
 }

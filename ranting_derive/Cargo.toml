@@ -1,13 +1,13 @@
 [package]
 name = "ranting_derive"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Roel Kluin <Roel.Kluin@gmail.com>"]
 description = "A proc-macro library for internal support of ranting"
 license-file = "../LICENSE.txt"
 edition = "2021"
 repository = "https://github.com/RoelKluin/ranting.rs"
 readme = "README.md"
-documentation = "https://docs.rs/ranting_derive/0.2.0/ranting_derive/"
+documentation = "https://docs.rs/ranting_derive/0.2.1/ranting_derive/"
 
 [dependencies]
 syn = { version = "1.0.98", features = ["full"] }

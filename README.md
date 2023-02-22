@@ -3,9 +3,9 @@ Ranting&ensp;╰(°Д°)/
 
 [<img alt="github" src="https://img.shields.io/badge/github-RoelKluin/ranting-8da0cb?style=for-the-badge&labelColor=555555&logo=github" height="20">](https://github.com/RoelKluin/ranting.rs)
 [<img alt="crates.io" src="https://img.shields.io/crates/v/ranting.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/ranting)
-[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-ranting-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/ranting/0.2.0/ranting/)
+[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-ranting-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/ranting/0.2.1/ranting/)
 
-This library provides [`Ranting`](https://docs.rs/ranting/0.2.0/ranting/trait.Ranting.html), a trait for inflection within [`say!()`](https://docs.rs/ranting_derive/0.2.0/ranting_derive/macro.say.html) litteral string placeholders.
+This library provides [`Ranting`](https://docs.rs/ranting/0.2.1/ranting/trait.Ranting.html), a trait for inflection within [`say!()`](https://docs.rs/ranting_derive/0.2.1/ranting_derive/macro.say.html) litteral string placeholders.
 
 ```toml
 [dependencies]
@@ -23,17 +23,19 @@ ranting = "0.2"
 use ranting::*;
 use ranting_derive::*;
 
-fn say_name(who: Noun) -> String {
-    say!("{=who do} say {`who} name is {who}.")
+fn say_this(who: Noun, title: &Noun) -> String {
+    say!("{=who do} say {`who title are} {who}.")
 }
 
+
 fn main() {
+    let title = Noun::new("name", "it");
     assert_eq!(
-        say_name(Noun::new("Jane", "I")),
+        say_this(Noun::new("Jane", "I"), &title),
         "I do say my name is Jane.".to_string()
     );
     assert_eq!(
-        say_name(Noun::new("Tarzan", "he")),
+        say_this(Noun::new("Tarzan", "he"), &title),
         "He does say his name is Tarzan.".to_string()
     );
 }
@@ -44,7 +46,7 @@ fn main() {
 
 - A placeholder to display a Ranting variable has a structure like:
 <br>
-  ``{[,^]?(verb )?(article )?([+-]|([#$]|\?#)var )?[`=@~?*]?noun( verb):fmt}``
+  ``{[,^]?(verb )?(article |`noun )?([+-]|([#$]|\?#)var )?[`=@~?*]?noun( verb):fmt}``
 <br>
 
 - With `,` and `^` lower- and uppercase are enforced, but a placeholder at sentence start is uppercase by default.

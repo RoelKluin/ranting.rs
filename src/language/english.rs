@@ -151,7 +151,7 @@ pub(crate) fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> Str
 }
 
 /// Inflect possesive pronoun as to_plural indicates. The first character capitalized with uc set.
-pub(crate) fn inflect_possesive(subject: &str, to_plural: bool, uc: bool) -> String {
+pub fn inflect_possesive(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
     let nr = SubjectPronoun::from_str(pluralized).expect("Not a subject") as usize;
     uc_1st_if(POSSESIVE_PRONOUN[nr], uc)
