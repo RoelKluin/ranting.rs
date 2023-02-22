@@ -1,18 +1,19 @@
 use ranting::*;
 use ranting_derive::*;
 
-fn say_name(who: Noun) -> String {
-    say!("{=who do} say {`who} name is {who}.")
+fn say_this(who: Noun, title: &Noun) -> String {
+    say!("{=who do} say {`who title are} {who}.")
 }
 
 #[test]
 fn test_name() {
+    let title = Noun::new("name", "it");
     assert_eq!(
-        say_name(Noun::new("Jane", "I")),
+        say_this(Noun::new("Jane", "I"), &title),
         "I do say my name is Jane.".to_string()
     );
     assert_eq!(
-        say_name(Noun::new("Tarzan", "he")),
+        say_this(Noun::new("Tarzan", "he"), &title),
         "He does say his name is Tarzan.".to_string()
     );
 }

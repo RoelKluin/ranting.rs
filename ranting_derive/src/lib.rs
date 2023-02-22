@@ -268,10 +268,15 @@ fn handle_param(
     at_sentence_start: bool,
     orig_fmt: &str,
 ) -> Result<String, (usize, usize, String)> {
+    lazy_static! {
+        static ref POSS: Regex = Regex::new(r"^((?:.*?\s+)?`)(\w+)\b(.*)$").unwrap();
+    }
     // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
     // 2) uc if article or so is or 3) the noun is first or after start or `. '
     let pre_cap = caps.name("pre");
-    let uc = if let Some(m) = caps.name("uc") {
+    let pre_s = pre_cap.map_or(0, |m| m.start());
+    let pre_e = pre_cap.map_or(0, |m| m.end());
+    let mut uc = if let Some(m) = caps.name("uc") {
         m.as_str() == "^"
     } else {
         // or if article has uc or the noun is first or at new sentence
@@ -369,6 +374,21 @@ fn handle_param(
             "number formatting, for placeholder without a number.".to_string(),
         ));
     };
-    pos.push(parse_quote!(ranting::handle_placeholder(&#noun, #nr_expr, #uc, [#pre, #plurality, #noun_space, #case, #post])));
+    let mut possesive = None;
+    let pre_string = POSS
+        .replace(pre, |caps: &Captures| {
+            possesive = Some(caps.get(2).unwrap().as_str().to_string());
+            caps.get(1).map_or("", |m| m.as_str()).to_string()
+                + caps.get(3).map_or("", |m| m.as_str())
+        })
+        .to_string();
+    let mut poss: TokenStream = parse_quote!("".to_string());
+    if let Some(p) = possesive {
+        eprintln!("{p}");
+        let expr = get_opt_num_ph_expr(&p, given).map_err(|s| (pre_s, pre_e, s))?;
+        poss = parse_quote!(ranting::inflect_possesive(#expr.subjective(), false, #uc));
+        uc = false;
+    }
+    pos.push(parse_quote!(ranting::handle_placeholder(&#noun, #poss, #nr_expr, #uc, [#pre_string, #plurality, #noun_space, #case, #post])));
     Ok(format!("{{{len}{fmt}}}"))
 }

@@ -15,13 +15,24 @@ pub(crate) static PH_START: &str =
 pub(crate) static PH_EXT: &str = r"^(?x)
     (?P<uc>[,^])?+
     (?P<pre>(?:
+        \??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se|`[\w-]+|
+        (?:[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
+        (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)
+        (?:\s+(?:\??an?|\??some|\??the|th[eo]se|`[\w-]+))?
+    )(?:\s+[\w-]+)*?\s+)?+
+    (?P<nr>[+-]|(?:\??\#|\$)\w+\s+)?+
+    (?P<case>[`=@~*?])?+
+    (?P<noun>[\w-]+)
+    (?P<post>\s+(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$";
+
+#[allow(dead_code)]
+pub(crate) static ASK: &str = r"^(?x)
+    (?P<pre>(?:
         (?:[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
         (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)
         (?:\s+(?:\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se))?
         |(?:\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se)
     )(?:\s+[\w-]+)*?\s+)?+
-    (?P<nr>[+-]|(?:\??\#|\$)\w+\s+)?+
-    (?P<case>[`=@~*?])?+
     (?P<noun>[\w-]+)
     (?P<post>\s+(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$";
 
@@ -41,11 +52,13 @@ pub(crate) enum SubjectPronoun {
     They,
 }
 
+/// return whether the given `&str` is a valid subject
 pub fn is_subject(subject: &str) -> bool {
     SubjectPronoun::from_str(subject).is_ok()
 }
 
-/// Returns true if the subjective is plural. You is assumed singular. A Ranting
+/// Returns whether the subjective is plural. You is assumed singular; a plural_you
+/// ranting attribute should already be considered before this call.
 pub fn is_subjective_plural(subject: &str) -> bool {
     (SubjectPronoun::from_str(subject).expect("not a subject") as usize) >= 6
 }
