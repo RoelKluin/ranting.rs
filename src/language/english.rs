@@ -87,7 +87,6 @@ pub(crate) fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool)
     }
 }
 
-// XXX: Should be pub only for ranting_derive
 /// (for internal use) Given an article, the default, a requested one, inflect and to_upper() it as specified.
 pub(crate) fn adapt_article(
     s: &str,
@@ -151,6 +150,19 @@ pub(crate) fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> Str
 }
 
 /// Inflect possesive pronoun as to_plural indicates. The first character capitalized with uc set.
+///
+/// # Examples
+///
+/// ```rust
+/// # use ranting::{Noun, say, Ranting};
+/// # fn main() {
+///     let boots = Noun::new("shoe", "it");
+///     let man = Noun::new("Old man", "he");
+///
+/// assert_eq!(say!("{can `man pair of #0 boots remain} singular?", 2),
+///     "Can his pair of two shoes remain singular?".to_string());
+/// # }
+/// ```
 pub fn inflect_possesive(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
     let nr = SubjectPronoun::from_str(pluralized).expect("Not a subject") as usize;

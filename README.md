@@ -46,7 +46,7 @@ fn main() {
 
 - A placeholder to display a Ranting variable has a structure like:
 <br>
-  ``{[,^]?(verb )?(article |`noun )?([+-]|([#$]|\?#)var )?[`=@~?*]?noun( verb):fmt}``
+  ``{[,^]?(verb )?(article |`noun )?([+-]|([#$]|\?$)var )?[`=@~?*]?noun( verb):fmt}``
 <br>
 
 - With `,` and `^` lower- and uppercase are enforced, but a placeholder at sentence start is uppercase by default.
@@ -81,8 +81,8 @@ fn main() {
   Debug traits within `say!()`.
 
 - A given Ranting Enum or Struct can also be inflected to plural or singular. To force plurality use `+`, for a singular
-  use `-`. If prependeded by `#var` or `$var`, plurality of the noun is adapted to the numeric variable var. Which is
-  displayed, unless prepended with a '?'. The number is converted to a word for `$var`. Other words within the
+  use `-`. If prependeded by `$var` or `#var`, plurality of the noun is adapted to the numeric variable var. Which is
+  displayed, unless prepended with a '?'. The number is converted to a word for `#var`. Other words within the
   placeholder are adapted accordingly as well.
 
 - A Noun or pronoun is displayed dependent on its leading character or string marker.

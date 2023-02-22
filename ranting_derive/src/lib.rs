@@ -18,7 +18,6 @@ use std::iter;
 use str_lit::*;
 use syn::{self, parse_quote, punctuated::Punctuated, Error, Expr, Token};
 
-// TODO: replace Span::mixed_site() with more precise location.
 
 #[proc_macro]
 pub fn ack(input: TokenStream1) -> TokenStream1 {
@@ -336,12 +335,12 @@ fn handle_param(
     };
     let len = pos.len().to_string();
     let noun_space;
-    let nr_expr: Expr = if plurality.contains(&['#', '$']) {
+    let nr_expr: Expr = if plurality.contains(['#', '$']) {
         let nr_space;
         (pre, nr_space) = split_at_find_end(pre, |c: char| !c.is_whitespace()).unwrap_or((pre, ""));
         (nr, noun_space) = split_at_find_end(nr, |c: char| !c.is_whitespace()).unwrap_or((nr, ""));
         let nr_expr: TokenStream = match get_opt_num_ph_expr(nr, given) {
-            Ok(n) if plurality != "$" => parse_quote!(#n),
+            Ok(n) if plurality != "#" => parse_quote!(#n),
             Ok(n) => parse_quote!(ranting::rant_convert_numbers(#n as i64)),
             Err(s) => return Err((nr_s, nr_e, s)),
         };
@@ -375,19 +374,24 @@ fn handle_param(
         ));
     };
     let mut possesive = None;
+    let mut possesive_uc = false;
     let pre_string = POSS
         .replace(pre, |caps: &Captures| {
             possesive = Some(caps.get(2).unwrap().as_str().to_string());
-            caps.get(1).map_or("", |m| m.as_str()).to_string()
-                + caps.get(3).map_or("", |m| m.as_str())
+            match caps.get(1) {
+                Some(m) => m.as_str().to_string() + caps.get(3).map_or("", |m| m.as_str()),
+                None => {
+                    possesive_uc = uc;
+                    uc = false;
+                    caps.get(3).map_or("", |m| m.as_str()).to_string()
+                }
+            }
         })
         .to_string();
     let mut poss: TokenStream = parse_quote!("".to_string());
     if let Some(p) = possesive {
-        eprintln!("{p}");
         let expr = get_opt_num_ph_expr(&p, given).map_err(|s| (pre_s, pre_e, s))?;
-        poss = parse_quote!(ranting::inflect_possesive(#expr.subjective(), false, #uc));
-        uc = false;
+        poss = parse_quote!(ranting::inflect_possesive(#expr.subjective(), false, #possesive_uc));
     }
     pos.push(parse_quote!(ranting::handle_placeholder(&#noun, #poss, #nr_expr, #uc, [#pre_string, #plurality, #noun_space, #case, #post])));
     Ok(format!("{{{len}{fmt}}}"))
