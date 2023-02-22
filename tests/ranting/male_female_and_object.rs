@@ -22,11 +22,11 @@ impl Meadowers {
     }
     fn count(&self) -> String {
         let count = self.count;
-        say!("Now there {are #count self} in the meadow; {$count ?self}.")
+        say!("Now there {are $count self} in the meadow; {#count ?self}.")
     }
     fn join(&mut self, newcomer: Meadowers) -> String {
         let count = newcomer.count;
-        let s = say!("{The ?#count newcomer join} {the +self} in the meadow.");
+        let s = say!("{The ?$count newcomer join} {the +self} in the meadow.");
         self.count += newcomer.count;
         s
     }
@@ -136,10 +136,10 @@ fn male_female_and_object() {
     );
 
     let ret = bob.respond_to(&anna, "give", Some((1, &coin)));
-    assert_eq!(ret, Ok("He thanks me, Anna, for my 1 coin.".to_string()));
+    assert_eq!(ret, Ok("He thanks me, Anna, for my one coin.".to_string()));
 
     let ret = anna.respond_to(&bob, "give", Some((4, &coin)));
-    assert_eq!(ret, Ok("I thank him, Bob, for his 4 coins.".to_string()));
+    assert_eq!(ret, Ok("I thank him, Bob, for his four coins.".to_string()));
 
     let ret = anna.respond_to::<Person, Person>(&bob, "push", None);
     assert_eq!(ret, Err("He shouldn't push Anna.".to_string()));

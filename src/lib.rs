@@ -8,6 +8,8 @@
 extern crate self as ranting;
 
 mod language;
+use lazy_static::lazy_static;
+use regex::Regex;
 
 #[doc(hidden)]
 pub use english_numbers::convert_no_fmt as rant_convert_numbers;
@@ -78,7 +80,7 @@ pub use ranting_derive::nay;
 /// # use ranting::{Noun, say, Ranting};
 /// fn inflect(with: Noun) -> String {
 ///     let n = Noun::new("noun", "it");
-///     say!("{Some n} with {0} {?n inflect} as {=0}, {@0}, {`0} and {~0}.", with)
+///     say!("{some n} with {0} {?n inflect} as {=0}, {@0}, {`0} and {~0}.", with)
 /// }
 ///
 /// # fn main() {
@@ -135,21 +137,25 @@ pub fn handle_placeholder<R>(
 where
     R: Ranting,
 {
+    lazy_static! {
+        static ref OF: Regex = Regex::new(r"\bof\s+$").unwrap();
+    }
     let [mut pre, plurality, noun_space, case, mut post] = caps;
     let has_possesive = pre.contains('`');
+    let singular_post_verb = OF.is_match(pre); // e.g. "{a set of $ten are} still singular"
 
-    let pre_string = pre.replace('`', poss.as_str());
     let as_pl = match plurality {
         "" => noun.is_plural(),
         "+" => true,
         "-" => false,
         // A bit hackish but should work also for e.g. 1.0%
-        "$" => nr.trim_start() != "one",
+        "#" => nr.trim_start() != "one",
         _ => {
             let s = nr.trim_start();
-            s.split('.').next().unwrap_or(s) != "1"
+            s != "1" && s.split('.').next() != Some("1")
         }
     };
+    let pre_string = pre.replace('`', poss.as_str());
 
     let mut space;
     (pre, space) = split_at_find_end(&pre_string, |c: char| !c.is_whitespace())
@@ -167,7 +173,7 @@ where
         if let Some(a) = get_article_or_so(noun, p.as_str(), space, as_pl, uc) {
             res.push_str(&a);
         } else if has_possesive {
-            res.push_str(&pre);
+            res.push_str(&uc_1st_if(pre, uc));
         } else {
             assert!(post.is_empty(), "verb before and after?");
             let verb = inflect_verb(subjective, p.as_str(), as_pl, uc);
@@ -219,7 +225,7 @@ where
                 res.push_str(adapt_possesive_s(noun, as_pl));
             }
             v => {
-                let verb = inflect_verb(subjective, v, as_pl, uc);
+                let verb = inflect_verb(subjective, v, !singular_post_verb && as_pl, uc);
                 res.push_str(&verb);
             }
         }
