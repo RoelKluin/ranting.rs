@@ -7,6 +7,26 @@ use strum_macros::EnumString;
 pub(crate) static PH_START: &str =
     r"(?P<pre>(?:^|[.?!]\s+|\{\{)?+)\{(?:(?P<plain>\w*+)|(?P<ranting>[^{}:]*+))(?P<fmt>:.*?)?\}";
 
+#[derive(EnumString, PartialEq, Eq, Copy, Clone)]
+#[strum(serialize_all = "lowercase")]
+pub enum Article {
+    The,
+    #[strum(serialize = "a", serialize = "an")]
+    A,
+    #[strum(serialize = "some")]
+    Som,
+}
+
+#[derive(EnumString, PartialEq, Eq, Copy, Clone)]
+#[strum(serialize_all = "lowercase")]
+pub enum DemonstrativePronoun {
+    These,
+    Those,
+    Such,
+    No,
+    Neither,
+}
+
 // TODO: do not capture space separate but split off from parts.
 // regex to capture the placholders or sentence ends
 // useful: https://regex101.com/r/Ly7O1x/3/

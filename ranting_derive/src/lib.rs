@@ -1,5 +1,4 @@
 // (c) RoelKluin 2022 GPL v3
-#![feature(iter_intersperse)]
 
 mod language;
 mod ranting_impl;
@@ -12,12 +11,11 @@ use itertools::join;
 use lazy_static::lazy_static;
 use proc_macro::{self, TokenStream as TokenStream1};
 use proc_macro2::{Punct, Spacing, Span, TokenStream};
+use quote::quote;
 use ranting_impl::*;
 use regex::{Captures, Regex};
-use std::iter;
 use str_lit::*;
 use syn::{self, parse_quote, punctuated::Punctuated, Error, Expr, Token};
-
 
 #[proc_macro]
 pub fn ack(input: TokenStream1) -> TokenStream1 {
@@ -212,12 +210,26 @@ impl syn::parse::Parse for Say {
 impl ToTokens for Say {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let lit = self.lit_str.as_str();
-        let macro_tokens = TokenStream::from_iter(
-            iter::once(parse_quote!(#lit))
-                .chain(self.params.iter().map(|e| e.into_token_stream()))
-                .intersperse(Punct::new(',', Spacing::Alone).into_token_stream()),
-        );
-        *tokens = parse_quote!(format!(#macro_tokens));
+        let lit: TokenStream = parse_quote!(#lit);
+
+        let mut macro_tokens = vec![lit.into_token_stream()];
+
+        // Iterate over parameters and separate them with commas.
+        for param in self.params.iter() {
+            macro_tokens.push(Punct::new(',', Spacing::Alone).into_token_stream());
+            macro_tokens.push(param.into_token_stream());
+        }
+
+        let final_macro_tokens: TokenStream = macro_tokens
+            .iter()
+            .map(|t| {
+                quote! {
+                    #t
+                }
+            })
+            .collect();
+
+        *tokens = parse_quote!(format!(#final_macro_tokens));
         #[cfg(feature = "debug")]
         eprintln!("{}", tokens.to_string());
     }
