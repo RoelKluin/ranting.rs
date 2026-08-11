@@ -442,6 +442,7 @@ fn handle_param(
     let mut post = caps.name("post").map_or("", |m| m.as_str()).to_string();
 
     // Handle tense markers in post: <verb (past), =verb (continuous), >verb (future)
+    // When detected, we encode it as ~TENSE~MARKER:CONJUGATED so handle_placeholder can detect it
     if !post.is_empty() {
         let post_trimmed = post.trim_start();
         if !post_trimmed.is_empty() {
@@ -462,12 +463,12 @@ fn handle_param(
                         _ => base_verb.to_string(),
                     };
 
-                    // Preserve leading whitespace from original post
+                    // Encode tense marker info with special prefix ~TENSE~MARKER:CONJUGATED
                     let leading_space = &post[..post.len() - post_trimmed.len()];
                     post = if trailing.is_empty() {
-                        format!("{}{}", leading_space, conjugated)
+                        format!("{}~TENSE~{}:{}", leading_space, marker, conjugated)
                     } else {
-                        format!("{}{} {}", leading_space, conjugated, trailing)
+                        format!("{}~TENSE~{}:{} {}", leading_space, marker, conjugated, trailing)
                     };
                 }
             }
