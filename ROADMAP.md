@@ -30,13 +30,12 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 ❌ **Not working**:
 - Named arguments (`person = my_var` syntax)
 - Empty placeholders (`{}`)
-- Past/future tenses or conditionals
-- Continuous/progressive forms (-ing)
-- Irregular verbs or plurals (went, children)
+- **Tense handling**: Modals (can/could/would/should/might/must/shall/will) and auxiliary verbs (is/was/were/have/has/had) work for present and past via `IrregularPluralVerb` table. Missing: regular past-tense formation (-ed suffix handling), irregular lexical past/participle forms (go→went, see→saw), continuous/progressive forms (-ing suffix), and tense-aware suppression of spurious 3rd-person-singular `-s` suffix (e.g. "walked" was incorrectly conjugated to "walkeds").
+- Continuous/progressive forms (-ing) — no auto-formation or recognition yet
+- Irregular noun plurals (child→children, person→people) — no support, needs `inflections` crate integration
 - Custom pluralization rules
-- Gender-neutral pronouns (singular they/them)
-- Reflexive forms (myself, yourself, itself)
-- Comparative/superlative adjectives (better, best)
+- Reflexive forms (myself, yourself, itself) — no pronoun table yet, currently just literal string concatenation
+- Comparative/superlative adjectives (better, best) — no support
 - Recursive type inflection
 - Multi-language support
 - Nested/complex type handling
@@ -72,6 +71,7 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 - Aim for >80% code coverage
 - Add tests for edge cases in argument parsing
 - Test error conditions thoroughly
+- Use/Convert to table-driven tests, where possible
 
 **Estimated timeline**: 2-3 months
 
@@ -86,8 +86,8 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 - Continuous/progressive: -ing forms (is running, was running, will be running)
 - **Implementation strategy**:
   - Extend placeholder syntax: `{=person do}` for present → `{=person did}` for past
-  - Or use prefix markers: `{past =person do}` or `{=person @past do}`
   - Add `to_past()`, `to_future()` methods or similar to trait
+  - use prefix markers: `{=person @past do}`
   - **Tradeoff**: Syntax clarity vs. flexibility
 
 **Irregular Verbs & Plurals**:
@@ -259,6 +259,14 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 - **Strategy**: Deprecation period before removal; clear migration guides
 - **Communication**: Changelog and migration docs for each breaking change
 
+### 10. Verb Tense & Inflection Data Sourcing (Phase 2)
+**Decision**: Use `inflections` crate (optional, feature-gated) for noun pluralization only; build verb tense, reflexive forms, and comparative/superlative entirely in-house as free functions.
+- **Why**: No Rust crate covers verb conjugation, reflexive pronouns, or adjective degrees. `inflections` crate is mature for pluralization but doesn't help with tenses. Free functions match the existing architecture (all inflection logic is in `src/language/` as free functions, not trait methods) and avoid the `dyn Ranting` / delegating-impl trap that trait methods would create.
+- **Data location**: Verb tense, reflexive, and adjective-degree tables live in `src/language/` (runtime crate only), deliberately NOT duplicated into `ranting_derive/src/language/`, since they aren't part of the placeholder-parsing regex/enum surface CLAUDE.md requires kept in sync.
+- **Structural isolation**: New verb-tense tables are separate from `IrregularPluralVerb`/`IRREGULAR_VERBS_1ST`/`IRREGULAR_VERBS_3RD`, which use fragile index-coupled arithmetic into parallel arrays. Do not extend those structures; do not reorder variants.
+- **Placeholder syntax**: Prefer `{=person walked}` / `{=person went}` (user writes the already-inflected verb; `inflect_verb` classifies and passes through) over a new `{=person @past do}` marker syntax or a `to_past()` trait method. This works via the existing generic `post` capture group with zero regex/macro change.
+- **Timeline**: Skeleton (v0.3.1): detect and preserve past/continuous, fix "walkeds" bug. Full system (v0.4.0): auto-conjugation, future/conditional tenses, -ing forms, reflexive/comparative/superlative.
+
 ---
 
 ## Risk Mitigation
@@ -271,11 +279,12 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 - Document macro architecture for future maintainers
 
 ### Irregular Verb/Plural Table Maintenance
-**Risk**: Table becomes stale or incomplete.
+**Risk**: Table becomes stale or incomplete. New verb-tense tables accidentally corrupt the index-coupled `IrregularPluralVerb` enum arithmetic.
 **Mitigation**:
-- Use external crate (`inflections` etc.) if available
-- Document how to add new irregulars
+- Use external crate (`inflections`) for noun pluralization only; build verb tenses in-house via structurally-independent tables
+- Document how to add new verbs/irregulars
 - Encourage community PRs for missing entries
+- Keep new tense tables separate from `IrregularPluralVerb`/`IRREGULAR_VERBS_1ST`/`IRREGULAR_VERBS_3RD` to avoid silent corruption of existing 3rd-person-singular verb conjugation
 
 ### Performance Regressions
 **Risk**: Each new feature makes compilation or runtime slower.

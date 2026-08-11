@@ -72,6 +72,9 @@ pub(crate) fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool)
                     val -= 1;
                 }
                 uc_1st_if(IRREGULAR_VERBS_3RD.get(val).unwrap_or(&s), uc) + ext
+            } else if super::verb::detect_tense(s) != super::verb::Tense::Present {
+                // Verb is past or continuous (e.g., "walked", "running") — return as-is
+                uc_1st_if(s, uc) + ext
             } else if s.ends_with(['s', 'o', 'x']) || s.ends_with("ch") || s.ends_with("sh") {
                 uc_1st_if(s, uc) + "es"
             } else if let Some(p) = s
