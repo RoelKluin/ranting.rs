@@ -25,7 +25,10 @@ strum = "0.27"
 ### FEATURES #################################################################
 
 [features]
-default = ["ranting_derive/default"]
+default = ["ranting_derive/default", "inclusive-pronouns"]
 
 ## Print during compilation each `say!()` pattern with its `format!()` conversion.
 debug = ["ranting_derive/debug"]
+
+## Enable documentation and examples for gender-neutral pronouns (they/them).
+inclusive-pronouns = []
