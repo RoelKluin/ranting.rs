@@ -11,6 +11,10 @@ Phase 2 adds past, future, conditional, and continuous tenses along with irregul
 
 **Key architectural decision**: All tense/reflexive/comparative logic uses **free functions**, not `Ranting` trait methods. This matches the pattern of existing inflection functions (`inflect_verb`, `inflect_possesive`, `inflect_objective`), avoids the `dyn Ranting` / delegating-impl trap, and keeps the two-file sync burden focused only on the placeholder-parsing regex/enums (`english_shared.rs` copies).
 
+**Critical requirement**: Stages 2 and 2.5 must be completed together to ensure correct English grammar:
+- Stage 2 (tense markers) alone produces `"He walks"` and `"She running"` (both incorrect without auxiliary verbs)
+- Stage 2.5 (auxiliary insertion) fixes both to produce `"He will walk"` and `"She is running"` (grammatically correct)
+
 ---
 
 ## Current State (Skeleton Phase)
@@ -196,16 +200,174 @@ This skeleton **does not** auto-conjugate past tense from a base verb. `{=person
 
 ---
 
-## Stage 2: Full Verb Tense System (Week 3-5, Future)
+## Stage 2: Tense Markers + Auto-Conjugation (Week 3-4)
 
 ### Objective
-Add `to_past()`, `to_future()`, `to_continuous()` functions; wire into macro; support explicit tense markers in placeholders.
+Add `to_past()`, `to_future()`, `to_continuous()` functions; wire into macro to conjugate verbs at compile time.
 
-**Not in this skeleton.** Placeholder syntax decisions and auto-conjugation logic deferred.
+**Deliverables**:
+- `ranting_derive/src/language/verb.rs`: Compile-time verb conjugation (duplicate of runtime version)
+- `ranting_derive/src/lib.rs`: Updated `handle_param()` to detect `<`, `=`, `>` markers and conjugate verbs
+- Regex: Updated `PH_EXT` post capture group to allow `[<=>]` markers
+- Tests: 10 integration tests for tense markers (all pronouns, regular/irregular verbs)
+
+**Limitation**: This stage produces `"He walks"` for `>walk` and `"She running"` for `=run`. Full correctness deferred to Stage 3.
 
 ---
 
-## Stage 3: Inflections Crate Integration (Week 6-7, Future)
+## Stage 2.5: Auxiliary Verb Insertion (Week 5-6, Mandatory Fix)
+
+### Objective
+Insert correct auxiliary verbs (`will`, `is/are/am`, `was/were`) before conjugated verbs to produce grammatically correct English.
+
+**Problem**: 
+- `{=person >walk}` currently produces `"He walks"` instead of `"He will walk"`
+- `{=person =run}` currently produces `"She running"` instead of `"She is running"`
+
+### Architecture
+
+**New module**: `src/language/auxiliary.rs`
+
+```rust
+pub(crate) enum AuxiliaryVerb {
+    Will,      // Future tense
+    IsAre,     // Continuous present
+    WasWere,   // Continuous past
+    Have,      // Perfect tense
+    Had,       // Past perfect
+}
+
+pub(crate) fn conjugate_auxiliary(aux: AuxiliaryVerb, subject: &str) -> &'static str {
+    match (aux, subject.to_lowercase().as_str()) {
+        (AuxiliaryVerb::Will, _) => "will",  // Same for all persons
+        (AuxiliaryVerb::IsAre, "i") => "am",
+        (AuxiliaryVerb::IsAre, "you" | "we" | "they") => "are",
+        (AuxiliaryVerb::IsAre, "he" | "she" | "it") => "is",
+        (AuxiliaryVerb::WasWere, "i" | "he" | "she" | "it") => "was",
+        (AuxiliaryVerb::WasWere, "you" | "we" | "they") => "were",
+        (AuxiliaryVerb::Have, "he" | "she" | "it") => "has",
+        (AuxiliaryVerb::Have, _) => "have",
+        (AuxiliaryVerb::Had, _) => "had",
+    }
+}
+```
+
+### Macro Wiring
+
+In `ranting_derive/src/lib.rs`, after conjugating the verb:
+- If `>` marker: inject `"{subject} will "` before the base verb
+- If `=` marker: inject `"{subject} is/are/am "` before the `-ing` form
+- If `<` + continuous past: inject `"{subject} was/were "` before the `-ing` form
+
+### Tests
+
+**New integration tests** in `tests/ranting/auxiliary_insertion.rs`:
+```rust
+#[test]
+fn future_tense_with_auxiliary() {
+    let he = Noun::new("Alex", "he");
+    assert_eq!(say!("{=0 >walk}", he), "He will walk");  // Was: "He walks"
+    assert_eq!(say!("{=0 >go}", he), "He will go");
+}
+
+#[test]
+fn continuous_present_with_auxiliary() {
+    let she = Noun::new("Alex", "she");
+    assert_eq!(say!("{=0 =run}", she), "She is running");  // Was: "She running"
+    assert_eq!(say!("{=0 =walk}", she), "She is walking");
+}
+
+#[test]
+fn continuous_past_with_auxiliary() {
+    let they = Noun::new("", "they");
+    assert_eq!(say!("{=0 <wait}", they), "They were waiting");  // Continuous past
+}
+```
+
+---
+
+## Stage 3: Explicit Tense/Case State on Noun (Week 7-8)
+
+### Objective
+Allow storing explicit default tense and grammatical case on `Noun` structs, so placeholders inherit them without explicit markers.
+
+**Problem**: Users shouldn't need `{=person <walk}` if `person` already knows it uses past tense everywhere. The stored state should be a fallback when no explicit marker is given.
+
+### Architecture
+
+**New fields on `Noun` struct** (in `src/lib.rs`):
+
+```rust
+pub struct Noun {
+    name: String,
+    subject: String,
+    // New optional fields:
+    default_tense: Option<Tense>,      // Past, Present, Future, Continuous
+    default_case: Option<GrammaticalCase>,  // Nominative, Accusative, Genitive, etc.
+}
+
+pub enum Tense {
+    Present,
+    Past,
+    Continuous,
+    Future,
+}
+
+pub enum GrammaticalCase {
+    Nominative,   // Subject form (I, he, they)
+    Accusative,   // Object form (me, him, them)
+    Genitive,     // Possessive (my, his, their)
+    Dative,       // Indirect object (not deeply used in English)
+}
+```
+
+**Builder methods**:
+```rust
+impl Noun {
+    pub fn with_tense(mut self, tense: Tense) -> Self {
+        self.default_tense = Some(tense);
+        self
+    }
+    
+    pub fn with_case(mut self, case: GrammaticalCase) -> Self {
+        self.default_case = Some(case);
+        self
+    }
+}
+```
+
+### Placeholder Fallback Logic
+
+In `ranting_derive/src/lib.rs`, `handle_param()`:
+- If no explicit marker (`<`, `=`, `>`) is found in the placeholder and `Noun.default_tense` is set, use that tense
+- If no explicit case marker (`=`, `@`, `` ` ``) is found and `Noun.default_case` is set, use that case
+
+### Tests
+
+**Integration tests** in `tests/ranting/noun_explicit_state.rs`:
+```rust
+#[test]
+fn noun_with_default_past_tense() {
+    let person = Noun::new("Alex", "she").with_tense(Tense::Past);
+    assert_eq!(say!("{=0 walk}", person), "She walked");  // No marker, uses default
+}
+
+#[test]
+fn noun_explicit_marker_overrides_default() {
+    let person = Noun::new("Alex", "she").with_tense(Tense::Past);
+    assert_eq!(say!("{=0 =walk}", person), "She is walking");  // Marker overrides default
+}
+
+#[test]
+fn noun_with_default_accusative_case() {
+    let person = Noun::new("Alex", "she").with_case(GrammaticalCase::Accusative);
+    assert_eq!(say!("I saw {@0}", person), "I saw her");  // Default accusative
+}
+```
+
+---
+
+## Stage 4: Inflections Crate Integration (Week 9-10, Future)
 
 ### Objective
 Add optional noun pluralization support via the `inflections` crate.
@@ -218,7 +380,7 @@ Add optional noun pluralization support via the `inflections` crate.
 
 ---
 
-## Stage 4: Reflexive Forms (Week 8-9, Future)
+## Stage 5: Reflexive Forms (Week 11-12, Future)
 
 ### Objective
 Add support for myself, yourself, himself, herself, itself, ourselves, yourselves, themselves.
@@ -244,7 +406,7 @@ pub(crate) fn reflexive_form(subject: &str) -> &'static str {
 
 ---
 
-## Stage 5: Comparative & Superlative Adjectives (Week 10-11, Future)
+## Stage 6: Comparative & Superlative Adjectives (Week 13-14, Future)
 
 ### Objective
 Support degree markers for adjectives: good→better→best, bad→worse→worst.
@@ -279,7 +441,7 @@ pub(crate) fn get_superlative(adj: &str) -> String {
 
 ---
 
-## Stage 6: Testing & Coverage (Week 12)
+## Stage 7: Testing & Coverage (Week 15)
 
 ### Coverage Targets
 - Verb tense classification: 95%
@@ -365,18 +527,23 @@ This is **not** real reflexive handling (correct output is `"themselves"`). Stag
 ## Build Sequence
 
 1. **Week 1-2** (NOW): Verb tense skeleton — detect past/continuous, fix `"walkeds"` bug, add unit + integration tests
-2. **Week 3-5**: Full verb tense system — auto-conjugation, future/conditional, continuous forms
-3. **Week 6-7**: Inflections crate integration
-4. **Week 8-9**: Reflexive forms
-5. **Week 10-11**: Adjective degrees
-6. **Week 12**: Testing, documentation, polish
+2. **Week 3-4**: Tense markers + auto-conjugation — `<`, `=`, `>` markers conjugate verbs (incomplete but testable)
+3. **Week 5-6** (MANDATORY): Auxiliary verb insertion — Fix `"He walks"` → `"He will walk"` and `"She running"` → `"She is running"`
+4. **Week 7-8**: Explicit tense/case state on Noun — Store default tense/case on struct, fallback in placeholders
+5. **Week 9-10**: Inflections crate integration
+6. **Week 11-12**: Reflexive forms
+7. **Week 13-14**: Adjective degrees
+8. **Week 15**: Testing, documentation, polish
 
 ---
 
 ## Estimated Effort
 
-- **Skeleton (Week 1-2)**: ~100 lines core code, ~150 lines tests
-- **Full Phase 2**: ~800-1000 lines core code, ~2500-3000 lines tests, ~500 lines documentation
+- **Stage 1 (Skeleton, Week 1-2)**: ~100 lines core code, ~150 lines tests
+- **Stage 2 (Tense markers, Week 3-4)**: ~300 lines core code (proc-macro + verb.rs), ~200 lines tests
+- **Stage 2.5 (Auxiliaries, Week 5-6)**: ~200 lines core code (auxiliary.rs + macro wiring), ~250 lines tests
+- **Stage 3 (Explicit state, Week 7-8)**: ~150 lines (Noun builder methods + placeholder logic), ~200 lines tests
+- **Full Phase 2**: ~1000-1200 lines core code, ~3000-3500 lines tests, ~600 lines documentation
 
 ---
 
