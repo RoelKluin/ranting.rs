@@ -19,23 +19,94 @@ use syn::{self, parse_quote, punctuated::Punctuated, Error, Expr, Token};
 
 #[proc_macro]
 pub fn ack(input: TokenStream1) -> TokenStream1 {
-    let input = syn::parse_macro_input!(input as Say);
-    let tokens: TokenStream = parse_quote!(return Ok(#input));
+    let output = syn::parse_macro_input!(input as Say);
+    let tokens: TokenStream = parse_quote!(return Ok(#output));
     tokens.into()
 }
 
 #[proc_macro]
 pub fn nay(input: TokenStream1) -> TokenStream1 {
-    let input = syn::parse_macro_input!(input as Say);
-    let tokens: TokenStream = parse_quote!(return Err(#input));
+    let output = syn::parse_macro_input!(input as Say);
+    let tokens: TokenStream = parse_quote!(return Err(#output));
     tokens.into()
 }
 
 #[proc_macro]
 pub fn say(input: TokenStream1) -> TokenStream1 {
-    let input = syn::parse_macro_input!(input as Say);
-    let tokens: TokenStream = parse_quote!(#input);
+    let output = syn::parse_macro_input!(input as Say);
+    let tokens: TokenStream = parse_quote!(#output);
     tokens.into()
+}
+
+/// ask!() is a macro that takes an audience and a question string.
+#[proc_macro]
+pub fn ask(input: TokenStream1) -> TokenStream1 {
+    let output = syn::parse_macro_input!(input as Ask);
+    let tokens: TokenStream = parse_quote!(#output);
+    tokens.into()
+}
+
+fn parse_str_params(lit: StrLit, params_in: Vec<Expr>) -> syn::Result<(String, Vec<Expr>)> {
+    lazy_static! {
+        static ref PH: Regex = Regex::new(lang::PH_START).unwrap();
+        static ref PHE: Regex = Regex::new(lang::PH_EXT).unwrap();
+    }
+    let src = lit.to_slice();
+    let text = src.text();
+    #[cfg(feature = "debug")]
+    eprintln!("{}", text);
+
+    let mut params = vec![];
+
+    let mut err = None;
+
+    let lit_str = PH
+        .replace_all(text, |caps: &Captures| {
+            let pre = caps.name("pre");
+            let fmt = caps.name("fmt").map_or("", |s| s.as_str());
+            if let Some(plain) = caps.name("plain") {
+                match get_opt_num_ph_expr(plain.as_str(), &params_in) {
+                    Ok(expr) => {
+                        let len = params.len().to_string();
+                        params.push(expr);
+                        pre.map_or("", |s| s.as_str()).to_string() + "{" + len.as_str() + fmt + "}"
+                    }
+                    Err(s) => {
+                        err = Some((plain.start(), plain.end(), s));
+                        String::new()
+                    }
+                }
+            } else {
+                let ranting = caps.name("ranting").unwrap();
+                if !PHE.is_match(ranting.as_str()) {
+                    err = Some((
+                        ranting.start(),
+                        ranting.end(),
+                        "Error in placeholder".to_string(),
+                    ));
+                    return String::new();
+                }
+                let at_sentence_start = pre
+                    .filter(|m| m.start() == 0 || m.as_str().starts_with(['.', '?', '!']))
+                    .is_some();
+                pre.map_or("", |s| s.as_str()).to_string()
+                    + &PHE.replace(ranting.as_str(), |caps: &Captures| {
+                        match handle_param(caps, &params_in, &mut params, at_sentence_start, fmt) {
+                            Ok(s) => s,
+                            Err((start, end, msg)) => {
+                                let offs = ranting.start();
+                                err = Some((start + offs, end + offs, msg));
+                                String::new()
+                            }
+                        }
+                    })
+            }
+        })
+        .to_string();
+    match err {
+        Some((start, end, msg)) => Err(src.slice(start..end).error(msg.as_str())),
+        None => Ok((lit_str, params)),
+    }
 }
 
 /// after parsing, Say basicly contains the format!() litteral string and its (optional) parameters
@@ -78,6 +149,77 @@ pub fn ref_ranting_trait(input: TokenStream1) -> TokenStream1 {
     ref_expr_ranting_trait(parse_quote!(Box<dyn #trait_name>)).into()
 }
 
+struct Ask {
+    speaker: Expr,
+    audience: Expr,
+    question: String,
+    params: Vec<Expr>,
+}
+
+impl syn::parse::Parse for Ask {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        if input.is_empty() {
+            return Err(Error::new(Span::mixed_site(), "missing format string"));
+        }
+        let speaker = input.parse::<Expr>()?;
+        input.parse::<Token![,]>()?;
+
+        let audience = input.parse::<Expr>()?;
+        input.parse::<Token![,]>()?;
+
+        let lit = input.parse::<StrLit>()?;
+
+        let params_in = if input.is_empty() {
+            vec![]
+        } else {
+            input.parse::<Token![,]>()?;
+
+            input
+                .parse_terminated::<_, Token![,]>(Expr::parse)?
+                .into_iter()
+                .collect()
+        };
+        let (question, params) = parse_str_params(lit, params_in)?;
+        Ok(Ask {
+            speaker,
+            audience,
+            question,
+            params,
+        })
+    }
+}
+
+/// Construct the format!() macro call. Print result with `--features debug`
+impl ToTokens for Ask {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let lit = self.question.as_str();
+        let lit: TokenStream = parse_quote!(#lit);
+
+        let mut macro_tokens = vec![lit.into_token_stream()];
+
+        // Iterate over parameters and separate them with commas.
+        for param in self.params.iter() {
+            macro_tokens.push(Punct::new(',', Spacing::Alone).into_token_stream());
+            macro_tokens.push(param.into_token_stream());
+        }
+
+        let final_macro_tokens: TokenStream = macro_tokens
+            .iter()
+            .map(|t| {
+                quote! {
+                    #t
+                }
+            })
+            .collect();
+        let speaker = &self.speaker;
+        let audience = &self.audience;
+
+        *tokens = parse_quote!(#audience.answer(#speaker, format!(#final_macro_tokens)));
+        #[cfg(feature = "debug")]
+        eprintln!("{}", tokens.to_string());
+    }
+}
+
 /// Implies `#[derive(Ranting)]` and includes `name` and `subject` in structs.
 /// For an enum `"it"` and the variant's name are assumed.
 #[proc_macro_attribute]
@@ -118,10 +260,6 @@ pub fn inner_derive_ranting(input: TokenStream1) -> TokenStream1 {
 // currently via a regex; convenient, but suboptimal because pattern error indication is lacking.
 impl syn::parse::Parse for Say {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        lazy_static! {
-            static ref PH: Regex = Regex::new(lang::PH_START).unwrap();
-            static ref PHE: Regex = Regex::new(lang::PH_EXT).unwrap();
-        }
         if input.is_empty() {
             return Err(Error::new(Span::mixed_site(), "missing format string"));
         }
@@ -137,72 +275,8 @@ impl syn::parse::Parse for Say {
                 .into_iter()
                 .collect()
         };
-        let src = lit.to_slice();
-        let text = src.text();
-        #[cfg(feature = "debug")]
-        eprintln!("{}", text);
-
-        let mut params = vec![];
-
-        let mut err = None;
-
-        let lit_str = PH
-            .replace_all(text, |caps: &Captures| {
-                let pre = caps.name("pre");
-                let fmt = caps.name("fmt").map_or("", |s| s.as_str());
-                if let Some(plain) = caps.name("plain") {
-                    match get_opt_num_ph_expr(plain.as_str(), &params_in) {
-                        Ok(expr) => {
-                            let len = params.len().to_string();
-                            params.push(expr);
-                            pre.map_or("", |s| s.as_str()).to_string()
-                                + "{"
-                                + len.as_str()
-                                + fmt
-                                + "}"
-                        }
-                        Err(s) => {
-                            err = Some((plain.start(), plain.end(), s));
-                            String::new()
-                        }
-                    }
-                } else {
-                    let ranting = caps.name("ranting").unwrap();
-                    if !PHE.is_match(ranting.as_str()) {
-                        err = Some((
-                            ranting.start(),
-                            ranting.end(),
-                            "Error in placeholder".to_string(),
-                        ));
-                        return String::new();
-                    }
-                    let at_sentence_start = pre
-                        .filter(|m| m.start() == 0 || m.as_str().starts_with(['.', '?', '!']))
-                        .is_some();
-                    pre.map_or("", |s| s.as_str()).to_string()
-                        + &PHE.replace(ranting.as_str(), |caps: &Captures| {
-                            match handle_param(
-                                caps,
-                                &params_in,
-                                &mut params,
-                                at_sentence_start,
-                                fmt,
-                            ) {
-                                Ok(s) => s,
-                                Err((start, end, msg)) => {
-                                    let offs = ranting.start();
-                                    err = Some((start + offs, end + offs, msg));
-                                    String::new()
-                                }
-                            }
-                        })
-                }
-            })
-            .to_string();
-        match err {
-            Some((start, end, msg)) => Err(src.slice(start..end).error(msg.as_str())),
-            None => Ok(Say { lit_str, params }),
-        }
+        let (lit_str, params) = parse_str_params(lit, params_in)?;
+        Ok(Say { lit_str, params })
     }
 }
 

@@ -54,7 +54,11 @@ pub(crate) static ASK: &str = r"^(?x)
         |(?:\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se)
     )(?:\s+[\w-]+)*?\s+)?+
     (?P<noun>[\w-]+)
-    (?P<post>\s+(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$";
+    (?P<post>
+        (?:\s+(?:a[ts]|for|to(?:wards)?|from|in(?:to|side)?|off?|on(?:to)?|by|abo(?:ut|ve|ard)|across|after|against|along(?:side)?|amid|among|around|atop|bar|be(?:fore|low|hind|neath|side|tween|yond)|despite|down|during|(?:un)?like|near|opposite|outside|over|past|pending|per|prior|pro|re|regarding|round|since|than|through(?:out)?|till|under(?:neath)?|until|unto|up|upon|via|with(?:in|out)?)\s+
+        (?:[`@*]\w+|\w+'s?))?
+        \s+(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*
+    )?$";
 
 /// An enum with pronouns in subjective form.
 #[derive(EnumString, Copy, Clone)]
