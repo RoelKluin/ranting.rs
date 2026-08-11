@@ -264,12 +264,82 @@ where
                 res.push_str(adapt_possesive_s(noun, as_pl));
             }
             v => {
-                let verb = inflect_verb(subjective, v, !singular_post_verb && as_pl, uc);
-                res.push_str(&verb);
+                // Check for tense marker encoding: ~TENSE~MARKER:CONJUGATED
+                if let Some(remainder) = v.strip_prefix("~TENSE~") {
+                    if let Some((marker_part, conjugated_verb)) = remainder.split_once(':') {
+                        if let Some(marker_char) = marker_part.chars().next() {
+                            let (conjugated, trailing) = conjugated_verb
+                                .split_once(' ')
+                                .unwrap_or((conjugated_verb, ""));
+                            let tense_result = handle_tense_marker(subjective, marker_char, conjugated);
+                            if uc {
+                                let mut chars = tense_result.chars();
+                                if let Some(first) = chars.next() {
+                                    res.push_str(&first.to_uppercase().collect::<String>());
+                                    res.push_str(chars.as_str());
+                                }
+                            } else {
+                                res.push_str(&tense_result);
+                            }
+                            if !trailing.is_empty() {
+                                res.push(' ');
+                                res.push_str(trailing);
+                            }
+                        } else {
+                            // Fallback if marker parsing fails
+                            let verb = inflect_verb(subjective, v, !singular_post_verb && as_pl, uc);
+                            res.push_str(&verb);
+                        }
+                    } else {
+                        // Fallback if colon parsing fails
+                        let verb = inflect_verb(subjective, v, !singular_post_verb && as_pl, uc);
+                        res.push_str(&verb);
+                    }
+                } else {
+                    let verb = inflect_verb(subjective, v, !singular_post_verb && as_pl, uc);
+                    res.push_str(&verb);
+                }
             }
         }
     }
     res
+}
+
+/// Handle verb conjugation with auxiliary insertion for tense markers.
+///
+/// This function is called by the macro when tense markers (`<`, `=`, `>`) are detected.
+/// It conjugates both the auxiliary verb and the main verb based on the subject pronoun.
+///
+/// # Arguments
+///
+/// * `subject` - The subject pronoun (e.g., "I", "he", "she", "they")
+/// * `marker` - The tense marker: `<` for past, `=` for continuous, `>` for future
+/// * `verb` - The conjugated verb form from the macro
+///
+/// # Returns
+///
+/// A string containing the auxiliary verb + main verb combination (e.g., "will walk", "is running")
+#[doc(hidden)]
+pub fn handle_tense_marker(subject: &str, marker: char, verb: &str) -> String {
+    use language::auxiliary::{conjugate_auxiliary, AuxiliaryVerb};
+
+    match marker {
+        '<' => {
+            // Past tense: subject + past verb (no auxiliary needed)
+            verb.to_string()
+        }
+        '=' => {
+            // Continuous present: subject + is/are + gerund
+            let aux = conjugate_auxiliary(AuxiliaryVerb::IsAre, subject);
+            format!("{} {}", aux, verb)
+        }
+        '>' => {
+            // Future: subject + will + base verb
+            let aux = conjugate_auxiliary(AuxiliaryVerb::Will, subject);
+            format!("{} {}", aux, verb)
+        }
+        _ => verb.to_string(),
+    }
 }
 
 /// upper cases first character if uc is true, or second in a contraction.

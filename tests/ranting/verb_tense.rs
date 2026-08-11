@@ -167,39 +167,38 @@ fn tense_marker_past_irregular() {
 #[test]
 fn tense_marker_continuous_basic() {
     let person = Noun::new("Alex", "he");
-    assert_eq!(say!("{=0 =walk}", person), "He walking");
-    assert_eq!(say!("{=0 =talk}", person), "He talking");
-    assert_eq!(say!("{=0 =play}", person), "He playing");
+    assert_eq!(say!("{=0 =walk}", person), "He is walking");
+    assert_eq!(say!("{=0 =talk}", person), "He is talking");
+    assert_eq!(say!("{=0 =play}", person), "He is playing");
 }
 
 #[test]
 fn tense_marker_continuous_silent_e() {
     let person = Noun::new("Alex", "she");
-    assert_eq!(say!("{=0 =make}", person), "She making");
-    assert_eq!(say!("{=0 =like}", person), "She liking");
+    assert_eq!(say!("{=0 =make}", person), "She is making");
+    assert_eq!(say!("{=0 =like}", person), "She is liking");
 }
 
 #[test]
 fn tense_marker_continuous_consonant_doubling() {
     let person = Noun::new("Alex", "it");
-    assert_eq!(say!("{=0 =run}", person), "It running");
-    assert_eq!(say!("{=0 =sit}", person), "It sitting");
+    assert_eq!(say!("{=0 =run}", person), "It is running");
+    assert_eq!(say!("{=0 =sit}", person), "It is sitting");
 }
 
 #[test]
 fn tense_marker_continuous_ie_to_y() {
     let person = Noun::new("Alex", "they");
-    assert_eq!(say!("{=0 =lie}", person), "They lying");
-    assert_eq!(say!("{=0 =tie}", person), "They tying");
+    assert_eq!(say!("{=0 =lie}", person), "They are lying");
+    assert_eq!(say!("{=0 =tie}", person), "They are tying");
 }
 
 #[test]
 fn tense_marker_future_returns_base() {
-    // Future tense marker > returns base form, which still gets present-tense conjugation
-    // (Future requires "will [base]" which is not yet integrated)
+    // Future tense marker > now correctly inserts "will" before the base verb
     let person = Noun::new("Alex", "he");
-    assert_eq!(say!("{=0 >walk}", person), "He walks");
-    assert_eq!(say!("{=0 >go}", person), "He goes");
+    assert_eq!(say!("{=0 >walk}", person), "He will walk");
+    assert_eq!(say!("{=0 >go}", person), "He will go");
 }
 
 #[test]
@@ -236,5 +235,5 @@ fn tense_markers_in_sentence() {
 fn tense_markers_mixed_sentence() {
     let person = Noun::new("Jordan", "she");
     let result = say!("{=0 <start} {=0 =run} the race.", person);
-    assert_eq!(result, "She started she running the race.");
+    assert_eq!(result, "She started she is running the race.");
 }
