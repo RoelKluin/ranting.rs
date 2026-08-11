@@ -41,6 +41,33 @@ fn main() {
 }
 ```
 
+## Gender-Neutral Pronouns (Singular They)
+
+The library fully supports singular they/them pronouns for individuals who prefer gender-neutral language:
+
+```rust
+use ranting::*;
+use ranting_derive::*;
+
+fn main() {
+    let alex = Noun::new("Alex", "they");
+    let jordan = Noun::new("Jordan", "they");
+    
+    assert_eq!(
+        say!("{=alex have} shared {`alex} pronouns: {=alex use} they/them."),
+        "They have shared their pronouns: They use they/them.".to_string()
+    );
+    
+    assert_eq!(
+        say!("{=jordan are} a talented engineer. I admire {`jordan} work."),
+        "They are a talented engineer. I admire their work.".to_string()
+    );
+}
+```
+
+Singular "they" conjugates as plural in form (they are, they have, they do) while referring to a single individual.
+All pronouns inflect correctly: subject (they), object (them), possessive determiner (their), possessive pronoun (theirs).
+
 - `Noun` is a struct with the `Ranting` trait. You can use `#[derive(Ranting)]` on a struct or enum for similar
   behavior. To specify the subject use I .. they, thou or ye.
 

@@ -220,8 +220,34 @@ impl ToTokens for Ask {
     }
 }
 
+/// Derives `Ranting` trait implementation and enables inflection within `say!()` placeholders.
 /// Implies `#[derive(Ranting)]` and includes `name` and `subject` in structs.
 /// For an enum `"it"` and the variant's name are assumed.
+///
+/// # Subject Pronouns
+///
+/// The `subject` attribute specifies which pronoun to use: I, you, thou, he, she, it, we, ye, or they.
+/// All pronouns are fully supported, including singular they for gender-neutral language.
+///
+/// # Examples
+///
+/// Using singular they for an individual with gender-neutral pronouns:
+///
+/// ```rust
+/// # use ranting::say;
+/// # use ranting_derive::derive_ranting;
+/// #[derive_ranting]
+/// #[ranting(subject = "they", name = "Alex")]
+/// struct Person {}
+///
+/// # fn main() {
+/// let alex = Person {};
+/// assert_eq!(
+///     say!("{=alex are} a wonderful colleague."),
+///     "They are a wonderful colleague.".to_string()
+/// );
+/// # }
+/// ```
 #[proc_macro_attribute]
 pub fn derive_ranting(_args: TokenStream1, input: TokenStream1) -> TokenStream1 {
     let mut ast = parse_macro_input!(input as syn::DeriveInput);
