@@ -138,7 +138,7 @@ where
     R: Ranting,
 {
     lazy_static! {
-        static ref OF: Regex = Regex::new(r"\bof\s+$").unwrap();
+        static ref OF: Regex = Regex::new(r"\bof\s+$").expect("valid regex");
     }
     let [mut pre, plurality, noun_space, case, mut post] = caps;
     let has_possesive = pre.contains('`');
@@ -268,8 +268,8 @@ fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
 // By setting name and subject to "$", these must come from the struct.
 #[ranting(name = "$", subject = "$")]
 pub struct Noun {
-    name: String,
-    subject: String,
+    pub(crate) name: String,
+    pub(crate) subject: String,
 }
 impl Noun {
     pub fn new(name: &str, subject: &str) -> Self {

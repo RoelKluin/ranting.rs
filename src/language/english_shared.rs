@@ -84,5 +84,5 @@ pub fn is_subject(subject: &str) -> bool {
 /// Returns whether the subjective is plural. You is assumed singular; a plural_you
 /// ranting attribute should already be considered before this call.
 pub fn is_subjective_plural(subject: &str) -> bool {
-    (SubjectPronoun::from_str(subject).expect("not a subject") as usize) >= 6
+    (SubjectPronoun::from_str(subject).expect("subject should be a valid pronoun") as usize) >= 6
 }

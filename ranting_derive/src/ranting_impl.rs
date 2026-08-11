@@ -50,7 +50,7 @@ fn get_namefn_for(mut opt: RantingOptions, is_enum: bool) -> TokenStream {
             }
         }
     } else {
-        parse_quote!(std::any::type_name::<Self>().rsplit("::").next().unwrap())
+        parse_quote!(std::any::type_name::<Self>().rsplit("::").next().expect("type path has at least one component"))
     };
     let mut first_char: TokenStream = parse_quote!(chrs.next());
     if !opt.uc {
@@ -67,7 +67,7 @@ fn get_namefn_for(mut opt: RantingOptions, is_enum: bool) -> TokenStream {
             let name = #get_name;
             let mut chrs = name.chars();
             let oulc = #first_char;
-            let mut lc_spaced = String::from(oulc.expect("name is empty?"));
+            let mut lc_spaced = String::from(oulc.expect("name should not be empty"));
             for c in chrs {
                 if c.is_uppercase() {
                     lc_spaced.push(' ');
