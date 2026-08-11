@@ -48,8 +48,8 @@ pub fn ask(input: TokenStream1) -> TokenStream1 {
 
 fn parse_str_params(lit: StrLit, params_in: Vec<Expr>) -> syn::Result<(String, Vec<Expr>)> {
     lazy_static! {
-        static ref PH: Regex = Regex::new(lang::PH_START).unwrap();
-        static ref PHE: Regex = Regex::new(lang::PH_EXT).unwrap();
+        static ref PH: Regex = Regex::new(lang::PH_START).expect("valid placeholder regex");
+        static ref PHE: Regex = Regex::new(lang::PH_EXT).expect("valid extended placeholder regex");
     }
     let src = lit.to_slice();
     let text = src.text();
