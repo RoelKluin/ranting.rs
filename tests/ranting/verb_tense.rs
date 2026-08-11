@@ -1,0 +1,148 @@
+// Tests for verb tense detection and past/continuous verb handling.
+// Verifies that past-tense and continuous-form verbs are not incorrectly
+// conjugated with 3rd-person-singular -s suffix (the "walkeds" bug).
+
+use ranting::*;
+use ranting_derive::say;
+
+#[test]
+fn test_past_verb_no_spurious_s_regular_walked() {
+    // Regular past tense "walked" should not get a spurious -s suffix
+    let she = Noun::new("person", "she");
+    assert_eq!(say!("{=0 walked}", she), "She walked");
+
+    let he = Noun::new("person", "he");
+    assert_eq!(say!("{=0 walked}", he), "He walked");
+
+    let it = Noun::new("thing", "it");
+    assert_eq!(say!("{=0 walked}", it), "It walked");
+}
+
+#[test]
+fn test_past_verb_no_spurious_s_other_regular() {
+    // Other regular past verbs should not get -s suffix
+    assert_eq!(say!("{=0 talked}", Noun::new("person", "he")), "He talked");
+    assert_eq!(say!("{=0 wanted}", Noun::new("person", "she")), "She wanted");
+    assert_eq!(say!("{=0 played}", Noun::new("person", "it")), "It played");
+}
+
+#[test]
+fn test_past_verb_no_spurious_s_third_person() {
+    // Test that 3rd-person-singular (he/she/it) doesn't add -s to past tense
+    let test_cases = vec![
+        ("he", "He"),
+        ("she", "She"),
+        ("it", "It"),
+    ];
+
+    for (pronoun, capitalized) in test_cases {
+        let noun = Noun::new("person", pronoun);
+        let result = say!("{=0 walked}", noun);
+        assert_eq!(
+            result, format!("{} walked", capitalized),
+            "Failed for pronoun: {}",
+            pronoun
+        );
+    }
+}
+
+#[test]
+fn test_irregular_past_went() {
+    // Irregular past form "went" should be preserved
+    assert_eq!(say!("{=0 went}", Noun::new("person", "he")), "He went");
+    assert_eq!(say!("{=0 went}", Noun::new("person", "she")), "She went");
+}
+
+#[test]
+fn test_irregular_past_other() {
+    // Other irregular past forms should be preserved
+    assert_eq!(say!("{=0 saw}", Noun::new("person", "it")), "It saw");
+    assert_eq!(say!("{=0 took}", Noun::new("person", "he")), "He took");
+    assert_eq!(say!("{=0 made}", Noun::new("person", "she")), "She made");
+}
+
+#[test]
+fn test_continuous_form_walking() {
+    // Continuous form "walking" should not get a spurious -s suffix
+    let she = Noun::new("person", "she");
+    assert_eq!(say!("{=0 walking}", she), "She walking");
+}
+
+#[test]
+fn test_continuous_form_other() {
+    // Other continuous forms should not get -s suffix
+    assert_eq!(say!("{=0 running}", Noun::new("person", "he")), "He running");
+    assert_eq!(say!("{=0 talking}", Noun::new("person", "it")), "It talking");
+    assert_eq!(say!("{=0 playing}", Noun::new("person", "she")), "She playing");
+}
+
+#[test]
+fn test_present_verb_gets_s_for_third_person() {
+    // Present tense base verbs SHOULD get the -s suffix for 3rd person
+    assert_eq!(say!("{=0 walk}", Noun::new("cat", "it")), "It walks");
+    assert_eq!(say!("{=0 talk}", Noun::new("person", "he")), "He talks");
+    assert_eq!(say!("{=0 play}", Noun::new("person", "she")), "She plays");
+}
+
+#[test]
+fn test_present_verb_no_s_for_first_person() {
+    // Present tense verbs should NOT get -s for first person
+    assert_eq!(say!("{=0 walk}", Noun::new("person", "I")), "I walk");
+    assert_eq!(say!("{=0 talk}", Noun::new("person", "we")), "We talk");
+}
+
+#[test]
+fn test_past_verb_all_pronouns() {
+    // Test that past tense works correctly for all pronouns
+    let test_cases = vec![
+        ("I", "I"),
+        ("you", "You"),
+        ("he", "He"),
+        ("she", "She"),
+        ("it", "It"),
+        ("we", "We"),
+        ("they", "They"),
+    ];
+
+    for (pronoun, capitalized) in test_cases {
+        let noun = Noun::new("person", pronoun);
+        let result = say!("{=0 walked}", noun);
+        assert_eq!(
+            result, format!("{} walked", capitalized),
+            "Failed for pronoun: {}",
+            pronoun
+        );
+    }
+}
+
+#[test]
+fn test_mixed_sentence_with_past_verbs() {
+    // Test past verbs in a more complex sentence context
+    let person = Noun::new("Alex", "they");
+    let result = say!("{=0 walked} and {=0 talked}.", person);
+    assert_eq!(result, "They walked and they talked.");
+}
+
+#[test]
+fn test_past_verb_with_contraction_didnt() {
+    // Test past tense with n't contractions
+    let he = Noun::new("person", "he");
+    let result = say!("{=0 didn't}", he);
+    // "didn't" should pass through as-is, not get -s added
+    assert_eq!(result, "He didn't");
+}
+
+#[test]
+fn test_irregular_past_was_were() {
+    // "was" and "were" are in the irregular verb table, should work correctly
+    let i = Noun::new("person", "I");
+    let he = Noun::new("person", "he");
+    let they = Noun::new("person", "they");
+
+    // "was" is in IRREGULAR_VERBS_1ST for "I"
+    assert_eq!(say!("{=0 was}", i), "I was");
+    // "was" is in IRREGULAR_VERBS_3RD for "he"
+    assert_eq!(say!("{=0 was}", he), "He was");
+    // "were" should be handled by detect_tense (it's in IRREGULAR_PAST table)
+    assert_eq!(say!("{=0 were}", they), "They were");
+}

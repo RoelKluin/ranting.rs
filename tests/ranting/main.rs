@@ -8,3 +8,4 @@ mod inclusive_language;
 mod male_female_and_object;
 mod readme_example;
 mod singular_they;
+mod verb_tense;
