@@ -2,6 +2,28 @@
 //!
 //! Functions to handle [Ranting](https://docs.rs/ranting_derive/0.2.1/ranting_derive/) trait placeholders.
 //!
+//! ## Gender-Neutral Pronouns
+//!
+//! This crate fully supports singular they/them for gender-neutral pronouns. Use `"they"` as the subject
+//! when you want to refer to an individual using singular they:
+//!
+//! ```rust
+//! # use ranting::{Noun, say};
+//! let alex = Noun::new("Alex", "they");
+//! assert_eq!(
+//!     say!("{=alex} completed {`alex} assignment."),
+//!     "They completed their assignment.".to_string()
+//! );
+//! ```
+//!
+//! Singular they is grammatically plural in form but semantically singular, so all verb forms are
+//! plural (they are, they have, they do). All pronouns inflect correctly:
+//!
+//! - Subject: they
+//! - Object: them
+//! - Possessive determiner: their
+//! - Possessive pronoun: theirs
+//!
 //! ## Feature flags
 #![doc = document_features::document_features!()]
 
@@ -98,6 +120,23 @@ pub use ranting_derive::nay;
 ///     A noun with subject they inflects as they, them, their and theirs."
 ///     .to_string());
 /// # }
+/// ```
+///
+/// # Gender-Neutral Pronouns (Singular They)
+///
+/// You can use singular they/them pronouns for individuals who prefer gender-neutral language:
+///
+/// ```rust
+/// # use ranting::{Noun, say};
+/// let jordan = Noun::new("Jordan", "they");
+/// assert_eq!(
+///     say!("{=jordan are} a wonderful friend."),
+///     "They are a wonderful friend.".to_string()
+/// );
+/// assert_eq!(
+///     say!("This is {`jordan} favorite book."),
+///     "This is their favorite book.".to_string()
+/// );
 /// ```
 pub use ranting_derive::say;
 
