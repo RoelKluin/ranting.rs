@@ -146,3 +146,95 @@ fn test_irregular_past_was_were() {
     // "were" should be handled by detect_tense (it's in IRREGULAR_PAST table)
     assert_eq!(say!("{=0 were}", they), "They were");
 }
+
+// Tests for tense markers in say!() macro
+#[test]
+fn tense_marker_past_regular() {
+    let person = Noun::new("Alex", "he");
+    assert_eq!(say!("{=0 <walk}", person), "He walked");
+    assert_eq!(say!("{=0 <talk}", person), "He talked");
+    assert_eq!(say!("{=0 <play}", person), "He played");
+}
+
+#[test]
+fn tense_marker_past_irregular() {
+    let person = Noun::new("Alex", "she");
+    assert_eq!(say!("{=0 <go}", person), "She went");
+    assert_eq!(say!("{=0 <see}", person), "She saw");
+    assert_eq!(say!("{=0 <take}", person), "She took");
+}
+
+#[test]
+fn tense_marker_continuous_basic() {
+    let person = Noun::new("Alex", "he");
+    assert_eq!(say!("{=0 =walk}", person), "He walking");
+    assert_eq!(say!("{=0 =talk}", person), "He talking");
+    assert_eq!(say!("{=0 =play}", person), "He playing");
+}
+
+#[test]
+fn tense_marker_continuous_silent_e() {
+    let person = Noun::new("Alex", "she");
+    assert_eq!(say!("{=0 =make}", person), "She making");
+    assert_eq!(say!("{=0 =like}", person), "She liking");
+}
+
+#[test]
+fn tense_marker_continuous_consonant_doubling() {
+    let person = Noun::new("Alex", "it");
+    assert_eq!(say!("{=0 =run}", person), "It running");
+    assert_eq!(say!("{=0 =sit}", person), "It sitting");
+}
+
+#[test]
+fn tense_marker_continuous_ie_to_y() {
+    let person = Noun::new("Alex", "they");
+    assert_eq!(say!("{=0 =lie}", person), "They lying");
+    assert_eq!(say!("{=0 =tie}", person), "They tying");
+}
+
+#[test]
+fn tense_marker_future_returns_base() {
+    // Future tense marker > returns base form, which still gets present-tense conjugation
+    // (Future requires "will [base]" which is not yet integrated)
+    let person = Noun::new("Alex", "he");
+    assert_eq!(say!("{=0 >walk}", person), "He walks");
+    assert_eq!(say!("{=0 >go}", person), "He goes");
+}
+
+#[test]
+fn tense_markers_all_pronouns() {
+    let test_cases = vec![
+        ("I", "I"),
+        ("you", "You"),
+        ("he", "He"),
+        ("she", "She"),
+        ("it", "It"),
+        ("we", "We"),
+        ("they", "They"),
+    ];
+
+    for (pronoun, capitalized) in test_cases {
+        let person = Noun::new("person", pronoun);
+        let result = say!("{=0 <walk}", person);
+        assert_eq!(
+            result, format!("{} walked", capitalized),
+            "Failed for pronoun: {}",
+            pronoun
+        );
+    }
+}
+
+#[test]
+fn tense_markers_in_sentence() {
+    let person = Noun::new("Alex", "they");
+    let result = say!("{=0 <walk} and {=0 <talk}.", person);
+    assert_eq!(result, "They walked and they talked.");
+}
+
+#[test]
+fn tense_markers_mixed_sentence() {
+    let person = Noun::new("Jordan", "she");
+    let result = say!("{=0 <start} {=0 =run} the race.", person);
+    assert_eq!(result, "She started she running the race.");
+}

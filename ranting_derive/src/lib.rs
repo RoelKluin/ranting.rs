@@ -5,6 +5,7 @@ mod ranting_impl;
 mod str_lit;
 
 use language::english_shared as lang;
+use language::verb as verb_conjugate;
 
 use darling::{FromDeriveInput, ToTokens};
 use itertools::join;
@@ -438,7 +439,40 @@ fn handle_param(
 
     let case = caps.name("case").map_or("", |m| m.as_str());
     let noun = caps.name("noun").unwrap();
-    let post = caps.name("post").map_or("", |m| m.as_str());
+    let mut post = caps.name("post").map_or("", |m| m.as_str()).to_string();
+
+    // Handle tense markers in post: <verb (past), =verb (continuous), >verb (future)
+    if !post.is_empty() {
+        let post_trimmed = post.trim_start();
+        if !post_trimmed.is_empty() {
+            let first_char = post_trimmed.chars().next().unwrap();
+            if matches!(first_char, '<' | '=' | '>') {
+                if post_trimmed.len() > 1 {
+                    let marker = first_char;
+                    let verb = post_trimmed[1..].trim_start();
+                    // Split verb from any trailing content
+                    let (base_verb, trailing) = verb
+                        .split_once(char::is_whitespace)
+                        .unwrap_or((verb, ""));
+
+                    let conjugated = match marker {
+                        '<' => verb_conjugate::to_past(base_verb),
+                        '=' => verb_conjugate::to_continuous(base_verb),
+                        '>' => verb_conjugate::to_future(base_verb),
+                        _ => base_verb.to_string(),
+                    };
+
+                    // Preserve leading whitespace from original post
+                    let leading_space = &post[..post.len() - post_trimmed.len()];
+                    post = if trailing.is_empty() {
+                        format!("{}{}", leading_space, conjugated)
+                    } else {
+                        format!("{}{} {}", leading_space, conjugated, trailing)
+                    };
+                }
+            }
+        }
+    }
 
     let plurality;
     // NB: if None, no alpha found => all are punct; occurs with '+' or '-'.
