@@ -14,26 +14,33 @@ use proc_macro2::{Punct, Spacing, Span, TokenStream};
 use quote::quote;
 use ranting_impl::*;
 use regex::{Captures, Regex};
+use std::collections::HashMap;
 use str_lit::*;
-use syn::{self, parse_quote, punctuated::Punctuated, Error, Expr, Token};
+use syn::{
+    self,
+    parse::{Parse, ParseStream},
+    parse_macro_input, parse_quote,
+    punctuated::Punctuated,
+    Error, Expr, Ident, Token,
+};
 
 #[proc_macro]
 pub fn ack(input: TokenStream1) -> TokenStream1 {
-    let output = syn::parse_macro_input!(input as Say);
+    let output = parse_macro_input!(input as Say);
     let tokens: TokenStream = parse_quote!(return Ok(#output));
     tokens.into()
 }
 
 #[proc_macro]
 pub fn nay(input: TokenStream1) -> TokenStream1 {
-    let output = syn::parse_macro_input!(input as Say);
+    let output = parse_macro_input!(input as Say);
     let tokens: TokenStream = parse_quote!(return Err(#output));
     tokens.into()
 }
 
 #[proc_macro]
 pub fn say(input: TokenStream1) -> TokenStream1 {
-    let output = syn::parse_macro_input!(input as Say);
+    let output = parse_macro_input!(input as Say);
     let tokens: TokenStream = parse_quote!(#output);
     tokens.into()
 }
@@ -41,12 +48,15 @@ pub fn say(input: TokenStream1) -> TokenStream1 {
 /// ask!() is a macro that takes an audience and a question string.
 #[proc_macro]
 pub fn ask(input: TokenStream1) -> TokenStream1 {
-    let output = syn::parse_macro_input!(input as Ask);
+    let output = parse_macro_input!(input as Ask);
     let tokens: TokenStream = parse_quote!(#output);
     tokens.into()
 }
 
-fn parse_str_params(lit: StrLit, params_in: Vec<Expr>) -> syn::Result<(String, Vec<Expr>)> {
+fn parse_str_params(
+    lit: StrLit,
+    params_in: HashMap<String, Expr>,
+) -> syn::Result<(String, Vec<Expr>)> {
     lazy_static! {
         static ref PH: Regex = Regex::new(lang::PH_START).expect("valid placeholder regex");
         static ref PHE: Regex = Regex::new(lang::PH_EXT).expect("valid extended placeholder regex");
@@ -139,13 +149,13 @@ fn ref_expr_ranting_trait(ref_expr: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn boxed_ranting_trait(input: TokenStream1) -> TokenStream1 {
-    let trait_name = syn::parse_macro_input!(input as Expr);
+    let trait_name = parse_macro_input!(input as Expr);
     ref_expr_ranting_trait(parse_quote!(&'_ dyn #trait_name)).into()
 }
 
 #[proc_macro]
 pub fn ref_ranting_trait(input: TokenStream1) -> TokenStream1 {
-    let trait_name = syn::parse_macro_input!(input as Expr);
+    let trait_name = parse_macro_input!(input as Expr);
     ref_expr_ranting_trait(parse_quote!(Box<dyn #trait_name>)).into()
 }
 
@@ -168,17 +178,7 @@ impl syn::parse::Parse for Ask {
         input.parse::<Token![,]>()?;
 
         let lit = input.parse::<StrLit>()?;
-
-        let params_in = if input.is_empty() {
-            vec![]
-        } else {
-            input.parse::<Token![,]>()?;
-
-            input
-                .parse_terminated::<_, Token![,]>(Expr::parse)?
-                .into_iter()
-                .collect()
-        };
+        let params_in = parse_params(input)?;
         let (question, params) = parse_str_params(lit, params_in)?;
         Ok(Ask {
             speaker,
@@ -224,7 +224,7 @@ impl ToTokens for Ask {
 /// For an enum `"it"` and the variant's name are assumed.
 #[proc_macro_attribute]
 pub fn derive_ranting(_args: TokenStream1, input: TokenStream1) -> TokenStream1 {
-    let mut ast = syn::parse_macro_input!(input as syn::DeriveInput);
+    let mut ast = parse_macro_input!(input as syn::DeriveInput);
     match &mut ast.data {
         syn::Data::Struct(_) => {
             let tokens: TokenStream = parse_quote! {
@@ -247,7 +247,7 @@ pub fn derive_ranting(_args: TokenStream1, input: TokenStream1) -> TokenStream1 
 /// Above macros inflect Ranting elements within a placeholder. Structs require a `name` and `subject` String.
 #[proc_macro_derive(Ranting, attributes(ranting))]
 pub fn inner_derive_ranting(input: TokenStream1) -> TokenStream1 {
-    let input = syn::parse_macro_input!(input);
+    let input = parse_macro_input!(input);
     let mut is_enum = false;
     let options = RantingOptions::from_derive_input(&input).expect("Invalid Thing trait options");
     if let syn::Data::Enum(_) = &input.data {
@@ -256,25 +256,46 @@ pub fn inner_derive_ranting(input: TokenStream1) -> TokenStream1 {
     ranting_q(options, is_enum, &input.ident).into()
 }
 
+fn parse_params(input: ParseStream) -> syn::Result<HashMap<String, Expr>> {
+    let mut params_in = HashMap::new();
+    let mut positional_index = 0;
+
+    if input.peek(Token![,]) {
+        input.parse::<Token![,]>()?;
+        while !input.is_empty() {
+            if input.peek(Ident) && input.peek2(Token![=]) {
+                // named argument
+                let ident = input.parse::<Ident>()?;
+                input.parse::<Token![=]>()?;
+                let expr = input.parse::<Expr>()?;
+
+                params_in.insert(ident.to_string(), expr);
+            } else {
+                // positional
+                let expr = input.parse::<Expr>()?;
+
+                params_in.insert(positional_index.to_string(), expr);
+                positional_index += 1;
+            }
+
+            if input.is_empty() {
+                break;
+            }
+            input.parse::<Token![,]>()?;
+        }
+    }
+    Ok(params_in)
+}
+
 /// Split placeholders in multiple and extend params accordingly.
-// currently via a regex; convenient, but suboptimal because pattern error indication is lacking.
-impl syn::parse::Parse for Say {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+impl Parse for Say {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.is_empty() {
             return Err(Error::new(Span::mixed_site(), "missing format string"));
         }
         let lit = input.parse::<StrLit>()?;
+        let params_in = parse_params(input)?;
 
-        let params_in = if input.is_empty() {
-            vec![]
-        } else {
-            input.parse::<Token![,]>()?;
-
-            input
-                .parse_terminated::<_, Token![,]>(Expr::parse)?
-                .into_iter()
-                .collect()
-        };
         let (lit_str, params) = parse_str_params(lit, params_in)?;
         Ok(Say { lit_str, params })
     }
@@ -326,12 +347,15 @@ fn path_from<S: AsRef<str>>(path: S) -> Expr {
 }
 
 /// The expression for a match. if numeric, retreive the expression from the positionals
-fn get_opt_num_ph_expr(p: &str, given: &[Expr]) -> Result<Expr, String> {
-    match p.parse::<usize>() {
+fn get_opt_num_ph_expr(p: &str, given: &HashMap<String, Expr>) -> Result<Expr, String> {
+    match p.parse::<String>() {
         Err(_) => Ok(path_from(p)),
-        Ok(u) => match given.get(u) {
+        Ok(s) => match given.get(&s) {
             Some(e) => Ok(e.clone()),
-            None => Err(format!("positional {u} is out of bounds")),
+            None => match s.parse::<usize>() {
+                Ok(u) => Err(format!("No positional argument {u}")),
+                Err(_) => Err(format!("named argument {s} not found")),
+            },
         },
     }
 }
@@ -348,7 +372,7 @@ fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
 // or placeholders are split in many and positionals are added.
 fn handle_param(
     caps: &Captures,
-    given: &[Expr],
+    given: &HashMap<String, Expr>,
     pos: &mut Vec<Expr>,
     at_sentence_start: bool,
     orig_fmt: &str,
