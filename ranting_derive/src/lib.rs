@@ -353,8 +353,14 @@ fn get_opt_num_ph_expr(p: &str, given: &HashMap<String, Expr>) -> Result<Expr, S
         Ok(s) => match given.get(&s) {
             Some(e) => Ok(e.clone()),
             None => match s.parse::<usize>() {
-                Ok(u) => Err(format!("No positional argument {u}")),
-                Err(_) => Err(format!("named argument {s} not found")),
+                Ok(u) => Err(format!(
+                    "positional argument at index {u} not provided (only {} argument(s) given)",
+                    given.iter().filter(|(k, _)| k.parse::<usize>().is_ok()).count()
+                )),
+                Err(_) => {
+                    // Not a number and not in given arguments - assume it's a variable from local scope
+                    Ok(path_from(&s))
+                }
             },
         },
     }
