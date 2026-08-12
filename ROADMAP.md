@@ -56,11 +56,11 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
    - ✅ Full documentation in `docs/EXTENSIBILITY.md` with pirate, Scottish, Spanish examples
    - ✅ 9 integration tests verifying full/partial customization and fallback behavior
 
-3. **Runtime Tense & Viewpoint Selection** (16-20 hours) — *Blocks Recounting M9*
+✅ **3. Runtime Tense & Viewpoint Selection** (COMPLETE — 16-20 hours) — *Unblocks Recounting M9*
    - ✅ Runtime tense selection: `say_with!(context, "...", args...)` resolves `<`,`=`,`>`,`<=`,`%`,`<%` markers against a runtime `NarrationContext { tense: Option<Tense> }` (7-variant `Tense` enum), falling back to the placeholder's own marker when no override is given. `say!()` is unaffected — unchanged codegen and output.
    - ✅ Context-passing mechanism decided: explicit `say_with!(context, ...)` macro parameter (matches the library's existing explicit-argument style; rejected trait-method — conflates entity `subject` with story-wide settings per item 4 — and thread-local — implicit, fragile across tests/async).
    - Prerequisite this uncovered: `ranting_derive` is a `proc-macro = true` crate and can only export `#[proc_macro]` items, so `ranting` could not call its compile-time verb conjugation functions at runtime. Resolved by making `src/language/verb_conjugate.rs` (repo root) canonical and having `ranting_derive` consume a build-time-generated copy — the inverse of the `english_shared.rs` direction (see CLAUDE.md).
-   - ⏳ Runtime viewpoint selection: narrate in first/second/third person regardless of entity's `subject` field — not yet implemented; touches `inflect_verb`/`inflect_subjective`/`inflect_objective`/`inflect_possesive`/`pluralize_pronoun` and needs a decision on scoping the override to the focal entity only.
+   - ✅ Runtime viewpoint selection: `NarrationContext.narration_person` (`Person::First`/`Second`/`Third`) overrides pronoun set and verb agreement, scoped to nouns declared first-person (`subject` is `"I"`/`"we"`) — the narrator only; other subjects, and other nouns in the same call, pass through unchanged. Third-person rendering falls back to singular "they" (no gender data on a first-person-declared noun to render a gendered pronoun instead); `we`→`Person::Second` renders "you" as a one-way conversion, not round-trippable. See `narration::resolve_viewpoint` in `src/narration.rs` and the CLAUDE.md "Non-obvious behaviors" entry.
    - Backwards-compatible: compile-time markers remain default if context not provided ✅
 
 4. **Narration Context Threading** (12-16 hours) — *Supports feature 3*
@@ -127,7 +127,7 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 | Built-in English rules (extensibility in v1.1) | ✅ v1.0; 🎯 v1.1 | Free functions now; trait methods in v1.1 |
 | Irregular noun plurals codegen | ✅ Complete (v1.1) | Single source of truth: data/irregular_plurals.txt; runtime lookup |
 | Context-aware runtime tense | ✅ Complete | `say_with!(context, ...)` + `NarrationContext`/`Tense`; unblocks Recounting M9 (tense portion) |
-| Context-aware runtime viewpoint | 🎯 v1.1 | Not yet started; see item 3/4 |
+| Context-aware runtime viewpoint | ✅ Complete | `NarrationContext.narration_person` + `Person`; scoped to first-person-declared (`I`/`we`) nouns only; unblocks Recounting M9 (viewpoint portion) |
 | Consolidate english_shared.rs | ✅ Complete | Single canonical copy at src/language/english_shared.rs; ranting_derive/build.rs copies it into OUT_DIR at build time (symlink-dereference fallback for packaged builds) |
 
 ---
