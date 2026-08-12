@@ -56,17 +56,30 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
    - ✅ Full documentation in `docs/EXTENSIBILITY.md` with pirate, Scottish, Spanish examples
    - ✅ 9 integration tests verifying full/partial customization and fallback behavior
 
-3. **Reflexive Forms** (8-12 hours)
+3. **Runtime Tense & Viewpoint Selection** (16-20 hours) — *Blocks Recounting M9*
+   - Runtime tense selection: choose past/present/future at runtime from `StoryState`, not compile-time only
+   - Runtime viewpoint selection: narrate in first/second/third person regardless of entity's `subject` field
+   - Design context-passing mechanism: explicit macro parameter (`say_with!(context, ...)`) vs. trait method vs. thread-local
+   - Enables interactive fiction and game narratives with runtime story perspective switching
+   - Backwards-compatible: compile-time markers remain default if context not provided
+
+4. **Narration Context Threading** (12-16 hours) — *Supports feature 3*
+   - Pass story-wide settings (tense, viewpoint, register, dialect) through `say!()` macro and `Ranting` trait
+   - Design integration point: how context flows from story code through placeholder resolution
+   - Separate `subject` (entity property) from `narration_person` (story setting)
+   - Enable ecosystem forks to customize context behavior
+
+5. **Reflexive Forms** (8-12 hours)
    - Support myself, yourself, himself, herself, itself, ourselves, themselves
    - Case marker integration (e.g., `{~person do}` becomes reflexive pronoun)
    - Completes core pronouns system
 
-4. **Comparative & Superlative Adjectives** (10-16 hours)
+6. **Comparative & Superlative Adjectives** (10-16 hours)
    - Handle degree: good → better → best, bad → worse → worst
    - Marker-based syntax (e.g., `{+person good}` for comparative)
    - Rounds out morphology for richer text generation
 
-5. **Recursive Type Inflection** (12-16 hours)
+7. **Recursive Type Inflection** (12-16 hours)
    - Support collections and nested Ranting types
    - `Vec<Item>` where Item: Ranting, `Option<Person>`, `Box<Noun>`, etc.
    - Use `#[derive(Ranting)]` to generate recursive implementations
@@ -74,6 +87,8 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 ### v1.1 Success Criteria
 - Irregular plurals support for 100+ nouns
 - Trait extensibility API stable and documented
+- Runtime tense & viewpoint selection working (unblocks Recounting M9)
+- Narration context threading designed and integrated
 - Reflexive forms + comparative/superlative working
 - Zero breaking changes from v1.0
 - Community contributions: 2-3 ecosystem forks
@@ -93,7 +108,7 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 - Dialogue formatting with automatic punctuation and breaks
 - Pluralization of entire phrases (not just nouns)
 - Subjunctive mood and hypotheticals
-- Context-aware inflection (formal vs. informal register)
+- Register and dialect specialization (formal vs. informal, archaic, etc.) via context system from v1.1
 - Performance optimizations (cached inflection, const generics)
 
 ---
@@ -111,12 +126,16 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 | Placeholder syntax (full grammar support) | ✅ Locked | Powerful; UX solved via documentation |
 | Built-in English rules (extensibility in v1.1) | ✅ v1.0; 🎯 v1.1 | Free functions now; trait methods in v1.1 |
 | Irregular noun plurals codegen | ✅ Complete (v1.1) | Single source of truth: data/irregular_plurals.txt; runtime lookup |
+| Context-aware runtime tense/viewpoint | 🎯 v1.1 | Unblocks Recounting M9; requires design decision on context threading mechanism |
+| Consolidate english_shared.rs | 🎯 v1.1 | Currently duplicated in src/ and ranting_derive/src/; must merge before shipping runtime features |
 
 ---
 
 ## Risk Mitigation
 
 **Macro Complexity**: Regular refactoring; keep proc-macro logic focused; document architecture.
+
+**Code Consolidation**: `english_shared.rs` is duplicated in both `src/` and `ranting_derive/src/` and has already diverged (noted in CLAUDE.md). This is a silent-bug trap for v1.1 features (runtime tense/viewpoint). Consolidate into a single canonical location BEFORE implementing context threading or new grammar rules.
 
 **Table Maintenance**: Document adding new irregulars; encourage community PRs; keep v1.1 plural tables separate from v1.0 verb tables to avoid corruption.
 
