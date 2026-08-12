@@ -1,0 +1,152 @@
+# Task 2 Review Package
+
+**Commits:** f2d7139 (1 commit)
+**Changed Files:** 1 (src/lib.rs)
+**Changed:** 56 insertions, 10 deletions
+
+## Commit Log
+
+f2d7139 feat: integrate custom inflection hooks into handle_placeholder()
+
+## File Summary
+
+src/lib.rs: +56 insertions, -10 deletions
+
+## Diff
+
+diff --git a/src/lib.rs b/src/lib.rs
+index 5ea30c9..812ba8d 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -146,28 +146,46 @@ pub use ranting_derive::boxed_ranting_trait;
+ /// If you want to implement Ranting on a `&'_ dyn Trait` where Trait has Ranting
+ pub use ranting_derive::ref_ranting_trait;
+ 
+ fn get_article_or_so<R>(noun: &R, s: &str, space: &str, as_pl: bool, uc: bool) -> Option<String>
+ where
+     R: Ranting,
+ {
+     if noun.skip_article() && !s.starts_with('!') && !matches!(s, "these" | "those") {
+         return Some("".to_string());
+     }
+-    match s.trim_start_matches('!') {
+-        "the" => Some(uc_1st_if(s, uc)),
++    let article_form = s.trim_start_matches('!');
++    match article_form {
++        "the" => {
++            if let Some(custom) = noun.inflect_article_custom("the", &noun.name(false), as_pl, uc) {
++                Some(custom)
++            } else {
++                Some(uc_1st_if(s, uc))
++            }
++        }
+         "a" | "an" | "some" => {
+             let singular = noun.inflect(false, false);
+-            let a_or_an = uc_1st_if(get_a_or_an(&singular), uc);
+-            Some(ranting::adapt_article(&a_or_an, s, space, as_pl, uc))
++            if let Some(custom) = noun.inflect_article_custom(article_form, &singular, as_pl, uc) {
++                Some(custom)
++            } else {
++                let a_or_an = uc_1st_if(get_a_or_an(&singular), uc);
++                Some(ranting::adapt_article(&a_or_an, s, space, as_pl, uc))
++            }
++        }
++        "these" | "those" => {
++            let singular = noun.inflect(false, false);
++            if let Some(custom) = noun.inflect_article_custom(article_form, &singular, as_pl, uc) {
++                Some(custom)
++            } else {
++                Some(ranting::adapt_article(s, s, space, as_pl, uc))
++            }
+         }
+-        "these" | "those" => Some(ranting::adapt_article(s, s, space, as_pl, uc)),
+         _ => None,
+     }
+ }
+ 
+ /// The say macro parses placeholders and passes captures to this function which returns a string.
+ pub fn handle_placeholder<R>(
+     noun: &R,
+     poss: String,
+     nr: String,
+     mut uc: bool,
+@@ -208,21 +226,25 @@ where
+ 
+     // This may be an article or certain verbs that can occur before the noun:
+     if !pre.is_empty() {
+         let p = pre.to_lowercase();
+         if let Some(a) = get_article_or_so(noun, p.as_str(), space, as_pl, uc) {
+             res.push_str(&a);
+         } else if has_possesive {
+             res.push_str(&uc_1st_if(pre, uc));
+         } else {
+             assert!(post.is_empty(), "verb before and after?");
+-            let verb = inflect_verb(subjective, p.as_str(), as_pl, uc);
++            let verb = if let Some(custom) = noun.inflect_verb_custom(subjective, p.as_str(), as_pl, uc) {
++                custom
++            } else {
++                inflect_verb(subjective, p.as_str(), as_pl, uc)
++            };
+             res.push_str(&verb);
+             if !etc1.is_empty() {
+                 let art_space;
+                 (art_space, etc1) =
+                     split_at_find_start(etc1, |c| !c.is_whitespace()).unwrap_or(("", etc1));
+                 res.push_str(art_space);
+                 let s;
+                 (s, etc1) = split_at_find_start(etc1, |c| c.is_whitespace()).unwrap_or((etc1, ""));
+                 if let Some(a) = get_article_or_so(noun, s, space, as_pl, false) {
+                     res.push_str(&a);
+@@ -237,24 +259,48 @@ where
+     }
+     if !plurality.contains('?') {
+         res.push_str(&nr);
+     }
+ 
+     (space, post) = split_at_find_start(post, |c: char| !c.is_whitespace()).unwrap_or(("", post));
+ 
+     if case != "?" {
+         res.push_str(noun_space);
+         let s = match case {
+-            "=" => inflect_subjective(subjective, as_pl, uc),
+-            "@" => inflect_objective(subjective, as_pl, uc),
+-            "`" => inflect_possesive(subjective, as_pl, uc),
+-            "~" => inflect_adjective(subjective, as_pl, uc),
++            "=" => {
++                if let Some(custom) = noun.inflect_pronoun_custom(subjective, PronounCase::Subjective, as_pl, uc) {
++                    custom
++                } else {
++                    inflect_subjective(subjective, as_pl, uc)
++                }
++            }
++            "@" => {
++                if let Some(custom) = noun.inflect_pronoun_custom(subjective, PronounCase::Objective, as_pl, uc) {
++                    custom
++                } else {
++                    inflect_objective(subjective, as_pl, uc)
++                }
++            }
++            "`" => {
++                if let Some(custom) = noun.inflect_pronoun_custom(subjective, PronounCase::PossessiveDeterminer, as_pl, uc) {
++                    custom
++                } else {
++                    inflect_possesive(subjective, as_pl, uc)
++                }
++            }
++            "~" => {
++                if let Some(custom) = noun.inflect_pronoun_custom(subjective, PronounCase::PossessivePronoun, as_pl, uc) {
++                    custom
++                } else {
++                    inflect_adjective(subjective, as_pl, uc)
++                }
++            }
+             _ => noun.inflect(as_pl, uc),
+         };
+         res.push_str(&s);
+         res.push_str(space);
+         uc = false;
+     }
+     let etc2;
+     (etc2, post) = split_at_find_end(post, |c| c.is_whitespace()).unwrap_or(("", post));
+ 
+     res.push_str(etc2);

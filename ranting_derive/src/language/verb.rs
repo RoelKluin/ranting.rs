@@ -39,7 +39,10 @@ pub(crate) fn to_past(verb: &str) -> String {
 pub(crate) fn to_past_participle(verb: &str) -> String {
     let verb_lower = verb.to_lowercase();
 
-    if let Some((_, participle)) = IRREGULAR_PAST_PARTICIPLE.iter().find(|(base, _)| verb_lower == *base) {
+    if let Some((_, participle)) = IRREGULAR_PAST_PARTICIPLE
+        .iter()
+        .find(|(base, _)| verb_lower == *base)
+    {
         return participle.to_string();
     }
 
@@ -61,8 +64,8 @@ pub(crate) fn to_continuous(verb: &str) -> String {
         // Consonant doubling: "run" → "running", "sit" → "sitting"
         let last_char = verb_lower.chars().last().unwrap();
         // Only double true consonants (not y, which acts as a vowel at word end)
-        let is_doubling_consonant = last_char.is_alphabetic()
-            && !matches!(last_char, 'a' | 'e' | 'i' | 'o' | 'u' | 'y');
+        let is_doubling_consonant =
+            last_char.is_alphabetic() && !matches!(last_char, 'a' | 'e' | 'i' | 'o' | 'u' | 'y');
 
         if is_doubling_consonant {
             let chars: Vec<char> = verb_lower.chars().collect();

@@ -33,7 +33,10 @@ impl StrLit {
 
     pub fn to_slice(&self) -> StrLitSlice<'_> {
         // find the position of the opening quote.
-        let quote_position = self.text.find('"').expect("string literal missing opening quote");
+        let quote_position = self
+            .text
+            .find('"')
+            .expect("string literal missing opening quote");
         let prefix_length = quote_position + '"'.len_utf8();
 
         let start = prefix_length;
@@ -73,7 +76,13 @@ impl<'a> StrLitSlice<'a> {
             Unbounded => 0,
         };
         let end = match range.end_bound() {
-            Included(&n) => n + self.text()[n..].chars().next().expect("character at position").len_utf8(),
+            Included(&n) => {
+                n + self.text()[n..]
+                    .chars()
+                    .next()
+                    .expect("character at position")
+                    .len_utf8()
+            }
             Excluded(&n) => n,
             Unbounded => self.range.len(),
         };

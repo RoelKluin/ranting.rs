@@ -382,7 +382,10 @@ fn get_opt_num_ph_expr(p: &str, given: &HashMap<String, Expr>) -> Result<Expr, S
             None => match s.parse::<usize>() {
                 Ok(u) => Err(format!(
                     "positional argument at index {u} not provided (only {} argument(s) given)",
-                    given.iter().filter(|(k, _)| k.parse::<usize>().is_ok()).count()
+                    given
+                        .iter()
+                        .filter(|(k, _)| k.parse::<usize>().is_ok())
+                        .count()
                 )),
                 Err(_) => {
                     // Not a number and not in given arguments - assume it's a variable from local scope
@@ -457,9 +460,8 @@ fn handle_param(
                 let rest = post_trimmed[marker_end..].trim_start();
 
                 // Split verb from any trailing content
-                let (base_verb, trailing) = rest
-                    .split_once(char::is_whitespace)
-                    .unwrap_or((rest, ""));
+                let (base_verb, trailing) =
+                    rest.split_once(char::is_whitespace).unwrap_or((rest, ""));
 
                 let conjugated = match marker {
                     "<" => verb_conjugate::to_past(base_verb),
@@ -476,7 +478,10 @@ fn handle_param(
                 post = if trailing.is_empty() {
                     format!("{}~TENSE~{}:{}", leading_space, marker, conjugated)
                 } else {
-                    format!("{}~TENSE~{}:{} {}", leading_space, marker, conjugated, trailing)
+                    format!(
+                        "{}~TENSE~{}:{} {}",
+                        leading_space, marker, conjugated, trailing
+                    )
                 };
             }
         }

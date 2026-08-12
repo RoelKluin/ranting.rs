@@ -28,7 +28,10 @@ pub(crate) fn get_singular(plural: &str) -> Option<String> {
 /// If original starts with uppercase, return target with first char uppercase.
 /// Otherwise return target lowercase.
 fn apply_case(original: &str, target: &str) -> String {
-    if original.chars().all(|c| !c.is_alphabetic() || c.is_uppercase()) {
+    if original
+        .chars()
+        .all(|c| !c.is_alphabetic() || c.is_uppercase())
+    {
         // All uppercase or no letters
         target.to_uppercase()
     } else if original.chars().next().map_or(false, |c| c.is_uppercase()) {
