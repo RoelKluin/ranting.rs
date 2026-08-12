@@ -449,8 +449,9 @@ fn is_name(noun: &dyn Ranting) -> bool {
 /// # use std::str::FromStr;
 /// # use ranting::*;
 /// # use ranting_derive::*;
+/// // Core attributes: subject, name, singular_end, plural_end
 /// #[derive_ranting]
-/// #[ranting(subject = "you", plural_you = true)]
+/// #[ranting(subject = "you", plural_you = true)]  // plural_you is a cosmetic attribute
 /// struct OpponentTeam {}
 ///
 /// #[derive_ranting]
@@ -473,6 +474,19 @@ fn is_name(noun: &dyn Ranting) -> bool {
 /// ```
 // By overriding functions one can adapt default behavior, which affects the
 // [placeholder](https://docs.rs/ranting_derive/0.2.1/ranting_derive/) behavior.
+//
+// ## Derive Attributes
+//
+// **Core attributes** (required for full functionality):
+// - `subject`: The pronoun (I, you, he, she, it, we, ye, they)
+// - `name`: The display name
+// - `singular_end`: Suffix to strip when singularizing
+// - `plural_end`: Suffix to add when pluralizing (default: "s")
+//
+// **Cosmetic attributes** (optional, affect formatting):
+// - `plural_you`: If subject is "you", whether it refers to plural (default: false)
+// - `uc`: Whether name should always start uppercase (default: false)
+// - `no_article`: Whether to skip articles (default: false)
 pub trait Ranting: std::fmt::Display {
     /// return the name, which is struct name or the `#{ranting(name = "..")]` value, or self.name
     /// if the name attribute was set to "$"
