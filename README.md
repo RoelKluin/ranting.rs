@@ -132,6 +132,31 @@ fn main() {
 - `ack!()` and `nay!()` provide an Ok() / Err() return with a `say!()` formatted string included. Intended for allow or
   deny ranting responses. Not for error handling, because true errors should be easy to search in code.
 
+## Parsing input with `heed!()`
+
+`heed!()` is the reverse direction from `say!()` — matching input text against a template to extract values, in the spirit of C's `scanf`:
+
+```rust
+use ranting::heed;
+
+fn main() {
+    assert_eq!(
+        heed!("take {item}", "take sword"),
+        Some("sword".to_string())
+    );
+    assert_eq!(
+        heed!("give {item} to {target}", "give sword to guard"),
+        Some(("sword".to_string(), "guard".to_string()))
+    );
+    assert_eq!(heed!("take {item}", "drop sword"), None);
+}
+```
+
+- `{name}` captures a single word; `{name...}` captures greedily (multiple words) up to the next literal word or the end of input; `{$name}` captures digits and parses them as a `u64`.
+- Returns `None` if the input doesn't match the template.
+- Two placeholders with nothing but whitespace between them (`"{a}{b}"`) is a compile-time error — there would be no way to know where one capture ends and the next begins.
+- `heed!()` doesn't understand `say!()`'s grammar markers (`=`, `@`, `` ` ``, `~`, tense markers, articles) — it matches plain input text against literal words and named captures only.
+
 - A struct can receive via attributes. **Core attributes** determine how the noun functions grammatically:
   * **subject** ["it"] - the subject pronoun; if "$", the struct must contain a `subject: String` field
   * **name** [Struct or Enum name] - the display name; if "$", the struct must contain a `name: String` field
