@@ -15,20 +15,41 @@ fn string_s() -> String {
 #[derive(FromDeriveInput, Default)]
 #[darling(default, attributes(ranting))]
 pub(crate) struct RantingOptions {
-    // If empty, the struct must contain the subject: SubjectPronoun.
+    // === CORE ATTRIBUTES (Required for full functionality) ===
+
+    // The subject pronoun: "I", "you", "he", "she", "it", "we", "ye", or "they".
+    // If "$", the struct must contain a `subject: String` field.
+    // Default: "it"
     #[darling(default = "string_it")]
     pub(crate) subject: String,
-    // defaults to struct / enum variant name. If "$", the struct must contain a name: String.
+
+    // The display name for the noun. Defaults to struct/enum name.
+    // If "$", the struct must contain a `name: String` field.
     pub(crate) name: String,
-    // pluralize: (singular extension to remove, plural ext to add). Singularize with the inverse.
+
+    // Suffix to strip when singularizing. Empty string means no singularization.
+    // Used in the `inflect()` method to convert plural names to singular form.
     pub(crate) singular_end: String,
+
+    // Suffix to append when pluralizing.
+    // Used in the `inflect()` method to convert singular names to plural form.
+    // Default: "s"
     #[darling(default = "string_s")]
     pub(crate) plural_end: String,
-    // if the subject is "you, whether the subject is plural; default false.
+
+    // === COSMETIC ATTRIBUTES (Optional, affect formatting only) ===
+
+    // If the subject is "you", whether it refers to a plural (default: false, singular).
+    // Determines verb conjugation: "you do" (plural) vs. "you does" (singular, archaic).
     pub(crate) plural_you: bool,
-    // set if name should always be with an upper case. Not required if name is given or in struct.
+
+    // Whether the name should always start with uppercase.
+    // Default: false (respects provided case or applies grammar rules).
     pub(crate) uc: bool,
-    // set if no article should be displayed in most cases (e.g. names, sports or meals)
+
+    // Whether to skip articles in most contexts (e.g., for proper nouns, sports, meals).
+    // If true, `skip_article()` returns true in the Ranting impl.
+    // Default: false (articles are displayed).
     pub(crate) no_article: bool,
 }
 

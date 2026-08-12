@@ -132,16 +132,17 @@ fn main() {
 - `ack!()` and `nay!()` provide an Ok() / Err() return with a `say!()` formatted string included. Intended for allow or
   deny ranting responses. Not for error handling, because true errors should be easy to search in code.
 
-- A struct can receive via attributes:  
-  * subject ["it"] - indicates the pronoun, if "$", the struct is assumed to contain a String 'subject'
-  * name [Struct or Enum name; lowercase] - the display name. when "$' the struct contains a name String.
-  * singular_end [""] - for inflection, what name + singular_end if the plurality is '-'? can also be "$"
-  * plural_end ["s"] - likewise, name end if plurality is '+' or #var != 1.
-  * is_plural [as subject] - if subject is "you", this indicates whether that means plural or not.
-  * uc [false] - indicate if the word should always start with an uppercase.
-  * no_article [false] - indicate that the word should be without article if the article if prepended with a '?'.
-    say!("{?the 0} was great!", activity) // e.g. for activity = tennis with no_article=true.
-    (The latter two do not yet have the "$" variant)
+- A struct can receive via attributes. **Core attributes** determine how the noun functions grammatically:
+  * **subject** ["it"] - the subject pronoun; if "$", the struct must contain a `subject: String` field
+  * **name** [Struct or Enum name] - the display name; if "$", the struct must contain a `name: String` field
+  * **singular_end** [""] - suffix to strip when singularizing (for inflect() method)
+  * **plural_end** ["s"] - suffix to add when pluralizing (for inflect() method)
+  
+  **Cosmetic attributes** (optional) adjust formatting and display behavior:
+  * plural_you [false] - if subject is "you", whether it refers to plural (affects verb conjugation)
+  * uc [false] - whether the name should always start with uppercase (advanced)
+  * no_article [false] - whether to skip articles in most contexts (e.g., for proper nouns or meals; advanced)
+    Example: `say!("{?the 0} was great!", activity)` with `no_article=true` omits "the"
 
 Positional arguments and numeric references are supported, as well as named arguments:
 ```
