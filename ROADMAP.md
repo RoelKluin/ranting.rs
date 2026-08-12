@@ -103,7 +103,7 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 
 **Technical Debt Elimination**:
 - ✅ Verb table duplication → codegen (build.rs + data/irregular_verbs.txt, single source of truth)
-- Pronoun array fragility → HashMap (eliminates index-coupling risk) [Tier 2]
+- ✅ Pronoun array fragility → exhaustive match dispatch (eliminates index-coupling risk) [Tier 2]
 - Derive macro attributes → Rationalize to 4 core (subject, name, singular_end, plural_end) [Tier 2]
 
 **Test Coverage**: Maintain >85%, add property-based tests for verb conjugation rules.
@@ -218,11 +218,12 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 - **v1.0 Effort**: 12-16 hours; eliminates sync bugs
 - **Rationale**: Codegen preferred over external crate for phase-2 tables
 
-### 3. Pronoun Tables → HashMap ⚠️ **SPECIALIST LEAN (60%)**
-**Decision**: Replace fragile index-coupled arrays with HashMap.
-- **Why**: Eliminates silent coupling risk; readability improves; zero measurable performance impact
-- **v1.0 Effort**: 4-8 hours; enables future pronoun additions
-- **Rationale**: Maintainability over micro-optimization
+### 3. Pronoun Tables → HashMap ✅ **COMPLETE (v1.0)**
+**Decision**: Replace fragile index-coupled arrays with exhaustive match dispatch.
+- **Implementation**: Replaced four 9-element pronoun arrays and verb offset-arithmetic with `PronounForms` struct returned from `SubjectPronoun::forms()`, and `IrregularPluralVerb::first_person()`/`::third_person()` methods returning `Option<&'static str>`. This achieves the goal (eliminate silent coupling risk) with compile-time exhaustiveness checking instead of runtime HashMap lookup — every enum variant's mapping to pronoun forms is explicit in one match arm, so inserting a new variant is a compile error if not handled.
+- **Why**: Eliminates silent coupling risk; readability improves; zero runtime overhead (match dispatch compiles to direct branching); compiler enforces completeness
+- **Effort**: ~8 hours; enables future pronoun additions without risk of silent alignment bugs
+- **Status**: ✅ Implemented and tested (all 179 tests passing)
 
 ### 4. Compile-Time vs. Runtime Split ✅ **UNANIMOUS (5/5)**
 **Decision**: Keep hybrid approach (compile-time parsing, runtime inflection).
@@ -321,7 +322,7 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 | Documentation | Tutorial + 10-recipe cookbook | ✅ Complete (docs/TUTORIAL.md, docs/COOKBOOK.md, compiled test suite) |
 | API stability | Zero breaking changes post-v1.0 | Semver locked; versioning strategy established |
 | Tense system | All Phase 2 complete (7 tenses) | Stages 2-4 wired; perfect tenses Stage 4 |
-| Debt elimination | Codegen + HashMap refactors done | ✅ Verb table codegen complete (build.rs, data/irregular_verbs.txt, symlink strategy); HashMap refactor deferred to Tier 2 |
+| Debt elimination | Codegen + match-dispatch refactors done | ✅ Verb table codegen complete (build.rs, data/irregular_verbs.txt, symlink strategy); ✅ Pronoun/article/verb tables → exhaustive match dispatch (PronounForms struct, ArticleOrSo methods, IrregularPluralVerb methods) |
 
 **v1.1 Success Criteria** (8-12 weeks post-v1.0):
 | Metric | Target | Status |

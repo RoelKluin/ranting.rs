@@ -41,11 +41,17 @@ fn recipe_3_interactive_fiction_branching() {
 
     // If the treasure was already found (past action)
     let past_narrative = say!("{=protagonist <discover} chamber. {=protagonist =search} inside.");
-    assert_eq!(past_narrative, "I discovered chamber. I am searching inside.");
+    assert_eq!(
+        past_narrative,
+        "I discovered chamber. I am searching inside."
+    );
 
     // If the treasure will be found (future action)
     let future_narrative = say!("{=protagonist >discover} chamber. {=protagonist =search} inside.");
-    assert_eq!(future_narrative, "I will discover chamber. I am searching inside.");
+    assert_eq!(
+        future_narrative,
+        "I will discover chamber. I am searching inside."
+    );
 }
 
 #[test]
@@ -106,8 +112,13 @@ fn recipe_8_mixed_tense_narrative() {
 
     let protagonist = Noun::new("Sam", "she");
 
-    let story = say!("{=protagonist <arrive} gates. {=protagonist =search} treasure. {=protagonist >find} it.");
-    assert_eq!(story, "She arrived gates. She is searching treasure. She will find it.");
+    let story = say!(
+        "{=protagonist <arrive} gates. {=protagonist =search} treasure. {=protagonist >find} it."
+    );
+    assert_eq!(
+        story,
+        "She arrived gates. She is searching treasure. She will find it."
+    );
 }
 
 #[test]

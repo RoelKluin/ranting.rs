@@ -1,0 +1,116 @@
+number handling changes
+Allow possesive in place of an article. doc updates. version to 0.2.1
+belongs to last patch as well
+add conversion of numbers to words, using `$var' instead of `#var'.
+doc
+clean up and probably fixes something
+clean up
+does not have to be an option
+clean up
+It's not nice to require a odd type as subject in a ranting struct.
+two macros that allow ranting traits in a box or as reference.
+ranting are not skip_article by default. If skip_article the/a/an article is omitted unless prepended with '!'.
+allow to say!("{can a noun} be placeholdered?") - both a verb and an article.
+clean up
+derive link try 2
+Fix links
+Update readme
+Split placeholder handling in a compile time and runtime part. Printing is not hot path.
+isolate capture
+similarly eliminate need to capture etc2
+Eliminate etc1 capture
+Processing all placeholder parts via a single call isn't going to be easy, noun and nr may be numeric placeholders themselves (confusing, I know).
+Sentence hasn't been captured since placeholder was doen in two stages
+Moving error handling for nr numeric placeholder out of bounds exeption upstream.
+Clean up.
+Continuation of whitespace capture along with parts. still tests are fine.
+less captures for whiteespace
+shared English and Roman (languages) code. Split out not-shared code.
+Object is a too laden term.
+It seems the shared source code won't work for publishing. Now using a hard link.
+don't want to see the tags
+version in README was incorrect
+There was a bug in the plural possesive "'" instead of a "'s". comments and added a doc test. incremented version.
+clippy fixes and cleanup
+update ':' to '=' in readme, improve error message in case of placeholder error.
+Replace ':' by '=' for subject, to avoid collision with format part. Accept any placeholder, but error if not conforming to Ranting standard
+split format handling in parts concerning number and generic formating parts
+typos
+external crate Inflector is no longer required.
+use struct name and "it" by default. Ranting derive attributes can be set to change this. if empty, the two are assumed to be part of the struct.
+Never tested the enum variant, that is clear
+use parse_quote! wherever possible
+since the functions are litterally all the same, just quote!
+references require also Ranting trait to be derived or a ranting object cannot be passed by reference or ref mut. Lifetimes are a bit of an issue.
+big cleanup using parse_quote!()
+with Cased and ExtCased, there is no requirement to keep both Upper and lowercase static strings.
+strange bug when using Span::mixed_site(), add a comment
+parts that work
+wut?
+clean
+clean up
+Use an Enum SubjectPronoun, static arrays for pronouns
+When plurality is specified by +/-, resolve any possible placeholder litteral during compilation
+move for shared use
+clean up
+improve PascalCase to spaced case conversion
+using tokens more. The debug feature now debug prints before and after cpnversion
+clean up, use less strings
+rename proc_macro::TokenStream to TokenStream1, as there is also a proc_macro2::TokenStream
+to satisfy cargo publish and remove one warning
+version to 0.1.2 includes a fix for a bug, parsing litint as positional wasn't working as expected
+removed '$', now '*' again behaves as non-mutating (as before) use '<>' to mutate, or with any word in it. fixes for verbs, and tests
+lots of changes
+can't had an error
+version to 0.1.1
+add mut_name function and character markers '*' or '<words>' to handle them. add '$' for the original non-mutating behavior. Update README Rename a_or_an to indefinite_article. The former is only apt for English. fix tests.
+for non-Ranting variable placeholders: keep formatting.
+readme
+improve example in readme, add possesive `'s`.
+improve readme
+Rewrite example.
+typos
+fix
+improve space and etc handling. and fixes
+fix doc test, Ranting enum
+fix links
+one bugfix, somehow missed in last commit?
+some comments
+Attempt to isolate language specific parts
+allow ? for numeric positional noun.
+allow a #<nr> to be a (numeric) positional as well.
+clean up, handle space better.
+backtick retry
+double backtick?
+single backtick
+clean up regex, use backtick instead of single quote. the latter is used in verbs which is troublesome.
+Fixes and add readme_example as test
+Update README.md
+Update README.md
+Update README.md
+Example that better displays the functionality
+update with current placeholder structure
+survives tests
+re-add format. it applies to the number.
+a few fixes
+a lot cleaner
+allow unspecified number, just for plurality. clean up
+several fixes
+renamed article to pre. Verbs may also come before
+update
+renaming. README is still outdated
+progress
+progress
+part still including plurality but its getting too bloated. will remove it in next
+Should not change outcome
+because of clippy
+keeping track of the subject is no longer necessary. Format specifiers are now in use. (there was 'our' before that once required this)
+handle the location of a noun in a sentence to figure out whether an upper case is in place. The formatting specifiers can be used to finetune still.
+`:d` and `:D` suffixes for `there is' or `there are'.
+Mention a limitation to #nr arg.
+Add `:n` and `:N` postfixes and mention #nr prefix that causes iflection of the noun after.
+Update lib.rs
+Create README.md
+add :M for plural (multiple) say!() docs "some" is similar to an article, not to a pronoun.
+There was an issue with repeated referred numeric positional arguments. SayFmt cleanup more complex tests
+Initial commit

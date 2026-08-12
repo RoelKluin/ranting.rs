@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+gvim -p -geometry 158x78+1913+145 ranting_derive/{src/*.rs,Cargo.toml}&
+
+gvim -p -geometry 159x78+0+145 src/{,language/}*.rs Cargo.toml tests/*/*.rs
+
+
+
+echo cargo test
+
+echo "cargo build && target/debug/play"
+
+
+

@@ -1,0 +1,28 @@
+Part 1: Code Analysis
+Understanding the Current Functionality:
+Step 1: Review the Commit History
+
+Start by examining the commit history using git log to understand what changes were made over time.
+Identify key commits that represent major milestones or significant modifications.
+Step 2: Evaluate the Staging Area and Working Directory
+
+Use git status to see uncommitted changes in the working directory and staging area.
+Review added, modified, or deleted files manually or with git diff.
+Step 3: Analyze Code Structure
+
+Explore the file structure and understand the main modules/components.
+Identify key functionalities that are currently implemented.
+Step 4: Test Existing Functionality
+
+Run existing tests if available to see which parts of the codebase work as expected.
+Manually test critical features by running the application or scripts.
+Step 5: Look for TODOs and FIXMEs
+
+Search through the codebase for these markers to identify incomplete sections or known issues.
+Document any comments that explain design decisions or the intended direction of changes.
+Identifying Issues and Inconsistencies:
+Code Quality : Check for consistency in coding style, naming conventions, and overall readability.
+Logical Errors : Look for potential logical errors based on test results and code review.
+Incomplete Features : Identify any features that were started but never completed.
+Performance Bottlenecks : Analyze performance if applicable to see where optimizations might be needed.
+External Dependencies : Ensure all required dependencies are correctly referenced and installed.

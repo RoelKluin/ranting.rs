@@ -17,7 +17,26 @@ pub(super) enum ArticleOrSo {
     Those,
 }
 
-#[derive(EnumString, Copy, Clone)]
+impl ArticleOrSo {
+    fn plural_or_definite(self) -> &'static str {
+        match self {
+            ArticleOrSo::The => "the",
+            ArticleOrSo::A => "some",
+            ArticleOrSo::These => "these",
+            ArticleOrSo::Those => "those",
+        }
+    }
+
+    fn singular_demonstrative(self) -> Option<&'static str> {
+        match self {
+            ArticleOrSo::These => Some("this"),
+            ArticleOrSo::Those => Some("that"),
+            _ => None,
+        }
+    }
+}
+
+#[derive(EnumString, Copy, Clone, PartialEq, Eq)]
 #[strum(serialize_all = "lowercase")]
 pub(super) enum IrregularPluralVerb {
     Are,
@@ -44,10 +63,27 @@ pub(super) enum IrregularPluralVerb {
     Wo, // for won't
 }
 
-static ARTICLE_OR_SO: [&str; 8] = ["the", "some", "these", "those", "a", "an", "this", "that"];
+impl IrregularPluralVerb {
+    fn first_person(self) -> Option<&'static str> {
+        match self {
+            IrregularPluralVerb::Are => Some("am"),
+            IrregularPluralVerb::Were => Some("was"),
+            IrregularPluralVerb::Re => Some("'m"),
+            _ => None,
+        }
+    }
 
-static IRREGULAR_VERBS_1ST: [&str; 4] = ["am", "aint", "was", "'m"];
-static IRREGULAR_VERBS_3RD: [&str; 5] = ["is", "was", "'s", "has", "does"];
+    fn third_person(self) -> Option<&'static str> {
+        match self {
+            IrregularPluralVerb::Are => Some("is"),
+            IrregularPluralVerb::Were => Some("was"),
+            IrregularPluralVerb::Re | IrregularPluralVerb::Ve => Some("'s"),
+            IrregularPluralVerb::Have => Some("has"),
+            IrregularPluralVerb::Do => Some("does"),
+            _ => None,
+        }
+    }
+}
 
 /// Given a subject and a verb, inflect it and to_upper() as specified.
 pub(crate) fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> String {
@@ -59,19 +95,20 @@ pub(crate) fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool)
 
     match pluralize_pronoun(subject, as_plural) {
         "I" => {
-            match IrregularPluralVerb::from_str(s) {
-                Ok(IrregularPluralVerb::Are) if ext != "n't" => s = IRREGULAR_VERBS_1ST[0],
-                Ok(e) => s = IRREGULAR_VERBS_1ST.get((e as usize) + 1).unwrap_or(&s),
-                _ => {}
+            if let Ok(verb_enum) = IrregularPluralVerb::from_str(s)
+                && let Some(form) = verb_enum.first_person()
+            {
+                s = form;
             }
             uc_1st_if(s, uc) + ext
         }
         "he" | "she" | "it" => {
-            if let Ok(mut val) = IrregularPluralVerb::from_str(s).map(|e| e as usize) {
-                if val >= IrregularPluralVerb::Ve as usize {
-                    val -= 1;
+            if let Ok(verb_enum) = IrregularPluralVerb::from_str(s) {
+                if let Some(form) = verb_enum.third_person() {
+                    return uc_1st_if(form, uc) + ext;
                 }
-                uc_1st_if(IRREGULAR_VERBS_3RD.get(val).unwrap_or(&s), uc) + ext
+                // Modal verb not in irregular table — return unchanged
+                uc_1st_if(s, uc) + ext
             } else if super::verb::detect_tense(s) != super::verb::Tense::Present {
                 // Verb is past or continuous (e.g., "walked", "running") — return as-is
                 uc_1st_if(s, uc) + ext
@@ -101,12 +138,14 @@ pub(crate) fn adapt_article(
     if s.is_empty() {
         s.to_string()
     } else {
-        let art = match ArticleOrSo::from_str(requested)
-            .expect("requested string should be a valid article")
-        {
-            t if t == ArticleOrSo::The || as_plural => ARTICLE_OR_SO[t as usize],
-            ArticleOrSo::A => s,
-            t => ARTICLE_OR_SO[(t as usize) + 4],
+        let t =
+            ArticleOrSo::from_str(requested).expect("requested string should be a valid article");
+        let art = if t == ArticleOrSo::The || as_plural {
+            t.plural_or_definite()
+        } else if t == ArticleOrSo::A {
+            s
+        } else {
+            t.singular_demonstrative().unwrap_or(s)
         };
         uc_1st_if(art, uc) + ws
     }
@@ -133,25 +172,100 @@ pub(crate) fn pluralize_pronoun(subject: &str, as_plural: bool) -> &str {
     }
 }
 
+struct PronounForms {
+    subjective: &'static str,
+    objective: &'static str,
+    possessive: &'static str,
+    adjective: &'static str,
+}
+
+impl SubjectPronoun {
+    fn forms(self) -> PronounForms {
+        use SubjectPronoun::*;
+        match self {
+            I => PronounForms {
+                subjective: "I",
+                objective: "me",
+                possessive: "my",
+                adjective: "mine",
+            },
+            You => PronounForms {
+                subjective: "you",
+                objective: "you",
+                possessive: "your",
+                adjective: "yours",
+            },
+            Thou => PronounForms {
+                subjective: "thou",
+                objective: "thee",
+                possessive: "thy",
+                adjective: "thine",
+            },
+            He => PronounForms {
+                subjective: "he",
+                objective: "him",
+                possessive: "his",
+                adjective: "his",
+            },
+            She => PronounForms {
+                subjective: "she",
+                objective: "her",
+                possessive: "her",
+                adjective: "hers",
+            },
+            It => PronounForms {
+                subjective: "it",
+                objective: "it",
+                possessive: "its",
+                adjective: "its",
+            },
+            We => PronounForms {
+                subjective: "we",
+                objective: "us",
+                possessive: "our",
+                adjective: "ours",
+            },
+            Ye => PronounForms {
+                subjective: "ye",
+                objective: "you",
+                possessive: "your",
+                adjective: "yours",
+            },
+            They => PronounForms {
+                subjective: "they",
+                objective: "them",
+                possessive: "their",
+                adjective: "theirs",
+            },
+        }
+    }
+}
+
 /// Inflect possesive pronoun as to_plural indicates. The first character capitalized with uc set.
 pub(crate) fn inflect_adjective(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
-    let nr = SubjectPronoun::from_str(pluralized).expect("Not a subject") as usize;
-    uc_1st_if(ADJECTIVE_PRONOUN[nr], uc)
+    let forms = SubjectPronoun::from_str(pluralized)
+        .expect("Not a subject")
+        .forms();
+    uc_1st_if(forms.adjective, uc)
 }
 
 /// singular-/pluralize subjective with as to_plural and set uc to capitalize first character
 pub(crate) fn inflect_subjective(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
-    let nr = SubjectPronoun::from_str(pluralized).expect("Not a subject") as usize;
-    uc_1st_if(SUBJECTIVE_PRONOUN[nr], uc)
+    let forms = SubjectPronoun::from_str(pluralized)
+        .expect("Not a subject")
+        .forms();
+    uc_1st_if(forms.subjective, uc)
 }
 
 /// Inflect objective pronoun as to_plural indicates. The first character capitalized with uc set.
 pub(crate) fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
-    let nr = SubjectPronoun::from_str(pluralized).expect("Not a subject") as usize;
-    uc_1st_if(OBJECTIVE_PRONOUN[nr], uc)
+    let forms = SubjectPronoun::from_str(pluralized)
+        .expect("Not a subject")
+        .forms();
+    uc_1st_if(forms.objective, uc)
 }
 
 /// Inflect possesive pronoun as to_plural indicates. The first character capitalized with uc set.
@@ -170,22 +284,11 @@ pub(crate) fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> Str
 /// ```
 pub fn inflect_possesive(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
-    let nr = SubjectPronoun::from_str(pluralized).expect("Not a subject") as usize;
-    uc_1st_if(POSSESIVE_PRONOUN[nr], uc)
+    let forms = SubjectPronoun::from_str(pluralized)
+        .expect("Not a subject")
+        .forms();
+    uc_1st_if(forms.possessive, uc)
 }
-
-static OBJECTIVE_PRONOUN: [&str; 9] =
-    ["me", "you", "thee", "him", "her", "it", "us", "you", "them"];
-
-static POSSESIVE_PRONOUN: [&str; 9] = [
-    "my", "your", "thy", "his", "her", "its", "our", "your", "their",
-];
-
-static ADJECTIVE_PRONOUN: [&str; 9] = [
-    "mine", "yours", "thine", "his", "hers", "its", "ours", "yours", "theirs",
-];
-
-static SUBJECTIVE_PRONOUN: [&str; 9] = ["I", "you", "thou", "he", "she", "it", "we", "ye", "they"];
 
 #[cfg(test)]
 mod tests {
