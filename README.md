@@ -7,6 +7,8 @@ Ranting&ensp;╰(°Д°)/
 
 This library provides [`Ranting`](https://docs.rs/ranting/0.2.1/ranting/trait.Ranting.html), a trait for inflection within [`say!()`](https://docs.rs/ranting_derive/0.2.1/ranting_derive/macro.say.html) litteral string placeholders.
 
+**New to Ranting?** Start with the [**Tutorial**](docs/TUTORIAL.md) (30-40 min read) or jump to the [**Cookbook**](docs/COOKBOOK.md) (10 practical recipes).
+
 ```toml
 [dependencies]
 ranting = "0.2"
@@ -141,16 +143,15 @@ fn main() {
     say!("{?the 0} was great!", activity) // e.g. for activity = tennis with no_article=true.
     (The latter two do not yet have the "$" variant)
 
-Positional argument and numeric references are supported, but named arguments or empty arguments are not, currecntly.
+Positional arguments and numeric references are supported, as well as named arguments:
 ```
 fn main() {
     let thing = Noun::new("thing", "it");
 
     assert_eq!(say!("this is {=thing}."), "this is it.".to_string());
     assert_eq!(say!("this is {=0}.", thing), "this is it.".to_string());
-
-    // won't work:
-    //assert_eq!("{}", say!("this is {=x}.", x = thing), "this is it.".to_string());
-    //assert_eq!("{}", say!("this is {=}.", thing), "this is it.".to_string());
+    
+    // Named arguments also work:
+    assert_eq!(say!("this is {=x}.", x = thing), "this is it.".to_string());
 }
 ```
