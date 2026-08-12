@@ -267,11 +267,11 @@ where
                 // Check for tense marker encoding: ~TENSE~MARKER:CONJUGATED
                 if let Some(remainder) = v.strip_prefix("~TENSE~") {
                     if let Some((marker_part, conjugated_verb)) = remainder.split_once(':') {
-                        if let Some(marker_char) = marker_part.chars().next() {
+                        if !marker_part.is_empty() {
                             let (conjugated, trailing) = conjugated_verb
                                 .split_once(' ')
                                 .unwrap_or((conjugated_verb, ""));
-                            let tense_result = handle_tense_marker(subjective, marker_char, conjugated);
+                            let tense_result = handle_tense_marker(subjective, marker_part, conjugated);
                             if uc {
                                 let mut chars = tense_result.chars();
                                 if let Some(first) = chars.next() {
@@ -320,22 +320,27 @@ where
 ///
 /// A string containing the auxiliary verb + main verb combination (e.g., "will walk", "is running")
 #[doc(hidden)]
-pub fn handle_tense_marker(subject: &str, marker: char, verb: &str) -> String {
+pub fn handle_tense_marker(subject: &str, marker: &str, verb: &str) -> String {
     use language::auxiliary::{conjugate_auxiliary, AuxiliaryVerb};
 
     match marker {
-        '<' => {
+        "<" => {
             // Past tense: subject + past verb (no auxiliary needed)
             verb.to_string()
         }
-        '=' => {
+        "=" => {
             // Continuous present: subject + is/are + gerund
             let aux = conjugate_auxiliary(AuxiliaryVerb::IsAre, subject);
             format!("{} {}", aux, verb)
         }
-        '>' => {
+        ">" => {
             // Future: subject + will + base verb
             let aux = conjugate_auxiliary(AuxiliaryVerb::Will, subject);
+            format!("{} {}", aux, verb)
+        }
+        "<=" => {
+            // Past continuous: subject + was/were + gerund
+            let aux = conjugate_auxiliary(AuxiliaryVerb::WasWere, subject);
             format!("{} {}", aux, verb)
         }
         _ => verb.to_string(),
