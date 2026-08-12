@@ -65,6 +65,18 @@ pub fn ask(input: TokenStream1) -> TokenStream1 {
     tokens.into()
 }
 
+/// heed!(template, input) matches `input` against `template` — literal
+/// words plus `{name}` (single token), `{name...}` (greedy, until the next
+/// literal or end of input), and `{$name}` (digits, parsed to u64) captures
+/// — returning `None` on no match, or the captured value(s) on match: bare
+/// for 0/1 captures, a tuple for 2+, matching say!()'s positional style.
+#[proc_macro]
+pub fn heed(input: TokenStream1) -> TokenStream1 {
+    let output = parse_macro_input!(input as heed::Heed);
+    let tokens: TokenStream = parse_quote!(#output);
+    tokens.into()
+}
+
 fn parse_str_params(
     lit: StrLit,
     params_in: HashMap<String, Expr>,
