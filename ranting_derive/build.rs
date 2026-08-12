@@ -13,6 +13,7 @@ fn main() -> io::Result<()> {
     generate_verbs_table(&manifest_dir)?;
     generate_plurals_table(&manifest_dir)?;
     copy_english_shared(&manifest_dir)?;
+    copy_verb_conjugate(&manifest_dir)?;
 
     Ok(())
 }
@@ -158,6 +159,47 @@ fn copy_english_shared(manifest_dir: &str) -> io::Result<()> {
 
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
     let output_path = PathBuf::from(&out_dir).join("english_shared_generated.rs");
+
+    fs::copy(&source_file, &output_path)?;
+
+    Ok(())
+}
+
+/// Locate the canonical `verb_conjugate.rs`, single source of truth for verb
+/// conjugation (to_past/to_continuous/to_future/to_past_participle), shared
+/// between `ranting_derive` (compile-time say!() literal baking) and `ranting`
+/// (runtime say_with!() tense resolution). Same dev/package fallback as
+/// find_english_shared_file.
+fn find_verb_conjugate_file(manifest_dir: &str) -> PathBuf {
+    let dev_path = PathBuf::from(manifest_dir)
+        .parent()
+        .expect("parent dir")
+        .join("src/language/verb_conjugate.rs");
+
+    let pkg_path = PathBuf::from(manifest_dir).join("data/verb_conjugate_source.rs");
+
+    if dev_path.exists() {
+        dev_path
+    } else if pkg_path.exists() {
+        pkg_path
+    } else {
+        panic!(
+            "Could not find verb_conjugate.rs at {} or {}",
+            dev_path.display(),
+            pkg_path.display()
+        );
+    }
+}
+
+/// Copy the canonical `verb_conjugate.rs` into `OUT_DIR` so
+/// `ranting_derive/src/language/verb_conjugate.rs` can `include!()` it,
+/// instead of keeping a manually-synced duplicate.
+fn copy_verb_conjugate(manifest_dir: &str) -> io::Result<()> {
+    let source_file = find_verb_conjugate_file(manifest_dir);
+    println!("cargo:rerun-if-changed={}", source_file.display());
+
+    let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
+    let output_path = PathBuf::from(&out_dir).join("verb_conjugate_generated.rs");
 
     fs::copy(&source_file, &output_path)?;
 

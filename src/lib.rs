@@ -30,8 +30,11 @@
 extern crate self as ranting;
 
 mod language;
+mod narration;
 use lazy_static::lazy_static;
 use regex::Regex;
+
+pub use narration::{NarrationContext, Tense};
 
 #[doc(hidden)]
 pub use english_numbers::convert_no_fmt as rant_convert_numbers;
@@ -219,8 +222,40 @@ pub fn handle_placeholder<R>(
     noun: &R,
     poss: String,
     nr: String,
+    uc: bool,
+    caps: [&str; 5],
+) -> String
+where
+    R: Ranting,
+{
+    handle_placeholder_impl(noun, poss, nr, uc, caps, None)
+}
+
+/// Like [`handle_placeholder`], but resolves `~TENSE~` markers against a runtime
+/// [`NarrationContext`] instead of the compile-time marker alone. The say_with!()
+/// macro parses placeholders and passes captures to this function.
+#[doc(hidden)]
+pub fn handle_placeholder_with_context<R>(
+    noun: &R,
+    poss: String,
+    nr: String,
+    uc: bool,
+    caps: [&str; 5],
+    ctx: &NarrationContext,
+) -> String
+where
+    R: Ranting,
+{
+    handle_placeholder_impl(noun, poss, nr, uc, caps, Some(ctx))
+}
+
+fn handle_placeholder_impl<R>(
+    noun: &R,
+    poss: String,
+    nr: String,
     mut uc: bool,
     caps: [&str; 5],
+    ctx: Option<&NarrationContext>,
 ) -> String
 where
     R: Ranting,
@@ -351,27 +386,62 @@ where
                 res.push_str(adapt_possesive_s(noun, as_pl));
             }
             v => {
-                // Check for tense marker encoding: ~TENSE~MARKER:CONJUGATED
+                // Check for tense marker encoding: ~TENSE~MARKER:WORD
+                // (say!() bakes WORD already conjugated; say_with!() bakes the base
+                // verb so it can be re-resolved here against a runtime NarrationContext.)
                 if let Some(remainder) = v.strip_prefix("~TENSE~") {
-                    if let Some((marker_part, conjugated_verb)) = remainder.split_once(':') {
+                    if let Some((marker_part, word)) = remainder.split_once(':') {
                         if !marker_part.is_empty() {
-                            let (conjugated, trailing) = conjugated_verb
-                                .split_once(' ')
-                                .unwrap_or((conjugated_verb, ""));
-                            // The macro already conjugated the main verb, so the English
-                            // fallback would inflect it twice ("will walks"). Offer the hook
-                            // the conjugated form and keep it verbatim when it declines.
-                            // uc is applied to the composed result below, not here.
-                            let main_verb = noun
-                                .inflect_verb_custom(
-                                    subjective,
-                                    conjugated,
-                                    !singular_post_verb && as_pl,
-                                    false,
-                                )
-                                .unwrap_or_else(|| conjugated.to_string());
-                            let tense_result =
-                                handle_tense_marker(subjective, marker_part, &main_verb);
+                            let (word, trailing) = word.split_once(' ').unwrap_or((word, ""));
+                            let tense_result = match ctx {
+                                None => {
+                                    // say!(): word is already the compile-time-conjugated
+                                    // form. The English fallback would inflect it twice
+                                    // ("will walks"), so offer the hook the conjugated
+                                    // form and keep it verbatim when it declines.
+                                    let main_verb = noun
+                                        .inflect_verb_custom(
+                                            subjective,
+                                            word,
+                                            !singular_post_verb && as_pl,
+                                            false,
+                                        )
+                                        .unwrap_or_else(|| word.to_string());
+                                    handle_tense_marker(subjective, marker_part, &main_verb)
+                                }
+                                Some(narration_ctx) => {
+                                    // say_with!(): word is the uninflected base verb;
+                                    // resolve per the runtime context, falling back to
+                                    // the compile-time marker's default tense.
+                                    let (marker, base_form) = match narration_ctx.tense {
+                                        Some(t) => narration::marker_and_form_for_tense(t, word),
+                                        None => (
+                                            marker_part,
+                                            narration::form_for_marker(marker_part, word),
+                                        ),
+                                    };
+                                    if marker.is_empty() {
+                                        // Present tense: plain subject-verb agreement, no auxiliary.
+                                        conjugate_verb(
+                                            noun,
+                                            subjective,
+                                            &base_form,
+                                            !singular_post_verb && as_pl,
+                                            false,
+                                        )
+                                    } else {
+                                        let main_verb = noun
+                                            .inflect_verb_custom(
+                                                subjective,
+                                                &base_form,
+                                                !singular_post_verb && as_pl,
+                                                false,
+                                            )
+                                            .unwrap_or(base_form);
+                                        handle_tense_marker(subjective, marker, &main_verb)
+                                    }
+                                }
+                            };
                             if uc {
                                 let mut chars = tense_result.chars();
                                 if let Some(first) = chars.next() {

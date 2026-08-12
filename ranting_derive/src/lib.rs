@@ -46,6 +46,16 @@ pub fn say(input: TokenStream1) -> TokenStream1 {
     tokens.into()
 }
 
+/// say_with!(context, "fmt", args...) is like say!() but resolves `<`, `=`, `>`,
+/// `<=`, `%`, `<%` tense markers against a runtime `NarrationContext` (falling
+/// back to the marker's own default tense when the context doesn't override it).
+#[proc_macro]
+pub fn say_with(input: TokenStream1) -> TokenStream1 {
+    let output = parse_macro_input!(input as SayWith);
+    let tokens: TokenStream = parse_quote!(#output);
+    tokens.into()
+}
+
 /// ask!() is a macro that takes an audience and a question string.
 #[proc_macro]
 pub fn ask(input: TokenStream1) -> TokenStream1 {
@@ -57,6 +67,7 @@ pub fn ask(input: TokenStream1) -> TokenStream1 {
 fn parse_str_params(
     lit: StrLit,
     params_in: HashMap<String, Expr>,
+    runtime_tense: bool,
 ) -> syn::Result<(String, Vec<Expr>)> {
     lazy_static! {
         static ref PH: Regex = Regex::new(lang::PH_START).expect("valid placeholder regex");
@@ -102,7 +113,14 @@ fn parse_str_params(
                     .is_some();
                 pre.map_or("", |s| s.as_str()).to_string()
                     + &PHE.replace(ranting.as_str(), |caps: &Captures| {
-                        match handle_param(caps, &params_in, &mut params, at_sentence_start, fmt) {
+                        match handle_param(
+                            caps,
+                            &params_in,
+                            &mut params,
+                            at_sentence_start,
+                            fmt,
+                            runtime_tense,
+                        ) {
                             Ok(s) => s,
                             Err((start, end, msg)) => {
                                 let offs = ranting.start();
@@ -124,6 +142,46 @@ fn parse_str_params(
 struct Say {
     lit_str: String,
     params: Vec<Expr>,
+}
+
+/// say_with!(context, "fmt", args...): like Say, but placeholders with tense
+/// markers bake the base verb instead of a compile-time-conjugated form, so
+/// they can be resolved at runtime against `context: NarrationContext`.
+struct SayWith {
+    context: Expr,
+    say: Say,
+}
+
+impl Parse for SayWith {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if input.is_empty() {
+            return Err(Error::new(Span::mixed_site(), "missing context expression"));
+        }
+        let context = input.parse::<Expr>()?;
+        input.parse::<Token![,]>()?;
+
+        if input.is_empty() {
+            return Err(Error::new(Span::mixed_site(), "missing format string"));
+        }
+        let lit = input.parse::<StrLit>()?;
+        let params_in = parse_params(input)?;
+        let (lit_str, params) = parse_str_params(lit, params_in, true)?;
+        Ok(SayWith {
+            context,
+            say: Say { lit_str, params },
+        })
+    }
+}
+
+impl ToTokens for SayWith {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let context = &self.context;
+        let say = &self.say;
+        *tokens = parse_quote! {{
+            let __ranting_narration_ctx: ranting::NarrationContext = #context;
+            #say
+        }};
+    }
 }
 
 fn ref_expr_ranting_trait(ref_expr: TokenStream) -> TokenStream {
@@ -180,7 +238,7 @@ impl syn::parse::Parse for Ask {
 
         let lit = input.parse::<StrLit>()?;
         let params_in = parse_params(input)?;
-        let (question, params) = parse_str_params(lit, params_in)?;
+        let (question, params) = parse_str_params(lit, params_in, false)?;
         Ok(Ask {
             speaker,
             audience,
@@ -323,7 +381,7 @@ impl Parse for Say {
         let lit = input.parse::<StrLit>()?;
         let params_in = parse_params(input)?;
 
-        let (lit_str, params) = parse_str_params(lit, params_in)?;
+        let (lit_str, params) = parse_str_params(lit, params_in, false)?;
         Ok(Say { lit_str, params })
     }
 }
@@ -351,9 +409,10 @@ impl ToTokens for Say {
             })
             .collect();
 
-        *tokens = parse_quote!(format!(#final_macro_tokens));
+        let format_call: TokenStream = parse_quote!(format!(#final_macro_tokens));
         #[cfg(feature = "debug")]
-        eprintln!("{}", tokens.to_string());
+        eprintln!("{}", format_call.to_string());
+        tokens.extend(format_call);
     }
 }
 
@@ -412,6 +471,7 @@ fn handle_param(
     pos: &mut Vec<Expr>,
     at_sentence_start: bool,
     orig_fmt: &str,
+    runtime_tense: bool,
 ) -> Result<String, (usize, usize, String)> {
     lazy_static! {
         static ref POSS: Regex = Regex::new(r"^((?:.*?\s+)?`)(\w+)\b(.*)$").unwrap();
@@ -463,14 +523,21 @@ fn handle_param(
                 let (base_verb, trailing) =
                     rest.split_once(char::is_whitespace).unwrap_or((rest, ""));
 
-                let conjugated = match marker {
-                    "<" => verb_conjugate::to_past(base_verb),
-                    "=" => verb_conjugate::to_continuous(base_verb),
-                    ">" => verb_conjugate::to_future(base_verb),
-                    "<=" => verb_conjugate::to_continuous(base_verb),
-                    "%" => verb_conjugate::to_past_participle(base_verb),
-                    "<%" => verb_conjugate::to_past_participle(base_verb),
-                    _ => base_verb.to_string(),
+                // say!() bakes the fully-conjugated form (as before); say_with!()
+                // bakes the uninflected base verb so it can be re-resolved at
+                // runtime against a NarrationContext (see handle_placeholder_with_context).
+                let conjugated = if runtime_tense {
+                    base_verb.to_string()
+                } else {
+                    match marker {
+                        "<" => verb_conjugate::to_past(base_verb),
+                        "=" => verb_conjugate::to_continuous(base_verb),
+                        ">" => verb_conjugate::to_future(base_verb),
+                        "<=" => verb_conjugate::to_continuous(base_verb),
+                        "%" => verb_conjugate::to_past_participle(base_verb),
+                        "<%" => verb_conjugate::to_past_participle(base_verb),
+                        _ => base_verb.to_string(),
+                    }
                 };
 
                 // Encode tense marker info with special prefix ~TENSE~MARKER:CONJUGATED
@@ -582,6 +649,10 @@ fn handle_param(
         let expr = get_opt_num_ph_expr(&p, given).map_err(|s| (pre_s, pre_e, s))?;
         poss = parse_quote!(ranting::inflect_possesive(#expr.subjective(), false, #possesive_uc));
     }
-    pos.push(parse_quote!(ranting::handle_placeholder(&#noun, #poss, #nr_expr, #uc, [#pre_string, #plurality, #noun_space, #case, #post])));
+    if runtime_tense {
+        pos.push(parse_quote!(ranting::handle_placeholder_with_context(&#noun, #poss, #nr_expr, #uc, [#pre_string, #plurality, #noun_space, #case, #post], &__ranting_narration_ctx)));
+    } else {
+        pos.push(parse_quote!(ranting::handle_placeholder(&#noun, #poss, #nr_expr, #uc, [#pre_string, #plurality, #noun_space, #case, #post])));
+    }
     Ok(format!("{{{len}{fmt}}}"))
 }
