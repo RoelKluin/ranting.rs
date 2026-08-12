@@ -318,7 +318,7 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 | Test coverage | >85% | ✅ Foundation + proptest coverage (178 tests passing, 10 new property-based tests for conjugation) |
 | GitHub stars | 400+ | Currently ~200; adoption push with v1.0 launch |
 | crates.io downloads | 5k+/month | Adoption signal; tracked post-launch |
-| Documentation | Tutorial + 10-recipe cookbook | Tier 1 priority; 40-60 hrs Week 1-3 |
+| Documentation | Tutorial + 10-recipe cookbook | ✅ Complete (docs/TUTORIAL.md, docs/COOKBOOK.md, compiled test suite) |
 | API stability | Zero breaking changes post-v1.0 | Semver locked; versioning strategy established |
 | Tense system | All Phase 2 complete (7 tenses) | Stages 2-4 wired; perfect tenses Stage 4 |
 | Debt elimination | Codegen + HashMap refactors done | ✅ Verb table codegen complete (build.rs, data/irregular_verbs.txt, symlink strategy); HashMap refactor deferred to Tier 2 |
