@@ -71,7 +71,10 @@ fn get_namefn_for(mut opt: RantingOptions, is_enum: bool) -> TokenStream {
             }
         }
     } else {
-        parse_quote!(std::any::type_name::<Self>().rsplit("::").next().expect("type path has at least one component"))
+        parse_quote!(std::any::type_name::<Self>()
+            .rsplit("::")
+            .next()
+            .expect("type path has at least one component"))
     };
     let mut first_char: TokenStream = parse_quote!(chrs.next());
     if !opt.uc {

@@ -1,0 +1,88 @@
+# Task 4 Fix Round 1 Review Package
+
+**Fix Commits:** 2cdb4a4 (1 commit addressing parameter type documentation)
+**Changed Files:** 1 (docs/EXTENSIBILITY.md)
+
+## Commit Log
+
+2cdb4a4 fix: correct parameter type documentation in EXTENSIBILITY.md
+
+## Diff (fix only)
+
+diff --git a/docs/EXTENSIBILITY.md b/docs/EXTENSIBILITY.md
+index 16bd6d2..3b591d5 100644
+--- a/docs/EXTENSIBILITY.md
++++ b/docs/EXTENSIBILITY.md
+@@ -79,22 +79,22 @@ Customize verb conjugation for any tense, plurality, or person.
+ fn inflect_verb_custom(
+     &self,
+     subject: &str,
+     verb: &str,
+     as_plural: bool,
+     uc: bool,
+ ) -> Option<String>
+ ```
+ 
+ **Parameters:**
+-- `subject` (String): The subject pronoun (e.g., "I", "you", "he", "she", "it", "we", "they")
+-- `verb` (String): The verb to inflect (e.g., "be", "have", "walk")
++- `subject` (&str): The subject pronoun (e.g., "I", "you", "he", "she", "it", "we", "they")
++- `verb` (&str): The verb to inflect (e.g., "be", "have", "walk")
+ - `as_plural` (bool): Whether to conjugate for plural form
+ - `uc` (bool): Whether to uppercase the first character (handle contractions with `uc_1st_if`)
+ 
+ **Return Values:**
+ - `Some(String)`: A custom verb form (used by the macro)
+ - `None`: Use English default conjugation (no overhead)
+ 
+ **Example: Pirate English**
+ 
+ ```rust
+@@ -125,21 +125,21 @@ Customize pronoun forms (subject, object, possessive).
+ fn inflect_pronoun_custom(
+     &self,
+     subject: &str,
+     case: PronounCase,
+     as_plural: bool,
+     uc: bool,
+ ) -> Option<String>
+ ```
+ 
+ **Parameters:**
+-- `subject` (String): The subject pronoun (e.g., "I", "you", "he", "she", "it", "we", "they")
++- `subject` (&str): The subject pronoun (e.g., "I", "you", "he", "she", "it", "we", "they")
+ - `case` (PronounCase): Which pronoun form is requested (see enum below)
+ - `as_plural` (bool): Whether to pluralize the pronoun
+ - `uc` (bool): Whether to uppercase the first character
+ 
+ **`PronounCase` Enum:**
+ ```rust
+ pub enum PronounCase {
+     /// Subject pronouns: I, you, he, she, it, we, they
+     Subjective,
+     /// Object pronouns: me, you, him, her, it, us, them
+@@ -180,22 +180,22 @@ Customize article forms (a/an/the/some/demonstratives).
+ fn inflect_article_custom(
+     &self,
+     article: &str,
+     noun_singular: &str,
+     as_plural: bool,
+     uc: bool,
+ ) -> Option<String>
+ ```
+ 
+ **Parameters:**
+-- `article` (String): The requested article form ("a", "an", "the", "some", "these", "those")
+-- `noun_singular` (String): The singular inflected form of the noun (useful for vowel/gender detection)
++- `article` (&str): The requested article form ("a", "an", "the", "some", "these", "those")
++- `noun_singular` (&str): The singular inflected form of the noun (useful for vowel/gender detection)
+ - `as_plural` (bool): Whether the noun is plural
+ - `uc` (bool): Whether to uppercase the first character
+ 
+ **Return Values:**
+ - `Some(String)`: A custom article form (returned with no trailing space; caller adds spacing)
+ - `None`: Use English default article logic (no overhead)
+ 
+ **Example: Spanish Gendered Articles**
+ 
+ ```rust

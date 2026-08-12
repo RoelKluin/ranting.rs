@@ -25,16 +25,19 @@ fn find_data_file(manifest_dir: &str, filename: &str) -> PathBuf {
         .expect("parent dir")
         .join(format!("data/{}", filename));
 
-    let data_file_pkg = PathBuf::from(manifest_dir)
-        .join(format!("data/{}", filename));
+    let data_file_pkg = PathBuf::from(manifest_dir).join(format!("data/{}", filename));
 
     if data_file_dev.exists() {
         data_file_dev
     } else if data_file_pkg.exists() {
         data_file_pkg
     } else {
-        panic!("Could not find data/{} at {} or {}",
-               filename, data_file_dev.display(), data_file_pkg.display());
+        panic!(
+            "Could not find data/{} at {} or {}",
+            filename,
+            data_file_dev.display(),
+            data_file_pkg.display()
+        );
     }
 }
 
@@ -59,7 +62,10 @@ fn generate_verbs_table(manifest_dir: &str) -> io::Result<()> {
 
         let parts: Vec<&str> = line.split('|').collect();
         if parts.len() != 3 {
-            panic!("Invalid line format (expected base|past|participle): {}", line);
+            panic!(
+                "Invalid line format (expected base|past|participle): {}",
+                line
+            );
         }
 
         let base = parts[0].to_string();

@@ -41,10 +41,10 @@ pub use english_numbers::convert_no_fmt as rant_convert_numbers;
 pub use strum_macros as rant_strum_macros;
 
 use in_definite::get_a_or_an;
-pub use language::english::{inflect_possesive, inflect_noun_irregular};
 use language::english::{
     adapt_article, inflect_adjective, inflect_objective, inflect_subjective, inflect_verb,
 };
+pub use language::english::{inflect_noun_irregular, inflect_possesive};
 pub use language::english_shared::{is_subject, is_subjective_plural};
 
 // TODO: make this a feature:
@@ -157,7 +157,7 @@ where
     match article_form {
         "the" => {
             // Compute singular, falling back to name if inflect panics (for non-standard nouns)
-            use std::panic::{catch_unwind, AssertUnwindSafe};
+            use std::panic::{AssertUnwindSafe, catch_unwind};
             let singular = match catch_unwind(AssertUnwindSafe(|| noun.inflect(false, false))) {
                 Ok(s) => s,
                 Err(_) => noun.name(false),
@@ -239,11 +239,12 @@ where
             res.push_str(&uc_1st_if(pre, uc));
         } else {
             assert!(post.is_empty(), "verb before and after?");
-            let verb = if let Some(custom) = noun.inflect_verb_custom(subjective, p.as_str(), as_pl, uc) {
-                custom
-            } else {
-                inflect_verb(subjective, p.as_str(), as_pl, uc)
-            };
+            let verb =
+                if let Some(custom) = noun.inflect_verb_custom(subjective, p.as_str(), as_pl, uc) {
+                    custom
+                } else {
+                    inflect_verb(subjective, p.as_str(), as_pl, uc)
+                };
             res.push_str(&verb);
             if !etc1.is_empty() {
                 let art_space;
@@ -273,28 +274,42 @@ where
         res.push_str(noun_space);
         let s = match case {
             "=" => {
-                if let Some(custom) = noun.inflect_pronoun_custom(subjective, PronounCase::Subjective, as_pl, uc) {
+                if let Some(custom) =
+                    noun.inflect_pronoun_custom(subjective, PronounCase::Subjective, as_pl, uc)
+                {
                     custom
                 } else {
                     inflect_subjective(subjective, as_pl, uc)
                 }
             }
             "@" => {
-                if let Some(custom) = noun.inflect_pronoun_custom(subjective, PronounCase::Objective, as_pl, uc) {
+                if let Some(custom) =
+                    noun.inflect_pronoun_custom(subjective, PronounCase::Objective, as_pl, uc)
+                {
                     custom
                 } else {
                     inflect_objective(subjective, as_pl, uc)
                 }
             }
             "`" => {
-                if let Some(custom) = noun.inflect_pronoun_custom(subjective, PronounCase::PossessiveDeterminer, as_pl, uc) {
+                if let Some(custom) = noun.inflect_pronoun_custom(
+                    subjective,
+                    PronounCase::PossessiveDeterminer,
+                    as_pl,
+                    uc,
+                ) {
                     custom
                 } else {
                     inflect_possesive(subjective, as_pl, uc)
                 }
             }
             "~" => {
-                if let Some(custom) = noun.inflect_pronoun_custom(subjective, PronounCase::PossessivePronoun, as_pl, uc) {
+                if let Some(custom) = noun.inflect_pronoun_custom(
+                    subjective,
+                    PronounCase::PossessivePronoun,
+                    as_pl,
+                    uc,
+                ) {
                     custom
                 } else {
                     inflect_adjective(subjective, as_pl, uc)

@@ -312,23 +312,41 @@ pub fn inflect_noun_irregular(noun_form: &str, to_plural: bool) -> Option<String
 
 #[cfg(test)]
 mod tests {
-    use ranting::*;
     use super::inflect_noun_irregular;
+    use ranting::*;
 
     #[test]
     fn test_inflect_noun_irregular_plurals() {
         // Test a few common irregular plurals
-        assert_eq!(inflect_noun_irregular("child", true), Some("children".to_string()));
-        assert_eq!(inflect_noun_irregular("person", true), Some("people".to_string()));
-        assert_eq!(inflect_noun_irregular("mouse", true), Some("mice".to_string()));
+        assert_eq!(
+            inflect_noun_irregular("child", true),
+            Some("children".to_string())
+        );
+        assert_eq!(
+            inflect_noun_irregular("person", true),
+            Some("people".to_string())
+        );
+        assert_eq!(
+            inflect_noun_irregular("mouse", true),
+            Some("mice".to_string())
+        );
     }
 
     #[test]
     fn test_inflect_noun_irregular_singulars() {
         // Test reverse lookup
-        assert_eq!(inflect_noun_irregular("children", false), Some("child".to_string()));
-        assert_eq!(inflect_noun_irregular("people", false), Some("person".to_string()));
-        assert_eq!(inflect_noun_irregular("mice", false), Some("mouse".to_string()));
+        assert_eq!(
+            inflect_noun_irregular("children", false),
+            Some("child".to_string())
+        );
+        assert_eq!(
+            inflect_noun_irregular("people", false),
+            Some("person".to_string())
+        );
+        assert_eq!(
+            inflect_noun_irregular("mice", false),
+            Some("mouse".to_string())
+        );
     }
 
     #[test]
