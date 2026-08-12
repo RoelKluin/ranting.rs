@@ -121,18 +121,30 @@ fn get_plurality_fns(opt: &RantingOptions) -> TokenStream {
                 ranting::is_subjective_plural(self.subject.as_str())
             }
             fn inflect(&self, as_plural: bool, uc: bool) -> String {
-                let mut name = self.name(uc);
+                let name = self.name(uc);
                 if as_plural == self.is_plural() {
                     name
                 } else {
                     if as_plural {
-                        name.strip_suffix(#singular_end)
-                            .expect("Ranting implementation error: name is not singular or does not match singular_end attribute").to_string()
-                            + #plural_end
+                        // Try irregular plural lookup first
+                        if let Some(plural) = ranting::inflect_noun_irregular(&name, true) {
+                            ranting::uc_1st_if(&plural, uc)
+                        } else {
+                            // Fall back to regular plural formation
+                            name.strip_suffix(#singular_end)
+                                .expect("Ranting implementation error: name is not singular or does not match singular_end attribute").to_string()
+                                + #plural_end
+                        }
                     } else {
-                        name.strip_suffix(#plural_end)
-                            .expect("Ranting implementation error: name is not plural or does not match plural_end attribute").to_string()
-                            + #singular_end
+                        // Try irregular singular lookup first
+                        if let Some(singular) = ranting::inflect_noun_irregular(&name, false) {
+                            ranting::uc_1st_if(&singular, uc)
+                        } else {
+                            // Fall back to regular singular formation
+                            name.strip_suffix(#plural_end)
+                                .expect("Ranting implementation error: name is not plural or does not match plural_end attribute").to_string()
+                                + #singular_end
+                        }
                     }
                 }
             }
@@ -142,29 +154,37 @@ fn get_plurality_fns(opt: &RantingOptions) -> TokenStream {
             "you" => opt.plural_you,
             _ => language::is_subjective_plural(subject_str),
         };
-        let (name1, name2): (TokenStream, TokenStream) = if is_plural {
-            // action: SayAction, to have a single function that returns strings?
-            (
-                parse_quote!(name),
-                parse_quote!(name.strip_suffix(#plural_end).expect("plural extension mismatch").to_string() + #singular_end),
-            )
-        } else {
-            (
-                parse_quote!(name.strip_suffix(#singular_end).expect("singular extension mismatch").to_string() + #plural_end),
-                parse_quote!(name),
-            )
-        };
         parse_quote! {
             fn is_plural(&self) -> bool { #is_plural }
             fn subjective(&self) -> &str {
                 #subject_str
             }
             fn inflect(&self, as_plural: bool, uc: bool) -> String {
-                let mut name = self.name(uc);
-                if as_plural {
-                    #name1
+                let name = self.name(uc);
+                if as_plural == self.is_plural() {
+                    name
                 } else {
-                    #name2
+                    if as_plural {
+                        // Try irregular plural lookup first
+                        if let Some(plural) = ranting::inflect_noun_irregular(&name, true) {
+                            ranting::uc_1st_if(&plural, uc)
+                        } else {
+                            // Fall back to regular plural formation
+                            name.strip_suffix(#singular_end)
+                                .expect("singular extension mismatch").to_string()
+                                + #plural_end
+                        }
+                    } else {
+                        // Try irregular singular lookup first
+                        if let Some(singular) = ranting::inflect_noun_irregular(&name, false) {
+                            ranting::uc_1st_if(&singular, uc)
+                        } else {
+                            // Fall back to regular singular formation
+                            name.strip_suffix(#plural_end)
+                                .expect("plural extension mismatch").to_string()
+                                + #singular_end
+                        }
+                    }
                 }
             }
         }
