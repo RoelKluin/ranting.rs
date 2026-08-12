@@ -271,7 +271,8 @@ where
                             let (conjugated, trailing) = conjugated_verb
                                 .split_once(' ')
                                 .unwrap_or((conjugated_verb, ""));
-                            let tense_result = handle_tense_marker(subjective, marker_part, conjugated);
+                            let tense_result =
+                                handle_tense_marker(subjective, marker_part, conjugated);
                             if uc {
                                 let mut chars = tense_result.chars();
                                 if let Some(first) = chars.next() {
@@ -287,7 +288,8 @@ where
                             }
                         } else {
                             // Fallback if marker parsing fails
-                            let verb = inflect_verb(subjective, v, !singular_post_verb && as_pl, uc);
+                            let verb =
+                                inflect_verb(subjective, v, !singular_post_verb && as_pl, uc);
                             res.push_str(&verb);
                         }
                     } else {
@@ -321,7 +323,7 @@ where
 /// A string containing the auxiliary verb + main verb combination (e.g., "will walk", "is running")
 #[doc(hidden)]
 pub fn handle_tense_marker(subject: &str, marker: &str, verb: &str) -> String {
-    use language::auxiliary::{conjugate_auxiliary, AuxiliaryVerb};
+    use language::auxiliary::{AuxiliaryVerb, conjugate_auxiliary};
 
     match marker {
         "<" => {

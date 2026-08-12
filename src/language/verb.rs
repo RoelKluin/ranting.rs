@@ -138,10 +138,7 @@ pub(crate) fn detect_tense(verb: &str) -> Tense {
     let verb_lower = verb.to_lowercase();
 
     // Check irregular past table
-    if IRREGULAR_PAST
-        .iter()
-        .any(|(_, past)| verb_lower == *past)
-    {
+    if IRREGULAR_PAST.iter().any(|(_, past)| verb_lower == *past) {
         return Tense::Past;
     }
 
@@ -158,7 +155,6 @@ pub(crate) fn detect_tense(verb: &str) -> Tense {
     // Default to present
     Tense::Present
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -230,5 +226,4 @@ mod tests {
             );
         }
     }
-
 }

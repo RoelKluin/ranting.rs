@@ -101,7 +101,9 @@ pub(crate) fn adapt_article(
     if s.is_empty() {
         s.to_string()
     } else {
-        let art = match ArticleOrSo::from_str(requested).expect("requested string should be a valid article") {
+        let art = match ArticleOrSo::from_str(requested)
+            .expect("requested string should be a valid article")
+        {
             t if t == ArticleOrSo::The || as_plural => ARTICLE_OR_SO[t as usize],
             ArticleOrSo::A => s,
             t => ARTICLE_OR_SO[(t as usize) + 4],

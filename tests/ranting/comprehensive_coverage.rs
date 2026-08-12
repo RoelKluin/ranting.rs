@@ -57,7 +57,11 @@ fn test_article_handling_comprehensive() {
 
     // Test "the" article - "the" is always lowercase in output
     let result1 = say!("{the 0}", singular);
-    assert!(result1.contains("the") || result1.contains("The"), "Got: {}", result1);
+    assert!(
+        result1.contains("the") || result1.contains("The"),
+        "Got: {}",
+        result1
+    );
 
     // Test "a" article
     let result2 = say!("{a 0}", singular);
@@ -163,10 +167,7 @@ fn test_mixed_placeholder_styles() {
     let noun = Noun::new("idea", "it");
 
     // Mix different placeholder types in one string
-    let result = say!(
-        "The {0} and {=0} with {`0} significance.",
-        noun
-    );
+    let result = say!("The {0} and {=0} with {`0} significance.", noun);
     assert!(!result.is_empty());
 }
 

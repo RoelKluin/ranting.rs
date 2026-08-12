@@ -22,7 +22,10 @@ fn test_student_introduction() {
     );
     println!("✓ Student intro: {}", result);
     // Note: pronouns are lowercase when not at sentence start
-    assert!((result.contains("They share") || result.contains("they share")) && result.contains("their"));
+    assert!(
+        (result.contains("They share") || result.contains("they share"))
+            && result.contains("their")
+    );
 }
 
 #[test]
@@ -96,7 +99,10 @@ fn test_pronoun_cases_singular_they() {
     let poss_pron = say!("{~person}", person);
     assert_eq!(poss_pron, "Theirs");
 
-    println!("✓ All pronoun cases for singular they: {} / {} / {} / {}", subj, obj, poss_det, poss_pron);
+    println!(
+        "✓ All pronoun cases for singular they: {} / {} / {} / {}",
+        subj, obj, poss_det, poss_pron
+    );
 }
 
 #[test]
@@ -113,7 +119,10 @@ fn test_verb_conjugation_with_singular_they() {
     let result3 = say!("{=person do}", person);
     assert_eq!(result3, "They do");
 
-    println!("✓ Verb conjugations: {} / {} / {}", result1, result2, result3);
+    println!(
+        "✓ Verb conjugations: {} / {} / {}",
+        result1, result2, result3
+    );
 }
 
 #[test]

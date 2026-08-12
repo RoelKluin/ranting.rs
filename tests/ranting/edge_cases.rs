@@ -7,7 +7,7 @@ use ranting_derive::say;
 fn test_all_pronouns_subject_case() {
     let test_cases = vec![
         ("I", "I"),
-        ("you", "You"),           // Capitalized at sentence start
+        ("you", "You"), // Capitalized at sentence start
         ("thou", "Thou"),
         ("he", "He"),
         ("she", "She"),
@@ -164,9 +164,7 @@ fn test_complex_sentence_structure() {
     let subject = Noun::new("Sam", "they");
     let object = Noun::new("Pat", "it");
 
-    let result = say!(
-        "{=subject have} shown {=object} to {=subject's} friends."
-    );
+    let result = say!("{=subject have} shown {=object} to {=subject's} friends.");
     assert!(!result.is_empty());
 }
 
@@ -186,10 +184,7 @@ fn test_names_with_special_characters() {
 // Edge case: very long names
 #[test]
 fn test_very_long_names() {
-    let long_name = Noun::new(
-        "Alexanderandra Maximilian Cornelius Montgomery III",
-        "he",
-    );
+    let long_name = Noun::new("Alexanderandra Maximilian Cornelius Montgomery III", "he");
     let result = say!("{=0 are} a remarkable person.", long_name);
     assert!(!result.is_empty());
 }

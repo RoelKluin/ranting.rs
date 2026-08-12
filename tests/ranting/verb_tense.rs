@@ -22,24 +22,24 @@ fn test_past_verb_no_spurious_s_regular_walked() {
 fn test_past_verb_no_spurious_s_other_regular() {
     // Other regular past verbs should not get -s suffix
     assert_eq!(say!("{=0 talked}", Noun::new("person", "he")), "He talked");
-    assert_eq!(say!("{=0 wanted}", Noun::new("person", "she")), "She wanted");
+    assert_eq!(
+        say!("{=0 wanted}", Noun::new("person", "she")),
+        "She wanted"
+    );
     assert_eq!(say!("{=0 played}", Noun::new("person", "it")), "It played");
 }
 
 #[test]
 fn test_past_verb_no_spurious_s_third_person() {
     // Test that 3rd-person-singular (he/she/it) doesn't add -s to past tense
-    let test_cases = vec![
-        ("he", "He"),
-        ("she", "She"),
-        ("it", "It"),
-    ];
+    let test_cases = vec![("he", "He"), ("she", "She"), ("it", "It")];
 
     for (pronoun, capitalized) in test_cases {
         let noun = Noun::new("person", pronoun);
         let result = say!("{=0 walked}", noun);
         assert_eq!(
-            result, format!("{} walked", capitalized),
+            result,
+            format!("{} walked", capitalized),
             "Failed for pronoun: {}",
             pronoun
         );
@@ -71,9 +71,18 @@ fn test_continuous_form_walking() {
 #[test]
 fn test_continuous_form_other() {
     // Other continuous forms should not get -s suffix
-    assert_eq!(say!("{=0 running}", Noun::new("person", "he")), "He running");
-    assert_eq!(say!("{=0 talking}", Noun::new("person", "it")), "It talking");
-    assert_eq!(say!("{=0 playing}", Noun::new("person", "she")), "She playing");
+    assert_eq!(
+        say!("{=0 running}", Noun::new("person", "he")),
+        "He running"
+    );
+    assert_eq!(
+        say!("{=0 talking}", Noun::new("person", "it")),
+        "It talking"
+    );
+    assert_eq!(
+        say!("{=0 playing}", Noun::new("person", "she")),
+        "She playing"
+    );
 }
 
 #[test]
@@ -108,7 +117,8 @@ fn test_past_verb_all_pronouns() {
         let noun = Noun::new("person", pronoun);
         let result = say!("{=0 walked}", noun);
         assert_eq!(
-            result, format!("{} walked", capitalized),
+            result,
+            format!("{} walked", capitalized),
             "Failed for pronoun: {}",
             pronoun
         );
@@ -217,7 +227,8 @@ fn tense_markers_all_pronouns() {
         let person = Noun::new("person", pronoun);
         let result = say!("{=0 <walk}", person);
         assert_eq!(
-            result, format!("{} walked", capitalized),
+            result,
+            format!("{} walked", capitalized),
             "Failed for pronoun: {}",
             pronoun
         );
@@ -295,13 +306,34 @@ fn tense_marker_past_continuous_all_pronouns() {
 #[test]
 fn tense_marker_past_continuous_was_were_distinction() {
     // Test that "was" is used for singular (I, he, she, it)
-    assert_eq!(say!("{=0 <=run}", Noun::new("person", "I")), "I was running");
-    assert_eq!(say!("{=0 <=run}", Noun::new("person", "he")), "He was running");
-    assert_eq!(say!("{=0 <=run}", Noun::new("person", "she")), "She was running");
-    assert_eq!(say!("{=0 <=run}", Noun::new("person", "it")), "It was running");
+    assert_eq!(
+        say!("{=0 <=run}", Noun::new("person", "I")),
+        "I was running"
+    );
+    assert_eq!(
+        say!("{=0 <=run}", Noun::new("person", "he")),
+        "He was running"
+    );
+    assert_eq!(
+        say!("{=0 <=run}", Noun::new("person", "she")),
+        "She was running"
+    );
+    assert_eq!(
+        say!("{=0 <=run}", Noun::new("person", "it")),
+        "It was running"
+    );
 
     // Test that "were" is used for plural (you, we, they)
-    assert_eq!(say!("{=0 <=run}", Noun::new("person", "you")), "You were running");
-    assert_eq!(say!("{=0 <=run}", Noun::new("person", "we")), "We were running");
-    assert_eq!(say!("{=0 <=run}", Noun::new("person", "they")), "They were running");
+    assert_eq!(
+        say!("{=0 <=run}", Noun::new("person", "you")),
+        "You were running"
+    );
+    assert_eq!(
+        say!("{=0 <=run}", Noun::new("person", "we")),
+        "We were running"
+    );
+    assert_eq!(
+        say!("{=0 <=run}", Noun::new("person", "they")),
+        "They were running"
+    );
 }
