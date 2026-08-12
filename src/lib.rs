@@ -156,16 +156,22 @@ where
     let article_form = s.trim_start_matches('!');
     match article_form {
         "the" => {
-            if let Some(custom) = noun.inflect_article_custom("the", &noun.name(false), as_pl, uc) {
-                Some(custom)
+            // Compute singular, falling back to name if inflect panics (for non-standard nouns)
+            use std::panic::{catch_unwind, AssertUnwindSafe};
+            let singular = match catch_unwind(AssertUnwindSafe(|| noun.inflect(false, false))) {
+                Ok(s) => s,
+                Err(_) => noun.name(false),
+            };
+            if let Some(custom) = noun.inflect_article_custom("the", &singular, as_pl, uc) {
+                Some(custom + space)
             } else {
-                Some(uc_1st_if(s, uc))
+                Some(uc_1st_if(article_form, uc) + space)
             }
         }
         "a" | "an" | "some" => {
             let singular = noun.inflect(false, false);
             if let Some(custom) = noun.inflect_article_custom(article_form, &singular, as_pl, uc) {
-                Some(custom)
+                Some(custom + space)
             } else {
                 let a_or_an = uc_1st_if(get_a_or_an(&singular), uc);
                 Some(ranting::adapt_article(&a_or_an, s, space, as_pl, uc))
@@ -174,7 +180,7 @@ where
         "these" | "those" => {
             let singular = noun.inflect(false, false);
             if let Some(custom) = noun.inflect_article_custom(article_form, &singular, as_pl, uc) {
-                Some(custom)
+                Some(custom + space)
             } else {
                 Some(ranting::adapt_article(s, s, space, as_pl, uc))
             }
