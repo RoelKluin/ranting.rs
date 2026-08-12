@@ -315,13 +315,13 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 **v1.0 Success Criteria** (4-5 weeks from Design Review):
 | Metric | Target | Status |
 |--------|--------|--------|
-| Test coverage | >85% | Foundation in place; property tests added Week 1 |
+| Test coverage | >85% | ✅ Foundation + proptest coverage (178 tests passing, 10 new property-based tests for conjugation) |
 | GitHub stars | 400+ | Currently ~200; adoption push with v1.0 launch |
 | crates.io downloads | 5k+/month | Adoption signal; tracked post-launch |
 | Documentation | Tutorial + 10-recipe cookbook | Tier 1 priority; 40-60 hrs Week 1-3 |
 | API stability | Zero breaking changes post-v1.0 | Semver locked; versioning strategy established |
 | Tense system | All Phase 2 complete (7 tenses) | Stages 2-4 wired; perfect tenses Stage 4 |
-| Debt elimination | Codegen + HashMap refactors done | Tier 1 work; 16-24 hours Week 1-2 |
+| Debt elimination | Codegen + HashMap refactors done | ✅ Verb table codegen complete (build.rs, data/irregular_verbs.txt, symlink strategy); HashMap refactor deferred to Tier 2 |
 
 **v1.1 Success Criteria** (8-12 weeks post-v1.0):
 | Metric | Target | Status |
