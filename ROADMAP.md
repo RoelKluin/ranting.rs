@@ -75,10 +75,10 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
   - All tense combinations (7 distinct tenses) working end-to-end by v1.0 release
 
 **Irregular Verbs & Plurals** (v1.0 design decision per Specialist Review):
-- ✅ 100+ irregular past-tense verbs in built-in table (go→went, see→saw, take→took, etc.)
+- ✅ 118 irregular past-tense verbs in built-in table (go→went, see→saw, take→took, etc.)
 - ✅ Regular past-tense rules: -ed with phonetic handling (walk→walked, try→tried, like→liked)
-- ✅ **NEW** (~100 entries): Irregular past-participle table (go→gone, do→done, see→seen, etc.) for perfect tenses
-- **v1.0 Debt Elimination**: Verb table duplication (src/ + ranting_derive/src/) eliminated via build.rs + data/verbs.toml codegen
+- ✅ **NEW** (118 entries): Irregular past-participle table (go→gone, do→done, see→seen, etc.) for perfect tenses
+- ✅ **v1.0 Debt Elimination** ✅: Verb table duplication (src/ + ranting_derive/src/) eliminated via build.rs + data/irregular_verbs.txt codegen (symlinked from ranting_derive/data/)
 - ❌ Irregular noun plurals (child→children, person→people) — **v1.1 feature**; planned table-based approach
 - ❌ Custom pluralization rules — **v1.1+**
 - **Strategy**: Built-in English irregulars for all tenses by v1.0; irregular plurals deferred to v1.1 based on adoption feedback
@@ -95,16 +95,16 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 - `{>person}` for comparative, `{>>person}` for superlative (or similar syntax)
 - **Tradeoff**: More complex adjective handling
 
-**Documentation & Adoption** ✅ (Critical for v1.0):
+**Documentation & Adoption** (Critical for v1.0):
 - **Tutorial** ("Getting Started with Ranting"): 5 sections, 5 worked examples, 30-40 min read
 - **Cookbook** (10 recipes): Game dialogue, chatbots, interactive fiction, gender-neutral pronouns, etc.
 - **API docs**: Examples on every public function; cross-references between related features
 - **ROADMAP clarity**: v1.0 scope (all tenses) vs. v1.1 scope (plurals, extensibility) locked in
 
 **Technical Debt Elimination**:
-- ✅ Verb table duplication → codegen (build.rs + data/verbs.toml)
-- ✅ Pronoun array fragility → HashMap (eliminates index-coupling risk)
-- ✅ Derive macro attributes → Rationalize to 4 core (subject, name, singular_end, plural_end)
+- ✅ Verb table duplication → codegen (build.rs + data/irregular_verbs.txt, single source of truth)
+- Pronoun array fragility → HashMap (eliminates index-coupling risk) [Tier 2]
+- Derive macro attributes → Rationalize to 4 core (subject, name, singular_end, plural_end) [Tier 2]
 
 **Test Coverage**: Maintain >85%, add property-based tests for verb conjugation rules.
 
