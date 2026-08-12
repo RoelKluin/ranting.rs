@@ -6,12 +6,17 @@ See @README.md for project overview and API documentation on docs.rs.
 
 ```bash
 cargo test                                  # Run all tests (integration + doctests)
-cargo test --test main                      # Run specific integration test
+cargo test --test ranting                   # Integration tests only (single target "ranting" = tests/ranting/main.rs)
+cargo test --test ranting singular_they     # Single test module/test by name filter
 cargo test --doc                            # Run doctests only
 cargo test --features debug                 # Show compile-time placeholder transforms
 cargo clippy --fix
 cargo fmt
 ```
+
+## Planned restructuring (read before extending the codegen machinery)
+
+ROADMAP.md **Phase 4 (v1.2)** plans to replace the entire code-sharing machinery described below (build.rs copies, `OUT_DIR` generation, `ranting_derive/data/` symlink fallbacks) with a shared `ranting_core` rlib crate that both crates depend on, alongside dependency modernization (syn 2, darling 0.20+, dropping `proc-macro-error`/`lazy_static`, unified strum), a typed macro↔runtime interface replacing `caps: [&str; 5]` and the `~TENSE~` sentinel, and public-API cleanup (including the `inflect_possesive` typo). Don't invest in extending the current copy mechanisms for new shared code — check ROADMAP.md Phase 4 first.
 
 ## Architecture: Two Crates + Shared Code
 
