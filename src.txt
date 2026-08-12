@@ -1,0 +1,921 @@
+file = "src/lib.rs"
+```rust
+// (c) Roel Kluin 2022 GPL v3
+//!
+//! Functions to handle [Ranting](https://docs.rs/ranting_derive/0.2.1/ranting_derive/) trait placeholders.
+//!
+//! ## Feature flags
+#![doc = document_features::document_features!()]
+
+extern crate self as ranting;
+
+mod language;
+use lazy_static::lazy_static;
+use regex::Regex;
+
+#[doc(hidden)]
+pub use english_numbers::convert_no_fmt as rant_convert_numbers;
+
+// required for ranting_derive
+#[doc(hidden)]
+pub use strum_macros as rant_strum_macros;
+
+use in_definite::get_a_or_an;
+pub use language::english::inflect_possesive;
+use language::english::{
+    adapt_article, inflect_adjective, inflect_objective, inflect_subjective, inflect_verb,
+};
+pub use language::english_shared::{is_subject, is_subjective_plural};
+
+// TODO: make this a feature:
+//pub(crate) use strum_macros;
+
+/// A wrapper for `return Ok(say!())`
+///
+/// # Examples
+///
+/// ```rust
+/// # use ranting::{Noun, ack, Ranting};
+/// fn question(harr: Noun, friends: Noun, lad: Noun) -> Result<String, String> {
+///     ack!("{harr shall} {+=friends do} with {the drunken *lad}?");
+/// }
+///
+/// # fn main() {
+/// let harr = Noun::new("what", "it");
+/// let friends = Noun::new("crew", "we");
+/// let lad = Noun::new("sailor", "he");
+///
+/// assert_eq!(
+///     question(harr, friends, lad),
+///     Ok("What shall we do with the drunken sailor?".to_string())
+/// );
+/// # }
+/// ```
+pub use ranting_derive::ack;
+
+/// A wrapper for `return Err(say!())`
+///
+/// # Examples
+///
+/// ```rust
+/// # use ranting::{Noun, nay, Ranting};
+/// fn home(p: Noun) -> Result<String, String> {
+///     nay!("{=p can't} get in {`p} house.")
+/// }
+///
+/// # fn main() {
+/// assert_eq!(
+///     home(Noun::new("Jo", "she")),
+///     Err("She can't get in her house.".to_string())
+/// );
+/// # }
+/// ```
+pub use ranting_derive::nay;
+
+/// Functions like `format!()` for normal placeholders, but allows extended placeholders including
+/// e.g. articles or verbs beside a Noun or a variable with the Ranting trait. These are inflected
+/// accordingly, and adjustable by punctuation prefixes.
+///
+/// # Examples
+///
+/// ```rust
+/// # use ranting::{Noun, say, Ranting};
+/// fn inflect(with: Noun) -> String {
+///     let n = Noun::new("noun", "it");
+///     say!("{some n} with {0} {?n inflect} as {=0}, {@0}, {`0} and {~0}.", with)
+/// }
+///
+/// # fn main() {
+///
+/// assert_eq!(["I", "you", "he", "she", "it", "we", "they"]
+///     .iter()
+///     .map(|s| inflect(Noun::new(format!("subject {s}").as_str(), s)))
+///     .collect::<String>(),
+///     "A noun with subject I inflects as I, me, my and mine.\
+///     A noun with subject you inflects as you, you, your and yours.\
+///     A noun with subject he inflects as he, him, his and his.\
+///     A noun with subject she inflects as she, her, her and hers.\
+///     A noun with subject it inflects as it, it, its and its.\
+///     A noun with subject we inflects as we, us, our and ours.\
+///     A noun with subject they inflects as they, them, their and theirs."
+///     .to_string());
+/// # }
+/// ```
+pub use ranting_derive::say;
+
+/// If you want to implement Ranting on a `Box<&dyn Trait>` where Trait has Ranting
+pub use ranting_derive::boxed_ranting_trait;
+
+/// If you want to implement Ranting on a `&'_ dyn Trait` where Trait has Ranting
+pub use ranting_derive::ref_ranting_trait;
+
+fn get_article_or_so<R>(noun: &R, s: &str, space: &str, as_pl: bool, uc: bool) -> Option<String>
+where
+    R: Ranting,
+{
+    if noun.skip_article() && !s.starts_with('!') && !matches!(s, "these" | "those") {
+        return Some("".to_string());
+    }
+    match s.trim_start_matches('!') {
+        "the" => Some(uc_1st_if(s, uc)),
+        "a" | "an" | "some" => {
+            let singular = noun.inflect(false, false);
+            let a_or_an = uc_1st_if(get_a_or_an(&singular), uc);
+            Some(ranting::adapt_article(&a_or_an, s, space, as_pl, uc))
+        }
+        "these" | "those" => Some(ranting::adapt_article(s, s, space, as_pl, uc)),
+        _ => None,
+    }
+}
+
+/// The say macro parses placeholders and passes captures to this function which returns a string.
+pub fn handle_placeholder<R>(
+    noun: &R,
+    poss: String,
+    nr: String,
+    mut uc: bool,
+    caps: [&str; 5],
+) -> String
+where
+    R: Ranting,
+{
+    lazy_static! {
+        static ref OF: Regex = Regex::new(r"\bof\s+$").unwrap();
+    }
+    let [mut pre, plurality, noun_space, case, mut post] = caps;
+    let has_possesive = pre.contains('`');
+    let singular_post_verb = OF.is_match(pre); // e.g. "{a set of $ten are} still singular"
+
+    let as_pl = match plurality {
+        "" => noun.is_plural(),
+        "+" => true,
+        "-" => false,
+        // A bit hackish but should work also for e.g. 1.0%
+        "#" => nr.trim_start() != "one",
+        _ => {
+            let s = nr.trim_start();
+            s != "1" && s.split('.').next() != Some("1")
+        }
+    };
+    let pre_string = pre.replace('`', poss.as_str());
+
+    let mut space;
+    (pre, space) = split_at_find_end(&pre_string, |c: char| !c.is_whitespace())
+        .unwrap_or((pre_string.as_str(), ""));
+
+    let mut etc1;
+    (pre, etc1) = split_at_find_start(pre, |c| c.is_whitespace()).unwrap_or((pre, ""));
+
+    let subjective = noun.subjective();
+    let mut res = String::new();
+
+    // This may be an article or certain verbs that can occur before the noun:
+    if !pre.is_empty() {
+        let p = pre.to_lowercase();
+        if let Some(a) = get_article_or_so(noun, p.as_str(), space, as_pl, uc) {
+            res.push_str(&a);
+        } else if has_possesive {
+            res.push_str(&uc_1st_if(pre, uc));
+        } else {
+            assert!(post.is_empty(), "verb before and after?");
+            let verb = inflect_verb(subjective, p.as_str(), as_pl, uc);
+            res.push_str(&verb);
+            if !etc1.is_empty() {
+                let art_space;
+                (art_space, etc1) =
+                    split_at_find_start(etc1, |c| !c.is_whitespace()).unwrap_or(("", etc1));
+                res.push_str(art_space);
+                let s;
+                (s, etc1) = split_at_find_start(etc1, |c| c.is_whitespace()).unwrap_or((etc1, ""));
+                if let Some(a) = get_article_or_so(noun, s, space, as_pl, false) {
+                    res.push_str(&a);
+                } else {
+                    res.push_str(s);
+                }
+            }
+        }
+        res.push_str(etc1);
+        res.push_str(space);
+        uc = false;
+    }
+    if !plurality.contains('?') {
+        res.push_str(&nr);
+    }
+
+    (space, post) = split_at_find_start(post, |c: char| !c.is_whitespace()).unwrap_or(("", post));
+
+    if case != "?" {
+        res.push_str(noun_space);
+        let s = match case {
+            "=" => inflect_subjective(subjective, as_pl, uc),
+            "@" => inflect_objective(subjective, as_pl, uc),
+            "`" => inflect_possesive(subjective, as_pl, uc),
+            "~" => inflect_adjective(subjective, as_pl, uc),
+            _ => noun.inflect(as_pl, uc),
+        };
+        res.push_str(&s);
+        res.push_str(space);
+        uc = false;
+    }
+    let etc2;
+    (etc2, post) = split_at_find_end(post, |c| c.is_whitespace()).unwrap_or(("", post));
+
+    res.push_str(etc2);
+    if !post.is_empty() {
+        match post {
+            "'" | "'s" => {
+                res.push_str(adapt_possesive_s(noun, as_pl));
+            }
+            v => {
+                let verb = inflect_verb(subjective, v, !singular_post_verb && as_pl, uc);
+                res.push_str(&verb);
+            }
+        }
+    }
+    res
+}
+
+/// upper cases first character if uc is true, or second in a contraction.
+pub fn uc_1st_if(s: &str, uc: bool) -> String {
+    if uc {
+        let mut c = s.chars();
+        c.next()
+            .map(|t| match t {
+                '\'' => {
+                    t.to_string()
+                        + &c.next()
+                            .map(|c| c.to_uppercase().collect::<String>())
+                            .unwrap_or_default()
+                }
+                _ => t.to_uppercase().collect::<String>(),
+            })
+            .unwrap_or_default()
+            + c.as_str()
+    } else {
+        s.to_string()
+    }
+}
+
+fn split_at_find_start(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
+    s.find(fun).map(|u| s.split_at(u))
+}
+
+fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
+    s.rfind(fun).map(|u| s.split_at(u + 1))
+}
+
+/// Has the Ranting trait. Often you may want to `#[derive(Ranting)]` and sometimes override some
+/// of the trait functions.
+#[derive(ranting_derive::Ranting)]
+// By setting name and subject to "$", these must come from the struct.
+#[ranting(name = "$", subject = "$")]
+pub struct Noun {
+    name: String,
+    subject: String,
+}
+impl Noun {
+    pub fn new(name: &str, subject: &str) -> Self {
+        assert!(is_subject(subject), "not a subject");
+        Noun {
+            name: name.to_string(),
+            subject: subject.to_string(),
+        }
+    }
+}
+
+/// convert to `'s` or `'` as appropriate for singular or plural of a noun.
+///
+/// # Examples
+///
+/// ```rust
+/// # use ranting::*;
+/// # fn main() {
+///
+/// let school = Noun::new("school", "it");
+/// let principal = Noun::new("principal", "she");
+/// let myles = Noun::new("Myles", "he");
+///
+/// assert_eq!(say!("{the school'} {principal are} also {myles'}, but only one of all {the +school's} {+principal} in town."),
+///     "The school's principal is also Myles's, but only one of all the schools' principals in town.".to_string());
+/// # }
+/// ```
+// a combined plural may require some tricks: "The star and cross' design was pattented by Bob."
+fn adapt_possesive_s(noun: &dyn Ranting, asked_plural: bool) -> &str {
+    if asked_plural && !is_name(noun) {
+        "'"
+    } else {
+        "'s"
+    }
+}
+fn is_name(noun: &dyn Ranting) -> bool {
+    noun.name(false)
+        .trim_start_matches('\'')
+        .starts_with(|c: char| c.is_uppercase())
+}
+
+/// The trait required for a struct or enum to function as a noun in a placeholder, derived with `#[derive_ranting]`.
+/// Functions are used in `say!()` placeholders replacements.
+///
+/// # Examples
+///
+/// ```
+/// # use std::str::FromStr;
+/// # use ranting::*;
+/// # use ranting_derive::*;
+/// #[derive_ranting]
+/// #[ranting(subject = "you", plural_you = true)]
+/// struct OpponentTeam {}
+///
+/// #[derive_ranting]
+/// #[ranting(subject = "he")]
+/// struct ChessPlayer {}
+///
+/// fn big_words_to<T: Ranting>(who: T) -> String {
+///     say!("I will grant {@0} {`0} fight, but {=0 are} going to lose today.", who)
+/// }
+///
+/// # fn main() {
+/// let team = OpponentTeam {};
+/// assert_eq!(big_words_to(team),
+///     "I will grant you your fight, but you are going to lose today.");
+///
+/// let magnus = ChessPlayer {};
+/// assert_eq!(big_words_to(magnus),
+///     "I will grant him his fight, but he is going to lose today.");
+/// # }
+/// ```
+// By overriding functions one can adapt default behavior, which affects the
+// [placeholder](https://docs.rs/ranting_derive/0.2.1/ranting_derive/) behavior.
+pub trait Ranting: std::fmt::Display {
+    /// return the name, which is struct name or the `#{ranting(name = "..")]` value, or self.name
+    /// if the name attribute was set to "$"
+    fn name(&self, uc: bool) -> String;
+    /// return the subject: "it" or the `#{ranting(subject = "..")]` value; self.subject if "$".
+    fn subjective(&self) -> &str;
+    /// return if plural (the subject, or if you, the `#{ranting(plural_you = "true/false")]` value,
+    /// default false
+    // if the subject can be "you" in both forms, you may want to override the function.
+    fn is_plural(&self) -> bool;
+    /// return the singular or plural form as configured, starting with capital if uc is set.
+    /// use `#{ranting(singular_end = "..", plural_end = "..")]` if not plural = singular + "s"
+    // if name can change this should be overridden to lookup each singular_end and plural_end:
+    fn inflect(&self, to_plural: bool, uc: bool) -> String;
+    /// If an article is only required when emphasizing, set `#{ranting(no_article = "true")]`,
+    /// and this function will return accordingly (used by placeholders).
+    // examples: Names, languages, elements, food grains, meals (unless particular), sports.
+    // if name can change and sometimes goes without article (e.g. a sport) lookup & override:
+    fn skip_article(&self) -> bool;
+}
+```
+file = "src/language/english.rs"
+```rust
+// (c) Roel Kluin 2022 GPL v3
+//!
+//! Functions used by [Ranting](../ranting_derive/index.html) trait placeholders.
+use super::english_shared::SubjectPronoun;
+use crate::is_subjective_plural;
+use crate::uc_1st_if;
+use std::str::FromStr;
+use strum_macros::EnumString;
+
+#[derive(EnumString, PartialEq, Eq, Copy, Clone)]
+#[strum(serialize_all = "lowercase")]
+pub(super) enum ArticleOrSo {
+    The,
+    #[strum(serialize = "a", serialize = "an", serialize = "some")]
+    A,
+    These,
+    Those,
+}
+
+#[derive(EnumString, Copy, Clone)]
+#[strum(serialize_all = "lowercase")]
+pub(super) enum IrregularPluralVerb {
+    Are,
+    Were,
+    #[strum(serialize = "'re")]
+    Re,
+    #[strum(serialize = "'ve")]
+    Ve,
+    Have,
+    Do,
+    #[strum(serialize = "'d")]
+    D,
+    Had,
+    Could,
+    Would,
+    Should,
+    Might,
+    Must,
+    Can,
+    May,
+    Shall,
+    Will,
+    Ca, // for can't
+    Wo, // for won't
+}
+
+static ARTICLE_OR_SO: [&str; 8] = ["the", "some", "these", "those", "a", "an", "this", "that"];
+
+static IRREGULAR_VERBS_1ST: [&str; 4] = ["am", "aint", "was", "'m"];
+static IRREGULAR_VERBS_3RD: [&str; 5] = ["is", "was", "'s", "has", "does"];
+
+/// Given a subject and a verb, inflect it and to_upper() as specified.
+pub(crate) fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool) -> String {
+    let verb = verb.trim();
+
+    let (mut s, ext) = verb
+        .strip_suffix("n't")
+        .map_or((verb, ""), |start| (start, "n't"));
+
+    match pluralize_pronoun(subject, as_plural) {
+        "I" => {
+            match IrregularPluralVerb::from_str(s) {
+                Ok(IrregularPluralVerb::Are) if ext != "n't" => s = IRREGULAR_VERBS_1ST[0],
+                Ok(e) => s = IRREGULAR_VERBS_1ST.get((e as usize) + 1).unwrap_or(&s),
+                _ => {}
+            }
+            uc_1st_if(s, uc) + ext
+        }
+        "he" | "she" | "it" => {
+            if let Ok(mut val) = IrregularPluralVerb::from_str(s).map(|e| e as usize) {
+                if val >= IrregularPluralVerb::Ve as usize {
+                    val -= 1;
+                }
+                uc_1st_if(IRREGULAR_VERBS_3RD.get(val).unwrap_or(&s), uc) + ext
+            } else if s.ends_with(&['s', 'o', 'x']) || s.ends_with("ch") || s.ends_with("sh") {
+                uc_1st_if(s, uc) + "es"
+            } else if let Some(p) = s
+                .strip_suffix('y')
+                .filter(|p| !p.ends_with(&['a', 'e', 'u', 'o']))
+            {
+                uc_1st_if(p, uc) + "ies"
+            } else {
+                uc_1st_if(s, uc) + "s"
+            }
+        }
+        _ => uc_1st_if(s, uc) + ext,
+    }
+}
+
+/// (for internal use) Given an article, the default, a requested one, inflect and to_upper() it as specified.
+pub(crate) fn adapt_article(
+    s: &str,
+    requested: &str,
+    ws: &str,
+    as_plural: bool,
+    uc: bool,
+) -> String {
+    if s.is_empty() {
+        s.to_string()
+    } else {
+        let art = match ArticleOrSo::from_str(requested).expect("Not an article") {
+            t if t == ArticleOrSo::The || as_plural => ARTICLE_OR_SO[t as usize],
+            ArticleOrSo::A => s,
+            t => ARTICLE_OR_SO[(t as usize) + 4],
+        };
+        uc_1st_if(art, uc) + ws
+    }
+}
+
+/// Inflect a subject pronoun to singular or plural and uppercase first character as indicated
+pub(crate) fn pluralize_pronoun(subject: &str, as_plural: bool) -> &str {
+    if as_plural == is_subjective_plural(subject) {
+        subject
+    } else if as_plural {
+        match subject {
+            "I" => "we",
+            "thou" => "ye",
+            "he" | "she" | "it" => "they",
+            x => x,
+        }
+    } else {
+        match subject {
+            "we" => "I",
+            "ye" => "thou",
+            "they" => "it",
+            x => x,
+        }
+    }
+}
+
+/// Inflect possesive pronoun as to_plural indicates. The first character capitalized with uc set.
+pub(crate) fn inflect_adjective(subject: &str, to_plural: bool, uc: bool) -> String {
+    let pluralized = pluralize_pronoun(subject, to_plural);
+    let nr = SubjectPronoun::from_str(pluralized).expect("Not a subject") as usize;
+    uc_1st_if(ADJECTIVE_PRONOUN[nr], uc)
+}
+
+/// singular-/pluralize subjective with as to_plural and set uc to capitalize first character
+pub(crate) fn inflect_subjective(subject: &str, to_plural: bool, uc: bool) -> String {
+    let pluralized = pluralize_pronoun(subject, to_plural);
+    let nr = SubjectPronoun::from_str(pluralized).expect("Not a subject") as usize;
+    uc_1st_if(SUBJECTIVE_PRONOUN[nr], uc)
+}
+
+/// Inflect objective pronoun as to_plural indicates. The first character capitalized with uc set.
+pub(crate) fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> String {
+    let pluralized = pluralize_pronoun(subject, to_plural);
+    let nr = SubjectPronoun::from_str(pluralized).expect("Not a subject") as usize;
+    uc_1st_if(OBJECTIVE_PRONOUN[nr], uc)
+}
+
+/// Inflect possesive pronoun as to_plural indicates. The first character capitalized with uc set.
+///
+/// # Examples
+///
+/// ```rust
+/// # use ranting::{Noun, say, Ranting};
+/// # fn main() {
+///     let boots = Noun::new("shoe", "it");
+///     let man = Noun::new("Old man", "he");
+///
+/// assert_eq!(say!("{can `man pair of #0 boots remain} singular?", 2),
+///     "Can his pair of two shoes remain singular?".to_string());
+/// # }
+/// ```
+pub fn inflect_possesive(subject: &str, to_plural: bool, uc: bool) -> String {
+    let pluralized = pluralize_pronoun(subject, to_plural);
+    let nr = SubjectPronoun::from_str(pluralized).expect("Not a subject") as usize;
+    uc_1st_if(POSSESIVE_PRONOUN[nr], uc)
+}
+
+static OBJECTIVE_PRONOUN: [&str; 9] =
+    ["me", "you", "thee", "him", "her", "it", "us", "you", "them"];
+
+static POSSESIVE_PRONOUN: [&str; 9] = [
+    "my", "your", "thy", "his", "her", "its", "our", "your", "their",
+];
+
+static ADJECTIVE_PRONOUN: [&str; 9] = [
+    "mine", "yours", "thine", "his", "hers", "its", "ours", "yours", "theirs",
+];
+
+static SUBJECTIVE_PRONOUN: [&str; 9] = ["I", "you", "thou", "he", "she", "it", "we", "ye", "they"];
+
+#[cfg(test)]
+mod tests {
+    use ranting::*;
+    #[test]
+    fn singular_subjective() {
+        for subject in ["I", "you", "thou", "she", "he", "it"].into_iter() {
+            assert!(!is_subjective_plural(subject));
+        }
+    }
+    #[test]
+    fn plural_subjective() {
+        for subject in ["we", "ye", "they"].into_iter() {
+            assert!(is_subjective_plural(subject));
+        }
+    }
+    #[test]
+    fn pluralize_pronoun() {
+        assert_eq!(
+            ["I", "you", "she", "he", "it", "we", "they"]
+                .iter()
+                .map(|s| {
+                    let word = Noun::new(format!("subject {s}").as_str(), s);
+                    say!("{=0 are} - for {0}.", word)
+                })
+                .collect::<String>(),
+            "I am - for subject I.\
+         You are - for subject you.\
+         She is - for subject she.\
+         He is - for subject he.\
+         It is - for subject it.\
+         We are - for subject we.\
+         They are - for subject they."
+                .to_string()
+        );
+    }
+    #[test]
+    fn verbs_allow() {
+        assert_eq!(
+            ["I", "you", "he", "we", "they"]
+                .iter()
+                .map(|s| {
+                    let w = Noun::new("", s);
+                    say!("{=w're} {can ?w} {?w see} {?w may} {do =w}, {=w've}, {=w were}. ")
+                })
+                .collect::<String>(),
+            "I'm can see may do I, I've, I was. \
+     You're can see may do you, you've, you were. \
+     He's can sees may does he, he's, he was. \
+     We're can see may do we, we've, we were. \
+     They're can see may do they, they've, they were. "
+                .to_string()
+        );
+    }
+    #[test]
+    fn verbs_deny() {
+        assert_eq!(
+            ["I", "you", "it", "we", "they"]
+                .iter()
+                .map(|s| {
+                    let w = Noun::new("", s);
+                    say!("{=w don't}, {=w can't}, {=?w won't}, {=?w mustn't}, {=?w haven't}, {=?w weren't}, or {weren't =w}? ")
+                })
+                .collect::<String>(),
+            "I don't, I can't, won't, mustn't, haven't, wasn't, or wasn't I? \
+     You don't, you can't, won't, mustn't, haven't, weren't, or weren't you? \
+     It doesn't, it can't, won't, mustn't, hasn't, wasn't, or wasn't it? \
+     We don't, we can't, won't, mustn't, haven't, weren't, or weren't we? \
+     They don't, they can't, won't, mustn't, haven't, weren't, or weren't they? "
+                .to_string()
+        );
+    }
+    #[test]
+    fn article_or_so() {
+        let ball = Noun::new("ball", "it");
+        assert_eq!(
+            say!("{a 0}, {the 0}, {these 0}, {those 0}", ball),
+            "A ball, the ball, this ball, that ball".to_string()
+        )
+    }
+    #[test]
+    fn upper() {
+        assert_eq!(["I", "you", "she", "they"]
+     .iter()
+     .map(|s| {
+         let w = Noun::new("one", s);
+         say!("{=?w're} {the w}? {=?w'd} say for {`w}self! {=?w've} got here all of {@w}. ")
+        })
+     .collect::<String>(),
+     "'M the one? 'D say for myself! 'Ve got here all of me. \
+     'Re the one? 'D say for yourself! 'Ve got here all of you. \
+     'S the one? 'D say for herself! 'S got here all of her. \
+     'Re the one? 'D say for theirself! 'Ve got here all of them. "
+     .to_string());
+    }
+}
+```
+file = "src/language/english_shared.rs"
+```rust
+// (c) Roel Kluin 2022 GPL v3
+use std::str::FromStr;
+use strum_macros::EnumString;
+
+// sentence always captures: to obtain the placeholder offset.
+#[allow(dead_code)]
+pub(crate) static PH_START: &str =
+    r"(?P<pre>(?:^|[.?!]\s+|\{\{)?+)\{(?:(?P<plain>\w*+)|(?P<ranting>[^{}:]*+))(?P<fmt>:.*?)?\}";
+
+#[derive(EnumString, PartialEq, Eq, Copy, Clone)]
+#[strum(serialize_all = "lowercase")]
+pub enum Article {
+    The,
+    #[strum(serialize = "a", serialize = "an", serialize = "some")]
+    A,
+    #[strum(serialize = "some")]
+    Som
+}
+
+#[derive(EnumString, PartialEq, Eq, Copy, Clone)]
+#[strum(serialize_all = "lowercase")]
+pub enum DemonstrativePronoun {
+    These,
+    Those,
+    Such,
+    No,
+    Neither,
+}
+
+pub enum ArtDemOrPos {
+    Art(Article, bool), // article, visible or not.
+    Dem(DemonstrativePronoun),
+    Pos(&str, bool), // possesive, '(s) or not.
+}
+
+pub enum NrOrCase {
+    Singular,
+    Plural,
+    WordedNr(&str),
+    Nr(&str, bool), // Numeric, visible or not
+}
+
+pub enum Adjects {
+    AndJoined(Vec<&str>), // containing len 0: no adject. If 1 , not and joined. Otherwise comma and then and joined.
+    OrJoined(Vec<&str>),
+}
+
+pub struct ject {
+    oadop: Option<ArtDemOrPos>,
+    onoc: Option<NrOrCase>,
+    adj: Adjects,
+    subj: 
+}
+
+#[allow(dead_code)]
+pub(crate) static STATEMENT: &str = r"^(?x)
+    (?:
+        (?: 
+            (?:\??an?|\??some|\??the|                                                               # article, prepended with question mark if optional
+            th[eo]se|such|no|neither|                                                               # demonstrative pronoun
+            `[\w_]+|                                                                                # possesive pronoun
+            [\w_]+'s?)\                                                                                # possesive with ' or 's
+        )?
+        (?:[+-]|#[\w_]+|\??\$[\w_]+)?                                                               # enforced plural/singular, (worded) number
+        (?:[\w-]+(?,?\ [\w-]+)*\ )?                                                                 # adject(s)
+        [=*]?[\w_]+|                                                                                # subject (pronoun)
+        [\w-]+ing|                                                                                  # finite
+        none|
+        ~[\w_]+|                                                                                    # adjective
+    )
+    (?:,\ .+?,\ )?                                                                                  # subordinate clause
+    (?:\ (?:a[ts]|for|to(?:wards)?|from|in(?:to|side)?|off?|on(?:to)?|by|abo(?:ut|ve|ard)|across|after|against|along(?:side)?|amid|among|around|atop|bar|be(?:fore|low|hind|neath|side|tween|yond)|despite|down|during|(?:un)?like|near|opposite|outside|over|past|pending|per|prior|pro|re|regarding|round|since|than|through(?:out)?|till|under(?:neath)?|until|unto|up|upon|via|with(?:in|out)?)
+        (?:
+            (?: 
+                (?:\??an?|\??some|\??the|                                                           # article, prepended with question mark if optional
+                th[eo]se|such|no|neither|                                                           # demonstrative pronoun
+                `[\w_]+|                                                                            # possesive pronoun
+                \w+'s?)\                                                                            # possesive 's
+            )?
+            (?:[+-]|#[\w_]+|\??\$[\w_]+)?                                                           # enforced plural/singular, (worded) number
+            (?:[\w-]+(?,?\ [\w-]+)*\ )?                                                             # adject(s)
+            [@*]?[\w_]+|                                                                            # objective pronoun or name
+            [\w-]+ing|                                                                              # finite
+            none|
+            ~[\w_]+                                                                                 # adjective
+        )
+        (?:,\ .+?,\ )?                                                                              # subordinate clause
+    )*
+    (?:\ (?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)                                                    # verb
+    (?:
+        (?: 
+            (?:\??an?|\??some|\??the|                                                               # article, prepended with question mark if optional
+            th[eo]se|such|no|neither|                                                               # demonstrative pronoun
+            `[\w_]+|                                                                                # possesive pronoun or worded number
+            \w+'s?)\                                                                                # possesive 's
+        )?
+        (?:[+-]|#[\w_]+|\??\$[\w_]+)?                                                               # enforced plural/singular, (worded) number
+        (?:[\w-]+(?,?\ [\w-]+)*\ )?                                                                 # adject(s)
+        [@*]?[\w_]+|                                                                                # objective pronoun or name
+        [\w-]+ing|                                                                                  # finite
+        none|
+        ~[\w_]+                                                                                     # adjective
+    )
+    (?:,\ .+?,\ )?                                                                                  # subordinate clause
+    (?:\ (?:a[ts]|for|to(?:wards)?|from|in(?:to|side)?|off?|on(?:to)?|by|abo(?:ut|ve|ard)|across|after|against|along(?:side)?|amid|among|around|atop|bar|be(?:fore|low|hind|neath|side|tween|yond)|despite|down|during|(?:un)?like|near|opposite|outside|over|past|pending|per|prior|pro|re|regarding|round|since|than|through(?:out)?|till|under(?:neath)?|until|unto|up|upon|via|with(?:in|out)?)
+        (?:
+            (?: 
+                (?:\??an?|\??some|\??the|                                                           # article, prepended with question mark if optional
+                th[eo]se|such|no|neither|                                                           # demonstrative pronoun
+                `[\w_]+|                                                                            # possesive pronoun or worded number
+                \w+'s?)\                                                                            # possesive 's
+            )?
+            (?:[+-]|#[\w_]+|\??\$[\w_]+)?                                                           # enforced plural/singular, (worded) number
+            (?:[\w-]+(?,?\ [\w-]+)*\ )?                                                             # adject(s)
+            [@*]?[\w_]+|                                                                            # object or adjective
+            [\w-]+ing|                                                                              # finite
+            none|
+            ~[\w_]+                                                                                 # adjective
+        )
+        (?:,\ .+?,\ )?                                                                              # subordinate clause
+    )*$";
+
+
+pub(crate) static INDEFINITE_PRONOUN = "(?:no|any|some|every)(?:body|thing)|(?:no |any|some|every)one";
+
+pub(crate) static DEMONSTRATIVE_PRONOUN = "th[eo]se|such|no|none|neither";
+
+pub(crate) static PREPOSITION = "a[ts]|for|to(?:wards)?|from|in(?:to|side)?|off?|on(?:to)?|by|abo(?:ut|ve|ard)|across|after|against|along(?:side)?|amid|among|around|atop|bar|be(?:fore|low|hind|neath|side|tween|yond)|despite|down|during|(?:un)?like|near|opposite|outside|over|past|pending|per|prior|pro|re|regarding|round|since|than|through(?:out)?|till|under(?:neath)?|until|unto|up|upon|via|with(?:in|out)?"
+
+// "in what way is this a .."
+// "can you give me .."
+#[allow(dead_code)]
+pub(crate) static QUESTION: &str = r#"^(?x)
+    (?:\ .+?,\ )*?
+    (?:can|can't|may|will|shall|(?:are|were|had|have|do|[cw]ould|should|must|might)(?:n't)?+)	# verb
+    (?:
+        (?:\ 
+            \??an?|\??some|\??the|                                                                  # article, prepended with question mark if optional
+            th[eo]se|such|no|none|neither|                                                          # demonstrative pronoun
+            [`#][\w_]+|                                                                             # possesive pronoun or worded number
+            \??\$[\w_]+|                                                                            # litteral number
+            \w+'s?                                                                                  # possesive 's
+        )?
+        (?:\ [\w-]+(?,?\ [\w-]+)*)?                                                                 # adject(s)
+        [=*+-]?[\w_]+|                                                                              # subject
+        (?:no|some|any|every)(?:body|thing)|(?:no |some|any|every)one|                              # indefinite pronouns
+        (?:what|which|when|where|who|how)(?:ever)?
+    )
+    (?:,\ .+?,\ |that(?:\ [\w-])*?\ )?                                                                              # subordinate clause
+    (?:\ (?:a[ts]|for|to(?:wards)?|from|in(?:to|side)?|off?|on(?:to)?|by|abo(?:ut|ve|ard)|across|after|against|along(?:side)?|amid|among|around|atop|bar|be(?:fore|low|hind|neath|side|tween|yond)|despite|down|during|(?:un)?like|near|opposite|outside|over|past|pending|per|prior|pro|re|regarding|round|since|than|through(?:out)?|till|under(?:neath)?|until|unto|up|upon|via|with(?:in|out)?)                       # preposition
+        (?:\ (?:\??an?|\??some|\??the|th[eo]se|[`#][\w-]+|\??\$\w+|\w+'s?))?
+        (?:\ [\w-]+(?,?\ :[\w-]+)*)?
+        [=*+-]?[\w_]+
+        (?:,\ .+?,)?)*
+    (?:\ (?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)                                                # verb
+    "[^"]+"\ 
+
+    (?P<post>
+        (?:\s+(?:a[ts]|for|to(?:wards)?|from|in(?:to|side)?|off?|on(?:to)?|by|abo(?:ut|ve|ard)|across|after|against|along(?:side)?|amid|among|around|atop|bar|be(?:fore|low|hind|neath|side|tween|yond)|despite|down|during|(?:un)?like|near|opposite|outside|over|past|pending|per|prior|pro|re|regarding|round|since|than|through(?:out)?|till|under(?:neath)?|until|unto|up|upon|via|with(?:in|out)?)\s+
+        (?:[`@*]\w+|\w+'s?))?
+        \s+(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*
+    )?$"#;
+
+// TODO: "{can a book of mine}"
+// regex to capture the placholders or sentence ends
+// useful: https://regex101.com/r/Ly7O1x/3/
+/// The components captured in a Ranting trait placeholder are defined here.
+#[allow(dead_code)]
+pub(crate) static PH_EXT: &str = r"^(?x)
+    (?P<uc>[,^])?+
+    (?P<pre>(?:
+        \??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se|`[\w-]+|
+        (?:[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
+        (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)
+        (?:\s+(?:\??an?|\??some|\??the|th[eo]se|`[\w-]+))?
+    )(?:\s+[\w-]+)*?\s+)?+
+    (?P<nr>[+-]|(?:\#|\??\$)\w+\s+)?+
+    (?P<case>[`=@~*?])?+
+    (?P<noun>[\w-]+)
+    (?P<post>
+        (?:\s+(?:a[ts]|for|to(?:wards)?|from|in(?:to|side)?|off?|on(?:to)?|by|abo(?:ut|ve|ard)|across|after|against|along(?:side)?|amid|among|around|atop|bar|be(?:fore|low|hind|neath|side|tween|yond)|despite|down|during|(?:un)?like|near|opposite|outside|over|past|pending|per|prior|pro|re|regarding|round|since|than|through(?:out)?|till|under(?:neath)?|until|unto|up|upon|via|with(?:in|out)?)\s+
+        (?:[`@*]\w+|\w+'s?))?
+        \s+(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*
+    )?$";
+
+/* prepositions
+ *
+ */
+// ((to|in|against|beyond|about|at|for)
+//
+// [`@]\w+
+#[allow(dead_code)]
+pub(crate) static ASK: &str = r"^(?x)
+    (?P<pre>(?:
+        (?:[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
+        (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)
+        (?:\s+(?:\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se))?
+        |(?:\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se)
+    )(?:\s+[\w-]+)*?\s+)?+
+    (?P<noun>[\w-]+)
+    (?P<post>\s+(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$";
+
+/// An enum with pronouns in subjective form.
+#[derive(EnumString, Copy, Clone)]
+#[strum(serialize_all = "lowercase")]
+pub(crate) enum SubjectPronoun {
+    #[strum(serialize = "I")]
+    I,
+    You,
+    Thou,
+    He,
+    She,
+    It,
+    We,
+    Ye,
+    They,
+}
+
+/// return whether the given `&str` is a valid subject
+pub fn is_subject(subject: &str) -> bool {
+    SubjectPronoun::from_str(subject).is_ok()
+}
+
+/// Returns whether the subjective is plural. You is assumed singular; a plural_you
+/// ranting attribute should already be considered before this call.
+pub fn is_subjective_plural(subject: &str) -> bool {
+    (SubjectPronoun::from_str(subject).expect("not a subject") as usize) >= 6
+}
+```
+file = "src/language/mod.rs"
+```rust
+pub mod english;
+pub mod english_shared;
+```
+file = "Cargo.toml"
+```toml
+[package]
+name = "ranting"
+version = "0.2.1"
+authors = ["Roel Kluin <Roel.Kluin@gmail.com>"]
+edition = "2021"
+license-file = "LICENSE.txt"
+description = "Linguistic formatting placeholder extensions for rust"
+homepage = "https://github.com/RoelKluin/ranting.rs"
+repository = "https://github.com/RoelKluin/ranting.rs"
+readme = "README.md"
+keywords = ["placeholder", "inflection", "verbs", "nouns", "indefinite-article"]
+categories = ["text-processing", "template-engine"]
+documentation = "https://docs.rs/ranting/0.2.1/ranting/"
+
+[dependencies]
+document-features = "0.2"
+english-numbers = "0.3"
+in_definite = "0.2"
+lazy_static = "1.4.0"
+ranting_derive = { version = "=0.2.1", path = "ranting_derive", default-features = false }
+regex = "1.6.0"
+strum_macros = "0.24"
+strum = "0.24"
+
+### FEATURES #################################################################
+
+[features]
+default = ["ranting_derive/default"]
+
+## Print during compilation each `say!()` pattern with its `format!()` conversion.
+debug = ["ranting_derive/debug"]
+```
