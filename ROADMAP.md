@@ -47,13 +47,14 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 
 ### Upcoming Priority Features
 
-2. (Priority 2)
-
-2. **Trait-Based Inflection Extensibility** (16-20 hours)
-   - Add trait methods for custom grammar rules (Scottish English, Elvish, etc.)
-   - Default impls use built-in rules; users can override for domain-specific needs
-   - Example: `impl Ranting for ArchaicEnglish { fn inflect_verb_custom(...) { ... } }`
-   - Enables ecosystem forks (ranting-spanish, ranting-pirate, etc.)
+✅ **2. Trait-Based Inflection Extensibility** (COMPLETE — 16-20 hours)
+   - ✅ Add trait methods for custom grammar rules via `inflect_verb_custom()`, `inflect_pronoun_custom()`, `inflect_article_custom()`
+   - ✅ Default impls use `None` (zero breaking changes); users override for domain-specific needs
+   - ✅ `PronounCase` enum for pronoun customization (Subjective, Objective, PossessiveDeterminer, PossessivePronoun)
+   - ✅ Runtime fallback to English rules when custom method returns `None`
+   - ✅ Enables ecosystem forks (ranting-spanish, ranting-pirate, ranting-scottish, etc.)
+   - ✅ Full documentation in `docs/EXTENSIBILITY.md` with pirate, Scottish, Spanish examples
+   - ✅ 9 integration tests verifying full/partial customization and fallback behavior
 
 3. **Reflexive Forms** (8-12 hours)
    - Support myself, yourself, himself, herself, itself, ourselves, themselves
