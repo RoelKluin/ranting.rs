@@ -156,12 +156,9 @@ where
     let article_form = s.trim_start_matches('!');
     match article_form {
         "the" => {
-            // Compute singular, falling back to name if inflect panics (for non-standard nouns)
-            use std::panic::{AssertUnwindSafe, catch_unwind};
-            let singular = match catch_unwind(AssertUnwindSafe(|| noun.inflect(false, false))) {
-                Ok(s) => s,
-                Err(_) => noun.name(false),
-            };
+            // "the" needs no singular of its own; deriving one via inflect() would panic for
+            // plural nouns whose name cannot be singularized (e.g. Noun::new("one", "they")).
+            let singular = noun.name(false);
             if let Some(custom) = noun.inflect_article_custom("the", &singular, as_pl, uc) {
                 Some(custom + space)
             } else {
@@ -169,7 +166,13 @@ where
             }
         }
         "a" | "an" | "some" => {
-            let singular = noun.inflect(false, false);
+            // adapt_article() discards the a/an choice when as_pl, so only singularize when the
+            // singular form is actually rendered; inflect() would panic on non-standard plurals.
+            let singular = if as_pl {
+                noun.name(false)
+            } else {
+                noun.inflect(false, false)
+            };
             if let Some(custom) = noun.inflect_article_custom(article_form, &singular, as_pl, uc) {
                 Some(custom + space)
             } else {
@@ -178,7 +181,9 @@ where
             }
         }
         "these" | "those" => {
-            let singular = noun.inflect(false, false);
+            // Demonstratives are chosen from as_pl alone; see the "the" arm for why the name is
+            // used instead of an inflected singular.
+            let singular = noun.name(false);
             if let Some(custom) = noun.inflect_article_custom(article_form, &singular, as_pl, uc) {
                 Some(custom + space)
             } else {
