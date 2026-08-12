@@ -337,3 +337,89 @@ fn tense_marker_past_continuous_was_were_distinction() {
         "They were running"
     );
 }
+
+#[test]
+fn tense_marker_present_perfect_basic() {
+    let person = Noun::new("Alex", "he");
+    assert_eq!(say!("{=0 %walk}", person), "He has walked");
+    assert_eq!(say!("{=0 %talk}", person), "He has talked");
+    assert_eq!(say!("{=0 %play}", person), "He has played");
+}
+
+#[test]
+fn tense_marker_present_perfect_irregular() {
+    let person = Noun::new("Alex", "she");
+    assert_eq!(say!("{=0 %go}", person), "She has gone");
+    assert_eq!(say!("{=0 %see}", person), "She has seen");
+    assert_eq!(say!("{=0 %eat}", person), "She has eaten");
+    assert_eq!(say!("{=0 %take}", person), "She has taken");
+    assert_eq!(say!("{=0 %write}", person), "She has written");
+}
+
+#[test]
+fn tense_marker_present_perfect_all_pronouns() {
+    let test_cases = vec![
+        ("I", "I"),
+        ("you", "You"),
+        ("he", "He"),
+        ("she", "She"),
+        ("it", "It"),
+        ("we", "We"),
+        ("they", "They"),
+    ];
+
+    for (pronoun, capitalized) in test_cases {
+        let person = Noun::new("person", pronoun);
+        let result = say!("{=0 %walk}", person);
+        let expected = if matches!(pronoun, "he" | "she" | "it") {
+            format!("{} has walked", capitalized)
+        } else {
+            format!("{} have walked", capitalized)
+        };
+        assert_eq!(result, expected, "Failed for pronoun: {}", pronoun);
+    }
+}
+
+#[test]
+fn tense_marker_past_perfect_basic() {
+    let person = Noun::new("Alex", "he");
+    assert_eq!(say!("{=0 <%walk}", person), "He had walked");
+    assert_eq!(say!("{=0 <%talk}", person), "He had talked");
+    assert_eq!(say!("{=0 <%play}", person), "He had played");
+}
+
+#[test]
+fn tense_marker_past_perfect_irregular() {
+    let person = Noun::new("Alex", "she");
+    assert_eq!(say!("{=0 <%go}", person), "She had gone");
+    assert_eq!(say!("{=0 <%see}", person), "She had seen");
+    assert_eq!(say!("{=0 <%eat}", person), "She had eaten");
+    assert_eq!(say!("{=0 <%take}", person), "She had taken");
+}
+
+#[test]
+fn tense_marker_past_perfect_all_pronouns() {
+    let test_cases = vec![
+        ("I", "I"),
+        ("you", "You"),
+        ("he", "He"),
+        ("she", "She"),
+        ("it", "It"),
+        ("we", "We"),
+        ("they", "They"),
+    ];
+
+    for (pronoun, capitalized) in test_cases {
+        let person = Noun::new("person", pronoun);
+        let result = say!("{=0 <%walk}", person);
+        // "had" is invariant for all persons
+        assert_eq!(result, format!("{} had walked", capitalized), "Failed for pronoun: {}", pronoun);
+    }
+}
+
+#[test]
+fn tense_marker_perfect_mixed_sentence() {
+    let person = Noun::new("Jordan", "she");
+    let result = say!("{=0 %finish} {=0 <%start} before dinner.", person);
+    assert_eq!(result, "She has finished she had started before dinner.");
+}
