@@ -104,7 +104,7 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 **Technical Debt Elimination**:
 - ✅ Verb table duplication → codegen (build.rs + data/irregular_verbs.txt, single source of truth)
 - ✅ Pronoun array fragility → exhaustive match dispatch (eliminates index-coupling risk) [Tier 2]
-- Derive macro attributes → Rationalize to 4 core (subject, name, singular_end, plural_end) [Tier 2]
+- ✅ Derive macro attributes → Rationalize to 4 core (subject, name, singular_end, plural_end) [Tier 2]
 
 **Test Coverage**: Maintain >85%, add property-based tests for verb conjugation rules.
 
@@ -259,10 +259,11 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 - **v1.0 Tenses**: Past, Continuous, Future, Past-Continuous, Present-Perfect, Past-Perfect (7 total)
 - **v1.1 Plurals**: Irregular nouns + reflexive + comparative/superlative
 
-### 10. Derive Macro Attributes 🎯 **RATIONALIZE to 4 CORE (60%)**
+### 10. Derive Macro Attributes ✅ **COMPLETE (v1.0)**
 **Decision**: Clarify 4 core attributes (subject, name, singular_end, plural_end); move cosmetics to builder.
-- **v1.0 Effort**: 4-6 hours cleanup + documentation
-- **Rationale**: Reduces confusion; improves discoverability
+- **Implementation**: Reorganized RantingOptions struct with separate comment blocks for core vs cosmetic attributes. Updated README to clearly distinguish core attributes (determine grammar) from cosmetic attributes (adjust formatting). Core attributes: subject, name, singular_end, plural_end. Cosmetic attributes: plural_you, uc, no_article.
+- **Effort**: ~3 hours cleanup + documentation
+- **Rationale**: Reduces confusion; improves discoverability; no breaking changes
 
 ### 11. Documentation 🎯 **UNANIMOUS CRITICAL (5/5)**
 **Decision**: Ship v1.0 with comprehensive tutorial + 10-recipe cookbook.
@@ -322,7 +323,7 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 | Documentation | Tutorial + 10-recipe cookbook | ✅ Complete (docs/TUTORIAL.md, docs/COOKBOOK.md, compiled test suite) |
 | API stability | Zero breaking changes post-v1.0 | Semver locked; versioning strategy established |
 | Tense system | All Phase 2 complete (7 tenses) | Stages 2-4 wired; perfect tenses Stage 4 |
-| Debt elimination | Codegen + match-dispatch refactors done | ✅ Verb table codegen complete (build.rs, data/irregular_verbs.txt, symlink strategy); ✅ Pronoun/article/verb tables → exhaustive match dispatch (PronounForms struct, ArticleOrSo methods, IrregularPluralVerb methods) |
+| Debt elimination | Codegen + match-dispatch + attribute rationalization | ✅ Verb table codegen complete (build.rs, data/irregular_verbs.txt, symlink strategy); ✅ Pronoun/article/verb tables → exhaustive match dispatch (PronounForms struct, ArticleOrSo methods, IrregularPluralVerb methods); ✅ Derive macro attributes rationalized to 4 core + 3 cosmetic with clear documentation |
 
 **v1.1 Success Criteria** (8-12 weeks post-v1.0):
 | Metric | Target | Status |
