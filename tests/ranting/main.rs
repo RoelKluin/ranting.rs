@@ -2,6 +2,7 @@ mod argument_edge_cases;
 mod argument_parsing;
 mod comprehensive_coverage;
 mod cookbook;
+mod custom_inflection;
 mod edge_cases;
 mod error_messages;
 #[cfg(feature = "inclusive-pronouns")]
