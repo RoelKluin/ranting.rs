@@ -281,3 +281,16 @@ fn test_consistent_inflection() {
 
     assert_eq!(result1, result2, "Inflection should be consistent");
 }
+
+// Regression: articles must not panic on a plural noun whose name cannot be singularized.
+// The custom-article hook once computed the singular eagerly, which aborted on such nouns.
+#[test]
+fn test_articles_on_non_singularizable_plural_noun() {
+    let noun = Noun::new("one", "they");
+
+    assert_eq!(say!("{the 0}", noun), "The one");
+    assert_eq!(say!("{these 0}", noun), "These one");
+    assert_eq!(say!("{those 0}", noun), "Those one");
+    assert_eq!(say!("{a 0}", noun), "Some one");
+    assert_eq!(say!("{some 0}", noun), "Some one");
+}
