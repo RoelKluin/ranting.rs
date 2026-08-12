@@ -147,6 +147,9 @@ pub use ranting_derive::nay;
 /// ```
 pub use ranting_derive::say;
 
+/// heed!(template, input) — scanf-like input parsing; see `ranting_derive::heed`.
+pub use ranting_derive::heed;
+
 /// If you want to implement Ranting on a `Box<&dyn Trait>` where Trait has Ranting
 pub use ranting_derive::boxed_ranting_trait;
 

@@ -175,6 +175,120 @@ pub(crate) fn compile_heed_template(lit: &StrLit) -> syn::Result<(String, Vec<He
     Ok(build_heed_pattern(&segments))
 }
 
+use proc_macro2::TokenStream;
+use quote::{quote, ToTokens};
+use syn::{
+    parse::{Parse, ParseStream},
+    Error, Expr, Token,
+};
+
+fn heed_convert_captured(kind: HeedCaptureKind, value: TokenStream) -> TokenStream {
+    match kind {
+        HeedCaptureKind::Word | HeedCaptureKind::Greedy => value,
+        HeedCaptureKind::Number => quote! {
+            #value.parse::<u64>().expect(
+                "heed!() $ capture is guaranteed all-digits by its regex, but overflowed u64"
+            )
+        },
+    }
+}
+
+/// `heed!(template_str, input_expr)`.
+pub(crate) struct Heed {
+    template: StrLit,
+    input: Expr,
+}
+
+impl Parse for Heed {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if input.is_empty() {
+            return Err(Error::new(
+                proc_macro2::Span::mixed_site(),
+                "missing template string",
+            ));
+        }
+        let template = input.parse::<StrLit>()?;
+        input.parse::<Token![,]>()?;
+        if input.is_empty() {
+            return Err(Error::new(
+                proc_macro2::Span::mixed_site(),
+                "missing input expression",
+            ));
+        }
+        let input_expr = input.parse::<Expr>()?;
+        Ok(Heed {
+            template,
+            input: input_expr,
+        })
+    }
+}
+
+impl ToTokens for Heed {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let (pattern, captures) = match compile_heed_template(&self.template) {
+            Ok(result) => result,
+            Err(e) => {
+                tokens.extend(e.to_compile_error());
+                return;
+            }
+        };
+
+        // Defensive: build_heed_pattern is expected to always emit a valid
+        // regex. Verifying it here, at compile time, turns any bug in this
+        // module into a heed!() compile error instead of a runtime panic at
+        // every call site — matches the crate's "catch it early" stance.
+        if let Err(e) = regex::Regex::new(&pattern) {
+            let msg = format!(
+                "heed!() generated an invalid regex ({e}) — this is a bug in \
+                 heed!()'s template compiler, please report it"
+            );
+            tokens.extend(Error::new_spanned(&self.template.span_provider, msg).to_compile_error());
+            return;
+        }
+
+        let names: Vec<&str> = captures.iter().map(|c| c.name.as_str()).collect();
+        let names_tokens = quote! { &[#(#names),*] };
+        let input_expr = &self.input;
+
+        let value_expr = match captures.len() {
+            0 => quote! { __ranting_heed_caps.map(|_| ()) },
+            1 => {
+                let converted = heed_convert_captured(captures[0].kind, quote! { __s });
+                quote! {
+                    __ranting_heed_caps.map(|mut __v| {
+                        let __s = __v.pop().expect("heed!() matched capture count mismatch");
+                        #converted
+                    })
+                }
+            }
+            _ => {
+                let element_exprs: Vec<TokenStream> = captures
+                    .iter()
+                    .map(|cap| {
+                        heed_convert_captured(
+                            cap.kind,
+                            quote! { __it.next().expect("heed!() matched capture count mismatch") },
+                        )
+                    })
+                    .collect();
+                quote! {
+                    __ranting_heed_caps.map(|__v| {
+                        let mut __it = __v.into_iter();
+                        ( #(#element_exprs),* )
+                    })
+                }
+            }
+        };
+
+        *tokens = quote! {{
+            static __RANTING_HEED_MATCHER: ranting::HeedMatcher =
+                ranting::HeedMatcher::new(#pattern, #names_tokens);
+            let __ranting_heed_caps = __RANTING_HEED_MATCHER.match_input(#input_expr);
+            #value_expr
+        }};
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
