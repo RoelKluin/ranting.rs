@@ -153,14 +153,32 @@ where
     if noun.skip_article() && !s.starts_with('!') && !matches!(s, "these" | "those") {
         return Some("".to_string());
     }
-    match s.trim_start_matches('!') {
-        "the" => Some(uc_1st_if(s, uc)),
+    let article_form = s.trim_start_matches('!');
+    match article_form {
+        "the" => {
+            if let Some(custom) = noun.inflect_article_custom("the", &noun.name(false), as_pl, uc) {
+                Some(custom)
+            } else {
+                Some(uc_1st_if(s, uc))
+            }
+        }
         "a" | "an" | "some" => {
             let singular = noun.inflect(false, false);
-            let a_or_an = uc_1st_if(get_a_or_an(&singular), uc);
-            Some(ranting::adapt_article(&a_or_an, s, space, as_pl, uc))
+            if let Some(custom) = noun.inflect_article_custom(article_form, &singular, as_pl, uc) {
+                Some(custom)
+            } else {
+                let a_or_an = uc_1st_if(get_a_or_an(&singular), uc);
+                Some(ranting::adapt_article(&a_or_an, s, space, as_pl, uc))
+            }
         }
-        "these" | "those" => Some(ranting::adapt_article(s, s, space, as_pl, uc)),
+        "these" | "those" => {
+            let singular = noun.inflect(false, false);
+            if let Some(custom) = noun.inflect_article_custom(article_form, &singular, as_pl, uc) {
+                Some(custom)
+            } else {
+                Some(ranting::adapt_article(s, s, space, as_pl, uc))
+            }
+        }
         _ => None,
     }
 }
@@ -215,7 +233,11 @@ where
             res.push_str(&uc_1st_if(pre, uc));
         } else {
             assert!(post.is_empty(), "verb before and after?");
-            let verb = inflect_verb(subjective, p.as_str(), as_pl, uc);
+            let verb = if let Some(custom) = noun.inflect_verb_custom(subjective, p.as_str(), as_pl, uc) {
+                custom
+            } else {
+                inflect_verb(subjective, p.as_str(), as_pl, uc)
+            };
             res.push_str(&verb);
             if !etc1.is_empty() {
                 let art_space;
@@ -244,10 +266,34 @@ where
     if case != "?" {
         res.push_str(noun_space);
         let s = match case {
-            "=" => inflect_subjective(subjective, as_pl, uc),
-            "@" => inflect_objective(subjective, as_pl, uc),
-            "`" => inflect_possesive(subjective, as_pl, uc),
-            "~" => inflect_adjective(subjective, as_pl, uc),
+            "=" => {
+                if let Some(custom) = noun.inflect_pronoun_custom(subjective, PronounCase::Subjective, as_pl, uc) {
+                    custom
+                } else {
+                    inflect_subjective(subjective, as_pl, uc)
+                }
+            }
+            "@" => {
+                if let Some(custom) = noun.inflect_pronoun_custom(subjective, PronounCase::Objective, as_pl, uc) {
+                    custom
+                } else {
+                    inflect_objective(subjective, as_pl, uc)
+                }
+            }
+            "`" => {
+                if let Some(custom) = noun.inflect_pronoun_custom(subjective, PronounCase::PossessiveDeterminer, as_pl, uc) {
+                    custom
+                } else {
+                    inflect_possesive(subjective, as_pl, uc)
+                }
+            }
+            "~" => {
+                if let Some(custom) = noun.inflect_pronoun_custom(subjective, PronounCase::PossessivePronoun, as_pl, uc) {
+                    custom
+                } else {
+                    inflect_adjective(subjective, as_pl, uc)
+                }
+            }
             _ => noun.inflect(as_pl, uc),
         };
         res.push_str(&s);
