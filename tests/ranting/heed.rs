@@ -57,17 +57,13 @@ fn tolerates_surrounding_and_extra_whitespace() {
     );
 }
 
-// BLOCKED: rejected at compile time by ranting_derive/src/heed.rs:112 — whitespace-only
-// separation between captures emits no Literal segment (line 64 `split_whitespace()`), so
-// {$count} {item} is misclassified as adjacent. Uncomment after line 112 is fixed to handle
-// whitespace-separated captures (confirmed kind-agnostic via testing {x} {y} patterns).
-// #[test]
-// fn three_captures_returns_three_tuple() {
-//     assert_eq!(
-//         heed!(
-//             "trade {$count} {item} for {target}",
-//             "trade 3 sword for shield"
-//         ),
-//         Some((3u64, "sword".to_string(), "shield".to_string()))
-//     );
-// }
+#[test]
+fn three_captures_returns_three_tuple() {
+    assert_eq!(
+        heed!(
+            "trade {$count} {item} for {target}",
+            "trade 3 sword for shield"
+        ),
+        Some((3u64, "sword".to_string(), "shield".to_string()))
+    );
+}
