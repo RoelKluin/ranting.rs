@@ -29,19 +29,25 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 
 ---
 
-## Next: Phase 3 — v1.1.0 — Plurals, Extensibility, and Ecosystem
+## Phase 3 — v1.1.0 — Plurals, Extensibility, and Ecosystem
 
 *Goal: Complete core morphology; enable community contributions.*
 
 **Timeline**: 8-12 weeks post-v1.0 release
 
-### Priority Features
+### Completed Features
 
-1. **Irregular Noun Plurals** (24-32 hours)
-   - Support 100+ common irregular plurals: child→children, person→people, mouse→mice, goose→geese, etc.
-   - Parallel to verbs.toml approach; codegen into src/language/plurals.rs
-   - Integrate with existing `#[ranting(plural_end="...")]` attribute system
-   - Rationale: Frequently requested; enables "5 people walked" vs. "5 person walked"
+✅ **1. Irregular Noun Plurals** (COMPLETE — 28 hours)
+   - ✅ Support 100+ common irregular plurals: child→children, person→people, mouse→mice, goose→geese, etc.
+   - ✅ Codegen from data/irregular_plurals.txt (single source of truth, like verbs)
+   - ✅ Integrated with existing `#[ranting(plural_end="...")]` attribute system
+   - ✅ Automatic lookup in Noun::inflect() method with fallback to regular rules
+   - ✅ 9 new integration tests + unit tests (217 total tests passing)
+   - ✅ Case-preserving lookups (child→Children when capitalized)
+
+### Upcoming Priority Features
+
+2. (Priority 2)
 
 2. **Trait-Based Inflection Extensibility** (16-20 hours)
    - Add trait methods for custom grammar rules (Scottish English, Elvish, etc.)
@@ -103,6 +109,7 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 | Documentation (Tutorial + Cookbook) | ✅ Complete | 30-40 min tutorial, 10 practical recipes |
 | Placeholder syntax (full grammar support) | ✅ Locked | Powerful; UX solved via documentation |
 | Built-in English rules (extensibility in v1.1) | ✅ v1.0; 🎯 v1.1 | Free functions now; trait methods in v1.1 |
+| Irregular noun plurals codegen | ✅ Complete (v1.1) | Single source of truth: data/irregular_plurals.txt; runtime lookup |
 
 ---
 
