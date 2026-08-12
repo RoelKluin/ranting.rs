@@ -4,3 +4,6 @@ ranting_derive/tags
 tags
 .aider*
 .worktrees/
+.claude/
+.repo-map/
+tasks_done.txt
