@@ -4,23 +4,23 @@
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum AuxiliaryVerb {
-    Will,      // Future tense marker: `>walk` → "will walk"
-    IsAre,     // Continuous present: `=walk` → "is walking"
-    WasWere,   // Continuous past: `<=walk` → "was walking"
+    Will,    // Future tense marker: `>walk` → "will walk"
+    IsAre,   // Continuous present: `=walk` → "is walking"
+    WasWere, // Continuous past: `<=walk` → "was walking"
 }
 
 /// Return the correctly conjugated auxiliary verb for the given subject pronoun.
 pub(crate) fn conjugate_auxiliary(aux: AuxiliaryVerb, subject: &str) -> &'static str {
     let subject_lower = subject.to_lowercase();
     match (aux, subject_lower.as_str()) {
-        (AuxiliaryVerb::Will, _) => "will",  // Same for all persons
+        (AuxiliaryVerb::Will, _) => "will", // Same for all persons
         (AuxiliaryVerb::IsAre, "i") => "am",
         (AuxiliaryVerb::IsAre, "you" | "we" | "they") => "are",
         (AuxiliaryVerb::IsAre, "he" | "she" | "it") => "is",
-        (AuxiliaryVerb::IsAre, _) => "are",  // Default for unrecognized pronouns
+        (AuxiliaryVerb::IsAre, _) => "are", // Default for unrecognized pronouns
         (AuxiliaryVerb::WasWere, "i" | "he" | "she" | "it") => "was",
         (AuxiliaryVerb::WasWere, "you" | "we" | "they") => "were",
-        (AuxiliaryVerb::WasWere, _) => "were",  // Default for unrecognized pronouns
+        (AuxiliaryVerb::WasWere, _) => "were", // Default for unrecognized pronouns
     }
 }
 

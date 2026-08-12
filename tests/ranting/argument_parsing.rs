@@ -28,7 +28,9 @@ fn test_named_multiple_arguments() {
     let alice = Noun::new("Alice", "I");
     let bob = Noun::new("Bob", "he");
     let result = say!("{=alice} and {=bob}", alice = alice, bob = bob);
-    assert!(result.to_lowercase().contains("alice") || result.contains("I") || result.contains("i"));
+    assert!(
+        result.to_lowercase().contains("alice") || result.contains("I") || result.contains("i")
+    );
 }
 
 #[test]

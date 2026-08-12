@@ -64,7 +64,9 @@ impl Person {
                 nay!("{The trash} from {actor} is not something that {=self do} accept.");
             }
             ("give", Some((nr, coin))) if coin.name(false).as_str() == "coin" => match nr {
-                0 => nay!("{=actor don't} seem able to give zero {+coin} to {self}. {=actor frown} at {self}."),
+                0 => nay!(
+                    "{=actor don't} seem able to give zero {+coin} to {self}. {=actor frown} at {self}."
+                ),
                 n => {
                     let ent = self
                         .inventory

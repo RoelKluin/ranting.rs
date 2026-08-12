@@ -39,7 +39,14 @@ fn test_positional_arguments_table() {
 #[test]
 fn test_named_arguments_various_names() {
     let test_cases = vec![
-        "person", "actor", "subject", "x", "my_var", "variable_123", "_private", "CamelCase",
+        "person",
+        "actor",
+        "subject",
+        "x",
+        "my_var",
+        "variable_123",
+        "_private",
+        "CamelCase",
     ];
 
     for var_name in test_cases {
@@ -72,10 +79,7 @@ fn test_named_arguments_various_names() {
 fn test_same_argument_multiple_times() {
     let person = Noun::new("Alex", "they");
 
-    let result = say!(
-        "{=0} and {=0} both agree. {=0 are} right.",
-        person
-    );
+    let result = say!("{=0} and {=0} both agree. {=0 are} right.", person);
 
     assert!(result.contains("Alex") || result.contains("They"));
 }
@@ -87,11 +91,7 @@ fn test_mixing_positional_named() {
     let b = Noun::new("B", "he");
 
     // Mix positional (0) with named (person_b)
-    let result = say!(
-        "{=0} met {=person_b}",
-        a,
-        person_b = b
-    );
+    let result = say!("{=0} met {=person_b}", a, person_b = b);
     assert!(!result.is_empty());
 }
 
@@ -104,7 +104,11 @@ fn test_many_arguments() {
 
     let result = say!(
         "{=0}, {=1}, {=2}, {=3}, {=4}",
-        nouns[0], nouns[1], nouns[2], nouns[3], nouns[4]
+        nouns[0],
+        nouns[1],
+        nouns[2],
+        nouns[3],
+        nouns[4]
     );
     assert!(!result.is_empty());
 }
@@ -203,7 +207,10 @@ fn test_complex_placeholder_combinations() {
     let object = Noun::new("project", "it");
 
     // Verb + possessive
-    let result1 = say!("{=subject have} completed {`subject} work", subject = subject);
+    let result1 = say!(
+        "{=subject have} completed {`subject} work",
+        subject = subject
+    );
     assert!(result1.contains("have") || result1.contains("has"));
 
     // Article + possessive
@@ -224,10 +231,7 @@ fn test_complex_placeholder_combinations() {
 fn test_stress_many_references() {
     let person = Noun::new("Casey", "they");
 
-    let result = say!(
-        "{=0} {=0} {=0} {=0} {=0} {=0} {=0} {=0} {=0} {=0}",
-        person
-    );
+    let result = say!("{=0} {=0} {=0} {=0} {=0} {=0} {=0} {=0} {=0} {=0}", person);
 
     // Count occurrences of the pronoun
     let count = result.matches("They").count() + result.matches("they").count();
