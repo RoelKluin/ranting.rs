@@ -12,6 +12,7 @@ fn main() -> io::Result<()> {
 
     generate_verbs_table(&manifest_dir)?;
     generate_plurals_table(&manifest_dir)?;
+    copy_english_shared(&manifest_dir)?;
 
     Ok(())
 }
@@ -115,6 +116,50 @@ fn generate_verbs_table(manifest_dir: &str) -> io::Result<()> {
 
     fs::write(&output_path, code)?;
     println!("Generated: {}", output_path.display());
+
+    Ok(())
+}
+
+/// Locate the canonical `english_shared.rs`, single source of truth for the
+/// grammar code shared between `ranting` and `ranting_derive`. Mirrors
+/// `find_data_file`'s dev/package fallback:
+/// 1. Dev checkout: `../src/language/english_shared.rs`, relative to this
+///    crate's manifest dir — the real file, no symlink involved.
+/// 2. Packaged crate: `./data/english_shared_source.rs`, a symlink (dev) that
+///    `cargo package` dereferences to real content in the published tarball,
+///    since the dev path above isn't present outside the git checkout.
+fn find_english_shared_file(manifest_dir: &str) -> PathBuf {
+    let dev_path = PathBuf::from(manifest_dir)
+        .parent()
+        .expect("parent dir")
+        .join("src/language/english_shared.rs");
+
+    let pkg_path = PathBuf::from(manifest_dir).join("data/english_shared_source.rs");
+
+    if dev_path.exists() {
+        dev_path
+    } else if pkg_path.exists() {
+        pkg_path
+    } else {
+        panic!(
+            "Could not find english_shared.rs at {} or {}",
+            dev_path.display(),
+            pkg_path.display()
+        );
+    }
+}
+
+/// Copy the canonical `english_shared.rs` into `OUT_DIR` so
+/// `ranting_derive/src/language/english_shared.rs` can `include!()` it,
+/// instead of keeping a manually-synced duplicate (see find_english_shared_file).
+fn copy_english_shared(manifest_dir: &str) -> io::Result<()> {
+    let source_file = find_english_shared_file(manifest_dir);
+    println!("cargo:rerun-if-changed={}", source_file.display());
+
+    let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
+    let output_path = PathBuf::from(&out_dir).join("english_shared_generated.rs");
+
+    fs::copy(&source_file, &output_path)?;
 
     Ok(())
 }
