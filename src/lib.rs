@@ -29,9 +29,9 @@
 
 extern crate self as ranting;
 
+mod heed;
 mod language;
 mod narration;
-mod heed;
 use lazy_static::lazy_static;
 use regex::Regex;
 

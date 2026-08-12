@@ -3,7 +3,10 @@ use ranting::heed;
 
 #[test]
 fn single_word_capture() {
-    assert_eq!(heed!("take {item}", "take sword"), Some("sword".to_string()));
+    assert_eq!(
+        heed!("take {item}", "take sword"),
+        Some("sword".to_string())
+    );
 }
 
 #[test]
@@ -66,4 +69,38 @@ fn three_captures_returns_three_tuple() {
         ),
         Some((3u64, "sword".to_string(), "shield".to_string()))
     );
+}
+
+#[test]
+fn punctuation_literal_matches_end_to_end() {
+    assert_eq!(
+        heed!(
+            "give {item} to {target}, {$count} gold",
+            "give sword to guard, 5 gold"
+        ),
+        Some(("sword".to_string(), "guard".to_string(), 5u64))
+    );
+    // No whitespace is required or allowed before a trailing punctuation-only
+    // literal segment, so a space before the comma must not match.
+    assert_eq!(
+        heed!(
+            "give {item} to {target}, {$count} gold",
+            "give sword to guard , 5 gold"
+        ),
+        None
+    );
+}
+
+#[test]
+fn numeric_capture_overflowing_u64_returns_none() {
+    assert_eq!(
+        heed!("take {$n} gold", "take 99999999999999999999 gold"),
+        None
+    );
+}
+
+#[test]
+fn owned_string_input_compiles_and_matches() {
+    let input = String::from("take sword");
+    assert_eq!(heed!("take {item}", input), Some("sword".to_string()));
 }

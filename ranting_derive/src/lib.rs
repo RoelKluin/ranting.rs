@@ -1,9 +1,9 @@
 // (c) RoelKluin 2022 GPL v3
 
+mod heed;
 mod language;
 mod ranting_impl;
 mod str_lit;
-mod heed;
 
 use language::english_shared as lang;
 use language::verb as verb_conjugate;

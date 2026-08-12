@@ -30,11 +30,11 @@ impl HeedMatcher {
     }
 
     #[doc(hidden)]
-    pub fn match_input(&self, input: &str) -> Option<Vec<String>> {
+    pub fn match_input(&self, input: impl AsRef<str>) -> Option<Vec<String>> {
         let re = self
             .re
             .get_or_init(|| Regex::new(self.pattern).expect("heed!() pattern is valid regex"));
-        let caps = re.captures(input)?;
+        let caps = re.captures(input.as_ref())?;
         Some(
             self.names
                 .iter()
@@ -67,8 +67,7 @@ mod tests {
 
     #[test]
     fn returns_captures_in_names_order() {
-        static M: HeedMatcher =
-            HeedMatcher::new(r"^(?P<b>\S+)\s+(?P<a>\S+)$", &["a", "b"]);
+        static M: HeedMatcher = HeedMatcher::new(r"^(?P<b>\S+)\s+(?P<a>\S+)$", &["a", "b"]);
         // names is ["a", "b"] but the pattern's capture groups appear in the
         // order b, a — match_input must follow `names`, not group position.
         assert_eq!(
