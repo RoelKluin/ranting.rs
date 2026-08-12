@@ -237,3 +237,71 @@ fn tense_markers_mixed_sentence() {
     let result = say!("{=0 <start} {=0 =run} the race.", person);
     assert_eq!(result, "She started she is running the race.");
 }
+
+#[test]
+fn tense_marker_past_continuous_basic() {
+    let person = Noun::new("Alex", "he");
+    assert_eq!(say!("{=0 <=walk}", person), "He was walking");
+    assert_eq!(say!("{=0 <=talk}", person), "He was talking");
+    assert_eq!(say!("{=0 <=play}", person), "He was playing");
+}
+
+#[test]
+fn tense_marker_past_continuous_silent_e() {
+    let person = Noun::new("Alex", "she");
+    assert_eq!(say!("{=0 <=make}", person), "She was making");
+    assert_eq!(say!("{=0 <=like}", person), "She was liking");
+}
+
+#[test]
+fn tense_marker_past_continuous_consonant_doubling() {
+    let person = Noun::new("Alex", "it");
+    assert_eq!(say!("{=0 <=run}", person), "It was running");
+    assert_eq!(say!("{=0 <=sit}", person), "It was sitting");
+}
+
+#[test]
+fn tense_marker_past_continuous_ie_to_y() {
+    let person = Noun::new("Alex", "they");
+    assert_eq!(say!("{=0 <=lie}", person), "They were lying");
+    assert_eq!(say!("{=0 <=tie}", person), "They were tying");
+}
+
+#[test]
+fn tense_marker_past_continuous_all_pronouns() {
+    let test_cases = vec![
+        ("I", "I"),
+        ("you", "You"),
+        ("he", "He"),
+        ("she", "She"),
+        ("it", "It"),
+        ("we", "We"),
+        ("they", "They"),
+    ];
+
+    for (pronoun, capitalized) in test_cases {
+        let person = Noun::new("person", pronoun);
+        let result = say!("{=0 <=walk}", person);
+        // Singular (I, he, she, it) use "was"; plural (you, we, they) use "were"
+        let expected = if matches!(pronoun, "I" | "he" | "she" | "it") {
+            format!("{} was walking", capitalized)
+        } else {
+            format!("{} were walking", capitalized)
+        };
+        assert_eq!(result, expected, "Failed for pronoun: {}", pronoun);
+    }
+}
+
+#[test]
+fn tense_marker_past_continuous_was_were_distinction() {
+    // Test that "was" is used for singular (I, he, she, it)
+    assert_eq!(say!("{=0 <=run}", Noun::new("person", "I")), "I was running");
+    assert_eq!(say!("{=0 <=run}", Noun::new("person", "he")), "He was running");
+    assert_eq!(say!("{=0 <=run}", Noun::new("person", "she")), "She was running");
+    assert_eq!(say!("{=0 <=run}", Noun::new("person", "it")), "It was running");
+
+    // Test that "were" is used for plural (you, we, they)
+    assert_eq!(say!("{=0 <=run}", Noun::new("person", "you")), "You were running");
+    assert_eq!(say!("{=0 <=run}", Noun::new("person", "we")), "We were running");
+    assert_eq!(say!("{=0 <=run}", Noun::new("person", "they")), "They were running");
+}

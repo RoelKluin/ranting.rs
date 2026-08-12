@@ -441,36 +441,41 @@ fn handle_param(
     let noun = caps.name("noun").unwrap();
     let mut post = caps.name("post").map_or("", |m| m.as_str()).to_string();
 
-    // Handle tense markers in post: <verb (past), =verb (continuous), >verb (future)
+    // Handle tense markers in post: <verb (past), =verb (continuous), >verb (future), <=verb (past continuous)
     // When detected, we encode it as ~TENSE~MARKER:CONJUGATED so handle_placeholder can detect it
     if !post.is_empty() {
         let post_trimmed = post.trim_start();
         if !post_trimmed.is_empty() {
-            let first_char = post_trimmed.chars().next().unwrap();
-            if matches!(first_char, '<' | '=' | '>') {
-                if post_trimmed.len() > 1 {
-                    let marker = first_char;
-                    let verb = post_trimmed[1..].trim_start();
-                    // Split verb from any trailing content
-                    let (base_verb, trailing) = verb
-                        .split_once(char::is_whitespace)
-                        .unwrap_or((verb, ""));
+            // Extract marker run: take all leading <, =, > characters
+            let marker_end = post_trimmed
+                .chars()
+                .take_while(|c| matches!(c, '<' | '=' | '>'))
+                .count();
 
-                    let conjugated = match marker {
-                        '<' => verb_conjugate::to_past(base_verb),
-                        '=' => verb_conjugate::to_continuous(base_verb),
-                        '>' => verb_conjugate::to_future(base_verb),
-                        _ => base_verb.to_string(),
-                    };
+            if marker_end > 0 && marker_end < post_trimmed.len() {
+                let marker = &post_trimmed[..marker_end];
+                let rest = post_trimmed[marker_end..].trim_start();
 
-                    // Encode tense marker info with special prefix ~TENSE~MARKER:CONJUGATED
-                    let leading_space = &post[..post.len() - post_trimmed.len()];
-                    post = if trailing.is_empty() {
-                        format!("{}~TENSE~{}:{}", leading_space, marker, conjugated)
-                    } else {
-                        format!("{}~TENSE~{}:{} {}", leading_space, marker, conjugated, trailing)
-                    };
-                }
+                // Split verb from any trailing content
+                let (base_verb, trailing) = rest
+                    .split_once(char::is_whitespace)
+                    .unwrap_or((rest, ""));
+
+                let conjugated = match marker {
+                    "<" => verb_conjugate::to_past(base_verb),
+                    "=" => verb_conjugate::to_continuous(base_verb),
+                    ">" => verb_conjugate::to_future(base_verb),
+                    "<=" => verb_conjugate::to_continuous(base_verb),
+                    _ => base_verb.to_string(),
+                };
+
+                // Encode tense marker info with special prefix ~TENSE~MARKER:CONJUGATED
+                let leading_space = &post[..post.len() - post_trimmed.len()];
+                post = if trailing.is_empty() {
+                    format!("{}~TENSE~{}:{}", leading_space, marker, conjugated)
+                } else {
+                    format!("{}~TENSE~{}:{} {}", leading_space, marker, conjugated, trailing)
+                };
             }
         }
     }

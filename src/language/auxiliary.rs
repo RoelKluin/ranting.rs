@@ -6,9 +6,7 @@
 pub(crate) enum AuxiliaryVerb {
     Will,      // Future tense marker: `>walk` → "will walk"
     IsAre,     // Continuous present: `=walk` → "is walking"
-    WasWere,   // Continuous past (past marker + continuous): `<wait` → "was waiting"
-    Have,      // Present perfect: for future use
-    Had,       // Past perfect: for future use
+    WasWere,   // Continuous past: `<=walk` → "was walking"
 }
 
 /// Return the correctly conjugated auxiliary verb for the given subject pronoun.
@@ -23,9 +21,6 @@ pub(crate) fn conjugate_auxiliary(aux: AuxiliaryVerb, subject: &str) -> &'static
         (AuxiliaryVerb::WasWere, "i" | "he" | "she" | "it") => "was",
         (AuxiliaryVerb::WasWere, "you" | "we" | "they") => "were",
         (AuxiliaryVerb::WasWere, _) => "were",  // Default for unrecognized pronouns
-        (AuxiliaryVerb::Have, "he" | "she" | "it") => "has",
-        (AuxiliaryVerb::Have, _) => "have",
-        (AuxiliaryVerb::Had, _) => "had",
     }
 }
 
@@ -61,17 +56,6 @@ mod tests {
         assert_eq!(conjugate_auxiliary(AuxiliaryVerb::WasWere, "it"), "was");
         assert_eq!(conjugate_auxiliary(AuxiliaryVerb::WasWere, "we"), "were");
         assert_eq!(conjugate_auxiliary(AuxiliaryVerb::WasWere, "they"), "were");
-    }
-
-    #[test]
-    fn have_has_conjugation() {
-        assert_eq!(conjugate_auxiliary(AuxiliaryVerb::Have, "I"), "have");
-        assert_eq!(conjugate_auxiliary(AuxiliaryVerb::Have, "you"), "have");
-        assert_eq!(conjugate_auxiliary(AuxiliaryVerb::Have, "he"), "has");
-        assert_eq!(conjugate_auxiliary(AuxiliaryVerb::Have, "she"), "has");
-        assert_eq!(conjugate_auxiliary(AuxiliaryVerb::Have, "it"), "has");
-        assert_eq!(conjugate_auxiliary(AuxiliaryVerb::Have, "we"), "have");
-        assert_eq!(conjugate_auxiliary(AuxiliaryVerb::Have, "they"), "have");
     }
 
     #[test]
