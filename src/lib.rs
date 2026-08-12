@@ -749,10 +749,10 @@ pub trait Ranting: std::fmt::Display {
     /// ```
     fn inflect_verb_custom(
         &self,
-        subject: &str,
-        verb: &str,
-        as_plural: bool,
-        uc: bool,
+        _subject: &str,
+        _verb: &str,
+        _as_plural: bool,
+        _uc: bool,
     ) -> Option<String> {
         None
     }
@@ -778,10 +778,10 @@ pub trait Ranting: std::fmt::Display {
     /// ```
     fn inflect_pronoun_custom(
         &self,
-        subject: &str,
-        case: PronounCase,
-        as_plural: bool,
-        uc: bool,
+        _subject: &str,
+        _case: PronounCase,
+        _as_plural: bool,
+        _uc: bool,
     ) -> Option<String> {
         None
     }
@@ -814,10 +814,10 @@ pub trait Ranting: std::fmt::Display {
     /// ```
     fn inflect_article_custom(
         &self,
-        article: &str,
-        noun_singular: &str,
-        as_plural: bool,
-        uc: bool,
+        _article: &str,
+        _noun_singular: &str,
+        _as_plural: bool,
+        _uc: bool,
     ) -> Option<String> {
         None
     }
