@@ -38,7 +38,7 @@ impl ArticleOrSo {
     }
 }
 
-#[derive(EnumString, Copy, Clone, PartialEq, Eq)]
+#[derive(EnumString, Copy, Clone, PartialEq, Eq, Debug, strum_macros::EnumIter)]
 #[strum(serialize_all = "lowercase")]
 pub(super) enum IrregularPluralVerb {
     Are,
@@ -74,8 +74,8 @@ impl IrregularPluralVerb {
             Are => Some("am"),
             Were => Some("was"),
             Re => Some("'m"),
-            Ve | Have | Do | D | Had | Could | Would | Should | Might | Must | Can
-            | May | Shall | Will | Ca | Wo => None,
+            Ve | Have | Do | D | Had | Could | Would | Should | Might | Must | Can | May
+            | Shall | Will | Ca | Wo => None,
         }
     }
 
@@ -88,8 +88,8 @@ impl IrregularPluralVerb {
             Re | Ve => Some("'s"),
             Have => Some("has"),
             Do => Some("does"),
-            D | Had | Could | Would | Should | Might | Must | Can | May | Shall
-            | Will | Ca | Wo => None,
+            D | Had | Could | Would | Should | Might | Must | Can | May | Shall | Will | Ca
+            | Wo => None,
         }
     }
 }
@@ -321,7 +321,8 @@ pub fn inflect_noun_irregular(noun_form: &str, to_plural: bool) -> Option<String
 
 #[cfg(test)]
 mod tests {
-    use super::inflect_noun_irregular;
+    use super::super::english_shared::SubjectPronoun;
+    use super::{IrregularPluralVerb, inflect_noun_irregular};
     use ranting::*;
 
     #[test]
@@ -455,5 +456,82 @@ mod tests {
      'S the one? 'D say for herself! 'S got here all of her. \
      'Re the one? 'D say for theirself! 'Ve got here all of them. "
      .to_string());
+    }
+
+    #[test]
+    fn irregular_verb_forms_match_expected_table() {
+        use strum::IntoEnumIterator;
+        #[rustfmt::skip]
+        const EXPECTED_VERB_FORMS: &[(IrregularPluralVerb, Option<&str>, Option<&str>)] = &[
+            (IrregularPluralVerb::Are, Some("am"), Some("is")),
+            (IrregularPluralVerb::Were, Some("was"), Some("was")),
+            (IrregularPluralVerb::Re, Some("'m"), Some("'s")),
+            (IrregularPluralVerb::Ve, None, Some("'s")),
+            (IrregularPluralVerb::Have, None, Some("has")),
+            (IrregularPluralVerb::Do, None, Some("does")),
+            (IrregularPluralVerb::D, None, None),
+            (IrregularPluralVerb::Had, None, None),
+            (IrregularPluralVerb::Could, None, None),
+            (IrregularPluralVerb::Would, None, None),
+            (IrregularPluralVerb::Should, None, None),
+            (IrregularPluralVerb::Might, None, None),
+            (IrregularPluralVerb::Must, None, None),
+            (IrregularPluralVerb::Can, None, None),
+            (IrregularPluralVerb::May, None, None),
+            (IrregularPluralVerb::Shall, None, None),
+            (IrregularPluralVerb::Will, None, None),
+            (IrregularPluralVerb::Ca, None, None),
+            (IrregularPluralVerb::Wo, None, None),
+        ];
+        assert_eq!(
+            IrregularPluralVerb::iter().count(),
+            EXPECTED_VERB_FORMS.len(),
+            "variant count mismatch"
+        );
+        for (v, expected_first, expected_third) in EXPECTED_VERB_FORMS {
+            assert_eq!(
+                v.first_person(),
+                *expected_first,
+                "first_person mismatch for {:?}",
+                v
+            );
+            assert_eq!(
+                v.third_person(),
+                *expected_third,
+                "third_person mismatch for {:?}",
+                v
+            );
+        }
+    }
+
+    #[test]
+    fn pronoun_forms_match_expected_table() {
+        use strum::IntoEnumIterator;
+        #[rustfmt::skip]
+        const EXPECTED: &[(SubjectPronoun, &str, &str, &str, &str)] = &[
+            (SubjectPronoun::I, "I", "me", "my", "mine"),
+            (SubjectPronoun::You, "you", "you", "your", "yours"),
+            (SubjectPronoun::Thou, "thou", "thee", "thy", "thine"),
+            (SubjectPronoun::He, "he", "him", "his", "his"),
+            (SubjectPronoun::She, "she", "her", "her", "hers"),
+            (SubjectPronoun::It, "it", "it", "its", "its"),
+            (SubjectPronoun::We, "we", "us", "our", "ours"),
+            (SubjectPronoun::Ye, "ye", "you", "your", "yours"),
+            (SubjectPronoun::They, "they", "them", "their", "theirs"),
+        ];
+        assert_eq!(
+            SubjectPronoun::iter().count(),
+            EXPECTED.len(),
+            "variant count mismatch"
+        );
+        for (p, expected_subj, expected_obj, expected_poss, expected_adj) in EXPECTED {
+            let f = p.forms();
+            assert_eq!(
+                (f.subjective, f.objective, f.possessive, f.adjective),
+                (*expected_subj, *expected_obj, *expected_poss, *expected_adj),
+                "pronoun forms mismatch for {:?}",
+                p
+            );
+        }
     }
 }
