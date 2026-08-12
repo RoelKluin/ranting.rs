@@ -7,6 +7,8 @@ pub(crate) enum AuxiliaryVerb {
     Will,    // Future tense marker: `>walk` → "will walk"
     IsAre,   // Continuous present: `=walk` → "is walking"
     WasWere, // Continuous past: `<=walk` → "was walking"
+    HaveHas, // Present perfect: `%walk` → "has/have walked"
+    Had,     // Past perfect: `<%walk` → "had walked"
 }
 
 /// Return the correctly conjugated auxiliary verb for the given subject pronoun.
@@ -21,6 +23,9 @@ pub(crate) fn conjugate_auxiliary(aux: AuxiliaryVerb, subject: &str) -> &'static
         (AuxiliaryVerb::WasWere, "i" | "he" | "she" | "it") => "was",
         (AuxiliaryVerb::WasWere, "you" | "we" | "they") => "were",
         (AuxiliaryVerb::WasWere, _) => "were", // Default for unrecognized pronouns
+        (AuxiliaryVerb::HaveHas, "he" | "she" | "it") => "has",
+        (AuxiliaryVerb::HaveHas, _) => "have", // All other persons (including default)
+        (AuxiliaryVerb::Had, _) => "had", // Same for all persons
     }
 }
 
@@ -63,5 +68,24 @@ mod tests {
         assert_eq!(conjugate_auxiliary(AuxiliaryVerb::IsAre, "HE"), "is");
         assert_eq!(conjugate_auxiliary(AuxiliaryVerb::WasWere, "THEY"), "were");
         assert_eq!(conjugate_auxiliary(AuxiliaryVerb::Will, "She"), "will");
+    }
+
+    #[test]
+    fn have_has_conjugation() {
+        assert_eq!(conjugate_auxiliary(AuxiliaryVerb::HaveHas, "I"), "have");
+        assert_eq!(conjugate_auxiliary(AuxiliaryVerb::HaveHas, "you"), "have");
+        assert_eq!(conjugate_auxiliary(AuxiliaryVerb::HaveHas, "he"), "has");
+        assert_eq!(conjugate_auxiliary(AuxiliaryVerb::HaveHas, "she"), "has");
+        assert_eq!(conjugate_auxiliary(AuxiliaryVerb::HaveHas, "it"), "has");
+        assert_eq!(conjugate_auxiliary(AuxiliaryVerb::HaveHas, "we"), "have");
+        assert_eq!(conjugate_auxiliary(AuxiliaryVerb::HaveHas, "they"), "have");
+    }
+
+    #[test]
+    fn had_conjugation() {
+        let pronouns = vec!["I", "you", "he", "she", "it", "we", "they"];
+        for pronoun in pronouns {
+            assert_eq!(conjugate_auxiliary(AuxiliaryVerb::Had, pronoun), "had");
+        }
     }
 }

@@ -124,32 +124,166 @@ static IRREGULAR_PAST: &[(&str, &str)] = &[
     ("write", "wrote"),
 ];
 
-/// Convert a base verb to its past tense form.
-/// Used at compile time in the say!() macro to conjugate verbs.
-pub(crate) fn to_past(verb: &str) -> String {
-    let verb_lower = verb.to_lowercase();
+static IRREGULAR_PAST_PARTICIPLE: &[(&str, &str)] = &[
+    ("am", "been"),
+    ("are", "been"),
+    ("be", "been"),
+    ("beat", "beaten"),
+    ("become", "become"),
+    ("begin", "begun"),
+    ("bend", "bent"),
+    ("bet", "bet"),
+    ("bite", "bitten"),
+    ("bleed", "bled"),
+    ("blow", "blown"),
+    ("break", "broken"),
+    ("breed", "bred"),
+    ("bring", "brought"),
+    ("build", "built"),
+    ("burn", "burnt"),
+    ("burst", "burst"),
+    ("buy", "bought"),
+    ("catch", "caught"),
+    ("choose", "chosen"),
+    ("come", "come"),
+    ("cost", "cost"),
+    ("cut", "cut"),
+    ("deal", "dealt"),
+    ("dig", "dug"),
+    ("do", "done"),
+    ("draw", "drawn"),
+    ("dream", "dreamt"),
+    ("drink", "drunk"),
+    ("drive", "driven"),
+    ("eat", "eaten"),
+    ("fall", "fallen"),
+    ("feed", "fed"),
+    ("feel", "felt"),
+    ("fight", "fought"),
+    ("find", "found"),
+    ("fly", "flown"),
+    ("forget", "forgotten"),
+    ("forgive", "forgiven"),
+    ("freeze", "frozen"),
+    ("get", "gotten"),
+    ("give", "given"),
+    ("go", "gone"),
+    ("grow", "grown"),
+    ("have", "had"),
+    ("hear", "heard"),
+    ("hide", "hidden"),
+    ("hit", "hit"),
+    ("hold", "held"),
+    ("hurt", "hurt"),
+    ("keep", "kept"),
+    ("kneel", "knelt"),
+    ("know", "known"),
+    ("lay", "laid"),
+    ("lead", "led"),
+    ("learn", "learnt"),
+    ("leave", "left"),
+    ("lend", "lent"),
+    ("let", "let"),
+    ("lie", "lain"),
+    ("light", "lit"),
+    ("lose", "lost"),
+    ("make", "made"),
+    ("mean", "meant"),
+    ("meet", "met"),
+    ("pay", "paid"),
+    ("put", "put"),
+    ("quit", "quit"),
+    ("read", "read"),
+    ("ride", "ridden"),
+    ("ring", "rung"),
+    ("rise", "risen"),
+    ("run", "run"),
+    ("say", "said"),
+    ("see", "seen"),
+    ("seek", "sought"),
+    ("sell", "sold"),
+    ("send", "sent"),
+    ("set", "set"),
+    ("shake", "shaken"),
+    ("shine", "shone"),
+    ("shoot", "shot"),
+    ("show", "shown"),
+    ("shut", "shut"),
+    ("sing", "sung"),
+    ("sink", "sunk"),
+    ("sit", "sat"),
+    ("sleep", "slept"),
+    ("slide", "slid"),
+    ("speak", "spoken"),
+    ("spend", "spent"),
+    ("spin", "spun"),
+    ("split", "split"),
+    ("spread", "spread"),
+    ("stand", "stood"),
+    ("steal", "stolen"),
+    ("stick", "stuck"),
+    ("sting", "stung"),
+    ("stink", "stunk"),
+    ("strike", "struck"),
+    ("string", "strung"),
+    ("swear", "sworn"),
+    ("sweep", "swept"),
+    ("swim", "swum"),
+    ("swing", "swung"),
+    ("take", "taken"),
+    ("teach", "taught"),
+    ("tear", "torn"),
+    ("tell", "told"),
+    ("think", "thought"),
+    ("throw", "thrown"),
+    ("understand", "understood"),
+    ("wear", "worn"),
+    ("weave", "woven"),
+    ("weep", "wept"),
+    ("win", "won"),
+    ("wind", "wound"),
+    ("write", "written"),
+];
 
-    // Check irregular past table
-    if let Some((_, past)) = IRREGULAR_PAST.iter().find(|(base, _)| verb_lower == *base) {
-        return past.to_string();
-    }
-
-    // Regular past: add -ed with common rules
+fn regular_past_form(verb_lower: &str) -> String {
     let base = if verb_lower.ends_with('e') {
         verb_lower[..verb_lower.len() - 1].to_string()
     } else if verb_lower.ends_with('y') && verb_lower.len() > 1 {
         let prev = verb_lower.chars().rev().nth(1).unwrap();
         if !matches!(prev, 'a' | 'e' | 'i' | 'o' | 'u') {
-            // consonant + y: change y to i, then add -ed
             format!("{}i", &verb_lower[..verb_lower.len() - 1])
         } else {
-            verb_lower.clone()
+            verb_lower.to_string()
         }
     } else {
-        verb_lower.clone()
+        verb_lower.to_string()
     };
 
     format!("{}ed", base)
+}
+
+/// Convert a base verb to its past tense form.
+/// Used at compile time in the say!() macro to conjugate verbs.
+pub(crate) fn to_past(verb: &str) -> String {
+    let verb_lower = verb.to_lowercase();
+
+    if let Some((_, past)) = IRREGULAR_PAST.iter().find(|(base, _)| verb_lower == *base) {
+        return past.to_string();
+    }
+
+    regular_past_form(&verb_lower)
+}
+
+/// Convert a base verb to its past participle form.
+/// Used at compile time in the say!() macro to conjugate verbs for perfect tenses.
+pub(crate) fn to_past_participle(verb: &str) -> String {
+    let verb_lower = verb.to_lowercase();
+
+    if let Some((_, participle)) = IRREGULAR_PAST_PARTICIPLE.iter().find(|(base, _)| verb_lower == *base) {
+        return participle.to_string();
+    }
+
+    regular_past_form(&verb_lower)
 }
 
 /// Convert a base verb to its continuous (present participle) form (-ing).

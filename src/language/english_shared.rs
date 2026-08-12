@@ -43,7 +43,7 @@ pub(crate) static PH_EXT: &str = r"^(?x)
     (?P<nr>[+-]|(?:\#|\??\$)\w+\s+)?+
     (?P<case>[`=@~*?])?+
     (?P<noun>[\w-]+)
-    (?P<post>\s+[<=>]*(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$";
+    (?P<post>\s+[<=>%]*(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$";
 
 #[allow(dead_code)]
 pub(crate) static ASK: &str = r"^(?x)

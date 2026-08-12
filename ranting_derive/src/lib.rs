@@ -446,10 +446,10 @@ fn handle_param(
     if !post.is_empty() {
         let post_trimmed = post.trim_start();
         if !post_trimmed.is_empty() {
-            // Extract marker run: take all leading <, =, > characters
+            // Extract marker run: take all leading <, =, >, % characters
             let marker_end = post_trimmed
                 .chars()
-                .take_while(|c| matches!(c, '<' | '=' | '>'))
+                .take_while(|c| matches!(c, '<' | '=' | '>' | '%'))
                 .count();
 
             if marker_end > 0 && marker_end < post_trimmed.len() {
@@ -466,6 +466,8 @@ fn handle_param(
                     "=" => verb_conjugate::to_continuous(base_verb),
                     ">" => verb_conjugate::to_future(base_verb),
                     "<=" => verb_conjugate::to_continuous(base_verb),
+                    "%" => verb_conjugate::to_past_participle(base_verb),
+                    "<%" => verb_conjugate::to_past_participle(base_verb),
                     _ => base_verb.to_string(),
                 };
 

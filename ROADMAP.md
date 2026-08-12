@@ -28,24 +28,22 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 - Integration tests and doctests
 - Named arguments (`person = my_var` syntax)
 - Empty placeholders (`{}`)
-- **Tense markers** (Phase 2): `{=person <walk}` (past), `{=person =walk}` (present continuous), `{=person >walk}` (future), `{=person <=walk}` (past continuous)
+- **Tense markers** (Phase 2): `{=person <walk}` (past), `{=person =walk}` (present continuous), `{=person >walk}` (future), `{=person <=walk}` (past continuous), `{=person %walk}` (present perfect), `{=person <%walk}` (past perfect)
 - Regular past-tense formation: adds -ed with phonetic rules (y→ied, e→remove, etc.)
 - Irregular past tense via built-in table (go→went, see→saw, etc.)
 - Continuous/progressive forms: -ing with phonetic rules (silent e, consonant doubling, ie→y)
 
-❌ **Not working**:
-- Perfect tenses (present/past perfect): `have/has + past participle` (requires separate past-participle table; go→went vs. go→gone)
-- Conditional tenses (would + base verb)
-- Other modal helpers beyond what `IrregularPluralVerb` covers (can/could/may/might/must/shall already conjugate via existing table, but conditional mood is deferred)
-- Irregular noun plurals (child→children, person→people) — no support, needs `inflections` crate integration or custom table
-- Custom pluralization rules
-- Reflexive forms (myself, yourself, itself) — no pronoun table yet, currently just literal string concatenation
-- Comparative/superlative adjectives (better, best) — no support
-- Recursive type inflection
-- Multi-language support
-- Nested/complex type handling
-- Format specs in placeholders
-- Derived traits alongside Ranting
+❌ **Not working / Deferred to v1.1+**:
+- Conditional tenses (would + base verb) — deferred; modals can already conjugate via existing table
+- Irregular noun plurals (child→children, person→people) — v1.1 feature; needs table or external crate
+- Custom pluralization rules — v1.1
+- Reflexive forms (myself, yourself, itself) — v1.1 or later; needs pronoun case expansion
+- Comparative/superlative adjectives (better, best) — v1.1 or later
+- Recursive type inflection — v1.1
+- Multi-language support — v1.2+; separate `ranting-i18n` crate after v1.0
+- Nested/complex type handling — v1.1
+- Format specs in placeholders — v1.0 (added in Q11 review if needed)
+- Derived traits alongside Ranting — v1.0
 
 ---
 
@@ -61,26 +59,29 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 
 ---
 
-### Phase 2: **v0.4.0** — Grammar Depth
-*Goal: Handle past, future, conditional, and continuous tenses.*
+### Phase 2: **v1.0.0** — Grammar Depth
+*Goal: Handle past, future, and continuous tenses; lock in API for v1.0.*
 
-**Verb Tense Support** ✅ (Partially complete):
-- ✅ Past tense marker: `{=person <walk}` → "He walked" / irregular: "He went"
-- ✅ Present continuous: `{=person =walk}` → "He is walking"
-- ✅ Future tense: `{=person >walk}` → "He will walk"
-- ✅ Past continuous: `{=person <=walk}` → "He was walking"
-- ⏳ Perfect tenses (have/has + past participle): deferred; requires separate past-participle table
-- ⏳ Conditional forms (would + base): deferred; modals already conjugate via existing table
-- **Implementation**: Marker-based syntax using `<`, `=`, `>`, `<=` in placeholder post-position
+**Verb Tense Support** ✅ (Stages 1-4 complete in v1.0):
+- ✅ **Stage 2** — Past tense marker: `{=person <walk}` → "He walked" / irregular: "He went"
+- ✅ **Stage 2** — Present continuous: `{=person =walk}` → "He is walking"
+- ✅ **Stage 2** — Future tense: `{=person >walk}` → "He will walk"
+- ✅ **Stage 2** — Past continuous: `{=person <=walk}` → "He was walking"
+- ✅ **Stage 4** — Present perfect: `{=person %walk}` → "He has walked" / irregular: "He has gone"
+- ✅ **Stage 4** — Past perfect: `{=person <%walk}` → "He had walked" / irregular: "He had gone"
+- **Implementation**: Marker-based syntax using `<`, `=`, `>`, `<=`, `%`, `<%` in placeholder post-position
   - Markers are composable at Rust level (not regex level) for easier extension
   - Compile-time conjugation in `ranting_derive`, runtime auxiliary insertion
+  - All tense combinations (7 distinct tenses) working end-to-end by v1.0 release
 
-**Irregular Verbs & Plurals**:
+**Irregular Verbs & Plurals** (v1.0 design decision per Specialist Review):
 - ✅ 100+ irregular past-tense verbs in built-in table (go→went, see→saw, take→took, etc.)
 - ✅ Regular past-tense rules: -ed with phonetic handling (walk→walked, try→tried, like→liked)
-- ❌ Irregular noun plurals (child→children, person→people) — deferred to later; needs external crate or large table
-- ❌ Custom pluralization rules — deferred
-- **Strategy**: Built-in English irregulars now; custom mappings via derive attributes left for future
+- ✅ **NEW** (~100 entries): Irregular past-participle table (go→gone, do→done, see→seen, etc.) for perfect tenses
+- **v1.0 Debt Elimination**: Verb table duplication (src/ + ranting_derive/src/) eliminated via build.rs + data/verbs.toml codegen
+- ❌ Irregular noun plurals (child→children, person→people) — **v1.1 feature**; planned table-based approach
+- ❌ Custom pluralization rules — **v1.1+**
+- **Strategy**: Built-in English irregulars for all tenses by v1.0; irregular plurals deferred to v1.1 based on adoption feedback
 
 **Reflexive Forms**:
 - Support myself, yourself, himself, herself, itself, ourselves, themselves
@@ -94,161 +95,185 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 - `{>person}` for comparative, `{>>person}` for superlative (or similar syntax)
 - **Tradeoff**: More complex adjective handling
 
-**Ecosystem: `ranting-macros`**:
-- Ship first version with advanced utilities:
-  - `nested_say!()` for nested inflection
-  - `conditional_say!()` for if-else text generation
-  - Helpers for bulk text formatting
-- Keep simple; defer complex features to later versions
-- **Design**: Companion crate uses core `ranting` trait, doesn't fork logic
+**Documentation & Adoption** ✅ (Critical for v1.0):
+- **Tutorial** ("Getting Started with Ranting"): 5 sections, 5 worked examples, 30-40 min read
+- **Cookbook** (10 recipes): Game dialogue, chatbots, interactive fiction, gender-neutral pronouns, etc.
+- **API docs**: Examples on every public function; cross-references between related features
+- **ROADMAP clarity**: v1.0 scope (all tenses) vs. v1.1 scope (plurals, extensibility) locked in
 
-**Test Coverage**: Maintain >80%, add tense-specific edge cases.
+**Technical Debt Elimination**:
+- ✅ Verb table duplication → codegen (build.rs + data/verbs.toml)
+- ✅ Pronoun array fragility → HashMap (eliminates index-coupling risk)
+- ✅ Derive macro attributes → Rationalize to 4 core (subject, name, singular_end, plural_end)
 
-**Estimated timeline**: 3-4 months
+**Test Coverage**: Maintain >85%, add property-based tests for verb conjugation rules.
+
+**Success Criteria for v1.0**:
+- All Phase 2 tense markers complete (7 tenses)
+- >85% test coverage
+- Tutorial + 10-recipe cookbook published
+- Zero breaking changes commitment (semver locked)
+- Zero critical known issues
+
+**Estimated timeline**: 4-5 weeks (Tier 1 & 2 work from Design Review)
 
 ---
 
-### Phase 3: **v1.0.0** — Polish & Stability
-*Goal: Feature-complete, well-tested, production-ready.*
+### Phase 3: **v1.1.0** — Plurals, Extensibility, and Ecosystem
+*Goal: Complete core morphology; enable community contributions.*
+
+**Specialist Consensus & User Priorities** (from Design Review):
+- **Vision**: Adoption (primary) → Stability (v1.0) → Completeness (v1.1+)
+- **Strategy**: v1.0 ships with complete, stable tense system + excellent docs. v1.1 adds plurals based on user feedback.
+
+**Irregular Noun Plurals**:
+- Support 100+ common irregular plurals: child→children, person→people, mouse→mice, goose→geese, etc.
+- Build `data/plurals.toml` (parallel to verbs.toml); codegen into `src/language/plurals.rs`
+- Integrate with existing `#[ranting(plural_end="...")]` attribute system
+- **Time Estimate**: 24-32 hours
+- **Rationale**: Frequently requested; enables "5 people walked" vs. "5 person walked"
+
+**Trait-Based Inflection Extensibility**:
+- Add `inflect_verb_custom()`, `inflect_noun_custom()` trait methods to `Ranting`
+- Enable users to implement custom grammar rules (e.g., Scottish English, Elvish)
+- **Design**: Default impls use built-in rules; users can override for domain-specific needs
+- **Example**: `impl Ranting for ArchaicEnglish { fn inflect_verb_custom(...) { ... } }`
+- **Time Estimate**: 16-20 hours (API design + 3 example impls)
+- **Rationale**: Signals extensibility; enables creative use cases (fantasy languages, constructed languages)
+
+**Reflexive Forms**:
+- Support myself, yourself, himself, herself, itself, ourselves, themselves
+- Add case marker (e.g., `{~person do}` becomes reflexive pronoun in context)
+- **Time Estimate**: 8-12 hours
+- **Rationale**: Completes core pronouns system
+
+**Comparative & Superlative Adjectives**:
+- Handle degree: good → better → best, bad → worse → worst
+- Marker-based syntax (e.g., `{+person good}` for comparative, `{++person good}` for superlative)
+- **Time Estimate**: 10-16 hours
+- **Rationale**: Rounds out morphology; enables richer text generation
 
 **Recursive Type Inflection**:
 - Support collections and nested Ranting types
 - `Vec<Item>` where Item: Ranting
 - `Option<Person>`, `Box<Noun>`, etc.
-- **Strategy**:
-  - Use `#[derive(Ranting)]` to generate recursive implementations
-  - Handle `unwrap()` / `map()` internally when needed
-  - **Challenge**: Lifetime and reference complexity
-  - **Tradeoff**: Convenience vs. unexpected `unwrap()` calls in derived code
+- **Strategy**: Use `#[derive(Ranting)]` to generate recursive implementations
+- **Time Estimate**: 12-16 hours
+- **Rationale**: Enables complex data structures
 
-**Custom Pluralization Framework**:
-- Trait-based API for user-defined plural rules
-- `impl PluralizeRule for MyType { ... }`
-- Support domain-specific pluralization (e.g., units: 1 liter, 2 liters)
-- **Design**: Trait that types can implement; `derive(Ranting)` can delegate to it
-- **Tradeoff**: Added complexity for subset of users
+**Performance & Stability Audit**:
+- Profile compile-time macro expansion; optimize hot paths
+- Profile runtime inflection cost; benchmark against `format!()`
+- Verify >85% test coverage across all features
+- Update CLAUDE.md with performance notes
 
-**Full Format Spec Support**:
-- Allow format specs in placeholders: `{=person:?}`, `{#count:05}`
-- Apply format spec after inflection
-- **Challenge**: Parsing format specs correctly alongside Ranting syntax
-- **Tradeoff**: More complex regex/parsing logic
-
-**Stacking Derives**:
-- Ensure `#[derive(Debug, Clone, Ranting)]` works seamlessly
-- Test with other common derives (Serialize, Deserialize, etc.)
-- **Challenge**: Proc-macro interaction with other derives
-- **Tradeoff**: Minimal; mostly testing
-
-**Comprehensive Error Handling**:
-- Both compile-time and runtime error paths mature
-- Helpful messages for all error categories
-- Documentation of error handling patterns for library users
-
-**Documentation & Examples**:
-- Extensive API docs with examples for all features
-- Tutorial: "Writing Dynamic Text with Ranting"
-- Cookbook: common patterns (storytelling, chatbots, game dialogue)
-- Migration guide from v0.2 → v1.0
-
-**Performance Audit**:
-- Profile compile-time macro expansion
-- Profile runtime inflection cost
-- Optimize both without sacrificing readability
-- Benchmark against `format!()`
-
-**Test Coverage**: >85%, including all tense combinations and edge cases.
+**Test Coverage**: >85% across all v1.1 features.
 
 **Success Criteria**:
-- All features from Phases 1-3 working
-- >85% test coverage
-- Comprehensive error messages
-- Ecosystem ready: `ranting-macros` v1.0.0 companion
-- Documentation complete and polished
-- **No critical known issues**
+- Irregular plurals support for 100+ nouns
+- Trait extensibility API stable and documented
+- Reflexive forms + comparative/superlative working
+- Zero breaking changes from v1.0
+- Community contributions: 2-3 ecosystem forks (ranting-spanish, domain-specific variants)
+- GitHub engagement: 10+ answered issues/discussions
 
-**Estimated timeline**: 3-4 months after Phase 2
+**Estimated timeline**: 8-12 weeks post-v1.0 release
 
-**Release strategy**: Allow pre-1.0 minor versions to break semver if needed. At 1.0, commit to semver.
+**Release strategy**: Semver-locked; all features are additive, no breaking changes.
 
 ---
 
-## Post-1.0: Future Directions
+## Post-v1.1: Future Directions
 
-### `ranting-i18n` (Companion Crate)
-- Multi-language support: German, French, Spanish, Japanese, etc.
-- Modular language modules
-- Hook into core Ranting trait for language selection
-- Design as separate crate to keep core lightweight
-- **Timeline**: 6-12 months after v1.0
+### v1.2.0: Ecosystem Expansion
+- **`ranting-i18n` Companion Crate** (12-16 weeks post-v1.0):
+  - Multi-language support: German, French, Spanish, Japanese, etc.
+  - Modular language modules using trait-based extensibility from v1.1
+  - Hook into `Ranting` trait for language selection
+  - Design as separate crate to keep core lightweight
+  - **Rationale**: Proves extensibility model works; enables global adoption
 
-### Advanced Features (Speculative)
+### v1.3+: Advanced Features
 - Dialogue formatting with automatic punctuation and breaks
 - Pluralization of entire phrases (not just nouns)
 - Subjunctive mood and hypotheticals
 - Context-aware inflection (formal vs. informal register)
 - Performance optimizations (cached inflection, const generics)
+- **Community-driven**: Prioritized by user feedback from v1.0-1.1
 
 ---
 
-## Key Decisions & Tradeoffs
+## Key Decisions & Tradeoffs (Locked in via Design Review, 2026-08-12)
 
-### 1. Syntax: Placeholder Markers vs. Method Calls
-**Decision**: Continue with placeholder-based `{...}` syntax (not trait methods).
-- **Why**: Ergonomic and declarative; mirrors `format!()`
-- **Tradeoff**: Macro complexity, but worth it for UX
+**5-Specialist Independent Evaluation**: All decisions below reflect unanimous or strong specialist consensus (60%+). See DESIGN_REPORT_SUMMARY.md for full review details.
 
-### 2. Compile-Time vs. Runtime Inflection
-**Decision**: Hybrid—parse at compile time, apply inflection at runtime.
-- **Why**: Allows dynamic Ranting types while catching syntax errors early
-- **Tradeoff**: Cannot optimize away all runtime work without losing flexibility
+### 1. Two-Crate Architecture ✅ **UNANIMOUS (5/5)**
+**Decision**: Keep ranting + ranting_derive split.
+- **Why**: Proc-macro crates are Rust-required; mirrors industry standard (serde, tokio)
+- **Status**: Locked; no changes needed
 
-### 3. Named Arguments Implementation
-**Decision**: Parse Rust's native named-argument syntax (like `format!()` in 1.58+).
-- **Why**: Consistency with Rust conventions
-- **Challenge**: Requires careful syn parsing to extract named args from macro input
-- **Benefit**: Users already know the syntax
+### 2. Verb Table Duplication → Codegen ⚠️ **SPECIALIST CONSENSUS (60%)**
+**Decision**: Eliminate manual duplication via build.rs + data/verbs.toml.
+- **Why**: Single source of truth; scales as tables grow (perfect participles, future plurals)
+- **v1.0 Effort**: 12-16 hours; eliminates sync bugs
+- **Rationale**: Codegen preferred over external crate for phase-2 tables
 
-### 4. Recursive Types
-**Decision**: Full support via derived `#[derive(Ranting)]` recursion.
-- **Why**: Natural for complex types (containers, optionals)
-- **Tradeoff**: More generated code, risk of unexpected `unwrap()` in derived implementations
-- **Mitigation**: Clear documentation + examples showing how recursion works
+### 3. Pronoun Tables → HashMap ⚠️ **SPECIALIST LEAN (60%)**
+**Decision**: Replace fragile index-coupled arrays with HashMap.
+- **Why**: Eliminates silent coupling risk; readability improves; zero measurable performance impact
+- **v1.0 Effort**: 4-8 hours; enables future pronoun additions
+- **Rationale**: Maintainability over micro-optimization
 
-### 5. Custom Pluralization
-**Decision**: Both built-in irregulars + trait-based extensibility.
-- **Why**: Handles 90% of use cases (English irregulars) while allowing domain-specific rules
-- **Tradeoff**: Maintenance of irregular table
-- **Mitigation**: Use external crate if available; community contributions welcome
+### 4. Compile-Time vs. Runtime Split ✅ **UNANIMOUS (5/5)**
+**Decision**: Keep hybrid approach (compile-time parsing, runtime inflection).
+- **Why**: Catches syntax errors early; enables extensibility
+- **Status**: Locked; documented as intentional architecture
 
-### 6. Multi-Language
-**Decision**: English-only in core; design for extensibility; separate crate post-1.0.
-- **Why**: Keeps core small, allows language modules to evolve independently
-- **Tradeoff**: No multi-language before 1.0, but architecture supports it
+### 5. Trait-Based Inflection Methods 🎯 **DEFER to v1.1 (80% future preference)**
+**Decision**: Keep free functions for v1.0; add trait methods in v1.1 via default impls.
+- **Why**: Avoids breaking change; current design works; extensibility comes post-v1.0
+- **v1.1 Effort**: 16-20 hours; enables custom rule implementations
 
-### 7. Format Specs
-**Decision**: Full support in 1.0 (apply after inflection).
-- **Why**: Users expect `format!()`-like flexibility
-- **Tradeoff**: Parsing complexity; must distinguish Ranting markers from format specs
+### 6. Placeholder Syntax ⚠️ **KEEP CURRENT (60% favor); DOCUMENT (100%)**
+**Decision**: Full grammar syntax kept; solve learning curve via tutorial + cookbook.
+- **Why**: Syntax is powerful + tested; UX concern is documentation, not expressiveness
+- **v1.0 Effort**: 40-60 hours documentation (tutorial + 10-recipe cookbook)
+- **Rationale**: Better docs resolve concerns without breaking change
 
-### 8. Error Handling
-**Decision**: Both compile-time validation + runtime errors.
-- **Why**: Maximum developer experience
-- **Tradeoff**: More error handling code, but justified by UX benefit
+### 7. Grammar Rules Sourcing ⚠️ **BUILT-IN + DEFER EXTENSIBILITY (60%)**
+**Decision**: v1.0 uses built-in English rules; v1.1 adds trait-based extensibility.
+- **Why**: Built-in rules mature + tested; extensibility design deferred for v1.1
+- **v1.0**: All tenses (7), no external dependencies
+- **v1.1**: Custom rule trait, example impls (Scottish, Elvish, etc.)
 
-### 9. Pre-1.0 Breaking Changes
-**Decision**: Allow breaking changes in 0.x minor versions if needed.
-- **Why**: Ensures 1.0 is solid; no accumulated tech debt
-- **Strategy**: Deprecation period before removal; clear migration guides
-- **Communication**: Changelog and migration docs for each breaking change
+### 8. Test Strategy ✅ **INTEGRATION-HEAVY + ADD PROPERTY TESTS (80%)**
+**Decision**: Keep integration-heavy primary; add targeted property-based tests for verbs.
+- **Why**: Integration tests are right for DSL; property tests catch grammar edge cases
+- **v1.0 Effort**: 8-12 hours; validates phonetic rules systematically
+- **Rationale**: Additive, not breaking; complements integration suite
 
-### 10. Verb Tense & Inflection Data Sourcing (Phase 2)
-**Decision**: Use `inflections` crate (optional, feature-gated) for noun pluralization only; build verb tense, reflexive forms, and comparative/superlative entirely in-house as free functions.
-- **Why**: No Rust crate covers verb conjugation, reflexive pronouns, or adjective degrees. `inflections` crate is mature for pluralization but doesn't help with tenses. Free functions match the existing architecture (all inflection logic is in `src/language/` as free functions, not trait methods) and avoid the `dyn Ranting` / delegating-impl trap that trait methods would create.
-- **Data location**: Verb tense, reflexive, and adjective-degree tables live in `src/language/` (runtime crate only), deliberately NOT duplicated into `ranting_derive/src/language/`, since they aren't part of the placeholder-parsing regex/enum surface CLAUDE.md requires kept in sync.
-- **Structural isolation**: New verb-tense tables are separate from `IrregularPluralVerb`/`IRREGULAR_VERBS_1ST`/`IRREGULAR_VERBS_3RD`, which use fragile index-coupled arithmetic into parallel arrays. Do not extend those structures; do not reorder variants.
-- **Placeholder syntax**: Prefer `{=person walked}` / `{=person went}` (user writes the already-inflected verb; `inflect_verb` classifies and passes through) over a new `{=person @past do}` marker syntax or a `to_past()` trait method. This works via the existing generic `post` capture group with zero regex/macro change.
-- **Timeline**: Skeleton (v0.3.1): detect and preserve past/continuous, fix "walkeds" bug. Full system (v0.4.0): auto-conjugation, future/conditional tenses, -ing forms, reflexive/comparative/superlative.
+### 9. ROADMAP Priority 🎯 **USER DECISION: PERFECT TENSES (Stage 4)**
+**Decision**: Continue Phase 2 momentum; perfect tenses in Stage 4 (v1.0); irregular plurals in v1.1.
+- **Why**: Tense system is logically coherent; plurals are orthogonal; continuing Phase 2 maintains momentum
+- **v1.0 Tenses**: Past, Continuous, Future, Past-Continuous, Present-Perfect, Past-Perfect (7 total)
+- **v1.1 Plurals**: Irregular nouns + reflexive + comparative/superlative
+
+### 10. Derive Macro Attributes 🎯 **RATIONALIZE to 4 CORE (60%)**
+**Decision**: Clarify 4 core attributes (subject, name, singular_end, plural_end); move cosmetics to builder.
+- **v1.0 Effort**: 4-6 hours cleanup + documentation
+- **Rationale**: Reduces confusion; improves discoverability
+
+### 11. Documentation 🎯 **UNANIMOUS CRITICAL (5/5)**
+**Decision**: Ship v1.0 with comprehensive tutorial + 10-recipe cookbook.
+- **Why**: Documentation is adoption blocker; highest-ROI intervention
+- **v1.0 Effort**: 40-60 hours (estimated 10x GitHub stars impact)
+- **Rationale**: All specialists agree; essential for market success
+
+### 12. Strategic Vision 🎯 **USER DECISION: Adoption → Stability → Completeness**
+**Decision**: v1.0 focuses adoption + stability; v1.1 adds completeness based on feedback.
+- **v1.0**: Rock-solid tenses + docs + semver commitment
+- **v1.1**: Plurals, extensibility, ecosystem growth
+- **v1.2+**: Community-driven completeness (reflexive, comparative, i18n)
 
 ---
 
@@ -287,19 +312,31 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 
 ## Success Metrics
 
-**By v1.0**:
-- ✅ 200+ GitHub stars (lightweight library adoption signal)
-- ✅ >80% test coverage
-- ✅ All planned grammar features working
-- ✅ Documentation rated "excellent" by users
-- ✅ No critical unresolved issues
-- ✅ Ecosystem ready: `ranting-macros` v1.0
+**v1.0 Success Criteria** (4-5 weeks from Design Review):
+| Metric | Target | Status |
+|--------|--------|--------|
+| Test coverage | >85% | Foundation in place; property tests added Week 1 |
+| GitHub stars | 400+ | Currently ~200; adoption push with v1.0 launch |
+| crates.io downloads | 5k+/month | Adoption signal; tracked post-launch |
+| Documentation | Tutorial + 10-recipe cookbook | Tier 1 priority; 40-60 hrs Week 1-3 |
+| API stability | Zero breaking changes post-v1.0 | Semver locked; versioning strategy established |
+| Tense system | All Phase 2 complete (7 tenses) | Stages 2-4 wired; perfect tenses Stage 4 |
+| Debt elimination | Codegen + HashMap refactors done | Tier 1 work; 16-24 hours Week 1-2 |
 
-**By v1.2 (6 months post-1.0)**:
-- ✅ Active community (PRs, discussions, issues)
-- ✅ `ranting-i18n` foundation laid or shipped
-- ✅ Case studies: published examples from games, chatbots, or real projects
-- ✅ Performance within 5% of `format!()` for equivalent output
+**v1.1 Success Criteria** (8-12 weeks post-v1.0):
+| Metric | Target | Status |
+|--------|--------|--------|
+| Irregular plurals | 100+ common forms | Table-based; parallel to verbs.toml approach |
+| Trait extensibility | InflectionRule trait + 3 example impls | Enables ecosystem forks (ranting-spanish, etc.) |
+| Ecosystem projects | 2-3 forks; domain-specific variants | Community-contributed implementations |
+| Community engagement | 10+ answered issues/discussions | Active maintainer presence post-v1.0 |
+| Refactoring complete | Reflexive + comparative/superlative done | Phase 3 features shipped |
+
+**v1.2+ Success Criteria** (6+ months post-v1.0):
+- `ranting-i18n` foundation or shipped (multi-language support)
+- Case studies: published examples from games, chatbots, real projects
+- Performance within 5% of `format!()` for equivalent output
+- Community fork activity (3+ maintained ecosystem projects)
 
 ---
 

@@ -345,6 +345,16 @@ pub fn handle_tense_marker(subject: &str, marker: &str, verb: &str) -> String {
             let aux = conjugate_auxiliary(AuxiliaryVerb::WasWere, subject);
             format!("{} {}", aux, verb)
         }
+        "%" => {
+            // Present perfect: subject + has/have + past participle
+            let aux = conjugate_auxiliary(AuxiliaryVerb::HaveHas, subject);
+            format!("{} {}", aux, verb)
+        }
+        "<%" => {
+            // Past perfect: subject + had + past participle
+            let aux = conjugate_auxiliary(AuxiliaryVerb::Had, subject);
+            format!("{} {}", aux, verb)
+        }
         _ => verb.to_string(),
     }
 }
