@@ -3,3 +3,4 @@ ranting_derive/target/
 ranting_derive/tags
 tags
 .aider*
+.worktrees/
