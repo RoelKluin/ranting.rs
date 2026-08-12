@@ -31,6 +31,7 @@ extern crate self as ranting;
 
 mod language;
 mod narration;
+mod heed;
 use lazy_static::lazy_static;
 use regex::Regex;
 
@@ -49,6 +50,9 @@ use language::english::{
 };
 pub use language::english::{inflect_noun_irregular, inflect_possesive};
 pub use language::english_shared::{is_subject, is_subjective_plural};
+
+#[doc(hidden)]
+pub use heed::HeedMatcher;
 
 // TODO: make this a feature:
 //pub(crate) use strum_macros;
