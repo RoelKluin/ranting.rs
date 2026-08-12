@@ -11,6 +11,7 @@ mod irregular_plurals;
 mod male_female_and_object;
 mod property_based;
 mod readme_example;
+mod runtime_tense;
 mod singular_they;
 mod tutorial;
 mod verb_tense;
