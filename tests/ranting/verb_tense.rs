@@ -413,7 +413,12 @@ fn tense_marker_past_perfect_all_pronouns() {
         let person = Noun::new("person", pronoun);
         let result = say!("{=0 <%walk}", person);
         // "had" is invariant for all persons
-        assert_eq!(result, format!("{} had walked", capitalized), "Failed for pronoun: {}", pronoun);
+        assert_eq!(
+            result,
+            format!("{} had walked", capitalized),
+            "Failed for pronoun: {}",
+            pronoun
+        );
     }
 }
 

@@ -40,6 +40,7 @@ pub(crate) fn detect_tense(verb: &str) -> Tense {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn detect_past_regular() {
@@ -105,6 +106,33 @@ mod tests {
                 "Irregular verb table entry '{}' not detected as Past",
                 past
             );
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn prop_detect_tense_no_panic(verb in any::<String>()) {
+            let _ = detect_tense(&verb);
+        }
+
+        #[test]
+        fn prop_ed_suffix_detects_as_past(base in r"[a-z]{1,10}") {
+            // Any word ending in "ed" with length > 2 should detect as Past
+            let verb = format!("{}ed", base);
+            if verb.len() > 2 {
+                prop_assert_eq!(detect_tense(&verb), Tense::Past,
+                    "Word '{}' (base + 'ed') should detect as Past", verb);
+            }
+        }
+
+        #[test]
+        fn prop_ing_suffix_detects_as_continuous(base in r"[a-z]{1,10}") {
+            // Any word ending in "ing" with length > 3 should detect as Continuous
+            let verb = format!("{}ing", base);
+            if verb.len() > 3 {
+                prop_assert_eq!(detect_tense(&verb), Tense::Continuous,
+                    "Word '{}' (base + 'ing') should detect as Continuous", verb);
+            }
         }
     }
 }

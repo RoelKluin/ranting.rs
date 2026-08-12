@@ -24,6 +24,9 @@ strum = "0.27"
 
 ### FEATURES #################################################################
 
+[dev-dependencies]
+proptest = "1"
+
 [features]
 default = ["ranting_derive/default", "inclusive-pronouns"]
 
