@@ -62,14 +62,7 @@ fn parse_heed_segments(slice: &StrLitSlice) -> syn::Result<Vec<HeedSegment>> {
             continue;
         }
         for word in text[literal_start..i].split_whitespace() {
-            let escaped = word.chars().map(|ch| {
-                if ch.is_alphanumeric() {
-                    ch.to_string()
-                } else {
-                    format!("\\{}", ch)
-                }
-            }).collect::<String>();
-            segments.push(HeedSegment::Literal(escaped));
+            segments.push(HeedSegment::Literal(regex::escape(word)));
         }
 
         let body_start = i + 1;
@@ -80,9 +73,7 @@ fn parse_heed_segments(slice: &StrLitSlice) -> syn::Result<Vec<HeedSegment>> {
                 break;
             }
             if cc == '{' {
-                return Err(slice
-                    .slice(i..j)
-                    .error("heed!() captures cannot be nested"));
+                return Err(slice.slice(i..j).error("heed!() captures cannot be nested"));
             }
         }
         let body_end = body_end.ok_or_else(|| {
@@ -101,12 +92,10 @@ fn parse_heed_segments(slice: &StrLitSlice) -> syn::Result<Vec<HeedSegment>> {
         };
 
         if !is_valid_capture_name(name) {
-            return Err(slice
-                .slice(body_start..body_end.max(body_start + 1))
-                .error(
-                    "invalid heed!() identifier: must start with a letter or '_' \
+            return Err(slice.slice(body_start..body_end.max(body_start + 1)).error(
+                "invalid heed!() identifier: must start with a letter or '_' \
                      and contain only letters, digits, or '_'",
-                ));
+            ));
         }
 
         // Only reject if the last segment is a Capture AND the gap between the
@@ -114,9 +103,9 @@ fn parse_heed_segments(slice: &StrLitSlice) -> syn::Result<Vec<HeedSegment>> {
         // are fine — build_heed_pattern will insert \s+ between the captures.
         let raw_gap = &text[literal_start..i];
         if matches!(segments.last(), Some(HeedSegment::Capture(_))) && raw_gap.is_empty() {
-            return Err(slice.slice(i..body_end + 1).error(
-                "ambiguous: two heed!() captures with no literal text between them",
-            ));
+            return Err(slice
+                .slice(i..body_end + 1)
+                .error("ambiguous: two heed!() captures with no literal text between them"));
         }
 
         segments.push(HeedSegment::Capture(HeedCapture {
@@ -127,14 +116,7 @@ fn parse_heed_segments(slice: &StrLitSlice) -> syn::Result<Vec<HeedSegment>> {
     }
 
     for word in text[literal_start..].split_whitespace() {
-        let escaped = word.chars().map(|ch| {
-            if ch.is_alphanumeric() {
-                ch.to_string()
-            } else {
-                format!("\\{}", ch)
-            }
-        }).collect::<String>();
-        segments.push(HeedSegment::Literal(escaped));
+        segments.push(HeedSegment::Literal(regex::escape(word)));
     }
 
     Ok(segments)
@@ -186,14 +168,16 @@ use syn::{
     Error, Expr, Token,
 };
 
+/// Converts a matched capture's raw `String` into its typed form. `Word`
+/// and `Greedy` captures are always valid (any non-empty string), but a
+/// `Number` capture's digits — guaranteed by its regex, not by size — can
+/// overflow `u64`, so it converts via `.ok()?` and relies on the enclosing
+/// closure returning `Option<_>` to short-circuit the whole `heed!()` call
+/// to `None` on overflow instead of panicking on untrusted input.
 fn heed_convert_captured(kind: HeedCaptureKind, value: TokenStream) -> TokenStream {
     match kind {
         HeedCaptureKind::Word | HeedCaptureKind::Greedy => value,
-        HeedCaptureKind::Number => quote! {
-            #value.parse::<u64>().expect(
-                "heed!() $ capture is guaranteed all-digits by its regex, but overflowed u64"
-            )
-        },
+        HeedCaptureKind::Number => quote! { #value.parse::<u64>().ok()? },
     }
 }
 
@@ -257,12 +241,26 @@ impl ToTokens for Heed {
         let value_expr = match captures.len() {
             0 => quote! { __ranting_heed_caps.map(|_| ()) },
             1 => {
-                let converted = heed_convert_captured(captures[0].kind, quote! { __s });
-                quote! {
-                    __ranting_heed_caps.map(|mut __v| {
-                        let __s = __v.pop().expect("heed!() matched capture count mismatch");
-                        #converted
-                    })
+                // `Number` converts straight to `Option<u64>` (`.ok()`, no
+                // `?`) and plugs into `and_then` as-is — writing `Some(expr?)`
+                // here would be clippy::needless_question_mark, since `expr?`
+                // and the `Some(..)` cancel out to just `expr`. `Word`/`Greedy`
+                // convert to a plain value, so `map` (not `and_then`) suits them.
+                if captures[0].kind == HeedCaptureKind::Number {
+                    quote! {
+                        __ranting_heed_caps.and_then(|mut __v| {
+                            let __s = __v.pop().expect("heed!() matched capture count mismatch");
+                            __s.parse::<u64>().ok()
+                        })
+                    }
+                } else {
+                    let converted = heed_convert_captured(captures[0].kind, quote! { __s });
+                    quote! {
+                        __ranting_heed_caps.map(|mut __v| {
+                            let __s = __v.pop().expect("heed!() matched capture count mismatch");
+                            #converted
+                        })
+                    }
                 }
             }
             _ => {
@@ -276,9 +274,9 @@ impl ToTokens for Heed {
                     })
                     .collect();
                 quote! {
-                    __ranting_heed_caps.map(|__v| {
+                    __ranting_heed_caps.and_then(|__v| {
                         let mut __it = __v.into_iter();
-                        ( #(#element_exprs),* )
+                        Some(( #(#element_exprs),* ))
                     })
                 }
             }
@@ -319,7 +317,7 @@ mod tests {
             compile("give {item...} to {target}, {$count} gold").expect("should compile");
         assert_eq!(
             pattern,
-            r"^\s*give\s+(?P<item>.+?)\s+to\s+(?P<target>\S+)\,\s+(?P<count>\d+)\s+gold\s*$"
+            r"^\s*give\s+(?P<item>.+?)\s+to\s+(?P<target>\S+),\s+(?P<count>\d+)\s+gold\s*$"
         );
         assert_eq!(captures[0].kind, HeedCaptureKind::Greedy);
         assert_eq!(captures[1].kind, HeedCaptureKind::Word);
@@ -359,9 +357,14 @@ mod tests {
 
     #[test]
     fn whitespace_separated_captures_are_allowed() {
-        let (pattern, captures) = compile("{a} {b}").expect("should compile whitespace-separated captures");
+        let (pattern, captures) =
+            compile("{a} {b}").expect("should compile whitespace-separated captures");
         // Pattern should have \s+ between the two captures
-        assert!(pattern.contains(r"\s+"), "pattern should contain separator: {}", pattern);
+        assert!(
+            pattern.contains(r"\s+"),
+            "pattern should contain separator: {}",
+            pattern
+        );
         assert_eq!(captures.len(), 2);
         assert_eq!(captures[0].name, "a");
         assert_eq!(captures[1].name, "b");
