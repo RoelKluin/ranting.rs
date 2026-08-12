@@ -25,7 +25,7 @@ pub(crate) fn conjugate_auxiliary(aux: AuxiliaryVerb, subject: &str) -> &'static
         (AuxiliaryVerb::WasWere, _) => "were", // Default for unrecognized pronouns
         (AuxiliaryVerb::HaveHas, "he" | "she" | "it") => "has",
         (AuxiliaryVerb::HaveHas, _) => "have", // All other persons (including default)
-        (AuxiliaryVerb::Had, _) => "had", // Same for all persons
+        (AuxiliaryVerb::Had, _) => "had",      // Same for all persons
     }
 }
 
