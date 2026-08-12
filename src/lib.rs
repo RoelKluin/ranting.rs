@@ -34,7 +34,7 @@ mod narration;
 use lazy_static::lazy_static;
 use regex::Regex;
 
-pub use narration::{NarrationContext, Tense};
+pub use narration::{NarrationContext, Person, Tense};
 
 #[doc(hidden)]
 pub use english_numbers::convert_no_fmt as rant_convert_numbers;
@@ -287,7 +287,15 @@ where
     let mut etc1;
     (pre, etc1) = split_at_find_start(pre, |c| c.is_whitespace()).unwrap_or((pre, ""));
 
-    let subjective = noun.subjective();
+    let declared_subjective = noun.subjective();
+    // A `narration_person` override (say_with!() only) only ever affects
+    // nouns declared first-person ("I"/"we") — the narrator. Other subjects
+    // pass through unchanged, and the article/noun-name plurality (`as_pl`
+    // above) is untouched either way: viewpoint governs which pronoun set
+    // and verb agreement render, not how the noun's own name pluralizes.
+    let viewpoint = ctx.and_then(|c| narration::resolve_viewpoint(declared_subjective, c.narration_person));
+    let subjective = viewpoint.map_or(declared_subjective, |(rendered, _)| rendered);
+    let pronoun_as_pl = viewpoint.map_or(as_pl, |(_, forced_pl)| forced_pl);
     let mut res = String::new();
 
     // This may be an article or certain verbs that can occur before the noun:
@@ -299,7 +307,7 @@ where
             res.push_str(&uc_1st_if(pre, uc));
         } else {
             assert!(post.is_empty(), "verb before and after?");
-            let verb = conjugate_verb(noun, subjective, p.as_str(), as_pl, uc);
+            let verb = conjugate_verb(noun, subjective, p.as_str(), pronoun_as_pl, uc);
             res.push_str(&verb);
             if !etc1.is_empty() {
                 let art_space;
@@ -329,45 +337,51 @@ where
         res.push_str(noun_space);
         let s = match case {
             "=" => {
-                if let Some(custom) =
-                    noun.inflect_pronoun_custom(subjective, PronounCase::Subjective, as_pl, uc)
-                {
+                if let Some(custom) = noun.inflect_pronoun_custom(
+                    subjective,
+                    PronounCase::Subjective,
+                    pronoun_as_pl,
+                    uc,
+                ) {
                     custom
                 } else {
-                    inflect_subjective(subjective, as_pl, uc)
+                    inflect_subjective(subjective, pronoun_as_pl, uc)
                 }
             }
             "@" => {
-                if let Some(custom) =
-                    noun.inflect_pronoun_custom(subjective, PronounCase::Objective, as_pl, uc)
-                {
+                if let Some(custom) = noun.inflect_pronoun_custom(
+                    subjective,
+                    PronounCase::Objective,
+                    pronoun_as_pl,
+                    uc,
+                ) {
                     custom
                 } else {
-                    inflect_objective(subjective, as_pl, uc)
+                    inflect_objective(subjective, pronoun_as_pl, uc)
                 }
             }
             "`" => {
                 if let Some(custom) = noun.inflect_pronoun_custom(
                     subjective,
                     PronounCase::PossessiveDeterminer,
-                    as_pl,
+                    pronoun_as_pl,
                     uc,
                 ) {
                     custom
                 } else {
-                    inflect_possesive(subjective, as_pl, uc)
+                    inflect_possesive(subjective, pronoun_as_pl, uc)
                 }
             }
             "~" => {
                 if let Some(custom) = noun.inflect_pronoun_custom(
                     subjective,
                     PronounCase::PossessivePronoun,
-                    as_pl,
+                    pronoun_as_pl,
                     uc,
                 ) {
                     custom
                 } else {
-                    inflect_adjective(subjective, as_pl, uc)
+                    inflect_adjective(subjective, pronoun_as_pl, uc)
                 }
             }
             _ => noun.inflect(as_pl, uc),
@@ -403,7 +417,7 @@ where
                                         .inflect_verb_custom(
                                             subjective,
                                             word,
-                                            !singular_post_verb && as_pl,
+                                            !singular_post_verb && pronoun_as_pl,
                                             false,
                                         )
                                         .unwrap_or_else(|| word.to_string());
@@ -426,7 +440,7 @@ where
                                             noun,
                                             subjective,
                                             &base_form,
-                                            !singular_post_verb && as_pl,
+                                            !singular_post_verb && pronoun_as_pl,
                                             false,
                                         )
                                     } else {
@@ -434,7 +448,7 @@ where
                                             .inflect_verb_custom(
                                                 subjective,
                                                 &base_form,
-                                                !singular_post_verb && as_pl,
+                                                !singular_post_verb && pronoun_as_pl,
                                                 false,
                                             )
                                             .unwrap_or(base_form);
@@ -461,20 +475,30 @@ where
                                 noun,
                                 subjective,
                                 v,
-                                !singular_post_verb && as_pl,
+                                !singular_post_verb && pronoun_as_pl,
                                 uc,
                             );
                             res.push_str(&verb);
                         }
                     } else {
                         // Fallback if colon parsing fails
-                        let verb =
-                            conjugate_verb(noun, subjective, v, !singular_post_verb && as_pl, uc);
+                        let verb = conjugate_verb(
+                            noun,
+                            subjective,
+                            v,
+                            !singular_post_verb && pronoun_as_pl,
+                            uc,
+                        );
                         res.push_str(&verb);
                     }
                 } else {
-                    let verb =
-                        conjugate_verb(noun, subjective, v, !singular_post_verb && as_pl, uc);
+                    let verb = conjugate_verb(
+                        noun,
+                        subjective,
+                        v,
+                        !singular_post_verb && pronoun_as_pl,
+                        uc,
+                    );
                     res.push_str(&verb);
                 }
             }

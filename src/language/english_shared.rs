@@ -71,3 +71,10 @@ pub fn is_subject(subject: &str) -> bool {
 pub fn is_subjective_plural(subject: &str) -> bool {
     (SubjectPronoun::from_str(subject).expect("subject should be a valid pronoun") as usize) >= 6
 }
+
+/// Returns whether the subjective is first-person ("I" or "we"). Used to scope
+/// runtime viewpoint overrides (see `narration::resolve_viewpoint`) to nouns
+/// declaring themselves as the narrator — other subjects are left untouched.
+pub(crate) fn is_first_person_subject(subject: &str) -> bool {
+    matches!(subject, "I" | "we")
+}
