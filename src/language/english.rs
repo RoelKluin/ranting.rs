@@ -17,6 +17,7 @@ pub(super) enum ArticleOrSo {
     Those,
 }
 
+#[deny(clippy::wildcard_enum_match_arm)]
 impl ArticleOrSo {
     fn plural_or_definite(self) -> &'static str {
         match self {
@@ -28,10 +29,11 @@ impl ArticleOrSo {
     }
 
     fn singular_demonstrative(self) -> Option<&'static str> {
+        // no wildcard arms: exhaustiveness is the invariant here
         match self {
             ArticleOrSo::These => Some("this"),
             ArticleOrSo::Those => Some("that"),
-            _ => None,
+            ArticleOrSo::The | ArticleOrSo::A => None,
         }
     }
 }
@@ -63,24 +65,31 @@ pub(super) enum IrregularPluralVerb {
     Wo, // for won't
 }
 
+#[deny(clippy::wildcard_enum_match_arm)]
 impl IrregularPluralVerb {
     fn first_person(self) -> Option<&'static str> {
+        use IrregularPluralVerb::*;
+        // no wildcard arms: exhaustiveness is the invariant here
         match self {
-            IrregularPluralVerb::Are => Some("am"),
-            IrregularPluralVerb::Were => Some("was"),
-            IrregularPluralVerb::Re => Some("'m"),
-            _ => None,
+            Are => Some("am"),
+            Were => Some("was"),
+            Re => Some("'m"),
+            Ve | Have | Do | D | Had | Could | Would | Should | Might | Must | Can
+            | May | Shall | Will | Ca | Wo => None,
         }
     }
 
     fn third_person(self) -> Option<&'static str> {
+        use IrregularPluralVerb::*;
+        // no wildcard arms: exhaustiveness is the invariant here
         match self {
-            IrregularPluralVerb::Are => Some("is"),
-            IrregularPluralVerb::Were => Some("was"),
-            IrregularPluralVerb::Re | IrregularPluralVerb::Ve => Some("'s"),
-            IrregularPluralVerb::Have => Some("has"),
-            IrregularPluralVerb::Do => Some("does"),
-            _ => None,
+            Are => Some("is"),
+            Were => Some("was"),
+            Re | Ve => Some("'s"),
+            Have => Some("has"),
+            Do => Some("does"),
+            D | Had | Could | Would | Should | Might | Must | Can | May | Shall
+            | Will | Ca | Wo => None,
         }
     }
 }
