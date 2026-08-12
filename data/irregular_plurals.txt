@@ -1,0 +1,63 @@
+# Irregular noun plurals for Ranting
+# Format: singular|plural
+# One entry per line; empty lines and lines starting with # are ignored
+
+# -en plurals
+child|children
+ox|oxen
+
+# vowel change
+foot|feet
+tooth|teeth
+goose|geese
+mouse|mice
+man|men
+woman|women
+
+# same singular and plural
+sheep|sheep
+deer|deer
+fish|fish
+moose|moose
+species|species
+
+# -es or -ves plurals
+knife|knives
+wife|wives
+life|lives
+leaf|leaves
+loaf|loaves
+elf|elves
+wolf|wolves
+thief|thieves
+
+# Latin plurals (-us → -i)
+cactus|cacti
+fungus|fungi
+nucleus|nuclei
+radius|radii
+stimulus|stimuli
+
+# Latin plurals (-is → -es)
+axis|axes
+analysis|analyses
+basis|bases
+crisis|crises
+diagnosis|diagnoses
+hypothesis|hypotheses
+oasis|oases
+parenthesis|parentheses
+thesis|theses
+
+# Greek plurals
+criterion|criteria
+datum|data
+phenomenon|phenomena
+
+# Italian plurals
+soprano|sopranos
+virtuoso|virtuosi
+
+# Other irregular
+person|people
+goose|geese

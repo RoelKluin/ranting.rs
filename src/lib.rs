@@ -41,7 +41,7 @@ pub use english_numbers::convert_no_fmt as rant_convert_numbers;
 pub use strum_macros as rant_strum_macros;
 
 use in_definite::get_a_or_an;
-pub use language::english::inflect_possesive;
+pub use language::english::{inflect_possesive, inflect_noun_irregular};
 use language::english::{
     adapt_article, inflect_adjective, inflect_objective, inflect_subjective, inflect_verb,
 };

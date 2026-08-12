@@ -290,9 +290,54 @@ pub fn inflect_possesive(subject: &str, to_plural: bool, uc: bool) -> String {
     uc_1st_if(forms.possessive, uc)
 }
 
+/// Look up singular/plural form in irregular noun table.
+/// Returns the inflected form if found in table, or None to trigger fallback to regular rules.
+/// Lookup is case-insensitive; caller is responsible for applying capitalization via uc_1st_if.
+pub fn inflect_noun_irregular(noun_form: &str, to_plural: bool) -> Option<String> {
+    use super::plurals::{IRREGULAR_PLURALS, IRREGULAR_SINGULARS};
+
+    let key_lower = noun_form.to_lowercase();
+    if to_plural {
+        IRREGULAR_PLURALS
+            .iter()
+            .find(|(s, _)| s.to_lowercase() == key_lower)
+            .map(|(_, p)| p.to_string())
+    } else {
+        IRREGULAR_SINGULARS
+            .iter()
+            .find(|(p, _)| p.to_lowercase() == key_lower)
+            .map(|(_, s)| s.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use ranting::*;
+    use super::inflect_noun_irregular;
+
+    #[test]
+    fn test_inflect_noun_irregular_plurals() {
+        // Test a few common irregular plurals
+        assert_eq!(inflect_noun_irregular("child", true), Some("children".to_string()));
+        assert_eq!(inflect_noun_irregular("person", true), Some("people".to_string()));
+        assert_eq!(inflect_noun_irregular("mouse", true), Some("mice".to_string()));
+    }
+
+    #[test]
+    fn test_inflect_noun_irregular_singulars() {
+        // Test reverse lookup
+        assert_eq!(inflect_noun_irregular("children", false), Some("child".to_string()));
+        assert_eq!(inflect_noun_irregular("people", false), Some("person".to_string()));
+        assert_eq!(inflect_noun_irregular("mice", false), Some("mouse".to_string()));
+    }
+
+    #[test]
+    fn test_inflect_noun_irregular_not_found() {
+        // Regular nouns should return None (fallback to suffix rules)
+        assert_eq!(inflect_noun_irregular("book", true), None);
+        assert_eq!(inflect_noun_irregular("books", false), None);
+    }
+
     #[test]
     fn singular_subjective() {
         for subject in ["I", "you", "thou", "she", "he", "it"].into_iter() {
