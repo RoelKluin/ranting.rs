@@ -61,7 +61,7 @@ pub(crate) static ASK: &str = r"^(?x)
     )?$";
 
 /// An enum with pronouns in subjective form.
-#[derive(EnumString, Copy, Clone)]
+#[derive(EnumString, Copy, Clone, Debug, strum_macros::EnumIter)]
 #[strum(serialize_all = "lowercase")]
 pub(crate) enum SubjectPronoun {
     #[strum(serialize = "I")]
