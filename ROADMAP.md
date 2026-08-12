@@ -26,13 +26,18 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 - Partial `ask!()` macro (recently added)
 - Positional arguments only
 - Integration tests and doctests
-
-❌ **Not working**:
 - Named arguments (`person = my_var` syntax)
 - Empty placeholders (`{}`)
-- **Tense handling**: Modals (can/could/would/should/might/must/shall/will) and auxiliary verbs (is/was/were/have/has/had) work for present and past via `IrregularPluralVerb` table. Missing: regular past-tense formation (-ed suffix handling), irregular lexical past/participle forms (go→went, see→saw), continuous/progressive forms (-ing suffix), and tense-aware suppression of spurious 3rd-person-singular `-s` suffix (e.g. "walked" was incorrectly conjugated to "walkeds").
-- Continuous/progressive forms (-ing) — no auto-formation or recognition yet
-- Irregular noun plurals (child→children, person→people) — no support, needs `inflections` crate integration
+- **Tense markers** (Phase 2): `{=person <walk}` (past), `{=person =walk}` (present continuous), `{=person >walk}` (future), `{=person <=walk}` (past continuous)
+- Regular past-tense formation: adds -ed with phonetic rules (y→ied, e→remove, etc.)
+- Irregular past tense via built-in table (go→went, see→saw, etc.)
+- Continuous/progressive forms: -ing with phonetic rules (silent e, consonant doubling, ie→y)
+
+❌ **Not working**:
+- Perfect tenses (present/past perfect): `have/has + past participle` (requires separate past-participle table; go→went vs. go→gone)
+- Conditional tenses (would + base verb)
+- Other modal helpers beyond what `IrregularPluralVerb` covers (can/could/may/might/must/shall already conjugate via existing table, but conditional mood is deferred)
+- Irregular noun plurals (child→children, person→people) — no support, needs `inflections` crate integration or custom table
 - Custom pluralization rules
 - Reflexive forms (myself, yourself, itself) — no pronoun table yet, currently just literal string concatenation
 - Comparative/superlative adjectives (better, best) — no support
@@ -48,56 +53,34 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 
 ### Phase 1: **v0.3.0** — Foundation & Ergonomics
 *Goal: Make Ranting more ergonomic and feature-complete for present-tense usage.*
-
-**Named Arguments & Empty Placeholders**:
-- Implement named argument parsing: `say!("{=person}", person = my_var)`
-- Support empty placeholders: `say!("{}", my_var)` using positional/named order
-- This is the highest-value feature—users expect `format!()`-like ergonomics
-- **Tradeoff**: Slight macro complexity increase for significantly better UX
-
-**Improve Error Messages**:
-- Add compile-time validation for placeholder syntax
-- Report mismatched argument counts with helpful messages
-- Point users to specific placeholder issues in source
-- **Tradeoff**: Larger error handling code vs. developer productivity
-
-**Gender-Neutral Pronouns**:
-- Expand `Noun` to support singular they/them
-- Document inclusive language patterns
-- Add examples showing they/them inflection
-- **Tradeoff**: Minimal; they already work with current architecture
-
-**Test Coverage**:
-- Aim for >80% code coverage
-- Add tests for edge cases in argument parsing
-- Test error conditions thoroughly
-- Use/Convert to table-driven tests, where possible
-
-**Estimated timeline**: 2-3 months
+- Named Arguments & Empty Placeholders
+- Improve Error Messages
+- Gender-Neutral Pronouns ("inclusive-pronouns" feature gated)
+- Improved Test Coverage
+*Status*: **complete** - details in DONE.md
 
 ---
 
 ### Phase 2: **v0.4.0** — Grammar Depth
 *Goal: Handle past, future, conditional, and continuous tenses.*
 
-**Verb Tense Support**:
-- Past tense: was/were, had, did
-- Future/conditional: will, would, shall, should, may, might, can, could
-- Continuous/progressive: -ing forms (is running, was running, will be running)
-- **Implementation strategy**:
-  - Extend placeholder syntax: `{=person do}` for present → `{=person did}` for past
-  - Add `to_past()`, `to_future()` methods or similar to trait
-  - use prefix markers: `{=person @past do}`
-  - **Tradeoff**: Syntax clarity vs. flexibility
+**Verb Tense Support** ✅ (Partially complete):
+- ✅ Past tense marker: `{=person <walk}` → "He walked" / irregular: "He went"
+- ✅ Present continuous: `{=person =walk}` → "He is walking"
+- ✅ Future tense: `{=person >walk}` → "He will walk"
+- ✅ Past continuous: `{=person <=walk}` → "He was walking"
+- ⏳ Perfect tenses (have/has + past participle): deferred; requires separate past-participle table
+- ⏳ Conditional forms (would + base): deferred; modals already conjugate via existing table
+- **Implementation**: Marker-based syntax using `<`, `=`, `>`, `<=` in placeholder post-position
+  - Markers are composable at Rust level (not regex level) for easier extension
+  - Compile-time conjugation in `ranting_derive`, runtime auxiliary insertion
 
 **Irregular Verbs & Plurals**:
-- Implement built-in table for common irregulars (go→went, child→children)
-- Explore using a crate like `inflections` or `lexeme` to avoid reinventing
-- Allow `#[derive(Ranting)]` to specify custom irregular mappings via attributes
-- **Strategy**: Built-in + override capability
-  - Default implementations for common English irregulars
-  - `#[ranting(past = "went", plural = "children")]` for custom types
-- **Tradeoff**: Maintenance burden of irregular table vs. coverage
+- ✅ 100+ irregular past-tense verbs in built-in table (go→went, see→saw, take→took, etc.)
+- ✅ Regular past-tense rules: -ed with phonetic handling (walk→walked, try→tried, like→liked)
+- ❌ Irregular noun plurals (child→children, person→people) — deferred to later; needs external crate or large table
+- ❌ Custom pluralization rules — deferred
+- **Strategy**: Built-in English irregulars now; custom mappings via derive attributes left for future
 
 **Reflexive Forms**:
 - Support myself, yourself, himself, herself, itself, ourselves, themselves
