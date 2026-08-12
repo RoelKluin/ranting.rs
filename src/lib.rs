@@ -396,7 +396,7 @@ impl Noun {
 ///
 /// ```rust
 /// # use ranting::*;
-/// # use ranting_derive::ask;
+/// # use ranting_derive::say;
 /// # fn main() {
 ///
 /// let school = Noun::new("school", "it");
@@ -405,8 +405,8 @@ impl Noun {
 ///
 /// assert_eq!(say!("{the school'} {principal are} also {myles'}, but only one of all {the +school's} {+principal} in town."),
 ///     "The school's principal is also Myles's, but only one of all the schools' principals in town.".to_string());
-/// let response = ask!(myles, principal, "Are {the school'} {principal} also {myles'}?");
-/// assert_eq!(response, "Are the school's principal also Myles's?");
+/// assert_eq!(say!("Are {the school'} {principal} also {myles'}?"),
+///     "Are the school's principal also Myles's?".to_string());
 /// # }
 /// ```
 // a combined plural may require some tricks: "The star and cross' design was pattented by Bob."
