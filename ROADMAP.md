@@ -104,7 +104,7 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 |----------|--------|-------|
 | Two-crate split (ranting + ranting_derive) | ✅ Locked | Industry standard; no changes needed |
 | Verb table codegen via build.rs | ✅ Complete | Single source of truth: data/irregular_verbs.txt |
-| Pronoun/article/verb tables → exhaustive match | ✅ Complete | Eliminates index-coupling risk; compile-time safety |
+| Pronoun/article/verb tables → exhaustive match | ✅ Complete | Exhaustive `match` dispatch with `#[deny(...)]` guards; no wildcards; permanent regression tests for string values |
 | Derive macro attributes (4 core + 3 cosmetic) | ✅ Complete | subject, name, singular_end, plural_end (core) |
 | Compile-time parsing + runtime inflection | ✅ Locked | Catches syntax errors early; enables extensibility |
 | Documentation (Tutorial + Cookbook) | ✅ Complete | 30-40 min tutorial, 10 practical recipes |
