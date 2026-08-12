@@ -86,8 +86,8 @@ fn inflect_verb_custom(
 ```
 
 **Parameters:**
-- `subject` (String): The subject pronoun (e.g., "I", "you", "he", "she", "it", "we", "they")
-- `verb` (String): The verb to inflect (e.g., "be", "have", "walk")
+- `subject` (&str): The subject pronoun (e.g., "I", "you", "he", "she", "it", "we", "they")
+- `verb` (&str): The verb to inflect (e.g., "be", "have", "walk")
 - `as_plural` (bool): Whether to conjugate for plural form
 - `uc` (bool): Whether to uppercase the first character (handle contractions with `uc_1st_if`)
 
@@ -132,7 +132,7 @@ fn inflect_pronoun_custom(
 ```
 
 **Parameters:**
-- `subject` (String): The subject pronoun (e.g., "I", "you", "he", "she", "it", "we", "they")
+- `subject` (&str): The subject pronoun (e.g., "I", "you", "he", "she", "it", "we", "they")
 - `case` (PronounCase): Which pronoun form is requested (see enum below)
 - `as_plural` (bool): Whether to pluralize the pronoun
 - `uc` (bool): Whether to uppercase the first character
@@ -187,8 +187,8 @@ fn inflect_article_custom(
 ```
 
 **Parameters:**
-- `article` (String): The requested article form ("a", "an", "the", "some", "these", "those")
-- `noun_singular` (String): The singular inflected form of the noun (useful for vowel/gender detection)
+- `article` (&str): The requested article form ("a", "an", "the", "some", "these", "those")
+- `noun_singular` (&str): The singular inflected form of the noun (useful for vowel/gender detection)
 - `as_plural` (bool): Whether the noun is plural
 - `uc` (bool): Whether to uppercase the first character
 
