@@ -109,7 +109,11 @@ fn parse_heed_segments(slice: &StrLitSlice) -> syn::Result<Vec<HeedSegment>> {
                 ));
         }
 
-        if matches!(segments.last(), Some(HeedSegment::Capture(_))) {
+        // Only reject if the last segment is a Capture AND the gap between the
+        // two captures has zero length (truly ambiguous). Whitespace-only gaps
+        // are fine — build_heed_pattern will insert \s+ between the captures.
+        let raw_gap = &text[literal_start..i];
+        if matches!(segments.last(), Some(HeedSegment::Capture(_))) && raw_gap.is_empty() {
             return Err(slice.slice(i..body_end + 1).error(
                 "ambiguous: two heed!() captures with no literal text between them",
             ));
@@ -351,5 +355,21 @@ mod tests {
     fn empty_capture_name_is_rejected() {
         let err = compile("take {}").expect_err("should reject empty capture name");
         assert!(err.to_string().contains("identifier"));
+    }
+
+    #[test]
+    fn whitespace_separated_captures_are_allowed() {
+        let (pattern, captures) = compile("{a} {b}").expect("should compile whitespace-separated captures");
+        // Pattern should have \s+ between the two captures
+        assert!(pattern.contains(r"\s+"), "pattern should contain separator: {}", pattern);
+        assert_eq!(captures.len(), 2);
+        assert_eq!(captures[0].name, "a");
+        assert_eq!(captures[1].name, "b");
+    }
+
+    #[test]
+    fn zero_width_adjacent_captures_are_still_rejected() {
+        let err = compile("{a}{b}").expect_err("should still reject truly adjacent captures");
+        assert!(err.to_string().contains("ambiguous"));
     }
 }
