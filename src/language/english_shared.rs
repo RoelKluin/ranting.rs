@@ -45,21 +45,6 @@ pub(crate) static PH_EXT: &str = r"^(?x)
     (?P<noun>[\w-]+)
     (?P<post>\s+[<=>%]*(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$";
 
-#[allow(dead_code)]
-pub(crate) static ASK: &str = r"^(?x)
-    (?P<pre>(?:
-        (?:[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
-        (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)
-        (?:\s+(?:\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se))?
-        |(?:\??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se)
-    )(?:\s+[\w-]+)*?\s+)?+
-    (?P<noun>[\w-]+)
-    (?P<post>
-        (?:\s+(?:a[ts]|for|to(?:wards)?|from|in(?:to|side)?|off?|on(?:to)?|by|abo(?:ut|ve|ard)|across|after|against|along(?:side)?|amid|among|around|atop|bar|be(?:fore|low|hind|neath|side|tween|yond)|despite|down|during|(?:un)?like|near|opposite|outside|over|past|pending|per|prior|pro|re|regarding|round|since|than|through(?:out)?|till|under(?:neath)?|until|unto|up|upon|via|with(?:in|out)?)\s+
-        (?:[`@*]\w+|\w+'s?))?
-        \s+(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*
-    )?$";
-
 /// An enum with pronouns in subjective form.
 #[derive(EnumString, Copy, Clone, Debug, strum_macros::EnumIter)]
 #[strum(serialize_all = "lowercase")]

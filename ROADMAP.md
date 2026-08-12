@@ -127,7 +127,7 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 | Built-in English rules (extensibility in v1.1) | ✅ v1.0; 🎯 v1.1 | Free functions now; trait methods in v1.1 |
 | Irregular noun plurals codegen | ✅ Complete (v1.1) | Single source of truth: data/irregular_plurals.txt; runtime lookup |
 | Context-aware runtime tense/viewpoint | 🎯 v1.1 | Unblocks Recounting M9; requires design decision on context threading mechanism |
-| Consolidate english_shared.rs | 🎯 v1.1 | Currently duplicated in src/ and ranting_derive/src/; must merge before shipping runtime features |
+| Consolidate english_shared.rs | ✅ Complete | Single canonical copy at src/language/english_shared.rs; ranting_derive/build.rs copies it into OUT_DIR at build time (symlink-dereference fallback for packaged builds) |
 
 ---
 
@@ -135,7 +135,7 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 
 **Macro Complexity**: Regular refactoring; keep proc-macro logic focused; document architecture.
 
-**Code Consolidation**: `english_shared.rs` is duplicated in both `src/` and `ranting_derive/src/` and has already diverged (noted in CLAUDE.md). This is a silent-bug trap for v1.1 features (runtime tense/viewpoint). Consolidate into a single canonical location BEFORE implementing context threading or new grammar rules.
+**Code Consolidation**: ✅ Resolved. `english_shared.rs` is now a single canonical file (`src/language/english_shared.rs`); `ranting_derive`'s copy is generated at build time via `build.rs` (see CLAUDE.md), eliminating the manual-sync drift that previously affected the `ASK` regex and `SubjectPronoun` derives. Safe to build runtime tense/viewpoint (item 3) on top of this now.
 
 **Table Maintenance**: Document adding new irregulars; encourage community PRs; keep v1.1 plural tables separate from v1.0 verb tables to avoid corruption.
 
