@@ -194,6 +194,26 @@ where
     }
 }
 
+/// Conjugate a verb, giving the noun's custom hook the first chance.
+///
+/// Falls back to the English `inflect_verb()` when the hook returns `None`. Every site that
+/// conjugates a *base* verb must go through here so that ecosystem forks can override English
+/// rules uniformly (pre-noun and post-noun alike).
+///
+/// Note: the `~TENSE~` marker path does *not* use this helper. There the verb arrives already
+/// conjugated by the macro, so the English fallback would inflect it a second time; that site
+/// tries the hook alone and keeps the conjugated form otherwise.
+fn conjugate_verb<R>(noun: &R, subjective: &str, verb: &str, as_pl: bool, uc: bool) -> String
+where
+    R: Ranting,
+{
+    if let Some(custom) = noun.inflect_verb_custom(subjective, verb, as_pl, uc) {
+        custom
+    } else {
+        inflect_verb(subjective, verb, as_pl, uc)
+    }
+}
+
 /// The say macro parses placeholders and passes captures to this function which returns a string.
 pub fn handle_placeholder<R>(
     noun: &R,
@@ -244,12 +264,7 @@ where
             res.push_str(&uc_1st_if(pre, uc));
         } else {
             assert!(post.is_empty(), "verb before and after?");
-            let verb =
-                if let Some(custom) = noun.inflect_verb_custom(subjective, p.as_str(), as_pl, uc) {
-                    custom
-                } else {
-                    inflect_verb(subjective, p.as_str(), as_pl, uc)
-                };
+            let verb = conjugate_verb(noun, subjective, p.as_str(), as_pl, uc);
             res.push_str(&verb);
             if !etc1.is_empty() {
                 let art_space;
@@ -343,8 +358,20 @@ where
                             let (conjugated, trailing) = conjugated_verb
                                 .split_once(' ')
                                 .unwrap_or((conjugated_verb, ""));
+                            // The macro already conjugated the main verb, so the English
+                            // fallback would inflect it twice ("will walks"). Offer the hook
+                            // the conjugated form and keep it verbatim when it declines.
+                            // uc is applied to the composed result below, not here.
+                            let main_verb = noun
+                                .inflect_verb_custom(
+                                    subjective,
+                                    conjugated,
+                                    !singular_post_verb && as_pl,
+                                    false,
+                                )
+                                .unwrap_or_else(|| conjugated.to_string());
                             let tense_result =
-                                handle_tense_marker(subjective, marker_part, conjugated);
+                                handle_tense_marker(subjective, marker_part, &main_verb);
                             if uc {
                                 let mut chars = tense_result.chars();
                                 if let Some(first) = chars.next() {
@@ -360,17 +387,24 @@ where
                             }
                         } else {
                             // Fallback if marker parsing fails
-                            let verb =
-                                inflect_verb(subjective, v, !singular_post_verb && as_pl, uc);
+                            let verb = conjugate_verb(
+                                noun,
+                                subjective,
+                                v,
+                                !singular_post_verb && as_pl,
+                                uc,
+                            );
                             res.push_str(&verb);
                         }
                     } else {
                         // Fallback if colon parsing fails
-                        let verb = inflect_verb(subjective, v, !singular_post_verb && as_pl, uc);
+                        let verb =
+                            conjugate_verb(noun, subjective, v, !singular_post_verb && as_pl, uc);
                         res.push_str(&verb);
                     }
                 } else {
-                    let verb = inflect_verb(subjective, v, !singular_post_verb && as_pl, uc);
+                    let verb =
+                        conjugate_verb(noun, subjective, v, !singular_post_verb && as_pl, uc);
                     res.push_str(&verb);
                 }
             }
@@ -594,6 +628,14 @@ pub trait Ranting: std::fmt::Display {
 
     /// Customize verb conjugation (tense, plurality, person).
     /// Return Some(String) to use custom form, None to fall back to English.
+    ///
+    /// Called for every verb in a placeholder, whether it precedes or follows the noun.
+    ///
+    /// One caveat at tense-marker sites (`{=0 >walk}`): the verb arrives *already conjugated*
+    /// by the macro, so `verb` may be "walked" or "walking" rather than the form written in the
+    /// placeholder — match accordingly if you customize those. The auxiliary ("will", "is", …)
+    /// is composed around whatever you return, and capitalization is applied by the caller, so
+    /// `uc` is false there.
     ///
     /// # Examples
     /// ```ignore
