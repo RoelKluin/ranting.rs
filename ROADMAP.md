@@ -84,6 +84,20 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
    - `Vec<Item>` where Item: Ranting, `Option<Person>`, `Box<Noun>`, etc.
    - Use `#[derive(Ranting)]` to generate recursive implementations
 
+8. **Input Parsing (`heed!()`)** (v1 scope, see
+   `docs/superpowers/specs/2026-08-12-input-parsing-feasibility.md`)
+   - `heed!(template, input)` matches free-form input text against a
+     template — literal words plus `{name}`/`{name...}`/`{$name}`
+     captures — the command-parser half of the input-parsing feasibility
+     brainstorm. The full-grammatical-inversion half (`unsay!()`) was
+     explicitly not pursued: several of `say!()`'s inflection choices are
+     not injective (multiple original values render to the same text), so
+     a general inverse isn't a buildable spec.
+   - v2 (not yet scoped in detail): `#[derive(Heed)]` +
+     `#[heed(template = "...")]` on a user struct, generating
+     `fn heed(input: &str) -> Option<Self>`, built on the same matching
+     engine as v1 rather than duplicating it.
+
 ### v1.1 Success Criteria
 - Irregular plurals support for 100+ nouns
 - Trait extensibility API stable and documented
