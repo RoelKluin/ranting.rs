@@ -110,15 +110,102 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 
 ---
 
-## Post-v1.1: Future Directions
+## Phase 4 — v1.2.0 — Architecture Consolidation (Design Review, 2026-08-12)
 
-### v1.2.0: Ecosystem Expansion
+*Goal: pay down structural debt while there is no userbase to break. Every rename,
+crate split, and API change is cheap now and expensive after ecosystem forks exist —
+so this phase deliberately precedes Ecosystem Expansion.*
+
+Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
+
+1. **Extract `ranting_core` shared crate** (highest leverage)
+   - Replace all three code-sharing mechanisms (`english_shared.rs` build.rs copy,
+     `verb_conjugate.rs` inverse copy, `irregular_verbs.txt` symlink) with one plain
+     rlib crate that both `ranting` and `ranting_derive` depend on — proc-macro crates
+     can depend on ordinary crates (the `serde`/`serde_derive` pattern).
+   - Moves in: grammar tables + codegen from `data/*.txt`, verb conjugation engine,
+     pronoun logic, placeholder grammar (`PH_START`/`PH_EXT`).
+   - Deletes: both build.rs copy steps, `ranting_derive/data/` symlink fallbacks,
+     and the dual-strum (0.24 + 0.27) compilation constraint entirely.
+
+2. **Dependency modernization** (`ranting_derive`)
+   - syn 1 → 2, darling 0.14 → 0.20+, unify strum on 0.27 (or drop it from the
+     derive path — `SubjectPronoun` parsing is simple enough to hand-write).
+   - **Drop `proc-macro-error`** (unmaintained, open RUSTSEC advisory; pins syn 1) —
+     use plain `syn::Error` for diagnostics.
+   - Drop `lazy_static` in both crates → `std::sync::LazyLock`/`OnceLock`
+     (edition 2024; `heed.rs` already uses `OnceLock`).
+   - Bump derive-side regex 1.6 → 1.11; unify editions (2021 → 2024) after syn 2.
+   - Payoff: fewer proc-macro deps = faster compile for every downstream user.
+
+3. **Typed placeholder spec across the compile-time/runtime seam**
+   - Replace `handle_placeholder(..., caps: [&str; 5])` and the `~TENSE~MARKER:WORD`
+     string sentinel with a typed struct/enum (`PlaceholderSpec { article, pre_verb,
+     case, tense, ... }`) baked by the macro as a const.
+   - Deletes the runtime re-parsing (`strip_prefix("~TENSE~")`, `split_once(':')`,
+     the "fallback if colon/marker parsing fails" branches for states the macro can
+     never produce) and the runtime re-recognition of articles by string-matching
+     `"the" | "a" | "some"` in `get_article_or_so` — work the macro already did.
+
+4. **Type the subject; remove runtime panics**
+   - Make `SubjectPronoun` public (with `FromStr`) and store it in `Noun`, so invalid
+     subjects are unrepresentable instead of `Noun::new` panicking via `assert!`.
+   - Replace `is_subjective_plural`'s discriminant comparison (`as usize >= 6` — a
+     magic number tied to variant order) with an explicit `match`.
+   - Make remaining fallible paths (`inflect()` on non-singularizable plurals,
+     `expect` in `is_subjective_plural`) degrade gracefully — a formatting library
+     should never panic at runtime on data.
+
+5. **Public API cleanup** (free only while there's no userbase)
+   - Fix the `inflect_possesive` → `inflect_possessive` typo (public API).
+   - `#[doc(hidden)]` on macro plumbing: `handle_placeholder`,
+     `handle_placeholder_with_context`, `handle_tense_marker` (as `HeedMatcher`
+     already is) — these are not user API and shouldn't be stability commitments.
+   - Rework `ack!()`/`nay!()`: a macro that expands to a hidden `return` can't be
+     used as an expression and surprises readers. Prefer expression forms
+     (`Ok(say!(...))` / `Err(say!(...))`) and let callers write `return`.
+
+6. **Hand-written placeholder tokenizer** (replaces `PH_EXT` regex internals)
+   - Keep the sigil grammar — it's the crate's identity — but recognize placeholder
+     internals with a small tokenizer instead of one 12-line regex.
+   - Payoff: precise error spans ("expected article or verb, found `…`") instead of
+     the blanket "Error in placeholder"; removes the regex-dialect coupling between
+     the crates; makes future grammar growth (reflexives, comparatives) tractable.
+   - Note: `=` is currently overloaded (subject case before the noun, continuous
+     tense after it) — document or disambiguate while the tokenizer lands.
+
+7. **Licensing decision** (orthogonal, but decides whether the rest gets an audience)
+   - GPL-3 on a *library* crate is the single biggest adoption barrier: dependents'
+     code must be GPL-compatible, so most of the Rust ecosystem won't touch it.
+     Decide deliberately; MIT/Apache-2.0 dual is the ecosystem norm.
+   - Either way, prefer `license = "..."` over `license-file` in Cargo.toml so
+     tooling (lib.rs, cargo-deny, license scanners) can classify it.
+
+8. **Repo hygiene**
+   - Untrack scratch/log files before the next publish: `ranting.log`, `src.txt`,
+     `git_diff.txt`, `git_status.txt`, `code_analysis.txt`, `review.jsonl`, `dodev`,
+     `ideas`, `ranting_derive/ranting_derive.log`, `ranting_derive/src.txt` — these
+     currently ship in the published package.
+
+### v1.2 Success Criteria
+- One shared `ranting_core` crate; zero build.rs copy/symlink mechanisms remain
+- No unmaintained dependencies (RUSTSEC-clean); single strum/regex/syn versions
+- No stringly-typed macro↔runtime interface; no `~TENSE~` sentinel
+- No runtime panics reachable from public API with invalid data
+- Placeholder syntax errors report precise spans
+- License decision made and recorded
+
+---
+
+## Post-v1.2: Future Directions
+
+### v1.3.0: Ecosystem Expansion
 - **`ranting-i18n` Companion Crate** (12-16 weeks post-v1.0):
   - Multi-language support: German, French, Spanish, Japanese, etc.
   - Modular language modules using trait-based extensibility from v1.1
   - Proves extensibility model works; enables global adoption
 
-### v1.3+: Advanced Features (Community-Driven)
+### v1.4+: Advanced Features (Community-Driven)
 - Dialogue formatting with automatic punctuation and breaks
 - Pluralization of entire phrases (not just nouns)
 - Subjunctive mood and hypotheticals
@@ -131,18 +218,21 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 
 | Decision | Status | Notes |
 |----------|--------|-------|
-| Two-crate split (ranting + ranting_derive) | ✅ Locked | Industry standard; no changes needed |
-| Verb table codegen via build.rs | ✅ Complete | Single source of truth: data/irregular_verbs.txt |
+| Two-crate split (ranting + ranting_derive) | 🔄 Revisit (v1.2) | Design review 2026-08-12: extract shared `ranting_core` rlib both depend on (serde/serde_derive pattern); deletes all build.rs copy/symlink sharing |
+| Verb table codegen via build.rs | ✅ Complete | Single source of truth: data/irregular_verbs.txt; codegen moves into `ranting_core` in v1.2 |
 | Pronoun/article/verb tables → exhaustive match | ✅ Complete | Exhaustive `match` dispatch with `#[deny(...)]` guards; no wildcards; permanent regression tests for string values |
 | Derive macro attributes (4 core + 3 cosmetic) | ✅ Complete | subject, name, singular_end, plural_end (core) |
-| Compile-time parsing + runtime inflection | ✅ Locked | Catches syntax errors early; enables extensibility |
+| Compile-time parsing + runtime inflection | ✅ Locked | Catches syntax errors early; enables extensibility. Seam becomes typed (`PlaceholderSpec`) in v1.2, replacing `caps: [&str; 5]` + `~TENSE~` sentinel |
 | Documentation (Tutorial + Cookbook) | ✅ Complete | 30-40 min tutorial, 10 practical recipes |
-| Placeholder syntax (full grammar support) | ✅ Locked | Powerful; UX solved via documentation |
+| Placeholder syntax (full grammar support) | ✅ Locked | Sigil grammar is the crate's identity; keep it. v1.2 swaps the `PH_EXT` regex recognizer for a tokenizer (better error spans) without changing the grammar |
 | Built-in English rules (extensibility in v1.1) | ✅ v1.0; 🎯 v1.1 | Free functions now; trait methods in v1.1 |
 | Irregular noun plurals codegen | ✅ Complete (v1.1) | Single source of truth: data/irregular_plurals.txt; runtime lookup |
 | Context-aware runtime tense | ✅ Complete | `say_with!(context, ...)` + `NarrationContext`/`Tense`; unblocks Recounting M9 (tense portion) |
 | Context-aware runtime viewpoint | ✅ Complete | `NarrationContext.narration_person` + `Person`; scoped to first-person-declared (`I`/`we`) nouns only; unblocks Recounting M9 (viewpoint portion) |
-| Consolidate english_shared.rs | ✅ Complete | Single canonical copy at src/language/english_shared.rs; ranting_derive/build.rs copies it into OUT_DIR at build time (symlink-dereference fallback for packaged builds) |
+| Consolidate english_shared.rs | ✅ Complete → superseded (v1.2) | Single canonical copy + build.rs copy solved the drift; `ranting_core` extraction (Phase 4, item 1) replaces the copy mechanism outright |
+| Stringly-typed `subject: &str` in public API | 🔄 Revisit (v1.2) | Design review 2026-08-12: make `SubjectPronoun` public, store enum in `Noun`; invalid subjects become unrepresentable instead of panicking |
+| `ack!()`/`nay!()` expand to hidden `return` | 🔄 Revisit (v1.2) | Not usable as expressions; surprising control flow. Prefer `Ok(say!(...))`/`Err(say!(...))` expression forms |
+| GPL-3 via `license-file` | 🔄 Decide (v1.2) | Major adoption barrier for a library crate; ecosystem norm is MIT/Apache-2.0 dual. Use `license = "..."` key either way |
 
 ---
 
@@ -157,6 +247,10 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 **Performance Regressions**: Benchmark at phase end; profile compile-time and runtime; set performance budgets (no more than 10% slowdown per feature).
 
 **Ecosystem Fragmentation**: Clear governance for companion crates; version-lock to core; single source of truth for grammar rules.
+
+**Premature API Lock-in**: v1.2 (Phase 4) contains renames (`inflect_possesive`), crate restructuring (`ranting_core`), and possibly a license change. Land these *before* actively recruiting ecosystem forks or promoting adoption — every early adopter converts these from free changes into breaking changes.
+
+**Unmaintained Dependencies**: `proc-macro-error` has an open RUSTSEC advisory and pins syn 1; resolved by Phase 4 item 2. Until then, expect `cargo audit`/`cargo deny` warnings downstream.
 
 ---
 
