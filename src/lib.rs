@@ -48,7 +48,7 @@ use in_definite::get_a_or_an;
 use language::english::{
     adapt_article, inflect_adjective, inflect_objective, inflect_subjective, inflect_verb,
 };
-pub use language::english::{inflect_noun_irregular, inflect_possesive};
+pub use language::english::{inflect_noun_irregular, inflect_possesive, inflect_reflexive};
 pub use language::english_shared::{is_subject, is_subjective_plural};
 
 #[doc(hidden)]
@@ -416,6 +416,19 @@ where
                     inflect_adjective(subjective, pronoun_as_pl, uc)
                 }
             }
+            "%" => {
+                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
+                    subjective,
+                    PronounCase::Reflexive,
+                    pronoun_as_pl,
+                    uc,
+                    ctx,
+                ) {
+                    custom
+                } else {
+                    inflect_reflexive(subjective, pronoun_as_pl, uc)
+                }
+            }
             _ => noun.inflect(as_pl, uc),
         };
         res.push_str(&s);
@@ -689,6 +702,9 @@ pub enum PronounCase {
     PossessiveDeterminer,
     /// Possessive pronouns: mine, yours, his, hers, its, ours, theirs
     PossessivePronoun,
+    /// Reflexive pronouns: myself, yourself, thyself, himself, herself, itself,
+    /// ourselves, yourselves, themselves
+    Reflexive,
 }
 
 /// The trait required for a struct or enum to function as a noun in a placeholder, derived with `#[derive_ranting]`.

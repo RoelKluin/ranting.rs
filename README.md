@@ -120,6 +120,7 @@ fn main() {
   * `@` - object
   * `` ` `` - possesive
   * `~` - adjective
+  * `%` - reflexive (myself, yourself, thyself, himself, herself, itself, ourselves, yourselves, themselves)
   * `*` - display the name (as is the default) but also mark this word as the Ranting element in the placeholder.
           "A {*can can} contain water."
   (removed the mutname variant)

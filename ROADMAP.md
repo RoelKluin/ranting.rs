@@ -90,10 +90,32 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
    - ✅ `say!()` unaffected: its call sites pass `ctx: None` to the same `_with_context` hooks, so
      existing `say!()` output is unchanged (verified by `say_macro_still_passes_none_to_context_hooks`).
 
-5. **Reflexive Forms** (8-12 hours)
-   - Support myself, yourself, himself, herself, itself, ourselves, themselves
-   - Case marker integration (e.g., `{~person do}` becomes reflexive pronoun)
-   - Completes core pronouns system
+✅ **5. Reflexive Forms** (COMPLETE — 8-12 hours)
+   - ✅ Support myself, yourself, thyself, himself, herself, itself, ourselves,
+     yourselves, themselves — the full 9-pronoun set (`SubjectPronoun`'s
+     exhaustive match already covers `thou`/`ye` alongside the 7 forms named in
+     this item, so the reflexive table follows suit for consistency).
+   - ✅ Case marker integration: new `%` case marker (`{%person}`) dispatches to
+     `PronounCase::Reflexive` in `handle_placeholder_impl`, routed through the
+     existing `inflect_pronoun_custom_with_context` hook first (so a custom
+     `Ranting` impl can override reflexive forms, e.g. formal "their own royal
+     person") before falling back to `ranting::inflect_reflexive` in
+     `src/language/english.rs`. `%` was chosen over the roadmap's illustrative
+     `~` because `~` is already the `PossessivePronoun` marker (mine/yours/...);
+     reusing it would have broken existing behavior. Regex change lives only in
+     the canonical `src/language/english_shared.rs` (`PH_EXT`'s `case` group),
+     copied to `ranting_derive` per the existing build.rs mechanism — no
+     `ranting_derive` source changes needed.
+   - ✅ Completes core pronouns system. Also fixed the `upper()` test in
+     `src/language/english.rs`, which previously hardcoded the byte-artifact
+     `"theirself"` (possessive `` ` `` + literal `"self"` string concatenation)
+     as a stand-in for real reflexive support — it now uses `{%w}` and asserts
+     the correct `"themselves"`.
+   - ✅ 10 integration tests in `tests/ranting/reflexive_pronouns.rs` (all 9
+     pronouns, singular-they reflexive, sentence-start/mid-sentence
+     capitalization, forced plural/singular via `+`/`-`, `you` singular vs.
+     plural, positional and named args, and custom-hook override/fallback via
+     `PronounCase::Reflexive`), plus unit tests in `src/language/english.rs`.
 
 6. **Comparative & Superlative Adjectives** (10-16 hours)
    - Handle degree: good → better → best, bad → worse → worst
