@@ -2867,6 +2867,56 @@ because it exercises everything before it.*
       `ranting_i18n` and `ranting_es` (via `--manifest-path`, since this repo
       is not a cargo workspace).
 
+27. ✅ **Adjective declension class is not reported** (doc-only, 6-10 hours) —
+    *hole 4b in `ranting_i18n/README.md`, the non-word-order half of hole 4
+    (the other half, prenominal position, is item 1's/item 20's permanent
+    boundary and out of scope here)*
+    - ✅ **COMPLETE 2026-08-13** —
+      `docs/superpowers/specs/2026-08-13-adjective-declension-class.md`
+      written, in the same shape as the grammatical-case-inventory and
+      preposition-fusion spikes. States the problem with worked German
+      examples (`kleiner Hund` strong / `der kleine Hund` weak /
+      `ein kleiner Hund` mixed — endings driven purely by which article
+      preceded the adjective, independent of `AdjectiveDegree`), and confirms
+      `inflect_adjective_custom`/`_with_context` (item 5, item 14) receive
+      `case`/`class`/`as_plural`/`count` but never the rendered article, and
+      `self` cannot supply it either since the article is chosen from
+      per-*placeholder* template text, not a per-entity fact.
+    - ✅ Scored three options: (a) a rendered-article `&str` parameter,
+      mirroring `inflect_preposition_custom`'s existing `article: &str` (the
+      value is already in scope at the call site via `article_span`) —
+      rejected as insufficient alone, since it still leaves the fork to
+      classify the string into strong/weak/mixed itself; (b) an
+      `ArticleKind`-shaped typed parameter mirroring `ranting_core` — rejected,
+      since English's existing `ArticleKind` split doesn't map onto German's
+      three-way declension distinction and a correctly-shaped new enum would
+      have no compile-time marker to mirror, making it strictly more breaking
+      than (a) for the same information; (c) carry the article/declension
+      choice on the entity, as `ranting_i18n`'s own hole 4b prose already
+      names (`GermanNoun::with_article`) — recommended.
+    - ✅ Recommendation is (c), doc-only, no signature change — the same
+      "entity carries what the placeholder grammar can't name" pattern
+      `NounClass` (item 2) and the grammatical-case-inventory spike's own
+      recommendation (item 18) already established. Explicitly notes this is
+      **not currently an owed hook-signature break to bundle**: unlike item
+      25/26's preposition-fusion sequence, item 4's count-channel debt this
+      family of spikes kept flagging is already closed (items 14, 8, 26), so
+      picking up option (a)/(b) later would open a *new* standalone break,
+      which the spec says to defer until some other change forces a break on
+      `inflect_adjective_custom` and land together with that, not alone.
+    - ✅ No code, hook signature, or placeholder grammar changed. Hole 4b
+      stays open and unstruck in `ranting_i18n/README.md`.
+    - ✅ `cargo fmt --check`, `cargo clippy -- -D warnings` and `cargo test`
+      are unaffected (doc-only diff) but were run at the repo root and in
+      `ranting_core`, `ranting_derive`, `ranting_i18n` and `ranting_es` to
+      confirm the working tree was green before and after.
+    - **Note on numbering**: this item was originally specified as "item 26"
+      in the task that queued it; by the time it was picked up, ROADMAP.md's
+      item 26 had already been assigned to and completed as the
+      `inflect_preposition_custom` hook (a different gap, hole 7). Filed here
+      as item 27, the next open number, rather than overwriting item 26's
+      existing entry — see the spec document's own closing note.
+
 ### v1.3 Success Criteria
 - A non-English `Ranting` impl can obtain gender/noun class, grammatical case,
   number, and register/dialect **without** an external string-keyed side table
