@@ -54,7 +54,9 @@ use language::english::{
 };
 pub use language::english::{inflect_noun_irregular, inflect_possessive, inflect_reflexive};
 pub use ranting_core::grammar::{SubjectPronoun, is_subject, is_subjective_plural};
-use ranting_core::placeholder::{ArticleKind, CaseKind, PlaceholderSpec, PostSpec};
+use ranting_core::placeholder::{
+    ArticleKind, CaseKind, NumeralKind, NumeralSpec, PlaceholderSpec, PostSpec,
+};
 use std::str::FromStr;
 
 /// Typed placeholder-spec types (`PlaceholderSpec`, `CaseKind`, `PostSpec`,
@@ -339,13 +341,14 @@ pub fn handle_placeholder<R>(
     noun: &R,
     poss: String,
     nr: String,
+    count: Option<i64>,
     uc: bool,
     spec: PlaceholderSpec,
 ) -> String
 where
     R: Ranting,
 {
-    handle_placeholder_impl(noun, poss, nr, uc, spec, None)
+    handle_placeholder_impl(noun, poss, nr, count, uc, spec, None)
 }
 
 /// Like [`handle_placeholder`], but resolves tense markers against a runtime
@@ -356,6 +359,7 @@ pub fn handle_placeholder_with_context<R>(
     noun: &R,
     poss: String,
     nr: String,
+    count: Option<i64>,
     uc: bool,
     spec: PlaceholderSpec,
     ctx: &NarrationContext,
@@ -363,13 +367,15 @@ pub fn handle_placeholder_with_context<R>(
 where
     R: Ranting,
 {
-    handle_placeholder_impl(noun, poss, nr, uc, spec, Some(ctx))
+    handle_placeholder_impl(noun, poss, nr, count, uc, spec, Some(ctx))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_placeholder_impl<R>(
     noun: &R,
     poss: String,
     nr: String,
+    count: Option<i64>,
     mut uc: bool,
     spec: PlaceholderSpec,
     ctx: Option<&NarrationContext>,
@@ -383,6 +389,7 @@ where
         pre_kind,
         pre_chained_kind,
         plurality,
+        numeral,
         noun_space,
         case,
         post: post_spec,
@@ -395,8 +402,12 @@ where
         "" => noun.is_plural(),
         "+" => true,
         "-" => false,
-        // A bit hackish but should work also for e.g. 1.0%
-        "#" => nr.trim_start() != "one",
+        // `#var`'s count is baked by the macro, so number agreement is decided from the
+        // number itself rather than from the rendered word. That is exactly equivalent for
+        // English -- `rant_convert_numbers` spells only 1 as "one" (-1 is "negativeone") --
+        // and it is what keeps a non-English `inflect_numeral_custom` from flipping
+        // agreement: the hook renders *after* this, and its output is never sniffed.
+        "#" => count != Some(1),
         _ => {
             let s = nr.trim_start();
             s != "1" && s.split('.').next() != Some("1")
@@ -500,8 +511,40 @@ where
         res.push_str(space);
         uc = false;
     }
-    if !plurality.contains('?') {
-        res.push_str(&nr);
+    // The numeral slot. `numeral` is `None` both when the placeholder has no `#var`/`$var`
+    // marker and when it has a hidden one (`{?$n noun}`) — in either case nothing numeric is
+    // rendered and the hook is not called. See ROADMAP.md Phase 6 item 8.
+    if let Some(NumeralSpec {
+        kind,
+        leading_space,
+    }) = numeral
+    {
+        // `#var` is spelled here rather than by the macro, so the hook can replace the
+        // speller wholesale; `$var` arrives already rendered, `:fmt` spec applied.
+        let english = match kind {
+            NumeralKind::Words => count.map_or_else(String::new, rant_convert_numbers),
+            NumeralKind::Digits => nr.clone(),
+        };
+        // `$var`'s count is not baked (its argument needn't be an integer at all), so it is
+        // recovered from the rendered digits — `None` for a float, a width-padded or
+        // otherwise formatted number, or a non-numeric `Display`.
+        let count = match kind {
+            NumeralKind::Words => count,
+            NumeralKind::Digits => english.trim().parse::<i64>().ok(),
+        };
+        let rendered = noun
+            .inflect_numeral_custom_with_context(
+                &english,
+                count,
+                kind.into(),
+                case.into(),
+                noun_class,
+                as_pl,
+                ctx,
+            )
+            .unwrap_or(english);
+        res.push_str(leading_space);
+        res.push_str(&rendered);
     }
 
     // The leading whitespace preceding whatever comes after the noun. For
@@ -1159,6 +1202,29 @@ impl From<placeholder::DegreeKind> for AdjectiveDegree {
     }
 }
 
+/// Which numeral notation a placeholder asked for, for customization via
+/// [`Ranting::inflect_numeral_custom`]. Mirrors [`placeholder::NumeralKind`], the compile-time
+/// type the macro bakes, the way [`GrammaticalCase`] mirrors `CaseKind` and [`AdjectiveDegree`]
+/// mirrors `DegreeKind` — the `#`/`$` marker is written in the placeholder, so there is something
+/// at the macro↔runtime seam to mirror.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum NumeralStyle {
+    /// `` {#n nouns} `` — the number spelled out. English: "two".
+    Words,
+    /// `` {$n nouns} `` — the number in digits, the argument's own `Display` output with any
+    /// `:fmt` spec applied. English: "2".
+    Digits,
+}
+
+impl From<placeholder::NumeralKind> for NumeralStyle {
+    fn from(kind: placeholder::NumeralKind) -> Self {
+        match kind {
+            placeholder::NumeralKind::Words => NumeralStyle::Words,
+            placeholder::NumeralKind::Digits => NumeralStyle::Digits,
+        }
+    }
+}
+
 impl From<placeholder::CaseKind> for GrammaticalCase {
     fn from(case: placeholder::CaseKind) -> Self {
         match case {
@@ -1623,6 +1689,110 @@ pub trait Ranting: std::fmt::Display {
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         self.inflect_adjective_custom(adjective, degree, case, class, as_plural, uc)
+    }
+
+    /// Customize how a placeholder's number is written (the `#var`/`$var` slot).
+    /// Return `Some(String)` to use a custom numeral, `None` to keep the English rendering.
+    ///
+    /// English needs nothing here: `#var` is spelled by `english-numbers` and `$var` is the
+    /// argument's own `Display` output, and returning `None` — the default — leaves `say!()`'s
+    /// output byte-identical. It exists because both of those are hard-coded English/ASCII
+    /// choices. Every other language needs its own speller (`zwei`, `deux`, `два`), several
+    /// agree the numeral itself with the noun's gender and case (Russian `два стола` vs. `две
+    /// книги`), and several scripts have their own digits (Devanagari `२`, Arabic-Indic `٢`).
+    ///
+    /// # Arguments
+    /// * `numeral` - The number as English renders it, i.e. what is used if this returns `None`:
+    ///   the spelled-out word for [`NumeralStyle::Words`], or the already-formatted digits
+    ///   (`:fmt` spec applied) for [`NumeralStyle::Digits`]. A digit-mapping fork can transcribe
+    ///   this directly; a fork that spells numbers wants `count` instead.
+    /// * `count` - The number itself, when it is available. Always `Some` for
+    ///   [`NumeralStyle::Words`], where the macro bakes the same `as i64` cast it always applied
+    ///   before spelling. For [`NumeralStyle::Digits`] it is recovered by parsing `numeral`, so
+    ///   it is `None` whenever that isn't a plain integer — a float, a width-padded or otherwise
+    ///   formatted number, or a non-numeric `Display` argument. This count is *local to the
+    ///   numeral*: it does not discharge the count channel still owed on the `as_plural` hooks
+    ///   (ROADMAP.md Phase 6 item 4), which is about number *categories* (dual, paucal) on the
+    ///   noun, article and verb.
+    /// * `style` - Which of `#var`/`$var` was written (see [`NumeralStyle`]).
+    /// * `case` - The noun's own grammatical role from its case marker, as for
+    ///   [`inflect_article_custom`](Self::inflect_article_custom). Russian declines the numeral
+    ///   with it.
+    /// * `class` - The noun's lexical gender / noun class (see [`NounClass`]), or
+    ///   [`NounClass::UNSET`] — the `два`/`две` agreement input.
+    /// * `as_plural` - Whether the noun renders plural here (see [`Ranting::is_plural`] for what
+    ///   this bool does and does not promise). Note this is *decided before* this hook runs, from
+    ///   the count rather than from the rendered word, so a custom numeral can never flip it.
+    ///
+    /// There is deliberately no `uc` parameter: `handle_placeholder` never capitalizes the
+    /// numeral (a placeholder that starts a sentence spends its `uc` on the article, verb or
+    /// noun), so there would be nothing for the hook to decide. Note also that a returned string
+    /// replaces the rendered numeral outright, so a `:fmt` width/fill spec on `$var` is *not*
+    /// re-applied to it — a fork that wants padding pads its own output.
+    ///
+    /// Not called at all when nothing numeric renders: a placeholder without a `#var`/`$var`
+    /// marker, or with a hidden one (`` {?$n nouns} ``, where the number governs agreement but is
+    /// not written). `heed!()`/`ask!()`'s `{$name}` is input parsing, the inverse direction, and
+    /// is not routed here either.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// fn inflect_numeral_custom(
+    ///     &self,
+    ///     numeral: &str,
+    ///     count: Option<i64>,
+    ///     style: NumeralStyle,
+    ///     _case: GrammaticalCase,
+    ///     class: NounClass,
+    ///     _as_plural: bool,
+    /// ) -> Option<String> {
+    ///     match style {
+    ///         // Russian: the numeral "two" agrees with its noun's gender.
+    ///         NumeralStyle::Words => Some(match (count?, class.as_str()) {
+    ///             (1, "feminine") => "одна".to_string(),
+    ///             (1, _) => "один".to_string(),
+    ///             (2, "feminine") => "две".to_string(),
+    ///             (2, _) => "два".to_string(),
+    ///             (n, _) => n.to_string(),
+    ///         }),
+    ///         // Devanagari digits: a transcription of what English rendered.
+    ///         NumeralStyle::Digits => Some(numeral.chars().map(|c| match c {
+    ///             '0'..='9' => char::from_u32(c as u32 - '0' as u32 + 0x966).unwrap_or(c),
+    ///             other => other,
+    ///         }).collect()),
+    ///     }
+    /// }
+    /// ```
+    fn inflect_numeral_custom(
+        &self,
+        _numeral: &str,
+        _count: Option<i64>,
+        _style: NumeralStyle,
+        _case: GrammaticalCase,
+        _class: NounClass,
+        _as_plural: bool,
+    ) -> Option<String> {
+        None
+    }
+
+    /// Like [`inflect_numeral_custom`](Self::inflect_numeral_custom), but also receives the
+    /// story-wide [`NarrationContext`] in effect for this call, when there is one — which is
+    /// where a locale (`NarrationContext::dialect`) selecting a digit system would live. See
+    /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
+    /// general shape: the numeral call site calls this one, and the default delegates to
+    /// `inflect_numeral_custom` with `ctx` ignored.
+    #[allow(clippy::too_many_arguments)]
+    fn inflect_numeral_custom_with_context(
+        &self,
+        numeral: &str,
+        count: Option<i64>,
+        style: NumeralStyle,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        _ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        self.inflect_numeral_custom(numeral, count, style, case, class, as_plural)
     }
 
     /// Apply orthographic capitalization to one rendered piece of a placeholder.
