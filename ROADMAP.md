@@ -741,14 +741,104 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
      `map_or` lint, two needless-borrow lints) — no new findings introduced by
      this item's changes.
 
-6. **Hand-written placeholder tokenizer** (replaces `PH_EXT` regex internals)
-   - Keep the sigil grammar — it's the crate's identity — but recognize placeholder
-     internals with a small tokenizer instead of one 12-line regex.
-   - Payoff: precise error spans ("expected article or verb, found `…`") instead of
-     the blanket "Error in placeholder"; removes the regex-dialect coupling between
-     the crates; makes future grammar growth (reflexives, comparatives) tractable.
-   - Note: `=` is currently overloaded (subject case before the noun, continuous
-     tense after it) — document or disambiguate while the tokenizer lands.
+6. ✅ **Hand-written placeholder tokenizer** (replaces `PH_EXT` regex internals)
+   - ✅ Kept the sigil grammar (`PH_START`, `{...}` discovery) untouched — it's the
+     crate's identity and was explicitly out of scope. Only `PH_EXT`'s
+     internals-of-the-braces parsing changed.
+   - ✅ New module `ranting_core/src/ph_ext.rs`: a hand-written recursive parser,
+     `ph_ext::parse(s: &str) -> Result<PhExtMatch, PhExtError>`, called from
+     `ranting_derive`'s `parse_str_params` (previously `PHE.is_match(...)` +
+     `PHE.replace(...)`, `PHE` = `Regex::new(PH_EXT)`). `PhExtMatch` mirrors the
+     handful of `regex::Captures`/`regex::Match` methods `handle_param` already used
+     (`.name(...)`, `.as_str()`/`.start()`/`.end()`, plus `.whole()` replacing
+     `.get(0)`), so `handle_param`'s ~200-line body needed only a signature change
+     (`caps: &Captures` → `caps: &ranting_core::ph_ext::PhExtMatch`) — none of its
+     logic changed. `PH_EXT` itself stays in `grammar.rs`, `#[allow(dead_code)]`, as
+     the *reference grammar*: `ph_ext`'s own test suite differentially fuzzes the
+     hand parser against `Regex::new(PH_EXT)` (a `regex` dev-dependency added to
+     `ranting_core/Cargo.toml` for exactly this, not used by any non-test code), so
+     the reference stays load-bearing for verification even though nothing parses
+     against it at runtime anymore.
+   - ⚠️ **Design surprise — `?+` is not possessive here.** The grammar's authors
+     clearly intended `(?P<x>...)?+` as "optional, possessive/atomic" (match if
+     possible, then never backtrack out of it). Two direct experiments against the
+     `regex` crate disprove that reading: `(?:a)?+a` against `"a"` still matches
+     (true possessive semantics would reject it), and — more consequentially —
+     `(?P<x>[ab])?+c` against `"abc"` matches with `x = "b"`, i.e. the group matched
+     *twice*, with only the *last* repetition's span kept as the named capture. So
+     `X?+` empirically behaves like `X*` (zero-or-more, greedy, ordinarily
+     backtracking) in this crate, not "optional, committed". This isn't a corner
+     case nobody hits: `src/language/english.rs`'s pre-existing `verbs_deny`/`upper`
+     tests use placeholders like `{=?w weren't}`, where `case` has to match a
+     two-character run (`=` then `?`, keeping only `?`) for the existing behavior to
+     make sense at all — a naive "optional presence" reading of `?+` cannot produce
+     that. `uc`, `pre`, `nr`, and `case` are therefore all implemented as genuine
+     repeated (star) groups via one generic engine, `star_candidates`, rather than
+     four independent single-optional checks.
+   - ⚠️ **Second design surprise — `pre`'s lazy "extra words" loop is reachable.**
+     An early version of this module's doc argued (from a since-corrected mental
+     model) that `pre`'s trailing `(?:\s+[\w-]+)*?` could never fire, since the
+     zero-repetition attempt's local success/failure doesn't depend on repetition
+     count. That reasoning only checked *local* success and missed that regex
+     backtracking is driven by *overall* (downstream) success — proven wrong by this
+     crate's own pre-existing doctest, `` {can `man pair of #0 boots remain} `` (on
+     `inflect_possessive`), which needs `pre` to swallow two extra words (`pair`,
+     `of`) after `` `man `` so that `nr` (`#0 `) and `noun` (`boots`) can start where
+     the template actually intends. Fixed by `finish_pre_candidates`, which yields
+     every extra-word count in lazy (fewest-first) priority order and lets the outer
+     backtracking search (which already existed for the `?+`-is-really-`X*` finding
+     above) reach for a non-zero count only when zero fails downstream.
+   - ✅ **Error spans**: textual, not source-span-precise. Errors are `PhExtError {
+     start, end, message }` — byte offsets into the placeholder-internals text
+     (`ranting_derive` already offsets these into the full template string, exactly
+     as it did with the old regex captures) plus a specific message, e.g. for input
+     `` `=` ``: `` expected a noun or variable name, found `=` `` , or for
+     `` `who run(` `` : `` expected article or verb, found ` run(` `` (the found
+     text includes the leading space that separates the noun from its trailing
+     content) — replacing the single blanket `"Error in placeholder"`. These
+     still flow through `syn::Error`/`LitStr::slice(...).error(...)` exactly as
+     before, so they still render as a real compile error pointing at the offending
+     substring inside the user's source string literal (not just a stderr message) —
+     this *is* source-span-precise in the sense that matters to a `say!()` caller,
+     just not decomposed further (e.g. "expected one of: `a`, `an`, `the`, ...").
+     Decomposing into per-alternative-expected-token messages was judged not worth
+     it: the tokenizer's own internal structure (six `pre`-atom alternatives, a
+     handful of modal words, nested articles) doesn't map cleanly onto a short
+     "expected X" list without either truncating misleadingly or dumping the whole
+     grammar into every error.
+   - ✅ **No placeholder-acceptance regression.** `ph_ext::tests::parity_curated_corpus`
+     (curated cases, including the two real multi-char-case-run and extra-words
+     examples above) and `ph_ext::tests::parity_fuzzed` (a `proptest` property over
+     uc/pre/nr/case/noun/post combinations) both assert the hand parser and
+     `Regex::new(PH_EXT)` agree exactly — either both reject an input, or both accept
+     it with identical capture text for every named group. Two apparent "regex
+     inconsistencies" found while building this turned out, on closer inspection, to
+     be gaps in the hand parser's own understanding of the grammar (the two design
+     surprises above), not actual regex bugs — once fixed, no fuzz exclusions were
+     needed at all.
+   - ✅ New tests: `ph_ext::tests::error_message_specific_for_bad_post`,
+     `error_message_specific_for_missing_noun` (assert on the new specific message
+     text), `pre_extra_words_then_second_repetition` (regression test for the second
+     design surprise above), plus the differential `parity_curated_corpus`/
+     `parity_fuzzed` pair — 5 new tests in `ranting_core`, all in `src/ph_ext.rs`.
+   - ✅ Full gate clean on all three crates; test counts against the pre-task
+     baseline (`git show f1b08545`: 39 lib + 264 integration + 11 doctests in
+     `ranting`, 14 unit in `ranting_core`, 9 unit in `ranting_derive`): `ranting`
+     unchanged at 39 lib + 264 integration + 11 doctests (the two previously-passing
+     doctests that exercise the fixed extra-words/case-run behavior —
+     `language::english::inflect_possessive` and `lib.rs - ack` — kept passing
+     throughout, since those bugs were caught and fixed before landing, not shipped
+     as regressions); `ranting_core` now 19 unit tests (+5, `ph_ext`'s new tests
+     above); `ranting_derive` unchanged at 9 unit tests, its one pre-existing
+     doctest failure (`src/lib.rs - derive_ranting`, `unresolved import 'ranting'`)
+     unaffected. `ranting_derive`'s standalone `cargo clippy --all-targets -- -D
+     warnings` still fails on exactly the same 7 pre-existing findings documented in
+     `docs/architecture-review-2026-08-13.md` — no new findings introduced by this
+     item's changes.
+   - This completes Phase 4's architecture-consolidation restructuring (items 1-6).
+     Item 7 (licensing) remains an explicit human decision, not an agent task — see
+     [PROPOSED LICENSE CHANGE](#proposed-license-change-awaiting-decision). Item 8
+     (repo hygiene) was already complete.
 
 7. **Licensing decision** (orthogonal, but decides whether the rest gets an audience)
    - GPL-3 on a *library* crate is the single biggest adoption barrier: dependents'

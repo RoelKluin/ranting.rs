@@ -1,0 +1,10 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc d6e4a0c756a19b85ef872e94927e0e12a292bf2f862f04022e441ce1f7826a6e # shrinks to uc = None, pre_word = Some("these"), nr = None, case = None, noun = "noun", post = None
+cc d6cb89ff8bb817a731cca9e1cfe6960518528287b0a966a7bdd441cd46412de6 # shrinks to uc = None, pre_word = None, nr = None, case = Some('`'), noun = "noun", post = Some(" <run")
+cc 2e470d9223c50b64e10dd4bdbbc0e1f44eb202b1e608fff3dd91749d378213dd # shrinks to uc = None, pre_word = Some("a"), nr = None, case = None, noun = "noun", post = Some(" don't run")
+cc a6316bb06d55f53fa732e8d4fd6a85b78ec00ce35e358ba5fe16d01ddbdefd0d # shrinks to uc = None, pre_word = Some("a"), nr = None, case = Some('`'), noun = "noun", post = Some(" run")
