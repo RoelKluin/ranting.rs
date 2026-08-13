@@ -51,8 +51,9 @@ use language::english::{
     adapt_article, inflect_adjective, inflect_objective, inflect_subjective, inflect_verb,
 };
 pub use language::english::{inflect_noun_irregular, inflect_possesive, inflect_reflexive};
-pub use ranting_core::grammar::{is_subject, is_subjective_plural};
+pub use ranting_core::grammar::{SubjectPronoun, is_subject, is_subjective_plural};
 use ranting_core::placeholder::{CaseKind, PlaceholderSpec, PostSpec};
+use std::str::FromStr;
 
 /// Typed placeholder-spec types (`PlaceholderSpec`, `CaseKind`, `PostSpec`,
 /// `TenseMarker`) that `ranting_derive` bakes at compile time and
@@ -683,15 +684,50 @@ fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
 #[ranting(name = "$", subject = "$")]
 pub struct Noun {
     pub(crate) name: String,
-    pub(crate) subject: String,
+    // Typed, not `String`: an invalid subject pronoun is now unrepresentable
+    // in a constructed `Noun` — `try_new` is the only way in, and it rejects
+    // anything `SubjectPronoun::from_str` rejects. `ranting_derive`'s generic
+    // `subject = "$"` codegen only ever calls `self.subject.as_str()` /
+    // passes that to `is_subjective_plural(&str)`, so `SubjectPronoun::as_str`
+    // (added alongside this) keeps that generated code compiling unchanged —
+    // it also serves user structs that still declare a plain `subject: String`
+    // field, which this type change does not affect.
+    pub(crate) subject: SubjectPronoun,
 }
+
+/// Error returned by [`Noun::try_new`] when `subject` isn't one of the
+/// recognized subject pronouns ("I", "you", "thou", "he", "she", "it", "we",
+/// "ye", "they").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InvalidSubjectError(pub String);
+
+impl std::fmt::Display for InvalidSubjectError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?} is not a valid subject pronoun", self.0)
+    }
+}
+
+impl std::error::Error for InvalidSubjectError {}
+
 impl Noun {
+    /// Construct a `Noun`, panicking if `subject` isn't a recognized subject
+    /// pronoun. Kept for backward compatibility with existing call sites;
+    /// prefer [`Noun::try_new`] when `subject` isn't a compile-time literal
+    /// you already know is valid.
     pub fn new(name: &str, subject: &str) -> Self {
-        assert!(is_subject(subject), "not a subject");
-        Noun {
+        Self::try_new(name, subject).expect("not a subject")
+    }
+
+    /// Fallible constructor: returns `Err(InvalidSubjectError)` instead of
+    /// panicking when `subject` isn't one of the recognized subject pronouns,
+    /// so invalid input can be handled instead of aborting the program.
+    pub fn try_new(name: &str, subject: &str) -> Result<Self, InvalidSubjectError> {
+        let subject = SubjectPronoun::from_str(subject)
+            .map_err(|_| InvalidSubjectError(subject.to_string()))?;
+        Ok(Noun {
             name: name.to_string(),
-            subject: subject.to_string(),
-        }
+            subject,
+        })
     }
 }
 

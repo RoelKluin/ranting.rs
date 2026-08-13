@@ -79,6 +79,28 @@ pub enum SubjectPronoun {
     They,
 }
 
+impl SubjectPronoun {
+    /// The canonical spelling accepted by [`FromStr`] for this pronoun — the
+    /// inverse of `SubjectPronoun::from_str`. Used to store a typed pronoun on
+    /// `Noun` while keeping the string-based `Ranting::subjective(&self) -> &str`
+    /// contract (and `ranting_derive`'s generated `self.subject.as_str()` call
+    /// sites, which predate this type and are shared with user-defined structs
+    /// that still declare a plain `subject: String` field) unchanged.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SubjectPronoun::I => "I",
+            SubjectPronoun::You => "you",
+            SubjectPronoun::Thou => "thou",
+            SubjectPronoun::He => "he",
+            SubjectPronoun::She => "she",
+            SubjectPronoun::It => "it",
+            SubjectPronoun::We => "we",
+            SubjectPronoun::Ye => "ye",
+            SubjectPronoun::They => "they",
+        }
+    }
+}
+
 /// return whether the given `&str` is a valid subject
 pub fn is_subject(subject: &str) -> bool {
     SubjectPronoun::from_str(subject).is_ok()
@@ -86,8 +108,26 @@ pub fn is_subject(subject: &str) -> bool {
 
 /// Returns whether the subjective is plural. You is assumed singular; a plural_you
 /// ranting attribute should already be considered before this call.
+///
+/// Degrades gracefully on invalid input instead of panicking: a `subject` that
+/// isn't a recognized pronoun is treated as singular (`false`) rather than
+/// aborting a formatting call — a formatting library should never panic at
+/// runtime on data. Explicit match, no discriminant arithmetic and no
+/// wildcard, so adding a new `SubjectPronoun` variant forces a decision here
+/// instead of silently falling on one side of a numeric cutoff.
 pub fn is_subjective_plural(subject: &str) -> bool {
-    (SubjectPronoun::from_str(subject).expect("subject should be a valid pronoun") as usize) >= 6
+    match SubjectPronoun::from_str(subject) {
+        Ok(pronoun) => match pronoun {
+            SubjectPronoun::I
+            | SubjectPronoun::You
+            | SubjectPronoun::Thou
+            | SubjectPronoun::He
+            | SubjectPronoun::She
+            | SubjectPronoun::It => false,
+            SubjectPronoun::We | SubjectPronoun::Ye | SubjectPronoun::They => true,
+        },
+        Err(_) => false,
+    }
 }
 
 /// Returns whether the subjective is first-person ("I" or "we"). Used to scope
@@ -96,4 +136,49 @@ pub fn is_subjective_plural(subject: &str) -> bool {
 /// subjects are left untouched.
 pub fn is_first_person_subject(subject: &str) -> bool {
     matches!(subject, "I" | "we")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use strum::IntoEnumIterator;
+
+    #[test]
+    fn as_str_round_trips_through_from_str() {
+        // Every variant's as_str() must parse back to itself via FromStr —
+        // as_str() is the field-storage encoding Noun::subject relies on
+        // (see ROADMAP.md Phase 4 item 4), so a mismatch here would silently
+        // corrupt a stored pronoun.
+        for pronoun in SubjectPronoun::iter() {
+            let s = pronoun.as_str();
+            let round_tripped = SubjectPronoun::from_str(s).expect("as_str() output must parse");
+            assert_eq!(round_tripped.as_str(), s, "round-trip mismatch for {s:?}");
+        }
+    }
+
+    #[test]
+    fn is_subjective_plural_covers_every_variant() {
+        // Cross-check the explicit match in is_subjective_plural against
+        // every current SubjectPronoun variant, so this test breaks (rather
+        // than silently doing the wrong thing) if a new variant is ever
+        // added without updating the match.
+        let plural =
+            [SubjectPronoun::We, SubjectPronoun::Ye, SubjectPronoun::They].map(|p| p.as_str());
+        for pronoun in SubjectPronoun::iter() {
+            let s = pronoun.as_str();
+            assert_eq!(
+                is_subjective_plural(s),
+                plural.contains(&s),
+                "unexpected plurality for {s:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn is_subjective_plural_degrades_to_false_on_invalid_input() {
+        // Previously `.expect(...)`-panicked on invalid input; now degrades
+        // gracefully to `false` (see ROADMAP.md Phase 4 item 4).
+        assert!(!is_subjective_plural("not-a-pronoun"));
+        assert!(!is_subjective_plural(""));
+    }
 }

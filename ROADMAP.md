@@ -558,14 +558,105 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
      `unresolved import 'ranting'`, CLAUDE.md's documented
      proc-macro-crate-can't-self-test limitation) is unchanged.
 
-4. **Type the subject; remove runtime panics**
-   - Make `SubjectPronoun` public (with `FromStr`) and store it in `Noun`, so invalid
-     subjects are unrepresentable instead of `Noun::new` panicking via `assert!`.
-   - Replace `is_subjective_plural`'s discriminant comparison (`as usize >= 6` — a
-     magic number tied to variant order) with an explicit `match`.
-   - Make remaining fallible paths (`inflect()` on non-singularizable plurals,
-     `expect` in `is_subjective_plural`) degrade gracefully — a formatting library
-     should never panic at runtime on data.
+4. ✅ **Type the subject; remove runtime panics**
+   - ✅ **Already existed from item 1's `ranting_core` extraction** (see item 1's
+     own "Deviation" note): `SubjectPronoun` was already `pub` (forced by
+     living in a separate crate from its call sites) and already had `FromStr`
+     via `#[derive(EnumString)]`. Neither of those needed new work here — this
+     item's actual scope was storing the typed enum in `Noun` and removing the
+     panics, which item 1 explicitly deferred.
+   - ✅ **New: `SubjectPronoun::as_str(&self) -> &'static str`**
+     (`ranting_core/src/grammar.rs`), the inverse of `from_str`. Added so
+     `Noun`'s `subject` field could change type from `String` to
+     `SubjectPronoun` without touching `ranting_derive`'s generic
+     `subject = "$"` codegen (`ranting_impl.rs`'s `get_plurality_fns`), which
+     emits `self.subject.as_str()` and `ranting::is_subjective_plural(self.subject.as_str())`
+     — those call sites don't care whether `self.subject` is a `String` or a
+     type with an `as_str()` method, and that codegen path is also used by any
+     third-party struct that still declares its own `subject: String` field
+     (per the documented `#[ranting(subject = "$")]` contract), so it had to
+     stay untouched.
+   - ✅ **`Noun.subject: String` → `Noun.subject: SubjectPronoun`** — an
+     invalid subject is now genuinely unrepresentable in a constructed `Noun`,
+     not just rejected at construction time.
+   - ✅ **API-shape decision: kept `Noun::new(&str, &str) -> Self` panicking,
+     added `Noun::try_new(&str, &str) -> Result<Self, InvalidSubjectError>`**
+     — option (a) from this item's own list of choices, not option (b)
+     (`Noun::new` taking `SubjectPronoun` directly). Reasoning: `Noun::new` is
+     called from the README, doctests across `src/lib.rs`/`src/collections.rs`/
+     `src/language/english.rs`, and every integration test file — dozens of
+     call sites, all passing string literals like `"it"`/`"he"`/`"they"`.
+     Changing its signature to take `SubjectPronoun` would force every one of
+     those to write `SubjectPronoun::It` instead of `"it"` (or a `.parse()`)
+     for zero safety gain, since those literals are always valid; it would
+     also be a breaking change for any external crate already calling
+     `Noun::new`. `Noun::new` keeps its exact old signature and panic
+     behavior (now implemented as `Self::try_new(..).expect("not a subject")`
+     — same message, same panic path, verified by a
+     `#[should_panic(expected = "not a subject")]` test) so no existing call
+     site needed touching. `Noun::try_new` is the new, additive, non-panicking
+     escape hatch for callers with a runtime/user-supplied subject string —
+     the actual "unrepresentable invalid state" is enforced by `Noun`'s field
+     now being `SubjectPronoun` rather than `String`, regardless of which
+     constructor was used to get there; `try_new` just adds a way to reach
+     that guarantee without a panic.
+     `InvalidSubjectError(pub String)` (`src/lib.rs`) implements
+     `Display`/`Error` and carries the rejected string back to the caller.
+   - ✅ **`is_subjective_plural`'s `as usize >= 6` → explicit match**
+     (`ranting_core/src/grammar.rs`): matches every `SubjectPronoun` variant
+     by name (`I | You | Thou | He | She | It => false`,
+     `We | Ye | They => true`), no wildcard arm, so a future new variant is a
+     compile error here instead of silently landing on one side of a numeric
+     cutoff. Cross-checked against every variant via `SubjectPronoun::iter()`
+     in a new `ranting_core` unit test
+     (`grammar::tests::is_subjective_plural_covers_every_variant`).
+   - ✅ **Both remaining fallible paths now degrade gracefully instead of
+     panicking**:
+     - `is_subjective_plural`'s `.expect("subject should be a valid pronoun")`
+       → invalid input now returns `false` (treated as singular) instead of
+       panicking. `is_subject`/`is_subjective_plural` are both public API
+       (re-exported from `ranting`), so this is a real behavior change for
+       any external caller currently relying on the panic — documented here
+       since it's the one behavior change in this item.
+     - `inflect()`'s two `.expect(...)` calls on `strip_suffix` failure in
+       `ranting_derive/src/ranting_impl.rs`'s generated code (both the
+       `subject = "$"` branch and the fixed-subject branch, four `.expect`
+       call sites total) → when a name doesn't end in the expected
+       `singular_end`/`plural_end`, the fallback now returns the name
+       unchanged instead of panicking, matching the "no irregular-table
+       match, no regular-suffix match either" case a formatting call
+       shouldn't abort the whole program over.
+     - Left alone, out of this item's explicit scope: the other five
+       `.expect("Not a subject")` calls in `src/language/english.rs`
+       (`inflect_adjective`/`inflect_subjective`/`inflect_objective`/
+       `inflect_possesive`/`inflect_reflexive`) — those operate on subjects
+       that are already-validated `Noun`/`Ranting` data flowing through
+       `say!()`'s own call sites, not raw external input, and this item named
+       only `inflect()` and `is_subjective_plural`'s `.expect`s explicitly.
+       Candidate for a future pass if the same graceful-degradation standard
+       should extend there too.
+   - ✅ New tests: `ranting_core/src/grammar.rs`'s `tests` module (3 tests —
+     `as_str`/`from_str` round-trip via `EnumIter`, exhaustive plurality
+     cross-check, invalid-input degradation) and 6 new tests in
+     `tests/ranting/property_based.rs` (`Noun::try_new` no-panic proptest,
+     `is_subjective_plural` no-panic proptest, invalid-subject degradation,
+     `try_new` error contents, `Noun::new`'s panic behavior preserved,
+     `inflect()`'s suffix-mismatch graceful degradation via a `#[derive_ranting]`
+     struct whose declared plurality doesn't match its name's suffix).
+   - ✅ Full gate clean on all three crates; test counts against the
+     pre-task baseline (`git show 297056c2`: 39 lib + 254 integration + 11
+     doctests in `ranting`, 11 in `ranting_core`, 9 unit in `ranting_derive`):
+     `ranting` now 39 lib + 260 integration (+6) + 11 doctests; `ranting_core`
+     now 14 (+3) unit tests, 0 doctests (unchanged); `ranting_derive` unchanged
+     at 9 unit tests, its one pre-existing doctest failure
+     (`src/lib.rs - derive_ranting`, `unresolved import 'ranting'`)
+     unaffected — same CLAUDE.md-documented proc-macro-crate-can't-self-test
+     limitation, not a regression. `ranting_derive`'s standalone
+     `cargo clippy --all-targets -- -D warnings` still fails on exactly the
+     same pre-existing findings documented in
+     `docs/architecture-review-2026-08-13.md` (dead code in `plurals.rs`, one
+     `map_or` lint, two needless-borrow lints) — no new findings introduced by
+     this item's changes to `ranting_impl.rs`.
 
 5. **Public API cleanup** (free only while there's no userbase)
    - Fix the `inflect_possesive` → `inflect_possessive` typo (public API).
