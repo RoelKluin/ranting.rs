@@ -179,6 +179,7 @@ impl Ranting for PirateNoun {
         &self,
         subject: &str,
         case: PronounCase,
+        _class: NounClass,
         _as_plural: bool,
         uc: bool,
     ) -> Option<String> {

@@ -37,6 +37,14 @@ pub(crate) struct RantingOptions {
     #[darling(default = "string_s")]
     pub(crate) plural_end: String,
 
+    // The lexical gender / noun class label, e.g. "masculine", "feminine", "neuter", "common",
+    // or any label a non-English fork wants (Bantu class numbers, etc.) — `ranting` never
+    // interprets it, it only hands it to the article/pronoun hooks.
+    // If "$", the struct must contain a `gender: ranting::NounClass` field.
+    // Default: "" (unset), in which case no `noun_class()` is generated at all and the trait's
+    // own `NounClass::UNSET` default applies — this is what keeps the attribute purely additive.
+    pub(crate) gender: String,
+
     // === COSMETIC ATTRIBUTES (Optional, affect formatting only) ===
 
     // If the subject is "you", whether it refers to a plural (default: false, singular).
@@ -210,11 +218,32 @@ fn get_plurality_fns(opt: &RantingOptions) -> TokenStream {
     }
 }
 
+/// The `noun_class()` override for `#[ranting(gender = "...")]`, or nothing at all when the
+/// attribute is absent — an unset gender must leave the generated impl byte-identical to what it
+/// was before the attribute existed, so the trait's `NounClass::UNSET` default is used instead of
+/// emitting an equivalent method.
+fn get_noun_class_fn(opt: &RantingOptions) -> TokenStream {
+    match opt.gender.as_str() {
+        "" => TokenStream::new(),
+        "$" => parse_quote! {
+            fn noun_class(&self) -> ranting::NounClass {
+                self.gender
+            }
+        },
+        label => parse_quote! {
+            fn noun_class(&self) -> ranting::NounClass {
+                ranting::NounClass::new(#label)
+            }
+        },
+    }
+}
+
 /// An abstract thing, which may be a person and have a gender
 pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> TokenStream {
     // TODO: span of attribute?
 
     let plurality_action: TokenStream = get_plurality_fns(&opt);
+    let noun_class_fn: TokenStream = get_noun_class_fn(&opt);
 
     let no_article = opt.no_article.to_owned();
     let name_fn_q = get_namefn_for(opt, is_enum);
@@ -236,6 +265,7 @@ pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> To
         fn skip_article(&self) -> bool {
             #no_article
         }
+        #noun_class_fn
     };
     parse_quote! {
         impl Ranting for #ident {

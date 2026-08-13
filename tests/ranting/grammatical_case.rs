@@ -43,6 +43,7 @@ impl Ranting for GermanNoun {
         article: &str,
         _noun_singular: &str,
         case: GrammaticalCase,
+        _class: NounClass,
         _as_plural: bool,
         uc: bool,
     ) -> Option<String> {
@@ -60,6 +61,7 @@ impl Ranting for GermanNoun {
         &self,
         _subject: &str,
         _case: PronounCase,
+        _class: NounClass,
         _as_plural: bool,
         uc: bool,
     ) -> Option<String> {
@@ -110,6 +112,7 @@ fn bare_placeholder_with_no_case_marker_reports_name_case() {
             _article: &str,
             _noun_singular: &str,
             case: GrammaticalCase,
+            _class: NounClass,
             _as_plural: bool,
             _uc: bool,
         ) -> Option<String> {

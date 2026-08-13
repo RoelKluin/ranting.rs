@@ -221,13 +221,16 @@ where
     }
     let article_form = s.trim_start_matches('!');
     let case: GrammaticalCase = case.into();
+    // Read off the noun rather than plumbed through `ArticleRenderCtx`: the class is a property
+    // of the entity, and every article hook call in this function already has `noun` in hand.
+    let class = noun.noun_class();
     match kind {
         ArticleKind::The => {
             // "the" needs no singular of its own; deriving one via inflect() would panic for
             // plural nouns whose name cannot be singularized (e.g. Noun::new("one", "they")).
             let singular = noun.name(false);
-            if let Some(custom) =
-                noun.inflect_article_custom_with_context("the", &singular, case, as_pl, uc, ctx)
+            if let Some(custom) = noun
+                .inflect_article_custom_with_context("the", &singular, case, class, as_pl, uc, ctx)
             {
                 Some(custom + space)
             } else {
@@ -246,6 +249,7 @@ where
                 article_form,
                 &singular,
                 case,
+                class,
                 as_pl,
                 uc,
                 ctx,
@@ -264,6 +268,7 @@ where
                 article_form,
                 &singular,
                 case,
+                class,
                 as_pl,
                 uc,
                 ctx,
@@ -393,6 +398,9 @@ where
         ctx.and_then(|c| narration::resolve_viewpoint(declared_subjective, c.narration_person));
     let subjective = viewpoint.map_or(declared_subjective, |(rendered, _)| rendered);
     let pronoun_as_pl = viewpoint.map_or(as_pl, |(_, forced_pl)| forced_pl);
+    // The entity's own lexical gender / noun class, handed to the pronoun hooks below. Read off
+    // the noun, not derived from anything in the placeholder — see `Ranting::noun_class`.
+    let noun_class = noun.noun_class();
     let mut res = String::new();
 
     // This may be an article or certain verbs that can occur before the noun:
@@ -475,6 +483,7 @@ where
                 if let Some(custom) = noun.inflect_pronoun_custom_with_context(
                     subjective,
                     PronounCase::Subjective,
+                    noun_class,
                     pronoun_as_pl,
                     uc,
                     ctx,
@@ -488,6 +497,7 @@ where
                 if let Some(custom) = noun.inflect_pronoun_custom_with_context(
                     subjective,
                     PronounCase::Objective,
+                    noun_class,
                     pronoun_as_pl,
                     uc,
                     ctx,
@@ -501,6 +511,7 @@ where
                 if let Some(custom) = noun.inflect_pronoun_custom_with_context(
                     subjective,
                     PronounCase::PossessiveDeterminer,
+                    noun_class,
                     pronoun_as_pl,
                     uc,
                     ctx,
@@ -514,6 +525,7 @@ where
                 if let Some(custom) = noun.inflect_pronoun_custom_with_context(
                     subjective,
                     PronounCase::PossessivePronoun,
+                    noun_class,
                     pronoun_as_pl,
                     uc,
                     ctx,
@@ -527,6 +539,7 @@ where
                 if let Some(custom) = noun.inflect_pronoun_custom_with_context(
                     subjective,
                     PronounCase::Reflexive,
+                    noun_class,
                     pronoun_as_pl,
                     uc,
                     ctx,
@@ -751,7 +764,7 @@ fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
 /// of the trait functions.
 #[derive(ranting_derive::Ranting)]
 // By setting name and subject to "$", these must come from the struct.
-#[ranting(name = "$", subject = "$")]
+#[ranting(name = "$", subject = "$", gender = "$")]
 pub struct Noun {
     pub(crate) name: String,
     // Typed, not `String`: an invalid subject pronoun is now unrepresentable
@@ -763,6 +776,11 @@ pub struct Noun {
     // it also serves user structs that still declare a plain `subject: String`
     // field, which this type change does not affect.
     pub(crate) subject: SubjectPronoun,
+    // The lexical gender / noun class, `NounClass::UNSET` unless set with
+    // `with_noun_class()`. Named to match the `gender = "$"` attribute above, following the
+    // same attribute-name-is-field-name rule as `name`/`subject`; the accessor is the
+    // `Ranting::noun_class` trait method, since that is what the inflection hooks are given.
+    pub(crate) gender: NounClass,
 }
 
 /// Error returned by [`Noun::try_new`] when `subject` isn't one of the
@@ -797,7 +815,27 @@ impl Noun {
         Ok(Noun {
             name: name.to_string(),
             subject,
+            gender: NounClass::UNSET,
         })
+    }
+
+    /// Declare this noun's lexical gender / noun class, consuming and returning it so it chains
+    /// off [`new`](Self::new)/[`try_new`](Self::try_new). Both constructors leave it
+    /// [`NounClass::UNSET`], which is what every noun that never calls this keeps.
+    ///
+    /// The class is handed to [`Ranting::inflect_article_custom`] and
+    /// [`Ranting::inflect_pronoun_custom`]; `ranting` itself never reads it, so setting one on a
+    /// noun rendered by plain English rules changes nothing.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use ranting::*;
+    /// let katze = Noun::new("Katze", "she").with_noun_class(NounClass::new("feminine"));
+    /// assert_eq!(katze.noun_class(), NounClass::new("feminine"));
+    /// ```
+    pub fn with_noun_class(mut self, class: NounClass) -> Self {
+        self.gender = class;
+        self
     }
 }
 
@@ -883,6 +921,67 @@ pub enum GrammaticalCase {
     Hidden,
 }
 
+/// An open-ended lexical-gender / noun-class label carried *by the entity*, for customization
+/// via [`Ranting::inflect_article_custom`] and [`Ranting::inflect_pronoun_custom`].
+///
+/// Deliberately a newtype over a `&'static str` rather than a closed
+/// `enum { Masculine, Feminine, Neuter }`: Bantu languages have a dozen-plus noun classes and
+/// Danish has common/neuter, so an English-adjacent closed enum would be wrong on arrival.
+/// `ranting` never interprets the label — it only carries it from the noun to the hook, exactly
+/// like [`NarrationContext::dialect`]. What the classes *are* is the fork's business.
+///
+/// This is the channel that lets a fork stop keying gender off the display string. Before it, a
+/// `ranting-german` had to keep an external `HashMap<&str, Gender>` looked up by
+/// `noun_singular`, which breaks on homographs (`der Band`/`das Band`), on names, and on nouns
+/// built at runtime. Gender is a property of the entity, like `subject`, and now lives there.
+///
+/// Note what `&'static str` does and does not make static: the *set of labels* a program uses
+/// must be known at compile time (or leaked), but which label a given entity carries is ordinary
+/// per-value data — a `Noun` built at runtime picks its class at runtime. That is what fixes the
+/// homograph problem; it is not a promise of runtime-*computed* label strings.
+///
+/// # Examples
+/// ```
+/// # use ranting::*;
+/// let hund = Noun::new("Hund", "he").with_noun_class(NounClass::new("masculine"));
+/// assert_eq!(hund.noun_class().as_str(), "masculine");
+///
+/// let plain = Noun::new("dog", "it");
+/// assert!(plain.noun_class().is_unset());
+/// ```
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct NounClass(&'static str);
+
+impl NounClass {
+    /// No class declared — the default for every noun that doesn't set one, and what
+    /// [`Ranting::noun_class`] returns unless overridden. Equal to `NounClass::new("")`: the
+    /// empty label is *defined* to mean unset, so a fork matching on [`as_str`](Self::as_str)
+    /// can treat `""` and "absent" as one case rather than two.
+    pub const UNSET: NounClass = NounClass("");
+
+    /// Label a noun's class. Any string is accepted; `ranting` attaches no meaning to it.
+    /// `NounClass::new("")` is [`UNSET`](Self::UNSET).
+    pub const fn new(label: &'static str) -> Self {
+        NounClass(label)
+    }
+
+    /// The label as written, `""` when unset.
+    pub const fn as_str(&self) -> &'static str {
+        self.0
+    }
+
+    /// Whether no class was declared (the label is empty).
+    pub const fn is_unset(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl std::fmt::Display for NounClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.0)
+    }
+}
+
 impl From<placeholder::CaseKind> for GrammaticalCase {
     fn from(case: placeholder::CaseKind) -> Self {
         match case {
@@ -959,6 +1058,8 @@ impl From<placeholder::CaseKind> for GrammaticalCase {
 // - `name`: The display name
 // - `singular_end`: Suffix to strip when singularizing
 // - `plural_end`: Suffix to add when pluralizing (default: "s")
+// - `gender`: Lexical gender / noun class label, surfaced as `noun_class()` (default: "",
+//   unset); "$" reads a `gender: ranting::NounClass` field
 //
 // **Cosmetic attributes** (optional, affect formatting):
 // - `plural_you`: If subject is "you", whether it refers to plural (default: false)
@@ -983,6 +1084,19 @@ pub trait Ranting: std::fmt::Display {
     // examples: Names, languages, elements, food grains, meals (unless particular), sports.
     // if name can change and sometimes goes without article (e.g. a sport) lookup & override:
     fn skip_article(&self) -> bool;
+
+    /// The noun's lexical gender / noun class, or [`NounClass::UNSET`] (the default) when it
+    /// declares none. Set it with `#[ranting(gender = "...")]`, or on a [`Noun`] with
+    /// [`Noun::with_noun_class`].
+    ///
+    /// `ranting` itself never reads the value — English has no lexical gender. It exists to be
+    /// handed to [`inflect_article_custom`](Self::inflect_article_custom) and
+    /// [`inflect_pronoun_custom`](Self::inflect_pronoun_custom) so a non-English implementation
+    /// can select `der`/`die`/`das` from the entity rather than from an external table keyed by
+    /// the display string. See [`NounClass`] for why the label is open-ended.
+    fn noun_class(&self) -> NounClass {
+        NounClass::UNSET
+    }
 
     /// Customize verb conjugation (tense, plurality, person).
     /// Return Some(String) to use custom form, None to fall back to English.
@@ -1060,16 +1174,20 @@ pub trait Ranting: std::fmt::Display {
     /// # Arguments
     /// * `subject` - Subject pronoun (e.g., "I", "he", "they")
     /// * `case` - Which pronoun form: Subjective, Objective, PossessiveDeterminer, or PossessivePronoun
+    /// * `class` - The noun's own lexical gender / noun class (see [`NounClass`]), or
+    ///   [`NounClass::UNSET`] when it declares none. Lets a fork pick a gendered pronoun from the
+    ///   entity instead of guessing from its display string.
     /// * `as_plural` - Whether to pluralize
     /// * `uc` - Whether to uppercase first character
     ///
     /// # Examples
     /// ```ignore
-    /// fn inflect_pronoun_custom(&self, subject: &str, case: PronounCase, as_plural: bool, uc: bool) -> Option<String> {
-    ///     if subject == "you" && case == PronounCase::Subjective {
-    ///         Some("vous".to_string())  // Formal French: "vous"
-    ///     } else {
-    ///         None  // Fall back to English
+    /// fn inflect_pronoun_custom(&self, subject: &str, case: PronounCase, class: NounClass, as_plural: bool, uc: bool) -> Option<String> {
+    ///     match (case, class.as_str()) {
+    ///         // German: a neuter noun is "es", whatever English pronoun it was declared with.
+    ///         (PronounCase::Subjective, "neuter") => Some(uc_1st_if("es", uc)),
+    ///         (PronounCase::Subjective, "feminine") => Some(uc_1st_if("sie", uc)),
+    ///         _ => None,  // Fall back to English
     ///     }
     /// }
     /// ```
@@ -1077,6 +1195,7 @@ pub trait Ranting: std::fmt::Display {
         &self,
         _subject: &str,
         _case: PronounCase,
+        _class: NounClass,
         _as_plural: bool,
         _uc: bool,
     ) -> Option<String> {
@@ -1088,15 +1207,17 @@ pub trait Ranting: std::fmt::Display {
     /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
     /// general shape: every pronoun call site calls this one, and the default delegates to
     /// `inflect_pronoun_custom` with `ctx` ignored.
+    #[allow(clippy::too_many_arguments)]
     fn inflect_pronoun_custom_with_context(
         &self,
         subject: &str,
         case: PronounCase,
+        class: NounClass,
         as_plural: bool,
         uc: bool,
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
-        self.inflect_pronoun_custom(subject, case, as_plural, uc)
+        self.inflect_pronoun_custom(subject, case, class, as_plural, uc)
     }
 
     /// Customize article inflection (a/an/the/some, demonstratives, etc.).
@@ -1110,18 +1231,25 @@ pub trait Ranting: std::fmt::Display {
     ///   English gives nothing more specific to report). Lets a case-declining language's fork
     ///   pick e.g. German `der`/`den`/`dem` correctly when the template annotates the noun's
     ///   role explicitly (`` {the =noun} `` vs `` {the @noun} ``).
+    /// * `class` - The noun's own lexical gender / noun class (see [`NounClass`]), or
+    ///   [`NounClass::UNSET`] when it declares none. Together with `case` this is what makes
+    ///   `der`/`die`/`das` reachable from the entity alone, with no gender table keyed by
+    ///   `noun_singular` — which would break on homographs, names, and runtime-built nouns.
     /// * `as_plural` - Whether the noun is plural
     /// * `uc` - Whether to uppercase first character
     ///
     /// # Examples
     /// ```ignore
-    /// fn inflect_article_custom(&self, article: &str, noun_singular: &str, case: GrammaticalCase, as_plural: bool, uc: bool) -> Option<String> {
+    /// fn inflect_article_custom(&self, article: &str, noun_singular: &str, case: GrammaticalCase, class: NounClass, as_plural: bool, uc: bool) -> Option<String> {
     ///     match article {
     ///         "the" => {
-    ///             // German gendered, case-declined articles (masculine noun only, for brevity)
-    ///             let form = match case {
-    ///                 GrammaticalCase::Objective => if as_plural { "die" } else { "den" },
-    ///                 _ => if as_plural { "die" } else { "der" },
+    ///             // German definite article, declined by class and case.
+    ///             let form = match (class.as_str(), case) {
+    ///                 _ if as_plural => "die",
+    ///                 ("masculine", GrammaticalCase::Objective) => "den",
+    ///                 ("masculine", _) => "der",
+    ///                 ("feminine", _) => "die",
+    ///                 _ => "das",
     ///             };
     ///             Some(uc_1st_if(form, uc))
     ///         }
@@ -1129,11 +1257,13 @@ pub trait Ranting: std::fmt::Display {
     ///     }
     /// }
     /// ```
+    #[allow(clippy::too_many_arguments)]
     fn inflect_article_custom(
         &self,
         _article: &str,
         _noun_singular: &str,
         _case: GrammaticalCase,
+        _class: NounClass,
         _as_plural: bool,
         _uc: bool,
     ) -> Option<String> {
@@ -1145,15 +1275,17 @@ pub trait Ranting: std::fmt::Display {
     /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
     /// general shape: every article call site calls this one, and the default delegates to
     /// `inflect_article_custom` with `ctx` ignored.
+    #[allow(clippy::too_many_arguments)]
     fn inflect_article_custom_with_context(
         &self,
         article: &str,
         noun_singular: &str,
         case: GrammaticalCase,
+        class: NounClass,
         as_plural: bool,
         uc: bool,
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
-        self.inflect_article_custom(article, noun_singular, case, as_plural, uc)
+        self.inflect_article_custom(article, noun_singular, case, class, as_plural, uc)
     }
 }

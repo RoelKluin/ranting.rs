@@ -173,6 +173,11 @@ fn main() {
   * **name** [Struct or Enum name] - the display name; if "$", the struct must contain a `name: String` field
   * **singular_end** [""] - suffix to strip when singularizing (for inflect() method)
   * **plural_end** ["s"] - suffix to add when pluralizing (for inflect() method)
+  * **gender** [""] - the lexical gender / noun class label, e.g. `"masculine"` — any label a
+    non-English implementation wants; `ranting` never interprets it, it only hands it to the
+    article and pronoun customization hooks as a `NounClass`. If "$", the struct must contain a
+    `gender: ranting::NounClass` field. Unset by default, in which case nothing changes.
+    See [`docs/EXTENSIBILITY.md`](docs/EXTENSIBILITY.md) §2.4.
   
   **Cosmetic attributes** (optional) adjust formatting and display behavior:
   * plural_you [false] - if subject is "you", whether it refers to plural (affects verb conjugation)
