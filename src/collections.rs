@@ -15,7 +15,7 @@
 //! and [`Maybe`], which *are* local types and so can freely implement both `Display` and
 //! `Ranting`.
 
-use crate::{NarrationContext, PronounCase, Ranting, uc_1st_if};
+use crate::{GrammaticalCase, NarrationContext, PronounCase, Ranting, uc_1st_if};
 use std::fmt;
 
 /// Wraps a `Vec<T>` so it can be used as a `say!()` placeholder subject/argument.
@@ -175,11 +175,12 @@ impl<T: Ranting> Ranting for Many<T> {
         &self,
         article: &str,
         noun_singular: &str,
+        case: GrammaticalCase,
         as_plural: bool,
         uc: bool,
     ) -> Option<String> {
         match self.0.len() {
-            1 => self.0[0].inflect_article_custom(article, noun_singular, as_plural, uc),
+            1 => self.0[0].inflect_article_custom(article, noun_singular, case, as_plural, uc),
             _ => None,
         }
     }
@@ -188,6 +189,7 @@ impl<T: Ranting> Ranting for Many<T> {
         &self,
         article: &str,
         noun_singular: &str,
+        case: GrammaticalCase,
         as_plural: bool,
         uc: bool,
         ctx: Option<&NarrationContext>,
@@ -196,6 +198,7 @@ impl<T: Ranting> Ranting for Many<T> {
             1 => self.0[0].inflect_article_custom_with_context(
                 article,
                 noun_singular,
+                case,
                 as_plural,
                 uc,
                 ctx,
@@ -329,24 +332,33 @@ impl<T: Ranting> Ranting for Maybe<T> {
         &self,
         article: &str,
         noun_singular: &str,
+        case: GrammaticalCase,
         as_plural: bool,
         uc: bool,
     ) -> Option<String> {
-        self.0
-            .as_ref()
-            .and_then(|item| item.inflect_article_custom(article, noun_singular, as_plural, uc))
+        self.0.as_ref().and_then(|item| {
+            item.inflect_article_custom(article, noun_singular, case, as_plural, uc)
+        })
     }
 
     fn inflect_article_custom_with_context(
         &self,
         article: &str,
         noun_singular: &str,
+        case: GrammaticalCase,
         as_plural: bool,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         self.0.as_ref().and_then(|item| {
-            item.inflect_article_custom_with_context(article, noun_singular, as_plural, uc, ctx)
+            item.inflect_article_custom_with_context(
+                article,
+                noun_singular,
+                case,
+                as_plural,
+                uc,
+                ctx,
+            )
         })
     }
 }
@@ -418,20 +430,29 @@ impl<T: Ranting> Ranting for Box<T> {
         &self,
         article: &str,
         noun_singular: &str,
+        case: GrammaticalCase,
         as_plural: bool,
         uc: bool,
     ) -> Option<String> {
-        (**self).inflect_article_custom(article, noun_singular, as_plural, uc)
+        (**self).inflect_article_custom(article, noun_singular, case, as_plural, uc)
     }
 
     fn inflect_article_custom_with_context(
         &self,
         article: &str,
         noun_singular: &str,
+        case: GrammaticalCase,
         as_plural: bool,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
-        (**self).inflect_article_custom_with_context(article, noun_singular, as_plural, uc, ctx)
+        (**self).inflect_article_custom_with_context(
+            article,
+            noun_singular,
+            case,
+            as_plural,
+            uc,
+            ctx,
+        )
     }
 }

@@ -220,6 +220,7 @@ fn inflect_article_custom(
     &self,
     article: &str,
     noun_singular: &str,
+    case: GrammaticalCase,
     as_plural: bool,
     uc: bool,
 ) -> Option<String>
@@ -228,6 +229,12 @@ fn inflect_article_custom(
 **Parameters:**
 - `article` (&str): The requested article form ("a", "an", "the", "some", "these", "those")
 - `noun_singular` (&str): The singular inflected form of the noun (useful for vowel/gender detection)
+- `case` (`GrammaticalCase`): The noun's own grammatical role, taken from its case marker if the
+  template gave it one (`` {the =noun} `` → `Subjective`, `` {the @noun} `` → `Objective`, etc.);
+  `GrammaticalCase::Name` for a bare `` {the noun} `` with no marker at all — English gives
+  nothing more specific to report in that form, so neither does this. Exists for case-declining
+  languages (German `der`/`den`/`dem`) where the article's own form depends on more than gender
+  and number; English forks can ignore it.
 - `as_plural` (bool): Whether the noun is plural
 - `uc` (bool): Whether to uppercase the first character
 
@@ -242,6 +249,7 @@ fn inflect_article_custom(
     &self,
     article: &str,
     noun_singular: &str,
+    _case: GrammaticalCase,
     as_plural: bool,
     uc: bool,
 ) -> Option<String> {
@@ -260,7 +268,7 @@ fn inflect_article_custom(
 }
 ```
 
-**Best Practice:** Examine `noun_singular` for vowel/gender patterns. This parameter is the singularized form of the noun, allowing you to make decisions based on linguistic properties (e.g., French uses "un" for masculine, "une" for feminine).
+**Best Practice:** Examine `noun_singular` for vowel/gender patterns. This parameter is the singularized form of the noun, allowing you to make decisions based on linguistic properties (e.g., French uses "un" for masculine, "une" for feminine). Spanish's own gender doesn't need `case` — its gap is on the pronoun side, not the article side — but a case-declining language's article hook should route on it the same way pronoun hooks already route on `PronounCase`.
 
 ## Partial Customization
 
@@ -517,6 +525,7 @@ impl Ranting for SpanishNoun {
         &self,
         article: &str,
         noun_singular: &str,
+        _case: GrammaticalCase,
         as_plural: bool,
         uc: bool,
     ) -> Option<String> {

@@ -9,6 +9,7 @@ mod cookbook;
 mod custom_inflection;
 mod edge_cases;
 mod error_messages;
+mod grammatical_case;
 mod heed;
 mod heed_derive;
 #[cfg(feature = "inclusive-pronouns")]
