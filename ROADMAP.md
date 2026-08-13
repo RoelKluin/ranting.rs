@@ -22,6 +22,11 @@ items including the `ranting_core` extraction, dependency modernization, the typ
 spec, public-API cleanup, and the MIT relicensing) and Phase 5 (v1.2.1, `ask!()` stabilization)
 are each marked done further down in this file.
 
+🎯 **Phase 6 (v1.3.0, Internationalization Foundations)** is the planned next phase — see its
+section below. Note that v1.3 is not untouched: `GrammaticalCase` on `inflect_article_custom`
+and `#[derive(Heed)]` have already landed under the v1.3 label ahead of the phase being written
+up, and `GrammaticalCase` in particular is the pattern Phase 6 is built on.
+
 **v1.0 features working**:
 - All 7 tenses: Present, Past, Future, Present Continuous, Past Continuous, Present Perfect, Past Perfect
 - 118+ irregular verbs with phonetic rules
@@ -1099,18 +1104,239 @@ multiple objects could match (e.g. "talk to it" being far more likely to mean
 a nearby person than a stone). This is a world-model/candidate-registry
 problem with no existing shape in this crate — `ask!()` only ever targets one
 statically-known `audience` expression — and doesn't belong in `ranting`
-itself. See [v1.3.0](#v130-ecosystem-expansion) below for where a
+itself. See [v1.3.0+](#v130-beyond-phase-6) below for where a
 `ranting`-adjacent crate proposal like this belongs.
+
+---
+
+## Phase 6 — v1.3.0 — Internationalization Foundations
+
+*Goal: make `ranting-i18n` **buildable** — not build it. This phase lands, in
+`ranting`/`ranting_core`, the signals a non-English `Ranting` implementation
+needs and cannot currently obtain, then proves the set is sufficient with one
+reference lexicon. Language-specific vocabulary and rules stay out of `ranting`
+and go in the companion crate; only the mechanism lands here.*
+
+**Framing.** The 2026-08-13 architecture review's German spike
+(`docs/architecture-review-2026-08-13.md` §7) is the model for this whole phase:
+a concrete non-English sentence is attempted through the existing hooks, the
+signal that turns out to be missing is named, and exactly that signal is added
+to the trait seam. `GrammaticalCase` (v1.3, commit `11d531ed`) was the first
+such fix and is the **reference implementation pattern** for items 2 and 5–8
+below: mirror a `ranting_core` type into a public `ranting` type via `From`
+(never expose `ranting_core` — it is not part of `ranting`'s semver surface),
+add the parameter to the `_custom` hook *and* its `_with_context` twin, thread
+it from `handle_placeholder_impl`, add a `tests/ranting/*.rs` file with a
+worked example in a real language.
+
+**What is explicitly not in scope**: shipping German/French/Japanese lexicons in
+`ranting` itself, and any translation-catalogue/message-format machinery
+(`gettext`, ICU MessageFormat, Fluent). Ranting inflects text a program already
+composes; it is not a translation system, and conflating the two is the failure
+mode this phase is structured to avoid.
+
+**Ordering rationale**: items 1, 3 and 4 are design spikes that produce
+documents, not code, because each of them either has several defensible answers
+(word order) or forces a breaking change to a signature that appears in every
+hook (number). Deciding them on paper first is what keeps items 2 and 5–9 from
+being rewritten mid-phase. Items 5–8 are independent of each other and can land
+in any order. Item 10 is the acceptance test for items 1–9 and must land last.
+
+1. **Word-order & template-slot design spike** (doc-only, 6-10 hours) —
+   *blocks item 10; de-risks the whole phase*
+   - The unclosed half of the German spike: `GrammaticalCase` fixed article
+     declension, but word order is still baked into the literal string
+     *between* placeholders, in English's fixed slot order. `say!("{=dog}
+     {dog bark} at {@cat}")` cannot become German verb-second or Japanese SOV
+     by any per-noun inflection hook, because no hook can move text it does
+     not own.
+   - Enumerate and score at least these options in
+     `docs/superpowers/specs/2026-08-13-word-order-feasibility.md`, in the
+     style of `2026-08-12-input-parsing-feasibility.md` (which is the
+     precedent for "spike concludes *don't build this*" being an acceptable
+     outcome):
+     (a) **per-language template sets** — the caller selects the template
+     string by language, `ranting` only inflects within it; costs nothing in
+     the crate, pushes the work to the caller;
+     (b) **numbered slots with per-language reorder metadata** — templates
+     declare roles (`{subj}`/`{verb}`/`{obj}`) and a language module supplies
+     a permutation;
+     (c) **a syntax-tree API** (`sentence!(subject, verb, object)`) that
+     renders through a language module, sidestepping literal templates
+     entirely.
+   - Deliverable is a recommendation with rejected alternatives recorded and
+     *why*, plus an explicit statement of which parts of `ranting-i18n` remain
+     impossible under the recommendation. A "(a), documented as a permanent
+     boundary" conclusion is a legitimate result — it is likely the honest
+     one, and stating it plainly is more valuable than a half-built (b).
+   - No production code, so it lands trivially green; nothing after it has to
+     guess.
+
+2. **Lexical gender / noun-class channel** (10-14 hours) — *the single
+   highest-leverage enabling change*
+   - Today a fork has no way to learn a noun's gender: `inflect_article_custom`
+     receives `noun_singular` as a bare `&str`, so `ranting-german` must keep an
+     external `HashMap<&str, Gender>` keyed by display string — which breaks on
+     homographs, on names, and on any noun built at runtime. Gender is a
+     property *of the entity*, exactly like `subject`, and belongs on the noun.
+   - Follow `SubjectPronoun`'s Phase 4 item 4 treatment: a public open-ended
+     noun-class channel on `Noun` (a `#[ranting(gender = "...")]` derive
+     attribute plus a `Ranting::noun_class()` trait method defaulting to
+     "unset"), deliberately *not* a closed `enum { Masculine, Feminine, Neuter }`
+     — Bantu languages have a dozen-plus classes and Danish has common/neuter,
+     so a closed English-adjacent enum would be wrong on arrival. A newtype over
+     a `&'static str` class label keeps `ranting` agnostic about what the
+     classes are.
+   - Thread it into `inflect_article_custom`/`_with_context`,
+     `inflect_pronoun_custom`/`_with_context`, and (once item 5 lands) the
+     adjective hook, mirroring `GrammaticalCase`'s threading exactly.
+   - Must be additive: existing impls that don't set a class keep today's
+     behavior byte-for-byte. Worked test: German `der Hund`/`die Katze`/`das
+     Haus` selecting three different articles from one code path.
+
+3. **Pronoun-inventory & T-V register design spike** (doc-only, 8-12 hours) —
+   *the deepest open question in the phase*
+   - `SubjectPronoun` is a closed enum of English pronouns, now typed into
+     `Noun` (Phase 4 item 4) and matched exhaustively with `#[deny(...)]`
+     guards throughout `src/language/english.rs` — deliberately, and that
+     exhaustiveness is a stated architecture decision, not an accident. It
+     cannot express: T-V distinction (`du`/`Sie`, `tu`/`vous`),
+     clusivity (inclusive vs. exclusive "we"), dual number, or gendered plurals
+     (`ils`/`elles`).
+   - Note the overlap to resolve: `NarrationContext.register`
+     (`Formal`/`Neutral`/`Casual`, Phase 3 item 4) already exists and is
+     *inert* — no built-in behavior reads it. T-V selection is the obvious
+     first real consumer, but `register` is a story-wide setting while T-V is a
+     per-addressee relationship, so they are not the same axis. The spike must
+     say which one owns T-V, or that both do and how they compose.
+   - Options to score in
+     `docs/superpowers/specs/2026-08-13-pronoun-inventory.md`: extend the enum
+     with non-English variants (breaks the "English rules live in
+     `src/language/english.rs`" separation); make the pronoun channel open like
+     item 2's noun class (loses exhaustive-match safety the architecture
+     decisions table calls out); or keep `SubjectPronoun` English-only and give
+     forks a parallel pronoun-set trait that `handle_placeholder_impl` consults
+     first (most conservative, most plumbing).
+   - Deliverable: recommendation + explicit note of which option is breaking
+     and for whom.
+
+4. **Number-category design spike** (doc-only, 6-8 hours)
+   - Number is boolean everywhere in the crate — `is_plural()`,
+     `as_plural: bool` in all six `_custom` hooks, `inflect(to_plural: bool,
+     ...)`, the `+`/`-` markers, `#var`/`$var` numeric agreement. Arabic dual,
+     Slavic paucal, and CLDR's `zero/one/two/few/many/other` do not fit a bool,
+     and Welsh/Irish have number-triggered mutation on top.
+   - This is a **breaking change to every hook signature** if taken, which is
+     why it is a spike and not an implementation item: the cost has to be
+     stated before it is paid. Score at least: (a) leave it boolean and
+     document non-English plural categories as out of scope; (b) add a parallel
+     `plural_category()` channel alongside the bool, bool staying authoritative
+     for English; (c) replace the bool with a `Number` enum in a single
+     coordinated breaking release.
+   - Record the finding in
+     `docs/superpowers/specs/2026-08-13-number-categories.md` and, whichever
+     option is recommended, state plainly in ROADMAP.md and CLAUDE.md what
+     `as_plural: bool` does and does not promise, so a fork author isn't
+     surprised.
+
+5. **Adjective-agreement runtime hook** (10-14 hours)
+   - Degree (`!`/`!!`, Phase 3 item 6) is baked entirely at compile time in
+     `ranting_derive/src/language/adjective.rs`; `ranting` has no runtime
+     adjective path at all. Romance and Germanic adjectives agree with their
+     noun in gender, number, and (German) case and definiteness — none of which
+     is known at compile time.
+   - Add `Ranting::inflect_adjective_custom`/`_with_context`, receiving the
+     adjective, plus `GrammaticalCase`, number, and item 2's noun class; call
+     it from `handle_placeholder_impl` before the compile-time-baked degree
+     form is emitted, falling back to that baked form when the hook returns
+     `None` — so `say!()`'s English output is unchanged.
+   - Worked test: French `un chat noir` / `une robe noire` / `des chats noirs`
+     from one template.
+
+6. **Orthography & capitalization hook** (8-12 hours)
+   - `uc_1st_if`, the sentence-start-uppercase default, the `,`/`^` markers, and
+     `apply_case`'s all-caps/title-case/lowercase preservation are English
+     orthographic assumptions compiled into the crate. German capitalizes every
+     noun regardless of position; Japanese, Chinese, Arabic and Hebrew have no
+     case at all, so `uc: bool` is meaningless; Turkish has dotted/dotless `i`
+     that `char::to_uppercase` gets wrong for a Turkish locale.
+   - Route capitalization through a `Ranting` hook (defaulting to today's
+     behavior) rather than calling `uc_1st_if` directly at each site, so a
+     language module can make it a no-op or an always-capitalize.
+   - Explicitly check the `uc` plumbing through `Many`/`Maybe`/`Box`
+     (`src/collections.rs`) still behaves — the "uppercase first char only"
+     join is tested there already.
+
+7. **Phonological elision / contraction hook** (6-10 hours)
+   - The `a`/`an` choice is hard-coded English phonology. French `le`+vowel →
+     `l'`, `de`+`le` → `du`; Italian `lo`/`il`/`l'`; Portuguese preposition-
+     article fusion. None is expressible today: the article hook returns a
+     string and never sees what follows it.
+   - Give the article hook (or a new post-assembly hook) the *following* word,
+     so a fork can elide or fuse. Keep English `a`/`an` on the existing path
+     unchanged. Worked test: `l'homme` vs `le chien`.
+
+8. **Locale-aware numeral rendering** (6-10 hours)
+   - `#var` spells a number out in English words. Every other language needs its
+     own, and several have gender/case agreement on the numeral itself
+     (Russian `два`/`две`), plus non-ASCII digit systems for `$var`.
+   - Add a numeral hook on `Ranting` (or a small `Numeral` trait a language
+     module implements), defaulting to the current English speller, threaded
+     wherever `#var`/`$var` is rendered.
+
+9. **Non-space-delimited script support in `heed!()`/`ask!()`** (10-14 hours)
+   - `{name}` is documented as capturing "one whitespace-delimited token" and the
+     compiled regex is built on that assumption — which returns nothing useful
+     for Japanese, Chinese or Thai input, where words are not space-separated.
+   - Decide and implement: either a documented, permanent restriction to
+     space-delimited scripts (cheap, honest, and consistent with the
+     input-parsing spec's precedent of declining unbuildable generality), or a
+     pluggable tokenizer boundary in `ranting_derive/src/heed.rs`'s compiler.
+     Whichever is chosen, README.md's `heed!()` section and CLAUDE.md's capture-
+     syntax bullet must state it explicitly rather than leaving it implied.
+
+10. **`ranting-i18n` companion crate — German reference lexicon** (16-24 hours)
+    — *the acceptance test for items 1-9*
+    - A separate crate (not a `ranting` module, not a `ranting` feature flag),
+      depending only on `ranting`'s **public** API, implementing German for a
+      deliberately small closed vocabulary: three nouns of different gender,
+      nominative/accusative/dative, definite and indefinite articles, adjective
+      agreement, and verb agreement.
+    - Its purpose is falsification: any place it needs `ranting_core`, a
+      `pub(crate)` item, or a fork of `handle_placeholder_impl` is a hole items
+      1-9 failed to close, and gets recorded as such. If the honest outcome is
+      "German still needs per-language templates for word order," that must be
+      written down in the crate's README and in item 1's spec, not papered over.
+    - Also the proof that `docs/EXTENSIBILITY.md`'s pirate/Scottish/Spanish
+      examples generalize past lexicon-level substitution to genuine
+      morphological difference.
+
+### v1.3 Success Criteria
+- A non-English `Ranting` impl can obtain gender/noun class, grammatical case,
+  number, and register/dialect **without** an external string-keyed side table
+- Word-order feasibility answered in writing, with the boundary of what
+  `ranting` will and will not do stated explicitly rather than left open
+- Adjective agreement, capitalization, elision and numeral rendering all have
+  runtime hooks defaulting to today's English behavior
+- Zero behavioral change to existing `say!()`/`say_with!()` output — every item
+  above is additive with an English-preserving default (verified by the existing
+  suite passing unchanged, not by new tests alone)
+- One working reference language module (German) built on the public API only,
+  with every remaining gap it hits recorded rather than worked around
 
 ---
 
 ## Post-v1.2: Future Directions
 
-### v1.3.0: Ecosystem Expansion
-- **`ranting-i18n` Companion Crate** (12-16 weeks post-v1.0):
-  - Multi-language support: German, French, Spanish, Japanese, etc.
-  - Modular language modules using trait-based extensibility from v1.1
-  - Proves extensibility model works; enables global adoption
+### v1.3.0+: Beyond Phase 6
+- **`ranting-i18n` Companion Crate** — now scoped as
+  [Phase 6](#phase-6--v130--internationalization-foundations) above, which owns
+  the full breakdown. Summary: `ranting` gains the signals a non-English
+  implementation needs (noun class, adjective agreement, orthography, elision,
+  numerals) and answers the word-order question in writing; the companion crate
+  itself lands as Phase 6 item 10, one German reference lexicon whose job is to
+  falsify the claim that items 1-9 are sufficient. Multi-language breadth
+  (French, Spanish, Japanese, …) follows only after German proves the mechanism.
 - **`ranting-if` (or similar) Companion Crate — Inform7-style object disambiguation**
   (proposed 2026-08-13, not scoped): resolves which candidate object among
   several free-text input refers to, using "likely"/"unlikely"-weighted rules
@@ -1127,6 +1353,11 @@ itself. See [v1.3.0](#v130-ecosystem-expansion) below for where a
 - Pluralization of entire phrases (not just nouns)
 - Subjunctive mood and hypotheticals
 - Register and dialect specialization (formal vs. informal, archaic, etc.) via context system from v1.1
+  — note the overlap with [Phase 6 item 3](#phase-6--v130--internationalization-foundations): T-V
+  pronoun selection (`du`/`Sie`, `tu`/`vous`) is decided there, since it must settle whether
+  `NarrationContext.register` (story-wide) or a per-addressee channel owns the distinction. This
+  bullet covers only what remains after that — English-internal register/archaism, which needs no
+  new pronoun inventory.
 - Performance optimizations (cached inflection, const generics)
 
 ---
@@ -1150,6 +1381,11 @@ itself. See [v1.3.0](#v130-ecosystem-expansion) below for where a
 | Consolidate english_shared.rs | ✅ Complete → superseded (v1.2) | Single canonical copy + build.rs copy solved the drift; `ranting_core` extraction (Phase 4, item 1) replaces the copy mechanism outright |
 | Stringly-typed `subject: &str` in public API | ✅ Complete (v1.2) | Phase 4 item 4: `SubjectPronoun` public, typed field in `Noun`, non-panicking `Noun::try_new`; invalid subjects unrepresentable instead of panicking |
 | `ack!()`/`nay!()` expand to hidden `return` | ✅ Complete (v1.2) | Phase 4 item 5: reworked to plain `Ok(say!(...))`/`Err(say!(...))` expression forms, usable anywhere an expression is valid |
+| Word order lives in the literal template, not the placeholders | 🎯 v1.3 (Phase 6 item 1) | No inflection hook can move text it doesn't own, so German V2 / Japanese SOV need per-language templates. Spike decides whether `ranting` closes this at all or documents it as a permanent boundary |
+| Noun gender / noun class as an entity property | 🎯 v1.3 (Phase 6 item 2) | Open-ended `&'static str` class label, not a closed Masc/Fem/Neut enum — Bantu has a dozen-plus classes, Danish has common/neuter. Threaded like `GrammaticalCase` (commit `11d531ed`) |
+| `SubjectPronoun` is a closed English enum | 🎯 v1.3 (Phase 6 item 3) | Exhaustive-match safety is a deliberate decision (row above); extending it for T-V / clusivity / dual trades that away. Spike scores extend-enum vs. open channel vs. parallel fork-owned pronoun set |
+| Number is `bool` throughout the hook signatures | 🎯 v1.3 (Phase 6 item 4) | Arabic dual / Slavic paucal / CLDR categories don't fit. Replacing it is breaking in all six `_custom` hooks — spike states the cost before it's paid |
+| English orthography, phonology and numerals hard-coded | 🎯 v1.3 (Phase 6 items 5-8) | Adjective agreement, `uc_1st_if`/`apply_case`, `a`/`an` elision, and `#var` spelling all become hooks with English-preserving defaults |
 | GPL-3 via `license-file` | ✅ Complete (v1.2) | Relicensed to plain `license = "MIT"` 2026-08-13 (copyright holder's choice, differs from the dual-license recommendation in [PROPOSED LICENSE CHANGE](#proposed-license-change-awaiting-decision)); already-published 0.2.1 on crates.io remains GPL-3 |
 
 ---

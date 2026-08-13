@@ -24,3 +24,4 @@ tasks_done.txt
 # Persistent scratch test file for verifying doc examples against real say!()
 # output before publishing them — content is overwritten in place, never committed.
 /tests/ranting/zz_scratch*.rs
+docs/Ranting_Cheatsheet.pdf
