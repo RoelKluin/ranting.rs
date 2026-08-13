@@ -6,7 +6,45 @@
 # retry on the next run.
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# --- Self-modification hardening --------------------------------------------
+# Tonight (2026-08-13) item 13's task edited *this file* while a previous
+# invocation of this loop was still executing it, with two bad consequences.
+# First, the edit had zero effect on the rest of that run: bash parses an
+# entire compound command (the whole `while` loop below is one such command)
+# before running any of it, and from then on it reads the *already-open file
+# descriptor* by byte offset as execution proceeds rather than re-reading the
+# file by path -- so the run kept using the old, pre-edit gate logic, and
+# item 14 landed a change that broke the ranting_i18n sibling crate because
+# the improved multi-crate gate the edit introduced never actually took
+# effect. Second, because the edit grew the file by roughly 1.5KB *above* the
+# loop body, bash's saved byte offset for "resume after the loop ends" then
+# pointed into the middle of the loop body in the edited file on disk, so the
+# end-of-run cleanup and summary code could be skipped, re-entered, or
+# misparsed entirely.
+#
+# The fix: at startup, copy this script to a private mktemp path and exec
+# that copy with the original arguments. Bash then parses and runs the copy,
+# which no task running later in the same invocation can edit out from under
+# it -- any task that edits scripts/overnight_loop.sh on disk changes the
+# *next* run, never this one. RANTING_OVERNIGHT_REEXEC guards against the
+# copy re-copying (and re-exec'ing) itself, which would otherwise recurse
+# forever. Do not remove this block, and do not "simplify" it by dropping the
+# guard or the re-exec.
+if [[ -z "${RANTING_OVERNIGHT_REEXEC:-}" ]]; then
+  export RANTING_OVERNIGHT_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  tmp_self="$(mktemp "${TMPDIR:-/tmp}/overnight_loop.XXXXXX.sh")"
+  cp "${BASH_SOURCE[0]}" "$tmp_self"
+  chmod +x "$tmp_self"
+  export RANTING_OVERNIGHT_REEXEC=1
+  exec "$tmp_self" "$@"
+fi
+# Reached only inside the re-exec'd copy (a `trap ... EXIT` set before `exec`
+# would never fire -- exec replaces the process image, traps and all -- so
+# the cleanup trap has to live here, after the guard, referring to the
+# copy's own path via BASH_SOURCE[0]).
+trap 'rm -f "${BASH_SOURCE[0]}"' EXIT
+
+REPO_ROOT="${RANTING_OVERNIGHT_REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$REPO_ROOT"
 
 TASKS_FILE="${TASKS_FILE:-tasks.txt}"
@@ -130,6 +168,14 @@ task_count=0
 # copy. (The previous mapfile-up-front + rewrite-at-the-end design silently
 # discarded anything appended mid-run.)
 declare -A attempted=()
+# NOTE: identity here is the line's *text*, not its position or a stable id.
+# If a task line is rewritten mid-run (not just appended), the new text is a
+# new key in this array, so it is treated as never-attempted and can be
+# picked up again in the same run even if the old text already failed here.
+# That happened tonight -- item 13 was rewritten mid-run into a more specific
+# instruction and the rewrite got run -- and it was useful, but it is a side
+# effect of "line text is the identity," not a designed retry mechanism.
+# Don't rely on rewriting a task line to force a re-attempt.
 
 # First non-blank line not already tried this run. Failed tasks stay in the file
 # for the next run but are marked attempted, so one run never retries them --
@@ -143,6 +189,43 @@ next_task() {
     return 0
   done <"$TASKS_FILE"
   return 1
+}
+
+# Stages what a task is expected to have produced, deliberately rather than
+# blindly. Tonight, a bare 'git add -A' swept an untracked 81KB scratch file
+# (tmp_failed_lib.rs, a copy of src/lib.rs a task left behind) straight into
+# a commit. Extension alone can't tell scratch from genuine -- that file
+# *was* a .rs file -- so filenames matching common scratch/backup patterns
+# are refused regardless of extension, on top of only allowing recognized
+# source/doc extensions through at all; anything declined is reported to the
+# log rather than silently dropped, so a stray file is visible instead of
+# either entering history unnoticed or disappearing without a trace.
+stage_task_changes() {
+  # Tracked modifications/deletions are always safe to stage: a task can only
+  # touch files that were already under version control.
+  git add -u
+
+  local f base
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    base="$(basename -- "$f")"
+    case "$base" in
+      tmp_*|*_tmp|*_tmp.*|scratch_*|*.orig|*.bak|*.rej|*.swp|*~|core|core.*)
+        echo "Declined to stage (looks like scratch/backup output): $f" |
+          tee -a "$LOG_FILE"
+        continue
+        ;;
+    esac
+    case "$f" in
+      *.rs | *.toml | *.md | *.txt | *.lock | *.sh)
+        git add -- "$f"
+        ;;
+      *)
+        echo "Declined to stage (not a recognized source/doc type): $f" |
+          tee -a "$LOG_FILE"
+        ;;
+    esac
+  done < <(git status --porcelain | sed -n 's/^?? //p')
 }
 
 # Delete one exact line, preserving everything else -- including lines appended
@@ -195,7 +278,7 @@ while :; do
     # finished task would reappear in the queue (verified: it did).
     drop_task "$task"
     if [[ -n "$(git status --porcelain)" ]]; then
-      git add -A
+      stage_task_changes
       git commit -m "auto: ${task:0:72}" >>"$LOG_FILE" 2>&1
     else
       echo "No changes produced; nothing to commit." >>"$LOG_FILE"
