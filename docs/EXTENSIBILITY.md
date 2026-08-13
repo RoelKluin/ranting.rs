@@ -454,6 +454,70 @@ uppercase-first-character pass runs only on the fallback path, so a custom form 
 **Wrappers.** `Box<T>` forwards to its inner value; `Many`/`Maybe` forward only when they hold
 exactly one item, and otherwise decline (there is no single entity whose gender could agree).
 
+### 2.6 Orthography: `capitalize()` (v1.3)
+
+```rust
+fn capitalize(
+    &self,
+    word: &str,               // the rendered text, uncapitalized (but see the Noun caveat)
+    role: OrthographyRole,    // Article | Verb | Pronoun | Noun | Adjective
+    uc: bool,                 // what English would do: uppercase the first character
+) -> String
+
+fn capitalize_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) -> String
+```
+
+Unlike every other hook on this page this returns a `String`, not an `Option<String>` — it *is*
+the fallback, not a chance to decline one, which is why it isn't named `_custom`. Its default is
+exactly `uc_1st_if(word, uc)`, so overriding nothing leaves `say!()`'s output byte-identical.
+
+**Why it exists.** Sentence-start uppercasing is an English orthographic assumption that used to be
+compiled into `ranting` at every call site. German capitalizes every noun wherever it stands;
+Japanese, Chinese, Arabic and Hebrew have no letter case, so `uc` is meaningless and the honest
+implementation returns `word` unchanged; Turkish needs `i` → `İ` and `ı` → `I`, which
+`char::to_uppercase` gets wrong for a Turkish locale. All of that is now one override.
+
+**What it does not decide.** The hook decides what is *done* with `uc`, not what `uc` *is*. Whether
+a placeholder sits at a sentence start, and the `,`/`^` markers that force lower/uppercase, are
+resolved by the macro at compile time and arrive here as the bool. Nor is this case *preservation*:
+`apply_case`, which keeps an irregular plural's ALL-CAPS/Title/lowercase pattern, sits behind the
+`self`-less free function `inflect_noun_irregular` and is not routed through any hook.
+
+**Worked example: German nouns, capitalized wherever they stand.**
+
+```rust
+fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
+    match role {
+        OrthographyRole::Noun => uc_1st_if(word, true),  // German: always
+        _ => uc_1st_if(word, uc),                        // everything else: as English
+    }
+}
+```
+
+With `der`/`den` coming from `inflect_article_custom` (§2.3), `say!("Heute bellt {the 0}.", hund)`
+renders `"Heute bellt der Hund."` from a noun whose own `name()` is the lowercase `"hund"` — the
+capital can only have come from the hook. `tests/ranting/orthography.rs` is the runnable version,
+including a caseless-script no-op and a Turkish `capitalize_with_context` keyed on
+`NarrationContext::dialect`.
+
+**The one asymmetry: `OrthographyRole::Noun` gets `uc: false`.** Four of the five roles hand the
+hook an uncapitalized word and a truthful `uc`. The noun's name does not: it has already been
+through `inflect()`, which takes `uc` itself and is user-implementable, so English capitalization
+is spent by the time the hook runs — and it is not simply `uc_1st_if`, since a derive-generated
+`name()` for `#[ranting(name = "designer")]` reads `uc == true` as "as written", not "force
+uppercase". Routing `uc` through the hook there would silently start capitalizing such names, so
+the call site passes `false` instead. An always-capitalize fork ignores `uc` and is unaffected; a
+fork needing *position-sensitive* noun casing overrides `name`/`inflect` instead.
+
+**Custom forms are not routed here.** As everywhere else on this page, the hook runs on the
+fallback path only. An `inflect_*_custom` that returns `Some` owns its own `uc` and never reaches
+`capitalize`.
+
+**Wrappers.** `Box<T>` forwards to its inner value. `Many` forwards only when it holds exactly one
+item — the same rule as `noun_class()` (§2.4) and for the same reason: a multi-item phrase is one
+joined string whose members may disagree, so it keeps the English default. `Maybe(Some(x))`
+forwards to `x`; `Maybe(None)` keeps the default.
+
 ## Partial Customization
 
 You don't need to implement all three custom methods. If you only need verb customization, implement `inflect_verb_custom()` and leave the other two as default (returning `None`). The trait provides default implementations for all three methods:

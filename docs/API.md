@@ -68,6 +68,13 @@ The pronoun, article and adjective hooks also receive the noun's own
 [`NounClass`](#nounclass) as a `class` parameter, and the article and adjective
 hooks their `GrammaticalCase`; the verb hook receives neither.
 
+**Orthography hook** (defaults to today's English behavior rather than to
+`None` — see [`OrthographyRole`](#orthographyrole)):
+
+| Method pair | Customizes |
+|---|---|
+| `capitalize` / `_with_context` | whether and how a rendered word is capitalized, keyed by [`OrthographyRole`](#orthographyrole) |
+
 `ctx: Option<&NarrationContext>` is always a plain parameter on these hooks,
 never read from `self` — an entity's own `subject` stays entity-owned, while
 tense/viewpoint/register/dialect are story-wide settings that vary per call.
@@ -165,6 +172,39 @@ marker: an unmarked post-noun word is parsed as a verb, so a fork whose
 adjectives merely agree writes `!` and ignores `degree`. See
 [`docs/EXTENSIBILITY.md` §2.5](EXTENSIBILITY.md) and
 `tests/ranting/adjective_agreement.rs`.
+
+## `OrthographyRole`
+
+Which part of a rendered placeholder a word is, handed to the capitalization
+hook:
+
+```rust
+pub enum OrthographyRole { Article, Verb, Pronoun, Noun, Adjective }
+
+fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String
+fn capitalize_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) -> String
+```
+
+`capitalize` returns a `String`, not an `Option<String>`: it *is* the fallback,
+not a chance to decline one, which is why it isn't named `_custom`. Its default
+is exactly `uc_1st_if(word, uc)` — the call every one of those sites used to
+make directly — so English output is unchanged unless you override it.
+
+It exists because sentence-start uppercasing is an English assumption: German
+capitalizes every noun wherever it stands, Japanese/Chinese/Arabic/Hebrew have
+no letter case so `uc` is meaningless, and Turkish needs `i` → `İ`, which
+`char::to_uppercase` gets wrong for a Turkish locale. The hook decides what is
+*done* with `uc`; it does not decide `uc` itself — sentence position and the
+`,`/`^` markers are resolved by the macro at compile time. Case *preservation*
+of a word's own spelling (an irregular plural's ALL-CAPS/Title/lowercase
+pattern) is a different thing and is not routed here.
+
+One asymmetry: at `OrthographyRole::Noun` the word has already been through
+`inflect()`, which takes `uc` itself, so the hook is passed `uc: false` there.
+An always-capitalize fork ignores `uc` anyway; a fork needing position-sensitive
+noun casing overrides `name`/`inflect`. See
+[`docs/EXTENSIBILITY.md` §2.6](EXTENSIBILITY.md) and
+`tests/ranting/orthography.rs`.
 
 ## Wrapper types
 

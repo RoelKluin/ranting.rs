@@ -234,7 +234,10 @@ where
             {
                 Some(custom + space)
             } else {
-                Some(uc_1st_if(article_form, uc) + space)
+                Some(
+                    noun.capitalize_with_context(article_form, OrthographyRole::Article, uc, ctx)
+                        + space,
+                )
             }
         }
         ArticleKind::AAnSome => {
@@ -256,8 +259,12 @@ where
             ) {
                 Some(custom + space)
             } else {
-                let a_or_an = uc_1st_if(get_a_or_an(&singular), uc);
-                Some(ranting::adapt_article(&a_or_an, s, space, as_pl, uc))
+                // `uc` is applied once, by the hook, on the assembled article: adapt_article()
+                // may pick either its own form or the a/an passed in, so capitalizing before it
+                // ran would mean capitalizing a form that gets discarded.
+                let a_or_an = get_a_or_an(&singular);
+                let article = ranting::adapt_article(a_or_an, s, space, as_pl, false);
+                Some(noun.capitalize_with_context(&article, OrthographyRole::Article, uc, ctx))
             }
         }
         ArticleKind::TheseThose => {
@@ -275,7 +282,8 @@ where
             ) {
                 Some(custom + space)
             } else {
-                Some(ranting::adapt_article(s, s, space, as_pl, uc))
+                let article = ranting::adapt_article(s, s, space, as_pl, false);
+                Some(noun.capitalize_with_context(&article, OrthographyRole::Article, uc, ctx))
             }
         }
         ArticleKind::Other => None,
@@ -305,8 +313,23 @@ where
     if let Some(custom) = noun.inflect_verb_custom_with_context(subjective, verb, as_pl, uc, ctx) {
         custom
     } else {
-        inflect_verb(subjective, verb, as_pl, uc)
+        // Fallback path only: a custom form applies `uc` itself (see the hook's docs), so
+        // capitalizing here too would be a second, unasked-for pass over it.
+        let conjugated = inflect_verb(subjective, verb, as_pl, false);
+        noun.capitalize_with_context(&conjugated, OrthographyRole::Verb, uc, ctx)
     }
+}
+
+/// Capitalize an English-fallback pronoun through the noun's own hook.
+///
+/// Only the fallback matters here: the five pronoun arms of `handle_placeholder_impl` all render
+/// via `inflect_*(subjective, as_pl, false)` and hand the result to this, while a
+/// `inflect_pronoun_custom` form applies `uc` itself and never passes through.
+fn cap_pronoun<R>(noun: &R, pronoun: String, uc: bool, ctx: Option<&NarrationContext>) -> String
+where
+    R: Ranting,
+{
+    noun.capitalize_with_context(&pronoun, OrthographyRole::Pronoun, uc, ctx)
 }
 
 /// The say macro parses placeholders and passes the compile-time-baked spec to this
@@ -420,7 +443,16 @@ where
         ) {
             res.push_str(&a);
         } else if has_possesive {
-            res.push_str(&uc_1st_if(pre, uc));
+            // A possessive noun phrase built from the noun's own name ("Jane's"), hence
+            // OrthographyRole::Noun rather than a role of its own — and, as at the name site
+            // below, pre-capitalized with `uc` already spent, so the hook is passed `false`.
+            let poss_phrase = uc_1st_if(pre, uc);
+            res.push_str(&noun.capitalize_with_context(
+                &poss_phrase,
+                OrthographyRole::Noun,
+                false,
+                ctx,
+            ));
         } else {
             assert!(
                 matches!(post_spec, PostSpec::None),
@@ -490,7 +522,12 @@ where
                 ) {
                     custom
                 } else {
-                    inflect_subjective(subjective, pronoun_as_pl, uc)
+                    cap_pronoun(
+                        noun,
+                        inflect_subjective(subjective, pronoun_as_pl, false),
+                        uc,
+                        ctx,
+                    )
                 }
             }
             CaseKind::Objective => {
@@ -504,7 +541,12 @@ where
                 ) {
                     custom
                 } else {
-                    inflect_objective(subjective, pronoun_as_pl, uc)
+                    cap_pronoun(
+                        noun,
+                        inflect_objective(subjective, pronoun_as_pl, false),
+                        uc,
+                        ctx,
+                    )
                 }
             }
             CaseKind::PossessiveDeterminer => {
@@ -518,7 +560,12 @@ where
                 ) {
                     custom
                 } else {
-                    inflect_possessive(subjective, pronoun_as_pl, uc)
+                    cap_pronoun(
+                        noun,
+                        inflect_possessive(subjective, pronoun_as_pl, false),
+                        uc,
+                        ctx,
+                    )
                 }
             }
             CaseKind::PossessivePronoun => {
@@ -532,7 +579,12 @@ where
                 ) {
                     custom
                 } else {
-                    inflect_adjective(subjective, pronoun_as_pl, uc)
+                    cap_pronoun(
+                        noun,
+                        inflect_adjective(subjective, pronoun_as_pl, false),
+                        uc,
+                        ctx,
+                    )
                 }
             }
             CaseKind::Reflexive => {
@@ -546,10 +598,24 @@ where
                 ) {
                     custom
                 } else {
-                    inflect_reflexive(subjective, pronoun_as_pl, uc)
+                    cap_pronoun(
+                        noun,
+                        inflect_reflexive(subjective, pronoun_as_pl, false),
+                        uc,
+                        ctx,
+                    )
                 }
             }
-            CaseKind::Name | CaseKind::Hidden => noun.inflect(as_pl, uc),
+            // The only site that does *not* hand the hook an uncapitalized word: `inflect()`
+            // takes `uc` itself and is user-implementable, so English capitalization is already
+            // resolved here — and it is not the same as `uc_1st_if`, since a derive-generated
+            // `name()` for `#[ranting(name = "designer")]` reads `uc == true` as "as written",
+            // not "force uppercase". Hence `false`: the hook must not apply it a second time.
+            // A fork that capitalizes nouns unconditionally (German) ignores the flag anyway.
+            CaseKind::Name | CaseKind::Hidden => {
+                let name = noun.inflect(as_pl, uc);
+                noun.capitalize_with_context(&name, OrthographyRole::Noun, false, ctx)
+            }
         };
         res.push_str(&s);
         res.push_str(post_leading_space);
@@ -646,15 +712,12 @@ where
                     }
                 }
             };
-            if uc {
-                let mut chars = tense_result.chars();
-                if let Some(first) = chars.next() {
-                    res.push_str(&first.to_uppercase().collect::<String>());
-                    res.push_str(chars.as_str());
-                }
-            } else {
-                res.push_str(&tense_result);
-            }
+            res.push_str(&noun.capitalize_with_context(
+                &tense_result,
+                OrthographyRole::Verb,
+                uc,
+                ctx,
+            ));
             if !trailing.is_empty() {
                 res.push(' ');
                 res.push_str(trailing);
@@ -681,14 +744,13 @@ where
             );
             if let Some(custom) = custom {
                 res.push_str(&custom);
-            } else if uc {
-                let mut chars = word.chars();
-                if let Some(first) = chars.next() {
-                    res.push_str(&first.to_uppercase().collect::<String>());
-                    res.push_str(chars.as_str());
-                }
             } else {
-                res.push_str(word);
+                res.push_str(&noun.capitalize_with_context(
+                    word,
+                    OrthographyRole::Adjective,
+                    uc,
+                    ctx,
+                ));
             }
             if !trailing.is_empty() {
                 res.push(' ');
@@ -941,6 +1003,31 @@ pub enum GrammaticalCase {
     /// `` {?the noun} `` — the noun itself is hidden from output, but the article still renders
     /// and still needs a grammatically correct form.
     Hidden,
+}
+
+/// Which part of a rendered placeholder a piece of text is, handed to [`Ranting::capitalize`]
+/// so an implementation can decide *per role* whether sentence-position capitalization applies.
+///
+/// Unlike [`GrammaticalCase`] this is **not** mirrored from a `ranting_core` type: a case marker
+/// is written in the placeholder, so there is something at the macro↔runtime seam to mirror, but
+/// a call-site role is never written in a placeholder — it is a property of where `ranting`'s own
+/// renderer is in assembling the output. Like [`NounClass`], it is defined in `ranting` alone.
+///
+/// The roles are the fallback capitalization sites in `handle_placeholder`, in output order.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum OrthographyRole {
+    /// The article or demonstrative in front of the noun (`a`/`an`/`the`/`some`/`these`/`those`).
+    Article,
+    /// A verb, whether it precedes the noun (`` {are =noun} ``) or follows it
+    /// (`` {=noun are} ``), including a tense marker's auxiliary+verb phrase.
+    Verb,
+    /// A pronoun rendered for a case marker (`` {=noun} ``, `` {@noun} ``, ...).
+    Pronoun,
+    /// The noun's own name, and a possessive noun phrase built from it (`` {`noun} `` in the
+    /// pre-noun position).
+    Noun,
+    /// A `!`/`!!` degree adjective following the noun.
+    Adjective,
 }
 
 /// An open-ended lexical-gender / noun-class label carried *by the entity*, for customization
@@ -1418,5 +1505,75 @@ pub trait Ranting: std::fmt::Display {
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         self.inflect_adjective_custom(adjective, degree, case, class, as_plural, uc)
+    }
+
+    /// Apply orthographic capitalization to one rendered piece of a placeholder.
+    ///
+    /// Unlike the `inflect_*_custom` hooks this returns a `String`, not an `Option`: it *is* the
+    /// fallback, not a chance to decline one. It is called on every fallback path in
+    /// `handle_placeholder` that used to call [`uc_1st_if`] (or an inline uppercase-first-char
+    /// block) directly, and its default is exactly that call — so overriding nothing leaves
+    /// `say!()`'s output byte-identical.
+    ///
+    /// It exists because sentence-start uppercasing is an English orthographic assumption baked
+    /// into the crate. German capitalizes every noun regardless of sentence position; Japanese,
+    /// Chinese, Arabic and Hebrew have no letter case at all, so `uc` is meaningless and the
+    /// honest implementation returns `word` unchanged; Turkish needs `i`→`İ` and `ı`→`I`, which
+    /// [`char::to_uppercase`] gets wrong for a Turkish locale.
+    ///
+    /// The hook decides what is *done* with `uc`; it does not decide `uc` itself. Whether a
+    /// placeholder is at a sentence start, and the `,`/`^` markers that force lower/uppercase,
+    /// are resolved by the macro at compile time and arrive here as the `uc` bool.
+    ///
+    /// Note this is capitalization by *sentence position*, not case preservation of a word's own
+    /// spelling: `apply_case` in `src/language/plurals.rs`, which keeps an irregular plural's
+    /// ALL-CAPS/Title/lowercase pattern, is reached through the `self`-less free function
+    /// [`inflect_noun_irregular`] and is not routed here.
+    ///
+    /// # Arguments
+    /// * `word` - The rendered text, uncapitalized. For [`OrthographyRole::Article`] it may carry
+    ///   the trailing space that separates it from the noun.
+    /// * `role` - Which part of the placeholder this is (see [`OrthographyRole`]), so a fork can
+    ///   capitalize nouns always and everything else only sentence-initially.
+    /// * `uc` - What English would do: uppercase the first character.
+    ///
+    /// One exception to "`word` arrives uncapitalized": at [`OrthographyRole::Noun`] the name has
+    /// already been through [`inflect`](Self::inflect), which takes `uc` itself and is
+    /// user-implementable, so English capitalization is spent by then and `uc` is reported as
+    /// `false`. (It is also not simply [`uc_1st_if`]: a derive-generated `name()` for
+    /// `#[ranting(name = "designer")]` reads `uc == true` as "as written", not "force
+    /// uppercase".) An always-capitalize fork ignores `uc` and is unaffected; a fork that needs
+    /// *position-sensitive* noun casing overrides `name`/`inflect` instead.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
+    ///     // German: nouns are capitalized wherever they stand, everything else only
+    ///     // sentence-initially.
+    ///     match role {
+    ///         OrthographyRole::Noun => uc_1st_if(word, true),
+    ///         _ => uc_1st_if(word, uc),
+    ///     }
+    /// }
+    /// ```
+    fn capitalize(&self, word: &str, _role: OrthographyRole, uc: bool) -> String {
+        uc_1st_if(word, uc)
+    }
+
+    /// Like [`capitalize`](Self::capitalize), but also receives the story-wide
+    /// [`NarrationContext`] in effect for this call, when there is one — which is where a
+    /// locale (`NarrationContext::dialect`, e.g. `"tr"`) would live for a fork that needs
+    /// Turkish dotted/dotless `i`. See
+    /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
+    /// general shape: every call site calls this one, and the default delegates to `capitalize`
+    /// with `ctx` ignored.
+    fn capitalize_with_context(
+        &self,
+        word: &str,
+        role: OrthographyRole,
+        uc: bool,
+        _ctx: Option<&NarrationContext>,
+    ) -> String {
+        self.capitalize(word, role, uc)
     }
 }

@@ -1626,7 +1626,7 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      deliberately *not* reworded: nothing here narrows it, and the count
      channel item 4 recommends remains the way to satisfy it.
 
-6. **Orthography & capitalization hook** (8-12 hours)
+6. ✅ **Orthography & capitalization hook** (8-12 hours)
    - `uc_1st_if`, the sentence-start-uppercase default, the `,`/`^` markers, and
      `apply_case`'s all-caps/title-case/lowercase preservation are English
      orthographic assumptions compiled into the crate. German capitalizes every
@@ -1639,6 +1639,69 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
    - Explicitly check the `uc` plumbing through `Many`/`Maybe`/`Box`
      (`src/collections.rs`) still behaves — the "uppercase first char only"
      join is tested there already.
+   - **Implementation notes (2026-08-13).** `Ranting::capitalize(&self, word,
+     role: OrthographyRole, uc) -> String` plus a `capitalize_with_context`
+     pair, defaulting to `uc_1st_if(word, uc)`. Every fallback path in
+     `handle_placeholder_impl`/`get_article_or_so` that called `uc_1st_if`
+     directly — the `the` and a/an/demonstrative article arms, the pre-noun
+     possessive substitution, `conjugate_verb`'s English fallback, the five
+     pronoun-case arms, the noun name, and the two inline uppercase-first-char
+     blocks in the `PostSpec::Tense`/`Degree` arms — now calls it instead. All
+     301 pre-existing tests and every doctest pass unchanged; `cargo clippy
+     --all-targets -D warnings` is clean.
+   - **Returns `String`, not `Option<String>`, and is not named `_custom`.** In
+     this crate `_custom` means "`None` declines and English takes over"; this
+     hook *is* what takes over, so an `Option` would have no meaning. The
+     `inflect_*_custom` hooks keep receiving `uc` untouched and keep applying it
+     themselves — the fallback-path-only contract item 5 already documented on
+     `inflect_adjective_custom` is what this hook slots into, not a change to it.
+   - **`OrthographyRole` is defined in `ranting` alone, not mirrored from
+     `ranting_core`** — the `NounClass` rule, not the `GrammaticalCase` rule. A
+     case marker is written in placeholder syntax, so `CaseKind` exists at the
+     macro↔runtime seam to mirror; a call-site role is never written anywhere,
+     it is a property of where the renderer is in assembling output.
+   - **The one asymmetry, and the bug it avoids: `OrthographyRole::Noun` is
+     passed `uc: false`.** Four roles get an uncapitalized word and a truthful
+     `uc`; the noun name cannot, because it has already been through
+     `inflect()`, which takes `uc` itself and is user-implementable. Crucially
+     that is *not* equivalent to `uc_1st_if`: a derive-generated `name()` with
+     `opt.uc == false` implements `uc == true` as **"as written"**, preserving
+     the first character rather than uppercasing it, so
+     `#[ranting(name = "designer")]` renders `"designer arrived."` even
+     sentence-initially. Both routing `uc` through the hook and the
+     apply-it-twice variant were tried and *both* change that output (verified
+     empirically against the pre-change build, not reasoned about) — the
+     idempotence that makes double-application safe elsewhere does not hold
+     here. Passing `uc: false` at that one site makes the output byte-identical
+     by construction while leaving an always-capitalize fork (which ignores
+     `uc`) fully functional. A fork needing position-sensitive noun casing
+     overrides `name`/`inflect` instead. `tests/ranting/orthography.rs::
+     lowercase_name_attribute_still_renders_lowercase` is the regression guard.
+     The pre-noun possessive-substitution site (`` {`jane cat} `` → `"Her
+     cat"`) is `OrthographyRole::Noun` too and is pre-capitalized the same way.
+   - **Deliberately *not* rerouted, per this item's own opening paragraph.**
+     (a) `apply_case` in `src/language/plurals.rs` stays as it is: it is case
+     *preservation* of a looked-up irregular plural's own spelling, not
+     sentence-position capitalization, and it is reached through the `self`-less
+     free function `inflect_noun_irregular`, which has no entity to ask. (b) The
+     `,`/`^` markers and the sentence-start default stay compile-time: they
+     decide the *value* of `uc`, while this hook decides what is *done* with it.
+     Moving either would mean re-parsing template text at runtime.
+   - **Wrappers.** `Many` delegates both hook forms only at `len() == 1` and
+     otherwise keeps the English default — the same rule as `noun_class()`, for
+     the same reason (a multi-item phrase is one joined string whose members may
+     disagree). `Maybe(Some(x))` delegates to `x`, `Maybe(None)` and `Box<T>`
+     behave as everywhere else. The existing uppercase-first-char-only join
+     tests in `src/collections.rs` are unchanged and still pass;
+     `tests/ranting/orthography.rs` adds explicit assertions for all three
+     wrappers plus the composed `Many<Box<T>>`.
+   - **Tests** (`tests/ranting/orthography.rs`, 10 tests): a German
+     always-capitalize-nouns override asserted *mid-sentence* (where `uc` is
+     false, so only the hook can produce the capital) against a hook-less twin
+     with identical data; a caseless-script no-op; a role-recording probe
+     pinning which role each site reports and what `uc` it gets; a Turkish
+     `capitalize_with_context` keyed on `NarrationContext::dialect`; the
+     lowercase-`name` regression guard; and a byte-identical-English guard.
 
 7. **Phonological elision / contraction hook** (6-10 hours)
    - The `a`/`an` choice is hard-coded English phonology. French `le`+vowel →
