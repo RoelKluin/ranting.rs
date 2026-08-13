@@ -9,28 +9,18 @@ use crate::lexicon::{
 use ranting::*;
 use std::fmt;
 
-/// Whether a placeholder's case marker should render the noun's *name* or a real German
-/// *pronoun*.
-///
-/// This exists because one hook, [`Ranting::inflect_pronoun_custom`], serves both: a case marker
-/// (`` {the =hund} ``) simultaneously declares the noun's grammatical role *and* switches its
-/// display from the name to a pronoun. A fork that wants case-correct articles must therefore
-/// override the pronoun hook, and whatever that override returns applies to every case-marked
-/// placeholder for that entity. See README hole 5.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Render {
-    /// `Der Hund bellt.` — the case marker is there for the article; show the noun.
-    Name,
-    /// `Ich sehe ihn.` — show the pronoun the case calls for.
-    Pronoun,
-}
-
 /// One German noun from the closed vocabulary, with the grammatical state `ranting`'s hooks
 /// cannot carry attached to the entity instead.
 ///
 /// `case` and `definiteness` are the recorded holes, not design preferences: `GrammaticalCase`
-/// has no dative and no hook reports which article was written. `plural` and `render` are
-/// ordinary entity state.
+/// has no dative and no hook reports which article was written. `plural` is ordinary entity
+/// state.
+///
+/// Case-marking and name-vs-pronoun display used to be inseparable (README hole 5, closed by
+/// ROADMAP.md Phase 6 item 19): `inflect_pronoun_custom` below always returns a real pronoun now,
+/// and a template that wants a case-correct article with the *name* shown writes the fused
+/// `*=`/`*@`/`` *` ``/`*~` marker (`` {the *=hund} `` → "Der Hund") instead of the bare one
+/// (`` {the =hund} `` → "Er"/"Ihn"/etc.) — no entity-carried flag needed any more.
 #[derive(Copy, Clone)]
 pub struct GermanNoun {
     entry: &'static NounEntry,
@@ -40,7 +30,6 @@ pub struct GermanNoun {
     case: Option<Case>,
     definiteness: Definiteness,
     plural: bool,
-    render: Render,
 }
 
 impl GermanNoun {
@@ -50,7 +39,6 @@ impl GermanNoun {
             case: None,
             definiteness: Definiteness::Definite,
             plural: false,
-            render: Render::Name,
         }
     }
 
@@ -87,13 +75,6 @@ impl GermanNoun {
     /// it per occurrence, exactly as for an English `Noun`.
     pub const fn plural(mut self) -> Self {
         self.plural = true;
-        self
-    }
-
-    /// Render case-marked placeholders as real pronouns (`er`/`ihn`/`ihm`) rather than as the
-    /// noun's name. See [`Render`] and README hole 5.
-    pub const fn as_pronoun(mut self) -> Self {
-        self.render = Render::Pronoun;
         self
     }
 
@@ -235,12 +216,9 @@ impl Ranting for GermanNoun {
         uc: bool,
     ) -> Option<String> {
         // German has no dual/paucal pronoun forms, so `count` adds nothing beyond
-        // `as_plural` here.
-        // Every case marker lands here, including the ones written purely to get a case-correct
-        // article. `Render::Name` is the choice that makes `{the =hund}` say "Der Hund".
-        if self.render == Render::Name {
-            return Some(self.form(as_plural).to_string());
-        }
+        // `as_plural` here. Always a real pronoun now (ROADMAP.md Phase 6 item 19) — a template
+        // that wants the name instead writes the fused `*=`/`*@`/etc. marker, which never
+        // reaches this hook at all (`handle_placeholder_impl` routes it to `inflect()` instead).
         let word = match case {
             PronounCase::Subjective => {
                 self.pronoun(self.case_for(GrammaticalCase::Name), as_plural)

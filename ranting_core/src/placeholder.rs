@@ -382,6 +382,18 @@ pub struct PlaceholderSpec {
     pub numeral: Option<NumeralSpec>,
     pub noun_space: &'static str,
     pub case: CaseKind,
+    /// Whether `case` was written as the fused `*`-prefixed form (`` {the *=noun} ``, ROADMAP.md
+    /// Phase 6 item 19) rather than the bare marker (`` {the =noun} ``). `case` itself still
+    /// reports the real grammatical role either way -- `inflect_article_custom`/
+    /// `elide_article_custom` see the same `GrammaticalCase` regardless -- but this bit tells the
+    /// noun-slot renderer to render the noun's own name (`Ranting::inflect`, the same path
+    /// `CaseKind::Name` takes) instead of switching to a pronoun (`inflect_pronoun_custom`). It
+    /// exists because one marker char can't carry both "which case" and "name or pronoun" --
+    /// `CaseKind`'s seven variants already map one-to-one onto the seven case-marker characters,
+    /// so there was no spare bit on `case` alone to add. Always `false` when `case` is
+    /// `CaseKind::Name` or `CaseKind::Hidden` (`*` with no following case marker, or no marker at
+    /// all, already renders the name).
+    pub display_as_name: bool,
     pub post: PostSpec,
     /// Whether `ranting_core::grammar::PH_START`'s `pre` capture put this placeholder at the
     /// start of a sentence (ROADMAP.md Phase 6 item 17) — computed once, at compile time, from

@@ -75,7 +75,7 @@ All pronouns inflect correctly: subject (they), object (them), possessive determ
 
 - A placeholder to display a Ranting variable has a structure like:
 <br>
-  ``{[,^]?(verb )?(article |`noun )?([+-]|([#$]|\?$)var )?[`=@~?*]?noun( verb):fmt}``
+  ``{[,^]?(verb )?(article |`noun )?([+-]|([#$]|\?$)var )?(\*[`=@~%]|[`=@~?*])?noun( verb):fmt}``
 <br>
 
 - With `,` and `^` lower- and uppercase are enforced, but a placeholder at sentence start is uppercase by default.
@@ -131,6 +131,13 @@ fn main() {
   * `*` - display the name (as is the default) but also mark this word as the Ranting element in the placeholder.
           "A {*can can} contain water."
   (removed the mutname variant)
+  * `*` immediately followed by one of `` = @ ` ~ % `` (`{the *=noun}`, `{the *@noun}`, ...) —
+    case-marks the placeholder exactly as the bare marker would (an `inflect_article_custom`
+    override still sees the same grammatical role), but keeps displaying the noun's name instead
+    of switching to a pronoun. Lets a non-English `Ranting` impl whose `inflect_pronoun_custom`
+    always returns a real pronoun still get a case-correct article with the name shown, without a
+    second entity-carried flag — see `docs/EXTENSIBILITY.md` §2.11 and
+    `tests/ranting/case_display_split.rs`.
 
 - Collections and nested `Ranting` values can be used as placeholder subjects/arguments directly:
   * `Box<T>` where `T: Ranting` — delegates every method straight through to the boxed value.

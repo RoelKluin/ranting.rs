@@ -26,7 +26,7 @@ repository root.
 | Weak / mixed / strong attributive adjective endings, the complete table | `inflect_adjective_custom` |
 | `ein Hund` / `eine Katze` / `zwei Hunde` / `zwölf Häuser` | `inflect_numeral_custom` |
 | Nouns capitalized wherever they stand | `capitalize` + `OrthographyRole::Noun` |
-| `er`/`ihn`/`ihm`, `sie`/`ihr`, `es`, `sich`, `mich`/`dich`/`uns`/`euch` | `inflect_pronoun_custom` |
+| `er`/`ihn`/`ihm`, `sie`/`ihr`, `es`, `sich`, `mich`/`dich`/`uns`/`euch` — and, from the very same entity, `Der Hund`/`den Hund`/etc. via the fused `*=`/`*@` marker | `inflect_pronoun_custom` (see hole 5, closed) |
 | Dative-plural `-n` on the noun (`den Hunden`, `den Häusern`) | `inflect` + entity-carried case (see hole 2) |
 
 Two of these are worth calling out because they answer questions Phase 6 asked directly.
@@ -48,9 +48,9 @@ Phase 6 item 1 already settled this as a permanent boundary
 pre→number→noun→post assembly order is fixed too. This crate confirms it from the other side:
 
 - German verb-second is reachable **only** because the caller writes a German template.
-  `say!("Heute {the =0 schlafen}.", katze)` renders `"Heute die Katze schläft."`; getting
+  `say!("Heute {the *=0 schlafen}.", katze)` renders `"Heute die Katze schläft."`; getting
   `"Heute schläft die Katze."` means writing a different literal string
-  (`"Heute {?0 schlafen} {the =0}."`), not setting a different hook.
+  (`"Heute {?0 schlafen} {the *=0}."`), not setting a different hook.
 - A verb split across two positions — `"Der Hund macht die Tür auf"` — is not expressible at all.
   A placeholder cannot carry both a pre-noun and a post-noun verb (`handle_placeholder_impl`
   asserts it), and no hook can emit text at a position it does not own. The separable prefix has
@@ -87,17 +87,18 @@ docs as the intended home for a locale) are unaffected by this item and remain f
 
 German declines the *noun*, not only its article: dative plural `den Hunden`, genitive singular
 `des Hauses`. Item 14 gave `inflect` a fourth parameter, `case: GrammaticalCase`, so the signature
-gap this hole originally named is gone — but the hole itself is not: the only call site that
-reaches `inflect()` is bare-placeholder rendering (`` {the 0} ``/`` {?the 0} ``), which is always
-`GrammaticalCase::Name`/`Hidden`. Every marker that carries a real case (`=`, `@`, `` ` ``, `~`)
-switches the noun slot to a *pronoun* and calls `inflect_pronoun_custom` instead (see hole 5) —
-never `inflect()`. So the parameter exists, but a placeholder can never hand it anything but
-`Name`/`Hidden`, and `case_for` treats both as nominative. The form still has to come off the
-entity: `GermanNoun::in_case` is that carrier, and remains the only way to reach dative or
-genitive on the noun's own form. The visible consequence is unchanged from before item 14:
-`say!("Ich gebe {the @0} etwas.", hund_plural)` renders `"die Hunde"` where German wants
+gap this hole originally named is gone — and item 19 (which closed hole 5) narrowed the reachability
+gap too: the *bare* real-case markers (`=`, `@`, `` ` ``, `~`) still switch the noun slot to a
+*pronoun* and call `inflect_pronoun_custom` instead, never `inflect()`, but the *fused* `*=`/`*@`
+form now reaches `inflect()` with the real `GrammaticalCase` — `case_for` no longer has to treat
+every call as nominative. That still isn't enough to reach dative: `GrammaticalCase` has no dative
+variant at all (hole 3), so the best the fused form can do is accusative, which happens to share
+its plural noun form with nominative in this lexicon. The form still has to come off the entity:
+`GermanNoun::in_case` is that carrier, and remains the only way to reach dative or genitive on the
+noun's own form. The visible consequence is otherwise unchanged from before item 19:
+`say!("Ich gebe {the *@0} etwas.", hund_plural)` renders `"die Hunde"` where German wants
 `"den Hunden"` — the article is even wrong here, because `@` is read as accusative (hole 3), and
-that marker never reaches the noun form at all, whichever case it named.
+that marker still cannot reach dative on the noun form, whichever case it named.
 
 ### 3. `GrammaticalCase` has no dative, so a fork ends up ignoring it
 *Belongs to: Phase 3 item 2's v1.3 `GrammaticalCase` bullet, and Phase 6 item 2.*
@@ -109,7 +110,7 @@ say so ("English doesn't distinguish accusative from dative; neither does this")
 on a real fork is sharper than a missing variant:
 
 **once the entity carries the case — which it must, to reach dative at all — the `case`
-parameter becomes ignorable.** `say!("{the =0}", dativ)` and `say!("{the @0}", dativ)` produce
+parameter becomes ignorable.** `say!("{the *=0}", dativ)` and `say!("{the *@0}", dativ)` produce
 identical output (`hole_3_*`). That is the precise sense in which `GrammaticalCase` did not, on
 its own, close the German article gap: it made two of German's four cases expressible, and a
 lexicon that needs all four routes around it entirely.
@@ -126,7 +127,7 @@ Two distinct failures, both pinned.
 
 **4a — position.** German attributive adjectives are prenominal: `der kleine Hund`. The `!`/`!!`
 slot is post-noun only (`PostSpec::Degree`), so the endings come out right and the word comes out
-in the wrong place: `say!("{the =0 !klein}", hund)` → `"Der Hund kleine"`. There is no template
+in the wrong place: `say!("{the *=0 !klein}", hund)` → `"Der Hund kleine"`. There is no template
 that fixes it, because item 1 settled that `ranting` will not move text. And German's *predicative*
 adjectives — the one position that is post-verbal — are uninflected, so **there is no German
 sentence in which this hook's output is correct German**. The hook proves the agreement
@@ -145,20 +146,28 @@ post-noun one.
 template text chosen per placeholder. So the choice is carried on the entity
 (`GermanNoun::with_article`); without it the lexicon must guess, and guesses weak.
 
-### 5. One hook serves both case marking and pronoun display
-*Belongs to: Phase 3 item 2 (the `inflect_pronoun_custom` contract) and Phase 6 item 2.*
+### 5. ✅ Closed — case marking and pronoun display no longer share one hook
+*Belongs to: Phase 3 item 2 (the `inflect_pronoun_custom` contract) and Phase 6 item 2; closed by
+Phase 6 item 19.*
 
-A case marker does two jobs at once: it tells `inflect_article_custom` the noun's role *and*
-switches the noun slot from the name to a pronoun. To render `"Der Hund bellt."` a fork must make
+A case marker used to do two jobs at once: it told `inflect_article_custom` the noun's role *and*
+switched the noun slot from the name to a pronoun. To render `"Der Hund bellt."` a fork had to make
 `inflect_pronoun_custom` return the noun's name — which `tests/ranting/grammatical_case.rs` in the
-main crate already does, and describes as what "a case-declining fork typically" does. The
-consequence is not typical at all: that override then applies to *every* case-marked placeholder
-for that entity, so genuine German pronouns (`er`/`ihn`/`ihm`) become unreachable for the same
-noun. `say!("Ich sehe {@0}.", hund)` renders `"Ich sehe Hund."`.
+main crate still demonstrates, and describes as what "a case-declining fork typically" does. The
+consequence was not typical at all: that override then applied to *every* case-marked placeholder
+for that entity, so genuine German pronouns (`er`/`ihn`/`ihm`) became unreachable for the same
+noun. `say!("Ich sehe {@0}.", hund)` used to render `"Ich sehe Hund."`.
 
-This crate resolves it with a `Render::Name`/`Render::Pronoun` flag on the entity
-(`GermanNoun::as_pronoun`) — again entity-carried state standing in for something the placeholder
-should have been able to say.
+Item 19 closed it by reusing `*` — already a case-marker-position character, previously
+synonymous with no marker at all — fused with a real case marker: `{the *=noun}`/`{the *@noun}`
+case-mark the placeholder exactly as `{the =noun}`/`{the @noun}` do (`inflect_article_custom`
+still sees the same `GrammaticalCase`) but render the noun's *name* instead of switching to a
+pronoun. No new marker character was added, and the two forms are reachable for the same entity
+in the same sentence: `GermanNoun::inflect_pronoun_custom` now always returns a real pronoun
+(the `Render::Name`/`Render::Pronoun` flag and `GermanNoun::as_pronoun` this section used to
+describe are gone), and `say!("Ich sehe {@0}.", hund)` renders `"Ich sehe ihn."` while
+`say!("Ich sehe {the *@0}.", hund)` renders `"Ich sehe den Hund."`. See `tests/holes.rs`'s
+`hole_5_closed_*` and, in the main crate, `tests/ranting/case_display_split.rs`.
 
 ### 6. An article that renders as nothing still emits its separator
 *Belongs to: Phase 6 item 7 (the post-assembly splice) and item 2.*
@@ -184,7 +193,7 @@ expressible. German's fusions are *all* of that kind — `in dem` → `im`, `zu 
 
 This crate adds one detail to item 7's statement. The obvious escape — writing the preposition
 inside the placeholder, in the pre-noun verb slot, so the hook can see it — does not exist:
-`say!("{in the =0}", haus)` is a **compile error** (`expected article or verb`). The pre-noun slot
+`say!("{in the *=0}", haus)` is a **compile error** (`expected article or verb`). The pre-noun slot
 accepts an article (`a`/`an`/`some`/`the`/`these`/`those`) or one of a hard-coded list of English
 modal words (`can`, `may`, `shall`, `will`, `are`, `were`, `had`, `have`, …), and nothing else. So
 the pre-noun slot is not a general escape hatch for a non-English fork, and no hook ever sees a

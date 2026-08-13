@@ -2461,7 +2461,7 @@ because it exercises everything before it.*
       ignored` in `ranting_i18n/tests/holes.rs` stays open and unstruck, same
       as item 3's doc-only conclusion left its own gaps unfixed.
 
-19. **Case marking and pronoun display share one hook** (8-12 hours) — *found by
+19. ✅ **Case marking and pronoun display share one hook** (8-12 hours) — *found by
     item 10, hole 5*
     - A case marker does two jobs: it tells `inflect_article_custom` the noun's
       role *and* switches the noun slot from name to pronoun. A fork that
@@ -2469,6 +2469,62 @@ because it exercises everything before it.*
       `tests/ranting/grammatical_case.rs` demonstrates as typical) then loses
       real pronouns for that entity — `say!("Ich sehe {@0}.", hund)` renders
       "Ich sehe Hund." Needs a way to say "case-mark this, but render the name".
+    - ✅ **COMPLETE 2026-08-13** — closed by reusing `*`, not by adding a new
+      marker character. `*` was already a case-marker-position character
+      (`{[`=@~?*]?noun}`), previously synonymous with no marker at all
+      (`CaseKind::Name`, used only to mark which word is the placeholder's
+      Ranting element, e.g. `` {*jane who have} ``). Fusing it with a real case
+      marker — `*=`, `*@`, `` *` ``, `*~`, `*%` — case-marks the placeholder
+      exactly like the bare marker (`inflect_article_custom`/
+      `elide_article_custom` see the identical `GrammaticalCase`) but renders
+      the noun's name instead of calling `inflect_pronoun_custom`. The ✅
+      Locked marker set is unchanged; only which *sequences* of its existing
+      characters are accepted grew.
+    - ✅ Rejected alternatives, scored before landing on the fused marker:
+      **(a) `article_present: bool` on `inflect_pronoun_custom`.** Conflates
+      "an article was written" with "render the name" — different things, since
+      a bare `` {=noun} `` with no article should still be able to ask for the
+      name — and it is a hook-signature break reaching every existing override,
+      the same objection item 18 raised against extending `GrammaticalCase`
+      with new variants. **(b) a `render_case_marked_as_name()` trait hook.**
+      Just moves `ranting_i18n`'s pre-fix `Render` flag
+      (`GermanNoun::as_pronoun`) into the trait itself — still entity-carried
+      state standing in for something the *placeholder* should say per
+      occurrence, the exact gap this item closes, and it cannot express "name
+      here, pronoun there" for the same entity in the same sentence, which the
+      fused marker can.
+    - ✅ Grammar/parser: `ranting_core::grammar::PH_EXT`'s `case` capture tries
+      the fused two-character form first (`` \*[`=@~%] ``), falling back to the
+      single-character class; `ranting_core::ph_ext::case_one_rep` mirrors it
+      by hand, with the module's own differential-fuzz test extended (curated
+      corpus entries plus a `case` fuzz strategy that generates `&str`, not
+      `char`, so it can actually produce `"*="`) to confirm the two agree,
+      fused and bare alike. `` *? `` and `**` are deliberately not accepted —
+      `?` already means hidden (nothing to "render the name instead" of), and a
+      second `*` has no defined meaning.
+    - ✅ Runtime: `PlaceholderSpec` gained one field, `display_as_name: bool` —
+      `false` for every placeholder in the pre-existing test suite (nothing
+      wrote the fused form before this item landed), so `say!()`'s output is
+      byte-identical by construction. `handle_placeholder_impl` checks it once,
+      before the `case`-dispatch match: when set, it renders via
+      `noun.inflect(as_pl, uc, case.into())` — the same call `CaseKind::Name`/
+      `Hidden` already made, except `case.into()` now reports the real
+      grammatical role instead of always `GrammaticalCase::Name`. That is a
+      free side benefit a fork's own `inflect()` can use too, and it narrows
+      (without closing) `ranting_i18n`'s hole 2 — `GrammaticalCase` still has
+      no dative variant (hole 3), so the fused form's best case is accusative.
+    - ✅ `ranting_i18n` dropped its `Render`/`GermanNoun::as_pronoun` workaround
+      entirely: `inflect_pronoun_custom` now always returns a real pronoun, and
+      every template that wanted the name instead was rewritten to use the
+      fused marker. Hole 5 is struck from `ranting_i18n/README.md` (marked
+      "✅ Closed", following hole 1's precedent) with `tests/holes.rs`'s
+      `hole_5_closed_*` pinning the fix; hole 2's prose and test were narrowed
+      rather than struck, since the fused marker only partially closes it (see
+      above). New coverage: `tests/ranting/case_display_split.rs` in the main
+      crate, `docs/EXTENSIBILITY.md` §2.11, and a README.md marker-list bullet
+      plus grammar-line update. `cargo fmt --check`, `cargo clippy -- -D
+      warnings` and `cargo test` are green at the repo root, in
+      `ranting_core`, in `ranting_derive`, and in `ranting_i18n`.
 
 20. **Document the word-order boundary** (doc-only, 4-6 hours) — open question 1
     of the word-order spec: `docs/EXTENSIBILITY.md` in full, one-line pointers

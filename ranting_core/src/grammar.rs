@@ -86,6 +86,15 @@ pub enum DemonstrativePronoun {
 /// implementing by hand. The outer sigil grammar, `PH_START` below, is
 /// unaffected by item 6 and still does the real work of finding `{...}`
 /// placeholders in a template string.
+///
+/// ROADMAP.md Phase 6 item 19: `case`'s alternation now tries a fused two-character form first
+/// -- `*` immediately followed by a real case marker (`` ` ``/`=`/`@`/`~`/`%`, deliberately not
+/// `?`, which already means "hidden", or a second `*`) -- before falling back to the original
+/// single-character class. This reuses `*` (already a case-marker-position character, previously
+/// synonymous with no marker at all -- see `CaseKind::Name`'s docs) rather than adding a new
+/// marker: `{the *=noun}` case-marks the placeholder exactly as `{the =noun}` would (the article
+/// hook still sees `GrammaticalCase::Subjective`) but keeps rendering the noun's own name instead
+/// of switching to a pronoun. See `ranting_core::placeholder::PlaceholderSpec::display_as_name`.
 #[allow(dead_code)]
 pub static PH_EXT: &str = r"^(?x)
     (?P<uc>[,^])?+
@@ -96,7 +105,7 @@ pub static PH_EXT: &str = r"^(?x)
         (?:\s+(?:\??an?|\??some|\??the|th[eo]se|`[\w-]+))?
     )(?:\s+[\w-]+)*?\s+)?+
     (?P<nr>[+-]|(?:\#|\??\$)\w+\s+)?+
-    (?P<case>[`=@~*?%])?+
+    (?P<case>\*[`=@~%]|[`=@~*?%])?+
     (?P<noun>[\w-]+)
     (?P<post>\s+[<=>%!]*(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$";
 
