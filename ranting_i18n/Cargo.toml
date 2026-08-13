@@ -1,0 +1,10 @@
+[package]
+name = "ranting-i18n"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "German reference lexicon for ranting: the acceptance test for Phase 6's i18n hooks"
+publish = false
+
+[dependencies]
+ranting = { path = ".." }
