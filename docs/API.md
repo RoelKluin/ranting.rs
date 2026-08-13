@@ -43,7 +43,7 @@ for your own structs/enums; `Box<T>`, `Many<T>`, `Maybe<T>` all forward it
 | `name(&self, uc: bool) -> String` | display name | struct name, `#[ranting(name = "...")]`, or `self.name` if `name = "$"` |
 | `subjective(&self) -> &str` | subject pronoun | `"it"`, `#[ranting(subject = "...")]`, or `self.subject` if `subject = "$"` |
 | `is_plural(&self) -> bool` | plurality | usually from `subjective()`; overridable for `you` |
-| `inflect(&self, to_plural: bool, uc: bool) -> String` | singular/plural name form | uses `#[ranting(singular_end, plural_end)]` |
+| `inflect(&self, to_plural: bool, uc: bool, case: GrammaticalCase) -> String` | singular/plural name form | uses `#[ranting(singular_end, plural_end)]`; `case` is the placeholder's own `GrammaticalCase` (`Name` for a bare `` {noun} ``), threaded through so a case-declining fork's `inflect()` can pick a form without needing a separate case-aware hook — see the fused-marker note below |
 | `skip_article(&self) -> bool` | whether to omit an article | for proper nouns, uncountables, etc; `#[ranting(no_article = true)]` |
 
 **Defaulted methods:**
@@ -71,7 +71,17 @@ passes `Some(ctx)` — so overriding only the `_with_context` form is enough):
 The pronoun, article, adjective, elision, preposition-fusion and numeral hooks
 also receive the noun's own [`NounClass`](#nounclass) as a `class` parameter,
 and the article, adjective, elision, preposition-fusion and numeral hooks
-their `GrammaticalCase`; the verb hook receives neither.
+their `GrammaticalCase`; the verb hook receives neither. Six of these hook
+pairs — verb, pronoun, article, elision, preposition-fusion and adjective —
+additionally take `count: Option<PlaceholderCount>`, sourced from the
+placeholder's own `#var`/`$var` marker (`None` for a bare placeholder); the
+numeral hook is the exception, since it already gets its own richer
+`count: Option<i64>` (see [`PlaceholderCount`](#placeholdercount)).
+`Many<T>` substitutes its own `Vec`'s length for `count` when delegating one
+of these hooks to its single item — see [Wrapper types](#wrapper-types). See
+`CLAUDE.md`'s "What `as_plural: bool` promises" and "`Many` supplies its own
+length as the count" entries for the full history (ROADMAP.md Phase 6 items
+14 and 15).
 
 **Orthography hook** (defaults to today's English behavior rather than to
 `None` — see [`OrthographyRole`](#orthographyrole)):
@@ -160,6 +170,7 @@ fn inflect_adjective_custom(
     case: GrammaticalCase,
     class: NounClass,
     as_plural: bool,
+    count: Option<PlaceholderCount>,
     uc: bool,
 ) -> Option<String>
 ```
@@ -190,6 +201,25 @@ Like `AdjectiveDegree` and `GrammaticalCase` (and unlike `NounClass` and
 `OrthographyRole`) this mirrors a compile-time type the macro bakes, because
 the `#`/`$` marker is written in the placeholder. See
 [Numerals](#numerals-inflect_numeral_custom).
+
+## `PlaceholderCount`
+
+```rust
+pub struct PlaceholderCount {
+    pub value: i64,             // the placeholder's `#var`/`$var` numeral, as an integer
+    pub fraction_digits: u32,   // digits actually rendered after a decimal point, else 0
+}
+```
+
+Carried as `count: Option<PlaceholderCount>` on six of the seven
+`_custom`/`_with_context` hook pairs (verb, pronoun, article, elision,
+preposition-fusion, adjective — ROADMAP.md Phase 6 item 14), `None` for a
+placeholder with no `#var`/`$var` marker. `inflect_numeral_custom` is the
+exception: it takes its own, differently-typed `count: Option<i64>` instead
+— see [Numerals](#numerals-inflect_numeral_custom) for why that hook's
+existing numeral signal made a second `PlaceholderCount` parameter there
+redundant. `Many<T>` fills the `PlaceholderCount` gap with its own length
+when delegating to a single item — see [Wrapper types](#wrapper-types).
 
 ## `OrthographyRole`
 
@@ -255,6 +285,7 @@ fn elide_article_custom(
     case: GrammaticalCase,
     class: NounClass,
     as_plural: bool,
+    count: Option<PlaceholderCount>,
 ) -> Option<String>     // Some(fused) replaces all three; None (default) keeps them
 fn elide_article_custom_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) -> Option<String>
 ```
@@ -366,7 +397,7 @@ already provides `Display` for it):
 | Type | Wraps | Behavior |
 |---|---|---|
 | `Box<T: Ranting>` | — | Delegates every `Ranting` method straight through to `*self`. |
-| `Many<T: Ranting>` | `Vec<T>` | Collective noun phrase. Name renders as `"a, b and c"`. Plural whenever `len() != 1` (zero items included — "there are no items", not "there is no item"). Delegates plurality/pronoun/custom-hook behavior straight through when exactly one item; falls back to built-in English for 0 or 2+. `skip_article()` is `true` when empty. `noun_class()` reports the single item's class when `len() == 1`, else `NounClass::UNSET`. |
+| `Many<T: Ranting>` | `Vec<T>` | Collective noun phrase. Name renders as `"a, b and c"`. Plural whenever `len() != 1` (zero items included — "there are no items", not "there is no item"). Delegates plurality/pronoun/custom-hook behavior straight through when exactly one item; falls back to built-in English for 0 or 2+. `skip_article()` is `true` when empty. `noun_class()` reports the single item's class when `len() == 1`, else `NounClass::UNSET`. For the same `len() == 1` delegation, `count: Option<PlaceholderCount>` is substituted with `Some(PlaceholderCount { value: 1, .. })` (its own length) whenever the placeholder itself carried no numeral, so a fork's hook still sees a count even with no `#var`/`$var` present; an explicit placeholder numeral is left untouched. |
 | `Maybe<T: Ranting>` | `Option<T>` | `Maybe(Some(x))` behaves exactly like `x`. `Maybe(None)` renders as nothing, is singular with subject `"it"`, skips its article, and reports `NounClass::UNSET`. |
 
 These compose: `Many<Box<Noun>>`, `Box<Many<Noun>>`, etc. all work.

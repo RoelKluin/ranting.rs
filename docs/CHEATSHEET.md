@@ -11,7 +11,7 @@ copy-pasted from real `say!()` calls, not hand-typed.
 ## Placeholder anatomy
 
 ```
-{[,^]?(article)?([+-]|[$#]?var)?[`=@~%*?]?noun( verb)( !word | !!word)}
+{[,^]?(article)?([+-]|[$#]?var)?(\*[`=@~%]|[`=@~%*?])?noun( verb)( !word | !!word)}
 ```
 
 - **Case modifier** (optional, first): `,` forces lowercase, `^` forces
@@ -21,7 +21,9 @@ copy-pasted from real `say!()` calls, not hand-typed.
   numeric-driven.
 - **Case marker** (optional): which grammatical form of the noun to render —
   see the table below. No marker at all renders the noun's **name**, not a
-  pronoun.
+  pronoun. The fused two-character forms (`*=`, `*@`, `` *` ``, `*~`, `*%`)
+  case-mark the placeholder exactly like the bare marker, but still render
+  the noun's **name** instead of switching to a pronoun.
 - **Noun**: a variable name or positional index (`0`, `1`, ...).
 - **Verb** (optional): a base verb, optionally prefixed with a tense marker.
 - **Degree** (optional, after a post-noun word): `!word` comparative, `!!word`
@@ -41,6 +43,7 @@ common surprise, see the first row.
 | `~` | Adjective (same as possessive) | ``say!("{~tarzan}")`` | `"His"` |
 | `%` | Reflexive | `say!("Only {^%alex} can decide that.")` with `alex = Noun::new("Alex","she")` | `"Only Herself can decide that."` |
 | `*` | Display name, verb still agrees | `say!("{*tarzan who have} book")` | `"Tarzan who has book"` |
+| `*=`, `*@`, `` *` ``, `*~`, `*%` | Fused: case-marks the placeholder like the bare marker (so `inflect_article_custom` sees the real `GrammaticalCase`), but still displays the noun's **name** rather than switching to a pronoun | `say!("{the *=noun}")` | renders the article case-correctly, name shown |
 | `?` | Hidden — inflects but isn't shown | `say!("{?=person are} here, but {=person} stays invisible above.")` | `"She is here, but she stays invisible above."` |
 
 `?` composes with other markers, e.g. `{?the noun}` hides the noun (and its

@@ -32,7 +32,7 @@ impl Ranting for PirateNoun {
         true
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         if to_plural {
             uc_1st_if("pirates", uc)
         } else {
@@ -49,6 +49,7 @@ impl Ranting for PirateNoun {
         _subject: &str,
         verb: &str,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         match verb {
@@ -74,8 +75,8 @@ fn main() {
 
 Every `_custom` hook below (`inflect_verb_custom`, `inflect_pronoun_custom` and
 `inflect_article_custom` since v1.1; `inflect_adjective_custom`,
-`elide_article_custom` and `inflect_numeral_custom` since v1.3 — six pairs,
-twelve methods) has a `_with_context` counterpart —
+`elide_article_custom`, `inflect_numeral_custom` and `inflect_preposition_custom`
+since v1.3 — seven pairs, fourteen methods) has a `_with_context` counterpart —
 `inflect_verb_custom_with_context` and so on, and `capitalize_with_context` for
 the orthography hook in §2.6 — that takes one extra parameter,
 `ctx: Option<&NarrationContext>`, and is what every call site in the crate
@@ -122,6 +123,7 @@ fn inflect_verb_custom(
     subject: &str,
     verb: &str,
     as_plural: bool,
+    count: Option<PlaceholderCount>,
     uc: bool,
 ) -> Option<String>
 ```
@@ -130,6 +132,7 @@ fn inflect_verb_custom(
 - `subject` (&str): The subject pronoun (e.g., "I", "you", "he", "she", "it", "we", "they")
 - `verb` (&str): The verb to inflect (e.g., "be", "have", "walk")
 - `as_plural` (bool): Whether to conjugate for plural form
+- `count` (`Option<PlaceholderCount>`): The placeholder's own `#var`/`$var` numeral, when it has one; `None` for a bare placeholder (ROADMAP.md Phase 6 item 14)
 - `uc` (bool): Whether to uppercase the first character (handle contractions with `uc_1st_if`)
 
 **Return Values:**
@@ -144,6 +147,7 @@ fn inflect_verb_custom(
     _subject: &str,
     verb: &str,
     _as_plural: bool,
+    _count: Option<PlaceholderCount>,
     uc: bool,
 ) -> Option<String> {
     match verb {
@@ -169,6 +173,7 @@ fn inflect_pronoun_custom(
     case: PronounCase,
     class: NounClass,
     as_plural: bool,
+    count: Option<PlaceholderCount>,
     uc: bool,
 ) -> Option<String>
 ```
@@ -179,6 +184,7 @@ fn inflect_pronoun_custom(
 - `class` (`NounClass`): The noun's own lexical gender / noun class, or `NounClass::UNSET` when
   it declares none — see §2.4
 - `as_plural` (bool): Whether to pluralize the pronoun
+- `count` (`Option<PlaceholderCount>`): The placeholder's own `#var`/`$var` numeral, when it has one; `None` for a bare placeholder (ROADMAP.md Phase 6 item 14)
 - `uc` (bool): Whether to uppercase the first character
 
 **`PronounCase` Enum:**
@@ -204,6 +210,7 @@ fn inflect_pronoun_custom(
     case: PronounCase,
     _class: NounClass,
     _as_plural: bool,
+    _count: Option<PlaceholderCount>,
     uc: bool,
 ) -> Option<String> {
     if subject == "you" && case == PronounCase::Subjective {
@@ -229,6 +236,7 @@ fn inflect_article_custom(
     case: GrammaticalCase,
     class: NounClass,
     as_plural: bool,
+    count: Option<PlaceholderCount>,
     uc: bool,
 ) -> Option<String>
 ```
@@ -245,6 +253,7 @@ fn inflect_article_custom(
 - `class` (`NounClass`): The noun's own lexical gender / noun class, carried by the entity rather
   than inferred from `noun_singular`, or `NounClass::UNSET` when it declares none — see §2.4.
 - `as_plural` (bool): Whether the noun is plural
+- `count` (`Option<PlaceholderCount>`): The placeholder's own `#var`/`$var` numeral, when it has one; `None` for a bare placeholder (ROADMAP.md Phase 6 item 14)
 - `uc` (bool): Whether to uppercase the first character
 
 **Return Values:**
@@ -261,11 +270,16 @@ fn inflect_article_custom(
     _case: GrammaticalCase,
     _class: NounClass,
     as_plural: bool,
+    _count: Option<PlaceholderCount>,
     uc: bool,
 ) -> Option<String> {
     match article {
         "the" => {
-            // Spanish gendered articles: la/el/los/las based on noun ending
+            // DON'T do this: guessing gender from the noun's spelling gets
+            // Spanish's own "-a" ending wrong — "problema"/"sistema"/"idioma"
+            // end in "-a" but are masculine ("el problema", not "la problema").
+            // See §4.3's worked example for the corrected version, which
+            // carries gender on the entity via `class: NounClass` instead.
             let form = if noun_singular.ends_with('a') {
                 if as_plural { "las" } else { "la" }
             } else {
@@ -278,7 +292,14 @@ fn inflect_article_custom(
 }
 ```
 
-**Best Practice:** Examine `noun_singular` for vowel/gender patterns. This parameter is the singularized form of the noun, allowing you to make decisions based on linguistic properties (e.g., French uses "un" for masculine, "une" for feminine). Spanish's own gender doesn't need `case` — its gap is on the pronoun side, not the article side — but a case-declining language's article hook should route on it the same way pronoun hooks already route on `PronounCase`. Where gender itself is what you need, prefer the `class` parameter (§2.4) over inferring it from `noun_singular`'s spelling — the Spanish example above is a spelling heuristic, and it is wrong for `el problema`/`la mano`.
+**Best Practice:** Don't examine `noun_singular` for vowel/gender patterns — the snippet above is
+shown as a cautionary example, not a recommended one; see the callout inside it. Spanish's own
+gender doesn't need `case` — its gap is on the pronoun side, not the article side — but a
+case-declining language's article hook should route on it the same way pronoun hooks already
+route on `PronounCase`. Where gender itself is what you need, use the `class` parameter (§2.4),
+carried explicitly by the entity, exactly as §4.3's worked example and `ranting_es` (this crate's
+Spanish reference lexicon, ROADMAP.md Phase 6 item 23; see `ranting_es/README.md`'s note on
+`SpanishNoun::problema`) both do.
 
 #### 2.3.1 What `GrammaticalCase` Scopes To (ROADMAP.md Phase 6 item 24)
 
@@ -400,6 +421,7 @@ fn inflect_article_custom(
     case: GrammaticalCase,
     class: NounClass,
     as_plural: bool,
+    _count: Option<PlaceholderCount>,
     uc: bool,
 ) -> Option<String> {
     if article != "the" {
@@ -440,6 +462,7 @@ fn inflect_adjective_custom(
     case: GrammaticalCase,    // as §2.3
     class: NounClass,         // as §2.4
     as_plural: bool,
+    count: Option<PlaceholderCount>,   // ROADMAP.md Phase 6 item 14
     uc: bool,
 ) -> Option<String>
 
@@ -472,6 +495,7 @@ fn inflect_adjective_custom(
     _case: GrammaticalCase,
     class: NounClass,
     as_plural: bool,
+    _count: Option<PlaceholderCount>,
     uc: bool,
 ) -> Option<String> {
     let mut form = adjective.to_string();
@@ -628,6 +652,7 @@ fn elide_article_custom(
     case: GrammaticalCase,
     class: NounClass,
     as_plural: bool,
+    count: Option<PlaceholderCount>,   // ROADMAP.md Phase 6 item 14
 ) -> Option<String>         // Some(fused) replaces all three; None keeps them as rendered
 
 fn elide_article_custom_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) -> Option<String>
@@ -648,6 +673,7 @@ noun; elision then rewrites both alike.
 fn elide_article_custom(
     &self, article: &str, _separator: &str, following: &str,
     _case: GrammaticalCase, _class: NounClass, _as_plural: bool,
+    _count: Option<PlaceholderCount>,
 ) -> Option<String> {
     if !self.elides { return None; }          // aspirate h (le héros) declines, per-noun
     match article {
@@ -1238,6 +1264,7 @@ impl Ranting for MyNoun {
         subject: &str,
         verb: &str,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         // Custom verb logic here
@@ -1286,7 +1313,7 @@ impl Ranting for PirateNoun {
         true
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         if to_plural {
             uc_1st_if("pirates", uc)
         } else {
@@ -1303,6 +1330,7 @@ impl Ranting for PirateNoun {
         _subject: &str,
         verb: &str,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         match verb {
@@ -1360,7 +1388,7 @@ impl Ranting for ScottishHighlander {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         if to_plural {
             uc_1st_if("highlanders", uc)
         } else {
@@ -1377,6 +1405,7 @@ impl Ranting for ScottishHighlander {
         _subject: &str,
         verb: &str,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         match verb {
@@ -1389,7 +1418,9 @@ impl Ranting for ScottishHighlander {
         &self,
         subject: &str,
         case: PronounCase,
+        _class: NounClass,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         if subject == "he" && case == PronounCase::Subjective {
@@ -1419,24 +1450,42 @@ fn main() {
 
 ### 4.3 Spanish with Gendered Articles and Verbs
 
-A complete Spanish implementation with both article and verb customization:
+A complete Spanish implementation with both article and verb customization. Gender is declared
+on the entity via `NounClass` (§2.4) — **not** guessed from the noun's spelling. Spanish's own
+`-a` ending is not a reliable feminine signal: `casa`/`mesa`/`mano` are feminine, but the
+Greek-derived `-ma` class — `problema`, `sistema`, `idioma`, `tema`, `clima`, `programa`,
+`planeta` — is masculine (`el problema`, not `la problema`) despite ending in the same letter.
+An `ends_with('a')` heuristic gets that class wrong every time; carrying `class` on the entity
+instead gets it right regardless of spelling. `ranting_es` (this crate's Spanish reference
+lexicon, ROADMAP.md Phase 6 item 23) hits exactly this case for real — see
+`ranting_es/README.md`'s note on `SpanishNoun::problema` and `ranting_es/src/lexicon.rs`.
 
 ```rust
 use ranting::*;
 use std::fmt;
 
 #[derive(Clone, Copy)]
-struct SpanishNoun;
+struct SpanishNoun {
+    singular: &'static str,
+    plural: &'static str,
+    class: NounClass,
+}
+
+impl SpanishNoun {
+    const fn new(singular: &'static str, plural: &'static str, class: &'static str) -> Self {
+        SpanishNoun { singular, plural, class: NounClass::new(class) }
+    }
+}
 
 impl fmt::Display for SpanishNoun {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "cosa")
+        write!(f, "{}", self.singular)
     }
 }
 
 impl Ranting for SpanishNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("cosa", uc)
+        uc_1st_if(self.singular, uc)
     }
 
     fn subjective(&self) -> &str {
@@ -1447,16 +1496,16 @@ impl Ranting for SpanishNoun {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
-        if to_plural {
-            uc_1st_if("cosas", uc)
-        } else {
-            uc_1st_if("cosa", uc)
-        }
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+        uc_1st_if(if to_plural { self.plural } else { self.singular }, uc)
     }
 
     fn skip_article(&self) -> bool {
         false
+    }
+
+    fn noun_class(&self) -> NounClass {
+        self.class
     }
 
     fn inflect_verb_custom(
@@ -1464,6 +1513,7 @@ impl Ranting for SpanishNoun {
         _subject: &str,
         verb: &str,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         match verb {
@@ -1479,18 +1529,21 @@ impl Ranting for SpanishNoun {
     fn inflect_article_custom(
         &self,
         article: &str,
-        noun_singular: &str,
+        _noun_singular: &str,
         _case: GrammaticalCase,
-        _class: NounClass,
+        class: NounClass,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         if article == "the" {
-            // Spanish gendered articles based on noun ending
-            let form = if noun_singular.ends_with('a') {
-                if as_plural { "las" } else { "la" }
-            } else {
-                if as_plural { "los" } else { "el" }
+            // Gender comes from the entity's own declared class — never from
+            // noun_singular's spelling, which "problema" would get wrong.
+            let form = match (class.as_str(), as_plural) {
+                ("feminine", true) => "las",
+                ("feminine", false) => "la",
+                (_, true) => "los",
+                (_, false) => "el",
             };
             return Some(uc_1st_if(form, uc));
         }
@@ -1499,27 +1552,28 @@ impl Ranting for SpanishNoun {
 }
 
 fn main() {
-    let cosa = SpanishNoun;
-    
-    // Article and verb customization working together:
-    let result1 = say!("{the 0 be} hermosa", cosa);
-    // Feminine ending 'a' triggers "la", verb "be" becomes "es"
-    assert_eq!(result1, "La cosa es hermosa".to_string());
-    
-    let result2 = say!("{the +0 be} hermosas", cosa);
-    // Plural form triggers "las"
-    assert_eq!(result2, "Las cosas son hermosas".to_string());
+    let casa = SpanishNoun::new("casa", "casas", "feminine");
+    let problema = SpanishNoun::new("problema", "problemas", "masculine");
+
+    // The regular case: "casa" ends in "-a" and is feminine.
+    assert_eq!(say!("{the 0 be} bonita.", casa), "La casa es bonita.".to_string());
+
+    // The trap a spelling heuristic falls into: "problema" also ends in "-a",
+    // but is masculine. Declaring class on the entity renders it correctly.
+    assert_eq!(say!("{the 0 be} grave.", problema), "El problema es grave.".to_string());
+
+    // Plural agreement still routes off `class`, not off the noun's ending.
+    assert_eq!(
+        say!("{the +0 be} graves.", problema),
+        "Los problemas son graves.".to_string()
+    );
 }
 ```
 
 **Output:**
-- `"{the 0 be} hermosa"` → `"La cosa es hermosa"` (feminine article + Spanish verb)
-- `"{the +0 be} hermosas"` → `"Las cosas son hermosas"` (plural feminine + plural verb)
-
-Note this example predates `NounClass` (§2.4) and still infers gender from the noun's ending —
-a heuristic that gets `el problema` and `la mano` wrong. A `ranting-spanish` written today should
-declare `#[ranting(gender = "feminine")]` (or set it per-`Noun`) and match on the `class`
-parameter instead of on `noun_singular`'s last character.
+- `"{the 0 be} bonita."` → `"La casa es bonita."` (feminine article + Spanish verb)
+- `"{the 0 be} grave."` (on `problema`) → `"El problema es grave."` (masculine, despite the `-a` ending)
+- `"{the +0 be} graves."` (on `problema`) → `"Los problemas son graves."` (plural masculine)
 
 ## Best Practices
 

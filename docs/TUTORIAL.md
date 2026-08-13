@@ -75,6 +75,7 @@ Placeholders in `say!()` use **case markers** to control what form of the pronou
 | `` ` `` | Possessive determiner | `{`jane}` | `my` |
 | `~` | Adjective | `{~jane}` | `my` (same as possessive) |
 | `*` | Display name | `{*jane who have}` | `Jane who have` |
+| `*=`, `*@`, `` *` ``, `*~`, `*%` | Fused: case-marks like the bare marker (a custom `inflect_article_custom` sees the real `GrammaticalCase`), but still displays the noun's name instead of switching to a pronoun | `{the *=noun}` | article rendered case-correctly, noun's name shown |
 
 Tested examples from `tests/ranting/tutorial.rs::section_2_first_say_pronouns`:
 
@@ -173,13 +174,13 @@ say!("When {=avery walk}, she..."); // "When she runs, she..." (mid-sentence)
 A complete placeholder can include articles, plurality markers, and case markers:
 
 ```
-{[,^]?(article)?([+-]|#var)?[`=@~?*]?noun( verb)}
+{[,^]?(article)?([+-]|#var)?(\*[`=@~%]|[`=@~?*])?noun( verb)}
 ```
 
 - **Case modifiers** (optional): `,` (enforce lowercase) or `^` (enforce uppercase).
 - **Article** (optional): `a`, `an`, `some`, `the`, `these`, `those`.
 - **Plurality** (optional): `+` (force plural), `-` (force singular), `$var`/`#var` (numeric-driven).
-- **Case marker** (optional): `` ` `` (possessive), `=` (subject), `@` (object), `~` (adjective), `*` (display name), `?` (hidden).
+- **Case marker** (optional): `` ` `` (possessive), `=` (subject), `@` (object), `~` (adjective), `*` (display name), `?` (hidden); the fused two-character forms `*=`/`*@`/`` *` ``/`*~`/`*%` case-mark the placeholder like the bare marker while still displaying the noun's name.
 - **Noun**: A variable name or positional index.
 - **Verb** (optional): A base verb, optionally prefixed with a tense marker (`<`, `=`, `>`, etc.).
 
