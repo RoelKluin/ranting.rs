@@ -46,11 +46,12 @@ for your own structs/enums; `Box<T>`, `Many<T>`, `Maybe<T>` all forward it
 | `inflect(&self, to_plural: bool, uc: bool) -> String` | singular/plural name form | uses `#[ranting(singular_end, plural_end)]` |
 | `skip_article(&self) -> bool` | whether to omit an article | for proper nouns, uncountables, etc; `#[ranting(no_article = true)]` |
 
-**Defaulted method:**
+**Defaulted methods:**
 
 | Method | Returns | Purpose |
 |---|---|---|
 | `noun_class(&self) -> NounClass` | lexical gender / noun class | `NounClass::UNSET` unless set; `#[ranting(gender = "...")]`, or `self.gender` if `gender = "$"`. See [`NounClass`](#nounclass) |
+| `is_first_person_subject_custom(&self, subject: &str) -> bool` | whether `subject` counts as first-person | defaults to `ranting_core::grammar::is_first_person_subject` (`subject == "I" \|\| subject == "we"`); scopes `say_with!()`'s `NarrationContext.narration_person` viewpoint override (see [Narration context](#narration-context-say_with)) to a fork's own first-person labels, e.g. `ich`/`wir`. See `docs/EXTENSIBILITY.md` §2.10. |
 
 **Customization hooks** (all default to `None`, meaning "fall back to
 built-in English rules"; each `_with_context` variant is what every call site
@@ -327,7 +328,7 @@ All fields are `Option`, builder methods are chainable, and the struct is
 | Type | Variants | Interpreted by the crate? |
 |---|---|---|
 | `Tense` | `Present`, `Past`, `Future`, `PresentContinuous`, `PastContinuous`, `PresentPerfect`, `PastPerfect` | Yes — resolves `<`/`=`/`>`/`<=`/`%`/`<%` markers at runtime. |
-| `Person` | `First`, `Second`, `Third` | Yes, but scoped: only overrides nouns declared first-person (`subject` exactly `"I"`/`"we"`). Third-person rendering always falls back to singular "they" (no gender data on a first-person-declared noun). `we` → `Person::Second` renders "you", same as `I` would — one-way, not round-trippable. |
+| `Person` | `First`, `Second`, `Third` | Yes, but scoped: only overrides nouns declared first-person (default: `subject` exactly `"I"`/`"we"`, overridable per-implementor via `Ranting::is_first_person_subject_custom`). Third-person rendering always falls back to singular "they" (no gender data on a first-person-declared noun). `we` → `Person::Second` renders "you", same as `I` would — one-way, not round-trippable. |
 | `Register` | `Formal`, `Neutral`, `Casual` | No — inert unless a `Ranting` impl reads `ctx.register` from one of the `*_with_context` hooks. `None` means "no override"; `Some(Register::Neutral)` is a distinct, explicit middle value. |
 | `dialect` | `&'static str`, fork-defined | No — same as `register`, purely a hook for custom impls. |
 

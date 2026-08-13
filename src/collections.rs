@@ -144,6 +144,15 @@ impl<T: Ranting> Ranting for Many<T> {
         }
     }
 
+    fn is_first_person_subject_custom(&self, subject: &str) -> bool {
+        // Same one-item rule as `noun_class`: only a one-item `Many` has a single member whose
+        // first-person override can speak for the whole phrase.
+        match self.0.len() {
+            1 => self.0[0].is_first_person_subject_custom(subject),
+            _ => ranting_core::grammar::is_first_person_subject(subject),
+        }
+    }
+
     fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
         // Same rule as `noun_class` above, and for the same reason: only a one-item `Many` has a
         // single member whose orthography can speak for the whole phrase. A multi-item phrase is
@@ -499,6 +508,13 @@ impl<T: Ranting> Ranting for Maybe<T> {
         }
     }
 
+    fn is_first_person_subject_custom(&self, subject: &str) -> bool {
+        match &self.0 {
+            Some(item) => item.is_first_person_subject_custom(subject),
+            None => ranting_core::grammar::is_first_person_subject(subject),
+        }
+    }
+
     fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
         // `Maybe(None)` renders nothing, so there is no orthography to get wrong — but the
         // article path can still reach here with a non-empty word, hence the English default
@@ -743,6 +759,10 @@ impl<T: Ranting> Ranting for Box<T> {
 
     fn noun_class(&self) -> NounClass {
         (**self).noun_class()
+    }
+
+    fn is_first_person_subject_custom(&self, subject: &str) -> bool {
+        (**self).is_first_person_subject_custom(subject)
     }
 
     fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {

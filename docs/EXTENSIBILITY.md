@@ -703,6 +703,40 @@ alternative count to offer, and `Maybe(None)` has none at all — so both keep f
 `count` they were handed, `None` included. `tests/ranting/many_count.rs` is the runnable version,
 covering empty, single-item and multi-item `Many`.
 
+### 2.10 First-Person Narration Viewpoint: `is_first_person_subject_custom()` (v1.3, ROADMAP.md Phase 6 item 16)
+
+`say_with!()`'s `NarrationContext.narration_person` override (§2.0, and the README's Gender-Neutral
+Pronouns / narration sections) only retells a noun declared first-person — the narrator or
+narrator-group — into second or third person. Whether a given `subject` label counts as
+first-person used to be a hard-coded `matches!(subject, "I" | "we")` in
+`ranting_core::grammar::is_first_person_subject`, with no way for a fork to widen it. A fork whose
+first-person labels are `ich`/`wir`, `je`/`nous`, etc. got a silent no-op: `narration_person` was
+set, but `resolve_viewpoint` never recognized the noun as first-person, so nothing changed.
+
+`is_first_person_subject_custom(&self, subject: &str) -> bool` closes that gap. It defaults to
+exactly the old hard-coded check (`ranting_core::grammar::is_first_person_subject`), so English
+output — and every implementation that doesn't override it — is unaffected. A fork overrides it to
+recognize its own first-person labels:
+
+```rust
+impl Ranting for GermanNarrator {
+    // ... required methods ...
+
+    fn is_first_person_subject_custom(&self, subject: &str) -> bool {
+        matches!(subject, "ich" | "wir")
+    }
+}
+```
+
+With that override in place, `say_with!(ctx, ...)` with `ctx.narration_person = Some(Person::Third)`
+retells a `subject = "ich"` narrator the same way it retells an English `subject = "I"` one — the
+rendered pronoun itself is still the crate's fixed `"you"`/`"they"` (§2.0's "no gender data on a
+first-person-declared noun" caveat applies here too), only *whether the override fires at all* is
+what the hook controls. `subject` is passed as a parameter rather than read off `self.subjective()`
+for the same reason `inflect_verb_custom` does: `Many`/`Maybe`/`Box` delegate this hook to an inner
+value the same way they delegate `noun_class()`, and it's the caller, not the callee, that decides
+which entity's declared subject is in play. See `tests/ranting/first_person_hook.rs`.
+
 ## Partial Customization
 
 You don't need to implement every `_custom` method. If you only need verb customization, implement `inflect_verb_custom()` and leave the rest as default (returning `None`). The trait provides a default for all of them:
