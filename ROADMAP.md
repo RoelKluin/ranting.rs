@@ -1538,7 +1538,7 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      should report its `len()` as the count when a placeholder has no numeral,
      the only path to categorial number without a grammar change.
 
-5. **Adjective-agreement runtime hook** (10-14 hours)
+5. ✅ **Adjective-agreement runtime hook** (10-14 hours)
    - Degree (`!`/`!!`, Phase 3 item 6) is baked entirely at compile time in
      `ranting_derive/src/language/adjective.rs`; `ranting` has no runtime
      adjective path at all. Romance and Germanic adjectives agree with their
@@ -1557,6 +1557,74 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      to the other six `_custom` hooks in this same change, so Phase 6 breaks
      hook signatures once rather than twice. Read that spec before fixing this
      hook's signature.
+   - ✅ **COMPLETE 2026-08-13** — `Ranting::inflect_adjective_custom`/
+     `_with_context`, taking the adjective *as written* plus `AdjectiveDegree`,
+     `GrammaticalCase`, `NounClass`, `as_plural` and `uc` (and `ctx` on the
+     `_with_context` twin), called from `handle_placeholder_impl`'s
+     `PostSpec::Degree` arm ahead of the compile-time-baked degree form. 301
+     integration tests + 14 doctests + 39 unit tests pass under both
+     `cargo test` and `cargo test --all-features` (293 + 14 + 39 before; 8 new
+     tests in `tests/ranting/adjective_agreement.rs`), every pre-existing
+     assertion byte-identical — including all of
+     `tests/ranting/comparative_adjectives.rs`, which is the English-unchanged
+     canary. `cargo clippy --all-targets --all-features -D warnings` is clean,
+     as is `ranting_derive`'s standalone clippy.
+   - **The base adjective had to be baked, and wasn't before.**
+     `PostSpec::Degree` carried only `word`, the resolved English form
+     (`!good` → `"better"`, `!noir` → `"noirer"`), which is not reversible back
+     into what the template wrote. Recovering `"noir"` from `"noirer"` would be
+     exactly the string-sniffing item 4's spike named as the bug rather than
+     the fix, so `PostSpec::Degree` gained `base: &'static str` and
+     `degree: DegreeKind` alongside `word`. Precedent cited in the type's own
+     docs: `say_with!()` already bakes the *uninflected base verb* into
+     `PostSpec::Tense` for the same reason. `PostSpec` is `ranting_core`, i.e.
+     not public semver surface, so this cost nothing outside the repo.
+   - **Follows item 1's reference pattern, including the mirror `NounClass`
+     skipped**: `AdjectiveDegree` (public, in `ranting`) mirrors
+     `ranting_core::placeholder::DegreeKind` via `From`, because unlike a noun
+     class the degree marker *is* written in the placeholder and so does exist
+     at the macro↔runtime seam. Parameter on the `_custom` hook and its
+     `_with_context` twin, threaded from `handle_placeholder_impl`, delegated
+     by `Many`/`Maybe`/`Box` (`src/collections.rs`) on the same
+     exactly-one-item rule as every other hook, worked example in a real
+     language under `tests/ranting/`. `_with_context` carries
+     `#[allow(clippy::too_many_arguments)]`, matching item 2's flat-args
+     choice for public hooks.
+   - **Additivity**: the hook defaults to `None` and English never consults it,
+     so `say!()` output is unchanged by construction — the fallback path still
+     emits `word` with the same uppercase-first-character pass it always did.
+     `uc` is passed *in* to a custom form (which applies `uc_1st_if` itself),
+     mirroring the article and pronoun hooks. Generated code is untouched
+     except for the two extra baked fields.
+   - **Known limitation, recorded rather than fixed: `!` is the only adjective
+     slot.** The grammar has no positive-degree marker — an unmarked post-noun
+     word is parsed as a *verb* (and `PostSpec::Verb` is deliberately not
+     routed to this hook, since a real verb through an adjective hook would
+     break English), and an adjective outside the placeholder is literal text
+     no hook can reach. So the French worked example writes `{a 0 !noir}` for a
+     plain agreeing adjective and ignores `degree`; there is no
+     `AdjectiveDegree::Positive` because no marker could produce one. Adding a
+     positive-degree marker would add grammar surface for every English user to
+     serve one construction — the shape of point fix item 1 rejected for the
+     German second verb position. Also unchanged by this item, per item 1:
+     agreement gives the right *form*, never movement, so Romance
+     post-nominal/prenominal adjective placement stays with the caller's
+     template.
+   - **Deviation from this item's own text, deliberately: item 4's count
+     parameter did *not* land here.** The hook takes `as_plural: bool` alone,
+     and the other six `_custom` hooks are untouched. Reasons: the count is not
+     recoverable at the call site (`nr` is already a formatted `String` — item
+     4's spike says so explicitly), so threading it requires baking the numeric
+     value through `handle_placeholder`, a `#[doc(hidden)] pub` function
+     *generated code names* — a lockstep macro↔runtime change, plus a new
+     public count type, plus ~24 wrapper delegations and every hook-overriding
+     test file. That is a larger change than item 5 itself and independent of
+     adjective agreement. **Consequence, stated plainly: Phase 6 will pay a
+     second hook-signature break** when the count lands (as its own item, or
+     folded into item 6/7/8 — item 8 needs it either way, see that item's
+     prerequisite note). The v1.3 success criterion naming "number" is
+     deliberately *not* reworded: nothing here narrows it, and the count
+     channel item 4 recommends remains the way to satisfy it.
 
 6. **Orthography & capitalization hook** (8-12 hours)
    - `uc_1st_if`, the sentence-start-uppercase default, the `,`/`^` markers, and

@@ -125,6 +125,22 @@ impl TenseMarker {
     }
 }
 
+/// Which degree marker was written on a post-noun adjective (`!` or `!!`).
+///
+/// `ranting_derive` resolves the English degree form at compile time
+/// regardless, but a non-English implementation needs to know *which* degree
+/// was asked for -- French picks between `noir`, `plus noir` and `le plus
+/// noir` -- so the marker is baked alongside the resolved word rather than
+/// being consumed by it. Mirrored into the public
+/// `ranting::AdjectiveDegree` for the `inflect_adjective_custom` hook.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DegreeKind {
+    /// `!` -- comparative ("better", "more careful").
+    Comparative,
+    /// `!!` -- superlative ("best", "most careful").
+    Superlative,
+}
+
 /// What (if anything) follows the noun, and how to render it. Replaces the
 /// old `~TENSE~`/`~DEGREE~` string sentinels folded into the `post` slot of
 /// `caps: [&str; 5]`.
@@ -151,11 +167,22 @@ pub enum PostSpec {
         word: &'static str,
         trailing: &'static str,
     },
-    /// A comparative/superlative degree word (`!`/`!!`), already fully
-    /// resolved at compile time in `word` -- no subject/number/tense
-    /// agreement applies to it. `trailing` is any words after it.
+    /// A comparative/superlative degree word (`!`/`!!`). `word` is the
+    /// English degree form, already fully resolved at compile time -- no
+    /// subject/number/tense agreement applies to it *in English*.
+    /// `trailing` is any words after it.
+    ///
+    /// `base` is the adjective exactly as written in the placeholder and
+    /// `degree` the marker that was written on it, both kept because
+    /// English's resolved `word` is not recoverable back into them and a
+    /// language whose adjectives agree with their noun (gender, number,
+    /// case) has to inflect the base itself. Same shape and same reason as
+    /// `say_with!()` baking the uninflected base verb into
+    /// [`PostSpec::Tense`]: bake what runtime cannot re-derive.
     Degree {
         leading_space: &'static str,
+        base: &'static str,
+        degree: DegreeKind,
         word: &'static str,
         trailing: &'static str,
     },

@@ -1,4 +1,5 @@
 mod ack_nay_expression;
+mod adjective_agreement;
 mod argument_edge_cases;
 mod argument_parsing;
 mod article_classification;
