@@ -499,32 +499,47 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
      `PostSpec::Tense { word, trailing, .. }` renders `word` then
      `" " + trailing` directly, matching the (already-correct)
      `PostSpec::Degree` handling, with no split involved.
-   - ⚠️ **Deferred**: moving `get_article_or_so`'s article-keyword
-     classification (`"the"` / `"a" | "an" | "some"` / `"these" | "those"`)
-     to compile time was scoped out after closer reading. Unlike the
-     `~TENSE~`/`~DEGREE~` sentinels — pure syntactic encodings the macro
-     fully determines from the template text alone, with zero runtime
-     dependency — the `pre` capture group's grammar is substantially
-     broader (verb keywords, contractions like `haven't`, an embedded
-     backtick possessive substituted at runtime from another noun's
-     declension). The actual blocker is the second, *chained* call to
-     `get_article_or_so(noun, s, ...)` inside the `etc1` sub-parse (`{a set
-     of $ten are}`-style placeholders, `src/lib.rs`'s "if !etc1.is_empty()"
-     branch): the `s` tested there is split out of `etc1`, which is itself
-     derived from `pre` only *after* the runtime backtick-possessive
-     substitution (`pre.replace('`', poss.as_str())`) — so that second
-     classification genuinely isn't known at compile time, unlike the first
-     word tested against `noun.skip_article()`, which gates *whether* an
-     article renders at all but not *which keyword* it is and so isn't
-     itself a blocker. Reclassifying only the always-compile-time-knowable
-     first-word case while leaving the chained one as a runtime string match
-     would split one function's logic across two representations for a
-     partial win; treated as not worth doing half of this without a fuller
-     look at `etc1`'s chained-article feature, so it was left as future work
-     rather than risking a subtle behavior change here. `PlaceholderSpec::pre`
-     stays `&'static str` and `get_article_or_so`'s string matching is
-     otherwise untouched. Flagged this explicitly rather than silently
-     narrowing the item's scope.
+   - ✅ **Fixed 2026-08-13** (originally deferred here, then revisited):
+     `get_article_or_so`'s article-keyword classification (`"the"` /
+     `"a" | "an" | "some"` / `"these" | "those"`) is now a typed
+     `ranting_core::placeholder::ArticleKind`, baked at compile time by
+     `ranting_derive`, mirroring the `PostSpec`/`CaseKind` treatment above.
+     **The original deferral's stated blocker was wrong.** It named the
+     second, *chained* `get_article_or_so(noun, s, ...)` call inside the
+     `etc1` sub-parse as the problem, reasoning that `etc1` is "derived from
+     `pre` only after the runtime backtick-possessive substitution." Tracing
+     the actual control flow shows the opposite: that chained call lives
+     inside the branch reached only when `has_possesive` (`pre_raw.contains('`')`)
+     is `false` — meaning no backtick exists *anywhere* in `pre_raw` — so
+     `pre.replace('`', poss.as_str())` is provably a no-op on every path that
+     reaches it, and `etc1`/`s` are always compile-time-literal there. The
+     part that *can* see runtime text is actually the **first** call
+     (`pre`'s first word) when a `` ` `` possessive-substitution sentinel
+     falls within it — but that's also provably safe to classify at compile
+     time, because a possessive determiner/`Name's` form (the only thing
+     that substitution ever produces) can never coincide with a real article
+     keyword, so `ArticleKind::Other` is always correct for it without
+     inspecting the actual runtime string.
+     `ArticleKind::classify` (`ranting_core/src/placeholder.rs`) is the
+     canonical reference implementation (unit-tested, including the
+     case-sensitivity asymmetry between the two call sites: the first is
+     lowercased before classifying, the second isn't — preserved exactly).
+     `ranting_derive`'s `handle_param` bakes `PlaceholderSpec::pre_kind`/
+     `pre_chained_kind` by replicating `handle_placeholder_impl`'s own
+     `pre`/`etc1` splitting at compile time (reusing the same
+     `split_at_find_start` helper already duplicated in that file), not by
+     calling `ArticleKind::classify` itself (same pattern as `CaseKind`'s/
+     `TenseMarker`'s own local `match`es — proc-macro build code just needs
+     to emit the right `quote!` tokens, not call a `const fn`).
+     `get_article_or_so` still owns the runtime-only parts unaffected by
+     this — `Ranting::skip_article()`, the `inflect_article_custom_with_context`
+     hook, and a/an/singular-vs-plural rendering. Two new permanent
+     regression tests pin the behavior this was traced against:
+     `tests/ranting/article_classification.rs`'s `chained_article_after_modal`
+     (exercises the second call site directly — no prior test did) and
+     `combined_verb_and_backtick_possessive` (the doctest-derived
+     `` {can `man pair of #0 boots remain} `` case the original deferral
+     worried about).
    - **The overloaded `=` marker, disambiguated**: `=` means "subjective
      pronoun case" before the noun and "continuous tense" after it. Before
      this item, both were bare `&str`s (`case: "="` vs. `post:

@@ -161,6 +161,131 @@ pub enum PostSpec {
     },
 }
 
+/// Which article keyword (if any) a word in the `pre` slot represents --
+/// `ranting::get_article_or_so`'s runtime `match article_form { "the" =>
+/// .., "a" | "an" | "some" => .., "these" | "those" => .., _ => None }`,
+/// moved to a typed compile-time classification.
+///
+/// This does *not* replace `get_article_or_so`'s runtime behavior: the
+/// `Ranting::skip_article()` gate, the `inflect_article_custom_with_context`
+/// hook, and `a`-vs-`an`/singular-vs-plural rendering are all still
+/// per-noun-instance runtime decisions. Only the "which keyword is this"
+/// dispatch -- previously a runtime string match -- is decided here.
+///
+/// ROADMAP.md's `get_article_or_so` fixability note has the full proof, but
+/// in short: `pre`'s first word can be classified from the placeholder's
+/// literal template text alone in every case, including the one case where
+/// it looks like it can't --  a `` ` `` possessive-substitution sentinel
+/// embedded in that first word means the actual runtime text is a
+/// possessive determiner or `Name's` form, but that vocabulary can never
+/// coincide with a real article keyword, so `Other` is always correct for
+/// it. The second, "chained" classification (`pre`'s second word, used only
+/// when the first word turned out not to be an article) is reached *only*
+/// when `pre` has no `` ` `` sentinel anywhere -- see
+/// [`PlaceholderSpec::pre_chained_kind`] -- at which point it's a plain
+/// compile-time-literal substring too.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArticleKind {
+    /// `the`.
+    The,
+    /// `a`, `an`, or `some`.
+    AAnSome,
+    /// `these` or `those`.
+    TheseThose,
+    /// Not a recognized article keyword -- render as a verb, or (for a
+    /// possessive-substituted word) as the runtime-substituted text as-is.
+    Other,
+}
+
+impl ArticleKind {
+    /// Classifies `word` (with or without a leading `!` emphasis marker,
+    /// exactly as `ranting::get_article_or_so` receives it) the same way
+    /// its runtime `match` used to. `ranting_derive` doesn't call this
+    /// directly (see `CaseKind`/`TenseMarker`'s own `from_marker` for why:
+    /// it does the equivalent match itself, at proc-macro build time, to
+    /// emit `quote!` tokens naming the variant) -- kept as the canonical,
+    /// tested reference implementation the macro's copy is checked against.
+    pub const fn classify(word: &str) -> Self {
+        let bytes = word.as_bytes();
+        let mut i = 0;
+        while i < bytes.len() {
+            if bytes[i] == b'`' {
+                // A possessive-substitution sentinel: the real runtime text
+                // is a possessive determiner/`Name's` form, never a real
+                // article keyword -- see this type's doc comment.
+                return ArticleKind::Other;
+            }
+            i += 1;
+        }
+        // trim_start_matches('!'), byte-wise, to stay a const fn.
+        let mut start = 0;
+        while start < bytes.len() && bytes[start] == b'!' {
+            start += 1;
+        }
+        let article_form = bytes.split_at(start).1;
+        match article_form {
+            b"the" => ArticleKind::The,
+            b"a" | b"an" | b"some" => ArticleKind::AAnSome,
+            b"these" | b"those" => ArticleKind::TheseThose,
+            _ => ArticleKind::Other,
+        }
+    }
+}
+
+#[cfg(test)]
+mod article_kind_tests {
+    use super::ArticleKind;
+
+    #[test]
+    fn classifies_the() {
+        assert_eq!(ArticleKind::classify("the"), ArticleKind::The);
+    }
+
+    #[test]
+    fn classifies_a_an_some() {
+        assert_eq!(ArticleKind::classify("a"), ArticleKind::AAnSome);
+        assert_eq!(ArticleKind::classify("an"), ArticleKind::AAnSome);
+        assert_eq!(ArticleKind::classify("some"), ArticleKind::AAnSome);
+    }
+
+    #[test]
+    fn classifies_these_those() {
+        assert_eq!(ArticleKind::classify("these"), ArticleKind::TheseThose);
+        assert_eq!(ArticleKind::classify("those"), ArticleKind::TheseThose);
+    }
+
+    #[test]
+    fn classifies_non_keyword_as_other() {
+        assert_eq!(ArticleKind::classify("can"), ArticleKind::Other);
+        assert_eq!(ArticleKind::classify(""), ArticleKind::Other);
+    }
+
+    #[test]
+    fn strips_leading_bang_before_classifying() {
+        assert_eq!(ArticleKind::classify("!the"), ArticleKind::The);
+        assert_eq!(ArticleKind::classify("!these"), ArticleKind::TheseThose);
+    }
+
+    #[test]
+    fn is_case_sensitive() {
+        // Matches get_article_or_so's literal `match` -- callers that need
+        // case-insensitivity (call site 1 in handle_placeholder_impl)
+        // lowercase before calling, exactly as they did before this type
+        // existed.
+        assert_eq!(ArticleKind::classify("The"), ArticleKind::Other);
+        assert_eq!(ArticleKind::classify("THE"), ArticleKind::Other);
+    }
+
+    #[test]
+    fn possessive_sentinel_always_classifies_other() {
+        // A `` ` `` anywhere in the word means its real runtime content is
+        // a possessive-substituted string, which can never coincide with a
+        // real article keyword -- see this module's fixability note.
+        assert_eq!(ArticleKind::classify("`"), ArticleKind::Other);
+        assert_eq!(ArticleKind::classify("a`"), ArticleKind::Other);
+    }
+}
+
 /// Everything `handle_placeholder`/`handle_placeholder_with_context` need to
 /// know about one `say!()`/`say_with!()` placeholder, baked as a
 /// compile-time-constant literal by `ranting_derive` from the parsed
@@ -171,12 +296,24 @@ pub struct PlaceholderSpec {
     /// Literal text before the noun (an article word, verb/auxiliary text,
     /// or a possessive backtick placeholder later substituted at runtime
     /// with another noun's possessive form). Still free text: articles and
-    /// verbs occurring here are open-ended natural-language words, and
-    /// (unlike the `post` sentinel encodings) the runtime's
-    /// article-vs-verb-vs-possessive dispatch for this slot depends on
-    /// state only known at runtime (`Ranting::skip_article()`), not purely
-    /// on the template text -- see `ranting::get_article_or_so`.
+    /// verbs occurring here are open-ended natural-language words, and the
+    /// runtime's article-vs-verb-vs-possessive dispatch for this slot
+    /// depends on state only known at runtime (`Ranting::skip_article()`,
+    /// custom inflection hooks) -- see `ranting::get_article_or_so`. Which
+    /// article *keyword* a word represents, though, is now precomputed --
+    /// see `pre_kind`/`pre_chained_kind`.
     pub pre: &'static str,
+    /// Compile-time classification of `pre`'s first word (lowercased, as
+    /// `ranting::get_article_or_so`'s first call site does before
+    /// classifying).
+    pub pre_kind: ArticleKind,
+    /// Compile-time classification of `pre`'s second word -- used only when
+    /// `pre_kind` is `Other` and `pre` has no `` ` `` possessive sentinel
+    /// (that combination is the only one where `ranting::get_article_or_so`
+    /// is called a second time). *Not* lowercased first, matching the
+    /// case-sensitive second call site; when the second call is never
+    /// reached this is unobserved and its value doesn't matter.
+    pub pre_chained_kind: ArticleKind,
     pub plurality: &'static str,
     pub noun_space: &'static str,
     pub case: CaseKind,
