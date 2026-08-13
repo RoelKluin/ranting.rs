@@ -681,6 +681,28 @@ and the argument's own `Display` for `$var`.
 **Wrappers.** `Box<T>` forwards to its inner value; `Many` forwards only when it holds exactly one
 item, as in §2.4/§2.6/§2.7; `Maybe(Some(x))` forwards to `x`, `Maybe(None)` declines.
 
+### 2.9 `Many` Supplying Its Own Length as the Count (v1.3, ROADMAP.md Phase 6 item 15)
+
+`inflect_verb_custom`, `inflect_pronoun_custom`, `inflect_article_custom`,
+`elide_article_custom` and `inflect_adjective_custom` (and their five `_with_context` twins) each
+take a `count: Option<PlaceholderCount>` parameter (item 14) sourced from the placeholder's own
+`#var`/`$var` marker — `None` for a bare placeholder (`` {noun} ``, `` {+noun} ``, `` {-noun} ``).
+`Many<T>` (`src/collections.rs`) is the one wrapper that genuinely knows a count with no numeral
+in sight: its own `Vec`'s length. When `Many` delegates one of these five hook pairs to its single
+item (the `len() == 1` case — see §2.4/§2.6/§2.7's wrapper notes), it substitutes its own length
+for a `None` count before forwarding, so a fork's hook sees `Some(PlaceholderCount { value: 1, .. })`
+even though the placeholder carried no numeral at all. If the placeholder *did* carry a numeral,
+that value is left untouched — `Many` only fills in the gap, never overrides an explicit count.
+
+This does not extend to `Many` holding zero or 2+ items: those arms have no single item to
+delegate a hook call to in the first place (`tests/ranting/elision.rs`'s
+`many_with_two_items_does_not_elide` pins that a 2+ item `Many` keeps the English default
+rendering untouched), so there is no hook invocation for a substituted count to accompany. `Maybe`
+and `Box` are unaffected — `Maybe(Some(x))`/`Box<T>` always hold exactly one value with no
+alternative count to offer, and `Maybe(None)` has none at all — so both keep forwarding whatever
+`count` they were handed, `None` included. `tests/ranting/many_count.rs` is the runnable version,
+covering empty, single-item and multi-item `Many`.
+
 ## Partial Customization
 
 You don't need to implement every `_custom` method. If you only need verb customization, implement `inflect_verb_custom()` and leave the rest as default (returning `None`). The trait provides a default for all of them:

@@ -2264,8 +2264,41 @@ because it exercises everything before it.*
       itself: dative plural `den Hunden`, genitive `des Hauses`). Both are
       breaking changes to hook signatures — do them together, not twice.
 
-15. **`Many` exposes its length as the placeholder count** (4-6 hours) —
+✅ 15. **`Many` exposes its length as the placeholder count** (4-6 hours) —
     open question 3 of the number-categories spec; depends on item 14.
+    - ✅ `Many<T>` (`src/collections.rs`) is the one wrapper that genuinely knows
+      a count with no numeral in the placeholder at all — its own `Vec`'s
+      length — so its `own_count()` helper substitutes
+      `count.or_else(|| self.own_count())` before delegating each of the five
+      count-carrying hook pairs (`inflect_verb_custom`, `inflect_pronoun_custom`,
+      `inflect_article_custom`, `elide_article_custom`, `inflect_adjective_custom`,
+      and their `_with_context` twins) to its single item. An explicit
+      placeholder numeral is left untouched — `Many` only fills in a `None`,
+      never overrides a `Some`.
+    - ✅ Scoped to the pre-existing `len() == 1` delegation arm only, per the
+      spec's own framing ("cheap... not blocking") and confirmed against
+      `tests/ranting/elision.rs`'s `many_with_two_items_does_not_elide`: a
+      `Many` holding zero or 2+ items has no single item to delegate a hook
+      call to at all, so there is no hook invocation for a substituted count
+      to accompany, and that test's pinned "keeps the English default"
+      behavior for 2+ items is unchanged.
+    - ✅ `Maybe`/`Box` deliberately left untouched, as scoped: each holds at
+      most one value with no alternative count to offer (`Maybe(None)` has
+      none at all), so both keep forwarding whatever `count` the placeholder
+      itself supplied, `None` included.
+    - ✅ `as_plural: bool` behavior of `Many`/`Maybe`/`Box` is unchanged for
+      all three — this item only affects what `count` a hook receives, never
+      `is_plural()`/`inflect()`/the plurality bool computed at
+      `handle_placeholder_impl`.
+    - ✅ New `tests/ranting/many_count.rs`: a `CountProbe` type whose
+      `inflect_verb_custom` renders the `count` it was handed, covering an
+      empty `Many` (no hook call, English default), a single-item `Many`
+      (`count: Some(1)` where a bare placeholder used to hand `None`), a
+      2+-item `Many` (no hook call, unchanged), and an explicit-numeral
+      placeholder on a single-item `Many` (the placeholder's own count wins
+      over `Many`'s length).
+    - ✅ Documented in `docs/EXTENSIBILITY.md` §2.9 and a new CLAUDE.md
+      "Non-obvious behaviors" bullet.
 
 16. **`is_first_person_subject` as an overridable hook** (6-8 hours) — open
     question 1 of the pronoun-inventory spec, which calls it the one named gap
