@@ -62,6 +62,18 @@ else
   echo "[dry-run] would create branch $BRANCH"
 fi
 
+# Pre-flight: if the gate itself is already broken on the starting commit,
+# every task below is unwinnable regardless of what it changes -- fail fast
+# instead of burning the whole run stashing 12 doomed attempts.
+if [[ "$DRY_RUN" -eq 0 ]]; then
+  echo "=== Pre-flight gate check ===" | tee -a "$LOG_FILE"
+  if ! { cargo fmt --check && cargo clippy -- -D warnings && cargo test; } >>"$LOG_FILE" 2>&1; then
+    echo "Pre-flight gate failed on the starting commit -- fix that first, then rerun." | tee -a "$LOG_FILE" >&2
+    echo "See $LOG_FILE for details." >&2
+    exit 1
+  fi
+fi
+
 n_done=0
 n_failed=0
 task_count=0
