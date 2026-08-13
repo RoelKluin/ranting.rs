@@ -54,6 +54,7 @@ don't already offer. See "Holes that do not reproduce here" below.
 | `un gato` / `una casa` / `dos gatos` / `doce casas`, `1` agreeing like the indefinite article (including the euphonic `un agua`) | `inflect_numeral_custom` |
 | `él`/`ella`/`ellos`/`ellas` (subject), `lo`/`la`/`los`/`las` (object), `su`/`suyo` (possessive), `se` (reflexive) | `inflect_pronoun_custom` |
 | `¿El gato es negro?` — sentence-initial capitalization triggered by the *opening* `¿` | already closed in `ranting_core` (ROADMAP.md Phase 6 item 17); this crate just exercises it in real Spanish |
+| `del gato`, `al gato` — preposition fused with the masculine article that follows it | `inflect_preposition_custom` (see hole 1, closed) |
 
 Two things are worth calling out because they answer questions item 23 asked directly. `NounClass`
 does what it promised even against Spanish's sharpest gender trap: `problema` ends in `-a`, like
@@ -108,24 +109,34 @@ missed.
 
 ## The holes
 
-### 1. Preposition-article fusion (`de`+`el`→`del`, `a`+`el`→`al`) is unreachable
-*Belongs to: Phase 6 item 7.*
+### 1. ✅ Closed — preposition-article fusion (`de`+`el`→`del`, `a`+`el`→`al`)
+*Belongs to: Phase 6 item 7; closed by Phase 6 item 26.*
 
 Spanish contracts exactly two preposition+article pairs: `de` + `el` → `del`, `a` + `el` → `al`
 (never `de`/`a` + `la`/`los`/`las`, which don't contract). `elide_article_custom` runs *after* the
 article inside a placeholder has been rendered — designed for French `le` + `homme` → `l'homme` —
-but `de`/`a` here are template literal text written *before* the placeholder even starts, so the
-hook never receives them: this is the identical structural gap `ranting_i18n`'s README records as
-its own hole 7, restated for Spanish's own contraction pair. `tests/holes.rs`'s `hole_1_*` pins
-both `"Vengo de el gato."` (Spanish wants `"Vengo del gato."`) and `"Voy a el gato."` (wants
-`"Voy al gato."`), and confirms it isn't a hidden gender quirk: `de la casa` is already correct
-Spanish, no fusion needed.
+but `de`/`a` here are template literal text written *before* the placeholder even starts, so that
+hook could never receive them: the identical structural gap `ranting_i18n`'s README recorded as its
+own hole 7, restated for Spanish's own contraction pair. This was the *only* hole this crate's
+independent Spanish lexicon hit at all — every other gap German found either doesn't reproduce in
+Spanish's grammar (see "Holes that do not reproduce here" below) or was never a hole here to begin
+with.
 
-The escape hatch of writing the preposition *inside* the placeholder, where a hook could see it,
-does not exist either — `say!("{de the *=0}", gato)` is a compile error ("expected article or
-verb"), the same pre-noun-slot restriction `ranting_i18n`'s hole 7 documents. Not attempted as a
-runtime test for the same reason `ranting_i18n`'s doesn't: it would break the whole crate's build
-rather than fail one test.
+What closed it: `docs/superpowers/specs/2026-08-13-preposition-fusion.md`'s option (b), a dedicated
+hook fed the literal word immediately before a placeholder — `ranting_derive::parse_str_params`
+now captures it instead of discarding it, bakes it into `PlaceholderSpec::preposition`, and
+`Ranting::inflect_preposition_custom` receives it alongside the rendered article, at the same
+post-assembly point `elide_article_custom` runs at. `SpanishNoun::inflect_preposition_custom`
+(`src/noun.rs`) answers exactly Spanish's two pairs and declines otherwise — `del`/`al` for
+masculine `el`, `de la`/`a la`/`de los`/`a los`/`de las`/`a las` left alone, since none of those
+contract. `tests/holes.rs`'s `hole_1_*` now pins `"Vengo del gato."` and `"Voy al gato."` instead
+of the previous unfused forms.
+
+The escape hatch of writing the preposition *inside* the placeholder, where an existing hook could
+see it, still does not exist — `say!("{de the *=0}", gato)` is still a compile error ("expected
+article or verb"), the same pre-noun-slot restriction `ranting_i18n`'s hole 7 documents. Item 26
+did not touch the pre-noun grammar; it added a separate channel that never needed the preposition
+to be inside the placeholder at all.
 
 ## Also observed, not holes
 

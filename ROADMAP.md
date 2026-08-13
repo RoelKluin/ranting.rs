@@ -2794,6 +2794,78 @@ because it exercises everything before it.*
       are unaffected (doc-only diff) but were run at the repo root and in
       `ranting_core`, `ranting_derive`, `ranting_i18n` and `ranting_es` to
       confirm the working tree was green before and after.
+    - **Picked up by item 26**, which implements option (b) exactly as named
+      here and closes both holes this item left open.
+
+26. ✅ **Preposition-article fusion: the `inflect_preposition_custom` hook**
+    (12-20 hours) — item 25's option (b), picked up because its own trigger
+    ("two independent fork languages hit exactly this gap with nothing else
+    standing in their way") had already fired; see
+    `docs/superpowers/specs/2026-08-13-preposition-fusion.md`.
+    - ✅ **COMPLETE 2026-08-13** — `ranting_core::grammar::PH_START`'s `pre`
+      capture gained one more alternative, a single literal word plus its
+      trailing whitespace immediately before a placeholder (`\w[\w'-]*\s+`);
+      `ranting_derive::parse_str_params` forwards the matched text instead of
+      collapsing it to a bool the way it already does for
+      `at_sentence_start`, and bakes it into a new
+      `ranting_core::placeholder::PlaceholderSpec::preposition:
+      Option<&'static str>` field rather than re-emitting it as inert
+      literal format-string text.
+    - ✅ New hook pair on `Ranting`, `inflect_preposition_custom`/
+      `_with_context(preposition: &str, article: &str, case: GrammaticalCase,
+      class: NounClass, as_plural: bool, count: Option<PlaceholderCount>, uc:
+      bool) -> Option<String>` — the ninth hook pair by
+      `docs/superpowers/specs/2026-08-13-number-categories.md`'s count (the
+      `count` parameter that spike recommended landing with item 5 is still
+      owed separately; this hook was designed with one from the start rather
+      than adding to that debt). Called in `handle_placeholder_impl` at the
+      same post-assembly point as `elide_article_custom`, tried first: on
+      `Some`, it consumes both the rendered preposition and the article
+      (reconstructing everything rendered after the article, since — unlike
+      `elide_article_custom`'s `following` parameter — this hook isn't handed
+      the tail to rebuild itself) and `elide_article_custom` is skipped for
+      that placeholder; on `None`, the preposition renders exactly as
+      written and `elide_article_custom` still gets its normal, unaffected
+      chance, so English output is byte-identical either way. Only fires
+      when the preposition is directly adjacent to the article (nothing
+      rendered in between, e.g. no pre-noun verb) — the adjacent case is all
+      the hook's two-token signature can sensibly answer.
+    - ✅ Found and fixed a latent regex-engine quirk while widening
+      `PH_START`: this crate's `regex` version does not treat `X?+` as a
+      possessive single-optional the way PCRE's does — empirically it
+      behaves as `(X?)+`, i.e. repeatable — which was harmless for every
+      pre-existing branch (each can match at most once in practice) but
+      would have silently chained the new word branch across *every*
+      preceding word (`"Vengo de "` instead of just `"de "`) had `pre`'s
+      outer group been left as `?+`. Changed to a plain `?` for that group;
+      pinned by a regression test in `ranting_core/src/grammar.rs`.
+    - ✅ `Many`/`Maybe`/`Box` (`src/collections.rs`) all delegate the new
+      pair, following the exact rule every other `_custom` hook pair with a
+      `count` parameter already does — `Many` substitutes its own length
+      only at `len() == 1`.
+    - ✅ Closed both holes item 25 left open: `ranting_i18n::GermanNoun`
+      answers `zum`/`beim`/`vom`/`im`/`ins`/`am`/`ans`
+      (`ranting_i18n/README.md` hole 7, `tests/holes.rs`'s `hole_7_*` now
+      asserts the fused form); `ranting_es::SpanishNoun` answers `del`/`al`
+      (`ranting_es/README.md` hole 1, `tests/holes.rs`'s `hole_1_*` likewise).
+      Neither crate gained a `ranting_core`/`ranting_derive` dependency.
+    - ✅ New `tests/ranting/preposition_fusion.rs` in the main crate: German
+      and Spanish worked examples, a declining-hook English-untouched check,
+      a hidden-noun-does-not-reach-the-hook check, a probe pinning exactly
+      what the hook is handed, and wrapper delegation.
+    - ✅ `docs/EXTENSIBILITY.md` gained §2.14 and `docs/API.md` a new
+      "Preposition Fusion" section, both alongside the other six hook-pair
+      write-ups; `elide_article_custom`'s own "not reachable from here" notes
+      in both docs and in `src/lib.rs`'s trait doc comment now point at this
+      hook instead of describing the gap as permanent. CLAUDE.md's hook
+      inventory is unaffected (it doesn't enumerate hooks one by one beyond
+      what's already covered by the six-then-seven-then-eight running count
+      in the numeral-hook bullet, which this item doesn't change the shape
+      of).
+    - ✅ `cargo fmt --check`, `cargo clippy -- -D warnings` and `cargo test`
+      are green at the repo root and in `ranting_core`, `ranting_derive`,
+      `ranting_i18n` and `ranting_es` (via `--manifest-path`, since this repo
+      is not a cargo workspace).
 
 ### v1.3 Success Criteria
 - A non-English `Ranting` impl can obtain gender/noun class, grammatical case,
@@ -2871,6 +2943,7 @@ because it exercises everything before it.*
 | Noun gender / noun class as an entity property | 🎯 v1.3 (Phase 6 item 2) | Open-ended `&'static str` class label, not a closed Masc/Fem/Neut enum — Bantu has a dozen-plus classes, Danish has common/neuter. Threaded like `GrammaticalCase` (commit `11d531ed`) |
 | `SubjectPronoun` is a closed English enum | ✅ Locked (v1.3, Phase 6 item 3) | **Stays English-only, unchanged**: the parallel fork-owned pronoun set already exists (`inflect_pronoun_custom`/`inflect_verb_custom`, consulted *first*; `subjective() -> &str` is an uninterpreted channel), so option (c) is doc-only and breaks nobody. Extending the enum is semver-major for every downstream `match` (re-exported, not `#[non_exhaustive]`); an open channel trades a build failure for silent `it`/`its`/`itself` at five `unwrap_or(It)` sites and reverses Phase 4 item 4's invariant. T-V (`du`/`Sie`, `tu`/`vous`) is a pronoun slot, so it rides the addressee's own subject label — `NarrationContext.register` stays story-wide and inert, a documented default only. See `docs/superpowers/specs/2026-08-13-pronoun-inventory.md` |
 | `GrammaticalCase` is locked at English's five-marker inventory | ✅ Locked (v1.3, Phase 6 item 24) | **Stays exactly seven variants (`Name`/`Subjective`/`Objective`/`PossessiveDeterminer`/`PossessivePronoun`/`Reflexive`/`Hidden`), unchanged**: it mirrors which of the five placeholder markers (`=`/`@`/`` ` ``/`~`/`%`) a call site used, not a general syntactic-case representation — German's four cases cross-cut those five markers, so no re-slicing recovers a clean mapping. New variants/markers are semver-major for every exhaustive match on `CaseKind`/`GrammaticalCase` (rejected sub-options a1/a2); an open string-typed channel is likewise breaking on `inflect_article_custom`/`_with_context` and doesn't close the gap either way (option b). A fork past two-way case marking carries its own case on the entity instead — `GermanNoun::in_case` (`ranting_i18n`) — the same pattern `NounClass` already uses. Hole 3 in `ranting_i18n/README.md` stays open by design. See `docs/superpowers/specs/2026-08-13-grammatical-case-inventory.md` |
+| Preposition-article fusion is a dedicated hook, not a grammar change | ✅ Complete (v1.3, Phase 6 item 26) | `Ranting::inflect_preposition_custom`/`_with_context`, fed the literal word `ranting_derive::parse_str_params` now captures immediately before a placeholder (`PlaceholderSpec::preposition`) plus the rendered article, called at the same post-assembly point as `elide_article_custom` and tried first. Closes `ranting_i18n/README.md` hole 7 and `ranting_es/README.md` hole 1 — the sole hole Spanish's independent lexicon hit. The pre-noun placeholder slot itself (item 25's option (a)) stays a closed English word list, unwidened; the fix never needed the preposition to be inside the placeholder. See `docs/superpowers/specs/2026-08-13-preposition-fusion.md` |
 | Number is `bool` throughout the hook signatures | 🎯 v1.3 (Phase 6 item 4) | Arabic dual / Slavic paucal / CLDR categories don't fit. Replacing it is breaking in all six `_custom` hooks — spike states the cost before it's paid |
 | English orthography, phonology and numerals hard-coded | 🎯 v1.3 (Phase 6 items 5-8) | Adjective agreement, `uc_1st_if`/`apply_case`, `a`/`an` elision, and `#var` spelling all become hooks with English-preserving defaults |
 | GPL-3 via `license-file` | ✅ Complete (v1.2) | Relicensed to plain `license = "MIT"` 2026-08-13 (copyright holder's choice, differs from the dual-license recommendation in [PROPOSED LICENSE CHANGE](#proposed-license-change-awaiting-decision)); already-published 0.2.1 on crates.io remains GPL-3 |

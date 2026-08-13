@@ -282,17 +282,34 @@ fn hole_6_a_missing_article_no_longer_leaves_a_stray_separator() {
     assert_eq!(say!("{the +*=0}", GermanNoun::hund()), "Die Hunde");
 }
 
-// ------------------------------- hole 7: preposition-article fusion + slot --
+// --------------------------------- hole 7: preposition-article fusion (closed) --
+
+// ROADMAP.md Phase 6 item 26 added `Ranting::inflect_preposition_custom`, fed the literal word
+// immediately before a placeholder (`ranting_derive::parse_str_params` now forwards it instead of
+// discarding it) and the rendered article, called at the same post-assembly point
+// `elide_article_custom` runs at. `GermanNoun::inflect_preposition_custom` answers it for German's
+// obligatory contractions. Kept as `hole_7_*` (not renamed) so it stays findable from the
+// README/ROADMAP cross-references; the assertion below now shows the fused form instead of the
+// previous unfused `"in dem Haus"`.
 
 #[test]
-fn hole_7_the_pre_noun_slot_is_a_closed_english_word_list() {
-    // German needs "im Haus" (in + dem). `elide_article_custom` runs after assembly and could
-    // fuse them — but only if the preposition were inside the placeholder, and the pre-noun slot
-    // accepts an article or one of `ranting`'s hard-coded English modal words, nothing else.
-    // `say!("{in the =0}", haus)` is a *compile* error ("expected article or verb"), so the
-    // preposition can only be literal template text, outside every hook's reach.
+fn hole_7_preposition_article_fusion_now_reaches_im_haus() {
+    // The pre-noun placeholder slot itself is still a closed English word list --
+    // `say!("{in the =0}", haus)` is still a *compile* error ("expected article or verb") -- but
+    // that was never the only way to reach a preposition: it never needed to be inside the
+    // placeholder at all once `parse_str_params` reads the literal word right before it.
     let haus = GermanNoun::haus().in_case(Case::Dative);
-    assert_eq!(say!("in {the *=0}", haus), "in dem Haus"); // German wants "im Haus"
+    assert_eq!(say!("in {the *=0}", haus), "im Haus");
+    assert_eq!(
+        say!("zu {the *=0}", GermanNoun::hund().in_case(Case::Dative)),
+        "zum Hund"
+    );
+    // A preposition this lexicon doesn't fuse (or an article that doesn't contract with it, like
+    // feminine dative "der") is left exactly as rendered -- decline, don't guess.
+    assert_eq!(
+        say!("mit {the *=0}", GermanNoun::haus().in_case(Case::Dative)),
+        "mit dem Haus"
+    );
 }
 
 // ----------------------------------------------------------- hole 8: order --

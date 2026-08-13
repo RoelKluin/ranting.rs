@@ -360,6 +360,64 @@ impl<T: Ranting> Ranting for Many<T> {
         }
     }
 
+    fn inflect_preposition_custom(
+        &self,
+        preposition: &str,
+        article: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        count: Option<PlaceholderCount>,
+        uc: bool,
+    ) -> Option<String> {
+        // Same one-item rule as `elide_article_custom`/`noun_class`.
+        match self.0.len() {
+            1 => {
+                let count = count.or_else(|| self.own_count());
+                self.0[0].inflect_preposition_custom(
+                    preposition,
+                    article,
+                    case,
+                    class,
+                    as_plural,
+                    count,
+                    uc,
+                )
+            }
+            _ => None,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn inflect_preposition_custom_with_context(
+        &self,
+        preposition: &str,
+        article: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        count: Option<PlaceholderCount>,
+        uc: bool,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        match self.0.len() {
+            1 => {
+                let count = count.or_else(|| self.own_count());
+                self.0[0].inflect_preposition_custom_with_context(
+                    preposition,
+                    article,
+                    case,
+                    class,
+                    as_plural,
+                    count,
+                    uc,
+                    ctx,
+                )
+            }
+            _ => None,
+        }
+    }
+
     fn inflect_adjective_custom(
         &self,
         adjective: &str,
@@ -683,6 +741,47 @@ impl<T: Ranting> Ranting for Maybe<T> {
         })
     }
 
+    fn inflect_preposition_custom(
+        &self,
+        preposition: &str,
+        article: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        count: Option<PlaceholderCount>,
+        uc: bool,
+    ) -> Option<String> {
+        self.0.as_ref().and_then(|item| {
+            item.inflect_preposition_custom(preposition, article, case, class, as_plural, count, uc)
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn inflect_preposition_custom_with_context(
+        &self,
+        preposition: &str,
+        article: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        count: Option<PlaceholderCount>,
+        uc: bool,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        self.0.as_ref().and_then(|item| {
+            item.inflect_preposition_custom_with_context(
+                preposition,
+                article,
+                case,
+                class,
+                as_plural,
+                count,
+                uc,
+                ctx,
+            )
+        })
+    }
+
     fn inflect_adjective_custom(
         &self,
         adjective: &str,
@@ -912,6 +1011,43 @@ impl<T: Ranting> Ranting for Box<T> {
     ) -> Option<String> {
         (**self).elide_article_custom_with_context(
             article, separator, following, case, class, as_plural, count, ctx,
+        )
+    }
+
+    fn inflect_preposition_custom(
+        &self,
+        preposition: &str,
+        article: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        count: Option<PlaceholderCount>,
+        uc: bool,
+    ) -> Option<String> {
+        (**self).inflect_preposition_custom(preposition, article, case, class, as_plural, count, uc)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn inflect_preposition_custom_with_context(
+        &self,
+        preposition: &str,
+        article: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        count: Option<PlaceholderCount>,
+        uc: bool,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        (**self).inflect_preposition_custom_with_context(
+            preposition,
+            article,
+            case,
+            class,
+            as_plural,
+            count,
+            uc,
+            ctx,
         )
     }
 

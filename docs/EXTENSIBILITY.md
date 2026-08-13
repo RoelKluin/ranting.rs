@@ -656,10 +656,12 @@ fork that re-cases its fused form inspects the first character, or calls `capita
 itself.
 
 **What is not reachable from here.** Preposition-article fusion *across a placeholder boundary* —
-French `de` + `le` → `du`, Italian `di` + `il` → `del` — is out of scope: the preposition lives in
-the template's literal text, outside the placeholder, and `` {de le chien} `` parses `de` as a
-pre-noun verb. Reaching it would take a post-pass over the whole rendered `say!()` output. A hidden
-noun (`` {?the noun} ``) also renders nothing to elide against, so the hook is not called there.
+French `de` + `le` → `du`, Italian `di` + `il` → `del` — is out of scope for *this* hook: the
+preposition lives in the template's literal text, outside the placeholder, and this hook's span
+starts at the article. That gap has its own hook now, §2.14's `inflect_preposition_custom`
+(ROADMAP.md Phase 6 item 26) — called first, at the same post-assembly point, skipping this hook's
+own call when it fires. A hidden noun (`` {?the noun} ``) still renders nothing to elide against,
+so neither hook is called there.
 
 **English is untouched.** `a`/`an` is chosen from the singular noun inside `get_article_or_so` and
 never routes through this hook; the default returns `None`, which keeps the article, separator and
@@ -1068,6 +1070,98 @@ already ships for English (Phase 4 item 4), extended to cover the one case that 
 silent — no error, no panic, nothing pointing at the unhandled arm — which is the price of the
 closed-enum decision made concrete: a fork gets a compile-time-safe `SubjectPronoun` for the nine
 English pronouns, and an ordinary, un-typechecked `match` for everything else it adds.
+
+### 2.14 Preposition-Article Fusion: `inflect_preposition_custom()` (v1.3, ROADMAP.md Phase 6 item 26)
+
+```rust
+fn inflect_preposition_custom(
+    &self,
+    preposition: &str,      // the literal word exactly as written in the template, no trailing space
+    article: &str,           // the article as rendered — from inflect_article_custom or the English fallback
+    case: GrammaticalCase,
+    class: NounClass,
+    as_plural: bool,
+    count: Option<PlaceholderCount>,
+    uc: bool,
+) -> Option<String>          // Some(fused) replaces both preposition and article; None leaves both as rendered
+
+fn inflect_preposition_custom_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) -> Option<String>
+```
+
+**Why it exists.** German `zu` + `dem` → `zum`, Spanish `de` + `el` → `del`: a preposition and the
+article that immediately follows it contract into one word. §2.7's `elide_article_custom` was
+designed for a *different* fusion (French `le` + `homme` → `l'homme`) and cannot reach this one —
+not as a missing parameter, but structurally: the preposition is template *literal* text sitting
+*before* the placeholder's `{...}` even opens, and every other hook is confined to the
+placeholder's own assembled span. `` {de le chien} `` parses `de` as a pre-noun verb, not as data
+any hook receives. Two independent fork languages hit exactly this gap —
+`ranting_i18n`'s German (its README's former hole 7) and `ranting_es`'s Spanish (its README's
+former hole 1, the *only* hole that crate's independent lexicon hit at all) — which is why
+`docs/superpowers/specs/2026-08-13-preposition-fusion.md`'s design spike named this the
+highest-value remaining item in the extensibility surface, even though it shipped as a doc-only
+spike first (item 25) and this hook (item 26) is the "option (b)" it recommended picking up.
+
+**How the literal word reaches the hook at all.** `ranting_derive::parse_str_params` already reads
+the template text immediately before every placeholder — that is exactly how it computes
+`at_sentence_start` (§2.6), by checking whether that text is empty/sentence-punctuation. Item 26
+widened what that regex match can capture (one literal word, e.g. `"de "`, immediately adjacent to
+the placeholder) and, instead of collapsing the match to a bool the way `at_sentence_start` does,
+forwards the matched text itself into `PlaceholderSpec::preposition: Option<&'static str>`. The
+macro also stops baking that word as inert literal format-string text once it's captured this way —
+`handle_placeholder_impl` renders it itself, so a fused replacement can consume it.
+
+**Worked example: German.**
+
+```rust
+fn inflect_preposition_custom(
+    &self, preposition: &str, article: &str,
+    _case: GrammaticalCase, _class: NounClass, _as_plural: bool,
+    _count: Option<PlaceholderCount>, _uc: bool,
+) -> Option<String> {
+    match (preposition, article) {
+        ("zu", "dem") => Some("zum".to_string()),
+        ("in", "dem") => Some("im".to_string()),
+        ("an", "dem") => Some("am".to_string()),
+        _ => None,   // "zu der" (feminine dative), or any other pair, is left exactly as rendered
+    }
+}
+```
+
+`say!("in {the 0}.", haus)` (haus declared dative) → `"im Haus."`, where an unhandled pair (a
+preposition this lexicon doesn't fuse, or an article that doesn't contract with it) renders
+exactly as before. `ranting_i18n::GermanNoun` and `ranting_es::SpanishNoun` are the runnable
+versions — `zum`/`beim`/`vom`/`im`/`ins`/`am`/`ans` for German, `del`/`al` for Spanish.
+
+**Called first, before `elide_article_custom`, at the same post-assembly point.** Both hooks fire
+after the article has been rendered. This one is tried first because it can *consume* the article
+(replacing it, not just the text after it); when it returns `Some`, §2.7's hook is not called at
+all for that placeholder, because the article it would have elided against no longer exists. When
+it returns `None` — the default, and every case English needs — §2.7 still gets its normal,
+unaffected chance at the untouched article, so English output is byte-identical either way.
+
+**Only the single adjacent word.** Unlike `following` in §2.7 (which can be a whole rendered phrase
+after the article), this hook only ever receives one literal word: the regex match that feeds
+`PlaceholderSpec::preposition` captures a single word run immediately before `{`, with mandatory
+whitespace and nothing else in between. A multi-word preposition, or one separated from the
+placeholder by punctuation or an adverb, is never captured — the same single-token assumption
+`at_sentence_start` already makes for its own punctuation check. The hook is also only offered the
+*adjacent* case: if something else renders between the preposition and the article (a pre-noun
+verb, say), fusion is skipped entirely rather than guessing where the two words' boundary should
+be, and normal rendering (plus §2.7's own chance) proceeds instead.
+
+**Not reachable from here.** A hidden noun (`` {?the noun} ``) renders no article to fuse against,
+so the hook is not called there, same as §2.7. `de` + `le` → `du` when `de` is separated from the
+placeholder by anything other than whitespace is not reachable either, for the same reason
+`at_sentence_start` can't see it.
+
+**English is untouched.** No template literal word is ever fused unless a `Ranting` impl overrides
+this hook and answers `Some` for it; the default returns `None`, and the word renders exactly as
+written, exactly as it did before this hook existed.
+
+**Wrappers.** `Box<T>` forwards to its inner value. `Many` forwards only when it holds exactly one
+item, substituting its own length as `count` when the placeholder had no numeral (§2.9) — the same
+rule every other `_custom` hook pair with a `count` parameter follows. `Maybe(Some(x))` forwards to
+`x`; `Maybe(None)` declines.
 
 ## Partial Customization
 
