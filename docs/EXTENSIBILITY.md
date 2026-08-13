@@ -505,6 +505,24 @@ uppercase-first-character pass runs only on the fallback path, so a custom form 
 **Wrappers.** `Box<T>` forwards to its inner value; `Many`/`Maybe` forward only when they hold
 exactly one item, and otherwise decline (there is no single entity whose gender could agree).
 
+**Adjectives that agree with the preceding article, not just the noun (ROADMAP.md Phase 6 item
+27).** German attributive adjectives decline by *which* article — if any — preceded them, not by
+the noun's own class alone: `kleiner Hund` (strong, no article), `der kleine Hund` (weak, definite
+article), `ein kleiner Hund` (mixed, indefinite article) all agree with the same noun in the same
+case, differing only in which article rendered. `inflect_adjective_custom` never sees that article
+— `self` can't supply it either, since the article is chosen from per-*placeholder* template text
+(`` {the ...} `` vs. `` {a ...} `` vs. no article word at all), not a per-*entity* fact the same
+noun carries everywhere. Adding a parameter for it was scored and rejected on both the "raw
+rendered string" and "typed `ArticleKind`-shaped enum" shapes — either still leaves the fork to
+author its own article-to-declension-class mapping, for the cost of a breaking signature change
+that doesn't relieve it. The recommended, doc-only answer is the same pattern §2.4's `NounClass`
+and §2.3.1's `GrammaticalCase` note already establish: carry the choice on the entity — e.g.
+`GermanNoun::with_article`, read off `self` inside the hook body, set fresh by the caller before
+each `say!()` call whose template renders a particular article — rather than trying to recover it
+from a parameter the hook doesn't have. See
+`docs/superpowers/specs/2026-08-13-adjective-declension-class.md` for the full option-scoring and
+`ranting_i18n/README.md`'s hole 4b for the worked example.
+
 ### 2.6 Orthography: `capitalize()` (v1.3, `sentence_start` added in Phase 6 item 17)
 
 ```rust
@@ -954,6 +972,50 @@ sentence, selected by the caller before the `say!()` call, and lets `ranting` do
 does well — inflecting the words inside whichever template was chosen. That costs the caller a
 template per language (a real cost, stated plainly rather than buried), and costs `ranting`
 nothing, because it changes nothing about how placeholders work.
+
+**The scaling cost of selecting that template (ROADMAP.md Phase 6 item 28).** Once a caller has
+accepted one template per language per sentence, something still has to pick the right one at each
+call site. That selection is **languages × sentences of source text, full stop**, and no design at
+the crate level reduces that number — only where the multiplication is spelled out.
+
+The reason is the same compile-time constant this section already leans on: `ranting_derive/src/
+lib.rs`'s `Say` (`struct Say { lit_str: String, params: Vec<Expr> }`, `impl Parse for Say`) parses
+`say!()`'s first argument as a `syn::LitStr` at macro-expansion time — before the surrounding crate
+is compiled to IR, let alone run, and before any runtime value exists to look up. A `HashMap<Lang,
+&str>` lookup, a function call, or a `match` returning `&str` all fail to *parse* as a string
+literal, so `say!(select_template(lang), noun)` is a compile error, not a slow path. `heed!()` and
+`ask!()` share this constraint exactly — their own `compile_heed_template` also consumes a
+`StrLit` — so the same answer applies to the input-parsing direction without a separate design.
+
+Concretely, the caller writes the selection inline, one `say!()` arm per language:
+
+```rust
+let greeting = match lang {
+    Lang::En => say!("{the =noun} greets you.", noun),
+    Lang::De => say!("{the =noun} grüßt dich.", noun),
+};
+```
+
+Every arm is its own ordinary, independent `say!()` expansion — there is no way to expand `say!()`
+once and vary its literal input at runtime. Nothing in `ranting` reduces that: not a `HashMap`
+lookup (rejected above, categorically — it can't parse), and not a per-language template-set type
+indexed by a runtime language value either, because that idea bifurcates into either the same
+`match` wearing a struct instead of a bare arm list (no reduction, only new vocabulary) or a table
+of pre-rendered strings selected at runtime (the rejected catalogue design again, since a catalogue
+entry is a finished `String`, not a literal `say!()` can parse and bake a `PlaceholderSpec` from).
+The only thing any design changes is whose hand writes the multiplication and how it's spelled —
+never the count itself.
+
+A sugar macro over the hand-written `match` (e.g. `say_lang!(lang, { En => "...", De => "..." })`,
+expanding to the same per-arm `say!()` calls) is **not ruled out** — it would still be languages ×
+sentences in source text, since every arm still needs its own literal and its own translator to
+write it, but it removes the boilerplate of spelling out `match`/`Lang::` by hand at every call
+site. It is not adopted or scheduled today because no downstream fork has yet demonstrated that
+boilerplate as a real pain point — `ranting_i18n`/`ranting_es` each exercise single-language holes,
+not a multi-language dispatch table — and building sugar ahead of a demonstrated need is exactly
+the premature abstraction the rest of this phase has avoided. If a fork's `match` blocks become
+unwieldy in practice, this is the option to revisit. See
+`docs/superpowers/specs/2026-08-13-template-selection.md` for the full option-scoring table.
 
 **Rejected designs**, scored in full in the source spike: numbered slots with per-language reorder
 metadata (blocked by mechanism — the `format!()` literal and its argument order are compile-time

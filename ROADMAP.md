@@ -2917,6 +2917,52 @@ because it exercises everything before it.*
       as item 27, the next open number, rather than overwriting item 26's
       existing entry — see the spec document's own closing note.
 
+28. ✅ **Document the template-selection scaling cost** (doc-only, 2-4 hours) —
+    recommendation point 2 of `docs/superpowers/specs/2026-08-13-template-selection.md`
+    (item 22), which concluded "leave it to the caller, documented" but whose
+    own documentation follow-up had not yet been written
+    - ✅ **COMPLETE 2026-08-13** — added a note to `docs/EXTENSIBILITY.md` §2.12
+      (the word-order boundary section, the same place item 20 documents the
+      other half of this same boundary), stating plainly that selecting a
+      per-language template costs languages × sentences of source text, that
+      no crate-level indirection reduces that number because each language's
+      placeholder inflection genuinely needs its own compile-time-parsed
+      literal, and that the only thing any design changes is whose hand
+      writes the multiplication. Explains the underlying constraint
+      concretely: `say!()` parses its first argument as a `syn::LitStr` at
+      macro-expansion time, before any runtime value exists, so a
+      `HashMap`/function-call/`match`-returning-`&str` template argument is a
+      compile error, not a slow path; notes `heed!()`/`ask!()` share the
+      constraint through `compile_heed_template`.
+    - ✅ Records that a sugar macro over the per-language `match` (the spec's
+      option 2) is explicitly not ruled out as a future ergonomics-only
+      addition — it doesn't reduce languages × sentences, only the
+      boilerplate of spelling the `match` by hand — but stays unscheduled
+      until a downstream fork demonstrates the pain; `ranting_i18n`/
+      `ranting_es` today each exercise single-language holes, not a
+      multi-language dispatch table.
+    - ✅ No macro, type, or other crate surface added — doc-only, matching the
+      spec's own recommendation (no new macro, no new type).
+    - ✅ **Note on numbering**: the task that queued this work also referred
+      to it as "item 27", but that number was already assigned to and
+      completed as the adjective-declension-class item above (also filed
+      under a renumbering, for the same reason: the number it was queued
+      under had been taken by the time it was picked up). Filed here as item
+      28, the next open number, rather than overwriting item 27's existing
+      entry.
+    - ✅ While already editing `docs/EXTENSIBILITY.md`, also landed item 27's
+      own still-outstanding documentation follow-up in the same pass: a note
+      in §2.5 (`inflect_adjective_custom`) pointing at entity-carried
+      declension state as the pattern for a fork whose adjectives agree with
+      the preceding article, cross-referencing §2.4 (`NounClass`) and §2.3.1
+      (`GrammaticalCase`'s equivalent note). No new Key Architecture
+      Decisions row, per that spec's own recommendation point 3 — item 5's
+      existing row already covers `inflect_adjective_custom`'s scope.
+    - ✅ `cargo fmt --check`, `cargo clippy -- -D warnings` and `cargo test`
+      are unaffected (doc-only diff) but were run at the repo root and in
+      `ranting_core`, `ranting_derive`, `ranting_i18n` and `ranting_es` to
+      confirm the working tree was green before and after.
+
 ### v1.3 Success Criteria
 - A non-English `Ranting` impl can obtain gender/noun class, grammatical case,
   number, and register/dialect **without** an external string-keyed side table
