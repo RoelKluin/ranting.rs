@@ -25,3 +25,7 @@ tasks_done.txt
 # output before publishing them — content is overwritten in place, never committed.
 /tests/ranting/zz_scratch*.rs
 docs/Ranting_Cheatsheet.pdf
+
+# Scratch harness for testing scripts/overnight_loop.sh; contains a nested git
+# repo, so it was committed as a stray gitlink until it was ignored here.
+.overnight_test_harness/
