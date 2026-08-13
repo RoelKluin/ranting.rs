@@ -52,6 +52,18 @@ use language::english::{
 };
 pub use language::english::{inflect_noun_irregular, inflect_possesive, inflect_reflexive};
 pub use ranting_core::grammar::{is_subject, is_subjective_plural};
+use ranting_core::placeholder::{CaseKind, PlaceholderSpec, PostSpec};
+
+/// Typed placeholder-spec types (`PlaceholderSpec`, `CaseKind`, `PostSpec`,
+/// `TenseMarker`) that `ranting_derive` bakes at compile time and
+/// `handle_placeholder`/`handle_placeholder_with_context` consume at
+/// runtime. Not part of the stable public API surface in the usual sense --
+/// exposed so macro-generated code (which only has a `ranting::` path to
+/// work with) can name these types -- but not `#[doc(hidden)]` either,
+/// since understanding this module explains the `say!()`/`say_with!()`
+/// macro <-> runtime seam for anyone extending the grammar (see CLAUDE.md's
+/// "Macro flow" section).
+pub use ranting_core::placeholder;
 
 #[doc(hidden)]
 pub use heed::HeedMatcher;
@@ -246,36 +258,37 @@ where
     }
 }
 
-/// The say macro parses placeholders and passes captures to this function which returns a string.
+/// The say macro parses placeholders and passes the compile-time-baked spec to this
+/// function which returns a string.
 pub fn handle_placeholder<R>(
     noun: &R,
     poss: String,
     nr: String,
     uc: bool,
-    caps: [&str; 5],
+    spec: PlaceholderSpec,
 ) -> String
 where
     R: Ranting,
 {
-    handle_placeholder_impl(noun, poss, nr, uc, caps, None)
+    handle_placeholder_impl(noun, poss, nr, uc, spec, None)
 }
 
-/// Like [`handle_placeholder`], but resolves `~TENSE~` markers against a runtime
+/// Like [`handle_placeholder`], but resolves tense markers against a runtime
 /// [`NarrationContext`] instead of the compile-time marker alone. The say_with!()
-/// macro parses placeholders and passes captures to this function.
+/// macro parses placeholders and passes the compile-time-baked spec to this function.
 #[doc(hidden)]
 pub fn handle_placeholder_with_context<R>(
     noun: &R,
     poss: String,
     nr: String,
     uc: bool,
-    caps: [&str; 5],
+    spec: PlaceholderSpec,
     ctx: &NarrationContext,
 ) -> String
 where
     R: Ranting,
 {
-    handle_placeholder_impl(noun, poss, nr, uc, caps, Some(ctx))
+    handle_placeholder_impl(noun, poss, nr, uc, spec, Some(ctx))
 }
 
 fn handle_placeholder_impl<R>(
@@ -283,14 +296,21 @@ fn handle_placeholder_impl<R>(
     poss: String,
     nr: String,
     mut uc: bool,
-    caps: [&str; 5],
+    spec: PlaceholderSpec,
     ctx: Option<&NarrationContext>,
 ) -> String
 where
     R: Ranting,
 {
     static OF: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bof\s+$").expect("valid regex"));
-    let [mut pre, plurality, noun_space, case, mut post] = caps;
+    let PlaceholderSpec {
+        pre: pre_raw,
+        plurality,
+        noun_space,
+        case,
+        post: post_spec,
+    } = spec;
+    let mut pre = pre_raw;
     let has_possesive = pre.contains('`');
     let singular_post_verb = OF.is_match(pre); // e.g. "{a set of $ten are} still singular"
 
@@ -307,7 +327,7 @@ where
     };
     let pre_string = pre.replace('`', poss.as_str());
 
-    let mut space;
+    let space;
     (pre, space) = split_at_find_end(&pre_string, |c: char| !c.is_whitespace())
         .unwrap_or((pre_string.as_str(), ""));
 
@@ -334,7 +354,10 @@ where
         } else if has_possesive {
             res.push_str(&uc_1st_if(pre, uc));
         } else {
-            assert!(post.is_empty(), "verb before and after?");
+            assert!(
+                matches!(post_spec, PostSpec::None),
+                "verb before and after?"
+            );
             let verb = conjugate_verb(noun, subjective, p.as_str(), pronoun_as_pl, uc, ctx);
             res.push_str(&verb);
             if !etc1.is_empty() {
@@ -359,12 +382,25 @@ where
         res.push_str(&nr);
     }
 
-    (space, post) = split_at_find_start(post, |c: char| !c.is_whitespace()).unwrap_or(("", post));
+    // The leading whitespace preceding whatever comes after the noun. For
+    // `PostSpec::Verb` this is still split off the raw captured text at
+    // runtime (unchanged from before this refactor); for `Tense`/`Degree`
+    // the macro already isolated it at compile time; `None`/`PossessiveS`
+    // never have one.
+    let post_leading_space = match post_spec {
+        PostSpec::None | PostSpec::PossessiveS => "",
+        PostSpec::Verb(raw) => {
+            split_at_find_start(raw, |c: char| !c.is_whitespace()).map_or("", |(sp, _)| sp)
+        }
+        PostSpec::Tense { leading_space, .. } | PostSpec::Degree { leading_space, .. } => {
+            leading_space
+        }
+    };
 
-    if case != "?" {
+    if case != CaseKind::Hidden {
         res.push_str(noun_space);
         let s = match case {
-            "=" => {
+            CaseKind::Subjective => {
                 if let Some(custom) = noun.inflect_pronoun_custom_with_context(
                     subjective,
                     PronounCase::Subjective,
@@ -377,7 +413,7 @@ where
                     inflect_subjective(subjective, pronoun_as_pl, uc)
                 }
             }
-            "@" => {
+            CaseKind::Objective => {
                 if let Some(custom) = noun.inflect_pronoun_custom_with_context(
                     subjective,
                     PronounCase::Objective,
@@ -390,7 +426,7 @@ where
                     inflect_objective(subjective, pronoun_as_pl, uc)
                 }
             }
-            "`" => {
+            CaseKind::PossessiveDeterminer => {
                 if let Some(custom) = noun.inflect_pronoun_custom_with_context(
                     subjective,
                     PronounCase::PossessiveDeterminer,
@@ -403,7 +439,7 @@ where
                     inflect_possesive(subjective, pronoun_as_pl, uc)
                 }
             }
-            "~" => {
+            CaseKind::PossessivePronoun => {
                 if let Some(custom) = noun.inflect_pronoun_custom_with_context(
                     subjective,
                     PronounCase::PossessivePronoun,
@@ -416,7 +452,7 @@ where
                     inflect_adjective(subjective, pronoun_as_pl, uc)
                 }
             }
-            "%" => {
+            CaseKind::Reflexive => {
                 if let Some(custom) = noun.inflect_pronoun_custom_with_context(
                     subjective,
                     PronounCase::Reflexive,
@@ -429,137 +465,33 @@ where
                     inflect_reflexive(subjective, pronoun_as_pl, uc)
                 }
             }
-            _ => noun.inflect(as_pl, uc),
+            CaseKind::Name | CaseKind::Hidden => noun.inflect(as_pl, uc),
         };
         res.push_str(&s);
-        res.push_str(space);
+        res.push_str(post_leading_space);
         uc = false;
     }
-    let etc2;
-    (etc2, post) = if post.starts_with("~DEGREE~") {
-        // A comparative/superlative degree word can itself contain a literal space
-        // ("more beautiful"), so unlike ~TENSE~ (always a single-token verb) it can't
-        // be found by splitting at the last whitespace in `post` — keep the whole
-        // sentinel intact and let the ~DEGREE~ handler below split word from trailing.
-        ("", post)
-    } else {
-        split_at_find_end(post, |c| c.is_whitespace()).unwrap_or(("", post))
-    };
 
-    res.push_str(etc2);
-    if !post.is_empty() {
-        match post {
-            "'" | "'s" => {
-                res.push_str(adapt_possesive_s(noun, as_pl));
-            }
-            v => {
-                // Check for degree marker encoding: ~DEGREE~WORD (comparative/superlative
-                // adjective, baked fully at compile time by ranting_derive from the `!`/`!!`
-                // post-noun markers — no subject/number/tense agreement applies, so unlike
-                // ~TENSE~ it's emitted verbatim rather than run through conjugate_verb()).
-                if let Some(remainder) = v.strip_prefix("~DEGREE~") {
-                    // A trailing word or two (e.g. "!good at chess") is baked after a
-                    // ':' separator, since the degree word itself may contain a real
-                    // space ("more beautiful") and so can't be told apart from trailing
-                    // content by whitespace alone (see the ~TENSE~ marker:conjugated
-                    // convention this mirrors).
-                    let (word, trailing) = remainder.split_once(':').unwrap_or((remainder, ""));
-                    if uc {
-                        let mut chars = word.chars();
-                        if let Some(first) = chars.next() {
-                            res.push_str(&first.to_uppercase().collect::<String>());
-                            res.push_str(chars.as_str());
-                        }
-                    } else {
-                        res.push_str(word);
+    match post_spec {
+        PostSpec::None => {}
+        PostSpec::PossessiveS => {
+            res.push_str(adapt_possesive_s(noun, as_pl));
+        }
+        PostSpec::Verb(raw) => {
+            // Same last-word-conjugated / leading-words-verbatim split as before this
+            // refactor: `PostSpec::Verb` still carries free multi-word text (see its
+            // doc comment), the macro never had a marker to split it on.
+            let rest =
+                split_at_find_start(raw, |c: char| !c.is_whitespace()).map_or(raw, |(_, r)| r);
+            let (etc2, word) =
+                split_at_find_end(rest, |c: char| c.is_whitespace()).unwrap_or(("", rest));
+            res.push_str(etc2);
+            if !word.is_empty() {
+                match word {
+                    "'" | "'s" => {
+                        res.push_str(adapt_possesive_s(noun, as_pl));
                     }
-                    if !trailing.is_empty() {
-                        res.push(' ');
-                        res.push_str(trailing);
-                    }
-                } else if let Some(remainder) = v.strip_prefix("~TENSE~") {
-                    if let Some((marker_part, word)) = remainder.split_once(':') {
-                        if !marker_part.is_empty() {
-                            let (word, trailing) = word.split_once(' ').unwrap_or((word, ""));
-                            let tense_result = match ctx {
-                                None => {
-                                    // say!(): word is already the compile-time-conjugated
-                                    // form. The English fallback would inflect it twice
-                                    // ("will walks"), so offer the hook the conjugated
-                                    // form and keep it verbatim when it declines.
-                                    let main_verb = noun
-                                        .inflect_verb_custom_with_context(
-                                            subjective,
-                                            word,
-                                            !singular_post_verb && pronoun_as_pl,
-                                            false,
-                                            None,
-                                        )
-                                        .unwrap_or_else(|| word.to_string());
-                                    handle_tense_marker(subjective, marker_part, &main_verb)
-                                }
-                                Some(narration_ctx) => {
-                                    // say_with!(): word is the uninflected base verb;
-                                    // resolve per the runtime context, falling back to
-                                    // the compile-time marker's default tense.
-                                    let (marker, base_form) = match narration_ctx.tense {
-                                        Some(t) => narration::marker_and_form_for_tense(t, word),
-                                        None => (
-                                            marker_part,
-                                            narration::form_for_marker(marker_part, word),
-                                        ),
-                                    };
-                                    if marker.is_empty() {
-                                        // Present tense: plain subject-verb agreement, no auxiliary.
-                                        conjugate_verb(
-                                            noun,
-                                            subjective,
-                                            &base_form,
-                                            !singular_post_verb && pronoun_as_pl,
-                                            false,
-                                            ctx,
-                                        )
-                                    } else {
-                                        let main_verb = noun
-                                            .inflect_verb_custom_with_context(
-                                                subjective,
-                                                &base_form,
-                                                !singular_post_verb && pronoun_as_pl,
-                                                false,
-                                                ctx,
-                                            )
-                                            .unwrap_or(base_form);
-                                        handle_tense_marker(subjective, marker, &main_verb)
-                                    }
-                                }
-                            };
-                            if uc {
-                                let mut chars = tense_result.chars();
-                                if let Some(first) = chars.next() {
-                                    res.push_str(&first.to_uppercase().collect::<String>());
-                                    res.push_str(chars.as_str());
-                                }
-                            } else {
-                                res.push_str(&tense_result);
-                            }
-                            if !trailing.is_empty() {
-                                res.push(' ');
-                                res.push_str(trailing);
-                            }
-                        } else {
-                            // Fallback if marker parsing fails
-                            let verb = conjugate_verb(
-                                noun,
-                                subjective,
-                                v,
-                                !singular_post_verb && pronoun_as_pl,
-                                uc,
-                                ctx,
-                            );
-                            res.push_str(&verb);
-                        }
-                    } else {
-                        // Fallback if colon parsing fails
+                    v => {
                         let verb = conjugate_verb(
                             noun,
                             subjective,
@@ -570,17 +502,93 @@ where
                         );
                         res.push_str(&verb);
                     }
-                } else {
-                    let verb = conjugate_verb(
-                        noun,
-                        subjective,
-                        v,
-                        !singular_post_verb && pronoun_as_pl,
-                        uc,
-                        ctx,
-                    );
-                    res.push_str(&verb);
                 }
+            }
+        }
+        PostSpec::Tense {
+            marker,
+            word,
+            trailing,
+            ..
+        } => {
+            let tense_result = match ctx {
+                None => {
+                    // say!(): word is already the compile-time-conjugated form. The
+                    // English fallback would inflect it twice ("will walks"), so offer
+                    // the hook the conjugated form and keep it verbatim when it declines.
+                    let main_verb = noun
+                        .inflect_verb_custom_with_context(
+                            subjective,
+                            word,
+                            !singular_post_verb && pronoun_as_pl,
+                            false,
+                            None,
+                        )
+                        .unwrap_or_else(|| word.to_string());
+                    handle_tense_marker(subjective, marker.as_marker_str(), &main_verb)
+                }
+                Some(narration_ctx) => {
+                    // say_with!(): word is the uninflected base verb; resolve per the
+                    // runtime context, falling back to the compile-time marker's
+                    // default tense.
+                    let (marker_str, base_form) = match narration_ctx.tense {
+                        Some(t) => narration::marker_and_form_for_tense(t, word),
+                        None => (
+                            marker.as_marker_str(),
+                            narration::form_for_marker(marker.as_marker_str(), word),
+                        ),
+                    };
+                    if marker_str.is_empty() {
+                        // Present tense: plain subject-verb agreement, no auxiliary.
+                        conjugate_verb(
+                            noun,
+                            subjective,
+                            &base_form,
+                            !singular_post_verb && pronoun_as_pl,
+                            false,
+                            ctx,
+                        )
+                    } else {
+                        let main_verb = noun
+                            .inflect_verb_custom_with_context(
+                                subjective,
+                                &base_form,
+                                !singular_post_verb && pronoun_as_pl,
+                                false,
+                                ctx,
+                            )
+                            .unwrap_or(base_form);
+                        handle_tense_marker(subjective, marker_str, &main_verb)
+                    }
+                }
+            };
+            if uc {
+                let mut chars = tense_result.chars();
+                if let Some(first) = chars.next() {
+                    res.push_str(&first.to_uppercase().collect::<String>());
+                    res.push_str(chars.as_str());
+                }
+            } else {
+                res.push_str(&tense_result);
+            }
+            if !trailing.is_empty() {
+                res.push(' ');
+                res.push_str(trailing);
+            }
+        }
+        PostSpec::Degree { word, trailing, .. } => {
+            if uc {
+                let mut chars = word.chars();
+                if let Some(first) = chars.next() {
+                    res.push_str(&first.to_uppercase().collect::<String>());
+                    res.push_str(chars.as_str());
+                }
+            } else {
+                res.push_str(word);
+            }
+            if !trailing.is_empty() {
+                res.push(' ');
+                res.push_str(trailing);
             }
         }
     }
