@@ -2422,7 +2422,7 @@ because it exercises everything before it.*
       `Ranting`/`capitalize` section, and a new CLAUDE.md "Non-obvious
       behaviors" bullet.
 
-18. **Dative/genitive on `GrammaticalCase`** (doc-only spike, 6-8 hours) —
+18. ✅ **Dative/genitive on `GrammaticalCase`** (doc-only spike, 6-8 hours) —
     *found by item 10, hole 3*
     - `GrammaticalCase` carries English's inventory; German has four cases and
       `@` means accusative-or-dative, so `dem`/`der` are unreachable. The sharper
@@ -2431,6 +2431,35 @@ because it exercises everything before it.*
       identically. A spike, not an implementation task: it is a public enum in a
       trait signature, and the pronoun-inventory spec set the precedent that
       "change nothing, document it" is a legitimate conclusion.
+    - ✅ Conclusion: **(c), change nothing, document it** — the same shape as
+      item 3's pronoun-inventory spec. `GrammaticalCase`'s five variants scope
+      to "which of `say!()`'s five markers did this occurrence use", not to a
+      general syntactic-case representation; German's four-case system and
+      English's five-marker split are different taxonomies that cross-cut each
+      other, so no re-slicing of the existing variants recovers a clean match.
+      See `docs/superpowers/specs/2026-08-13-grammatical-case-inventory.md`.
+    - ✅ Scored two build options, both rejected. **(a) add `Dative`/`Genitive`
+      variants** splits into needing a new marker the ✅ Locked placeholder
+      grammar doesn't have (breaking, and reachable from nothing without one),
+      or adding variants no marker can ever construct (still doesn't close the
+      hole). **(b) open string-typed case channel, `NounClass`-style** doesn't
+      transfer the `NounClass` precedent — `ranting` *computes*
+      `GrammaticalCase` from the marker itself rather than merely forwarding
+      it, so an open channel either duplicates entity-carried state or still
+      collapses accusative/dative when sourced from the marker. Both are
+      breaking signature/enum changes reaching every downstream exhaustive
+      match or hook override, including `ranting_i18n`'s `GermanNoun`.
+    - ✅ Neither option needs a new placeholder marker to be *considered*, but
+      (a)'s only reachable form (a1) needs one to exist at all — which the ✅
+      Locked "Placeholder syntax (full grammar support)" row forecloses
+      without revisiting that decision.
+    - ✅ A fork past two-way case marking carries the real case on the entity
+      and reads it inside its own hooks — `ranting_i18n`'s
+      `GermanNoun::in_case` already does this for holes 2/3/4b/5, so this
+      recommendation adds no new cost, only names the existing pattern as the
+      answer. `hole_3_grammatical_case_cannot_express_dative_so_the_marker_is_
+      ignored` in `ranting_i18n/tests/holes.rs` stays open and unstruck, same
+      as item 3's doc-only conclusion left its own gaps unfixed.
 
 19. **Case marking and pronoun display share one hook** (8-12 hours) — *found by
     item 10, hole 5*
