@@ -20,3 +20,7 @@ tasks_done.txt
 /review.jsonl
 /dodev
 /ideas
+
+# Persistent scratch test file for verifying doc examples against real say!()
+# output before publishing them — content is overwritten in place, never committed.
+/tests/ranting/zz_scratch*.rs
