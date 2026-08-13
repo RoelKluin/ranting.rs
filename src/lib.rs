@@ -51,7 +51,7 @@ use language::english::{
     adapt_article, inflect_adjective, inflect_objective, inflect_subjective, inflect_verb,
 };
 pub use language::english::{inflect_noun_irregular, inflect_possesive, inflect_reflexive};
-pub use language::english_shared::{is_subject, is_subjective_plural};
+pub use ranting_core::grammar::{is_subject, is_subjective_plural};
 
 #[doc(hidden)]
 pub use heed::HeedMatcher;

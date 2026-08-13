@@ -237,15 +237,106 @@ so this phase deliberately precedes Ecosystem Expansion.*
 
 Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
 
-1. **Extract `ranting_core` shared crate** (highest leverage)
-   - Replace all three code-sharing mechanisms (`english_shared.rs` build.rs copy,
-     `verb_conjugate.rs` inverse copy, `irregular_verbs.txt` symlink) with one plain
-     rlib crate that both `ranting` and `ranting_derive` depend on — proc-macro crates
-     can depend on ordinary crates (the `serde`/`serde_derive` pattern).
-   - Moves in: grammar tables + codegen from `data/*.txt`, verb conjugation engine,
-     pronoun logic, placeholder grammar (`PH_START`/`PH_EXT`).
-   - Deletes: both build.rs copy steps, `ranting_derive/data/` symlink fallbacks,
-     and the dual-strum (0.24 + 0.27) compilation constraint entirely.
+1. ✅ **Extract `ranting_core` shared crate** (highest leverage)
+   - ✅ Replaced all three code-sharing mechanisms (`english_shared.rs` build.rs
+     copy, `verb_conjugate.rs` inverse copy, `irregular_verbs.txt` per-crate
+     codegen) with one plain rlib crate, `ranting_core`, that both `ranting`
+     and `ranting_derive` depend on as an ordinary path dependency (`ranting_core
+     = { version = "0.1.0", path = "../ranting_core" }` from `ranting_derive`,
+     `path = "ranting_core"` from `ranting`) — the `serde`/`serde_derive`
+     pattern. Both consumers still build with independent `Cargo.lock` files,
+     same as before (`ranting_derive` already published standalone; `ranting_core`
+     is set up the same way, versioned and publishable, even though it isn't
+     published yet).
+   - ✅ Moved in: `ranting_core::grammar` (placeholder grammar `PH_START`/
+     `PH_EXT`, `SubjectPronoun`, `is_subject`/`is_subjective_plural`/
+     `is_first_person_subject`, and the still-unused `Article`/
+     `DemonstrativePronoun` enums) and `ranting_core::verb_conjugate`
+     (`to_past`/`to_continuous`/`to_future`/`to_past_participle` plus the
+     `IRREGULAR_PAST`/`IRREGULAR_PAST_PARTICIPLE` tables, now generated exactly
+     once by `ranting_core/build.rs` from `data/irregular_verbs.txt` instead of
+     independently by both `ranting`'s and `ranting_derive`'s build.rs scripts).
+   - ✅ Deleted: both crates' build.rs copy-into-`OUT_DIR` steps for the code
+     above, `ranting_derive/data/english_shared_source.rs`,
+     `ranting_derive/data/verb_conjugate_source.rs`, and
+     `ranting_derive/data/irregular_verbs.txt` (superseded by `ranting_core`'s
+     own `data/irregular_verbs.txt` → `../../data/irregular_verbs.txt`
+     symlink). The dual-strum (0.24 + 0.27) compilation constraint is gone:
+     `ranting_core` depends on `strum`/`strum_macros` 0.27 only (standardizing
+     on the newer version per this item's own design guidance, anticipating
+     part of item 2), and `ranting_derive`'s `Cargo.toml` no longer lists
+     `strum`/`strum_macros` at all.
+   - ⚠️ **Deviation — `SubjectPronoun` had to become `pub`, not just
+     `pub(crate)`**: it now lives in a different crate from every call site, so
+     `ranting`'s `src/language/english.rs` needs `ranting_core::grammar::
+     SubjectPronoun` to be visible across the crate boundary. This is a small,
+     unplanned head start on item 4's first bullet ("make `SubjectPronoun`
+     public") — only the visibility changed here, not `FromStr`-based storage
+     in `Noun` or the panic-removal item 4 actually scopes; item 4 still owns
+     the rest of that work.
+   - ⚠️ **Deviation — inherent `impl SubjectPronoun { fn forms(...) }` became a
+     free function**: an inherent `impl` on a foreign type (E0116) is illegal
+     once `SubjectPronoun` isn't local to `ranting` anymore. Converted to a
+     free function `pronoun_forms(subject: SubjectPronoun) -> PronounForms` in
+     `src/language/english.rs`; all five call sites (`inflect_adjective`,
+     `inflect_subjective`, `inflect_objective`, `inflect_possesive`,
+     `inflect_reflexive`) and the pronoun-table test updated accordingly. No
+     behavior change, just a mechanical consequence of the crate split.
+   - ⚠️ **Design call — what did *not* move into `ranting_core`**:
+     `ranting_derive/src/language/plurals.rs`'s `get_plural`/`get_singular`/
+     `apply_case` stayed hand-duplicated against `src/language/plurals.rs`
+     rather than consolidating — both copies are still dead code (not wired
+     into any inflection call site in either crate; pre-existing drift risk,
+     see `docs/architecture-review-2026-08-13.md`), and moving genuinely-dead
+     code into the shared crate wouldn't resolve that, only relocate it.
+     Wiring plurals up (or consolidating the lookup functions) remains
+     unclaimed work, as CLAUDE.md already noted before this item.
+     `ranting_derive/src/language/adjective.rs` (comparative/superlative
+     tables, Phase 3 item 6) also stayed put — `ranting` has no runtime use
+     for it, so it was never one of the three copy mechanisms this item
+     targeted; CLAUDE.md's original phrasing already called this out as a
+     derive-only table with no repo-root canonical copy.
+   - ✅ Full gate clean after the extraction: `cargo fmt --check`, `cargo
+     clippy --all-targets -- -D warnings` (root — the only pre-existing
+     warnings are the already-known `ranting_derive/src/language/plurals.rs`
+     dead-code ones, now surfacing as build-dependency warnings rather than
+     workspace-member errors, plus `IRREGULAR_PLURALS`/`Article`/
+     `DemonstrativePronoun` dead code, exactly as expected), and `cargo test`
+     all pass. Test count: the 11 verb-conjugation proptest/example tests that
+     lived in `src/language/verb_conjugate.rs` moved intact to
+     `ranting_core/src/verb_conjugate.rs` and still pass there (`cargo test`
+     from `ranting_core/`) — `ranting`'s own `cargo test` count dropped from
+     302 lib+integration tests to 291 for exactly that reason (302 − 11 = 291;
+     252 integration tests and the 11 doctests are unaffected), not because
+     any test was deleted. `ranting_derive`'s pre-existing doctest failure
+     (`src/lib.rs - derive_ranting`, missing `ranting` as a dev-dependency so
+     `use ranting::say` can't resolve) is unchanged by this item — verified
+     identical on the pre-extraction commit, not a regression.
+   - Note on the `Cargo.lock` diffs: `ranting_derive/Cargo.lock`'s diff is
+     large (~350 lines) but not a smuggled dependency bump — its
+     `[dev-dependencies] proptest = "1"` was declared in `Cargo.toml` but had
+     never actually been resolved into that lockfile before (no `proptest` or
+     transitive `rand`/`bit-set`/`tempfile`/etc. entries existed pre-change),
+     so running `cargo test` there for the first time in a while pulled in
+     the whole dev-dependency tree at once, on top of the intentional
+     strum 0.24→0.27 bump (which also pulls a transitive `syn 2.0.119` in
+     alongside `ranting_derive`'s own unchanged direct `syn = "1.0.98"`) and
+     ordinary semver-compatible `proc-macro2`/`quote` point bumps from
+     unifying the whole graph on one version. Root `Cargo.lock`'s diff is the
+     expected small one: `strum`/`strum_macros` 0.24 (and their now-orphaned
+     `heck` dependency) removed, `ranting_core` added.
+   - Note on `ranting_core`'s build.rs: unlike `ranting_derive`'s old
+     `generate_verbs_table`, `ranting_core/build.rs` does not assert an exact
+     entry count (`expected_count = 118`) against `data/irregular_verbs.txt`
+     — only the pre-existing duplicate-base check was kept, since a hardcoded
+     count is brittle against legitimate future additions to the data file
+     and wasn't load-bearing for correctness.
+   - Note on `ranting_core` versioning: both consumers depend on it via
+     `version = "0.1.0", path = "..."` (not an exact `=0.1.0` pin, unlike
+     `ranting`'s `ranting_derive = "=0.2.1"`). Since `ranting_core` isn't
+     published yet and both consumers are edited in lockstep in this repo,
+     this is low-risk today; if/when `ranting_core` is published independently,
+     revisit whether it should move to an exact pin like `ranting_derive`'s.
 
 2. **Dependency modernization** (`ranting_derive`)
    - syn 1 → 2, darling 0.14 → 0.20+, unify strum on 0.27 (or drop it from the

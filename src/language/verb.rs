@@ -5,10 +5,10 @@
 //! these functions live as free functions in src/language/, consistent with
 //! inflect_verb, inflect_possesive, and other existing inflection functions.
 
-// This module only needs IRREGULAR_PAST below; IRREGULAR_PAST_PARTICIPLE comes
-// along unused since both tables are generated together (see
-// src/language/verb_conjugate.rs for the module that does use it).
-#![allow(dead_code)]
+// This module only needs IRREGULAR_PAST, from ranting_core::verb_conjugate
+// (the single generated copy of the table — see CLAUDE.md's Architecture
+// section for why there's no longer a per-crate copy of this codegen).
+use ranting_core::verb_conjugate::IRREGULAR_PAST;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Tense {
@@ -16,8 +16,6 @@ pub(crate) enum Tense {
     Past,
     Continuous,
 }
-
-include!(concat!(env!("OUT_DIR"), "/irregular_verbs_generated.rs"));
 
 /// Detect the tense of a verb by checking for irregular forms, -ed suffix, or -ing suffix.
 pub(crate) fn detect_tense(verb: &str) -> Tense {

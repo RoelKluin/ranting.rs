@@ -1,9 +1,9 @@
 // (c) Roel Kluin 2022 GPL v3
 //!
 //! Functions used by [Ranting](../ranting_derive/index.html) trait placeholders.
-use super::english_shared::SubjectPronoun;
 use crate::is_subjective_plural;
 use crate::uc_1st_if;
+use ranting_core::grammar::SubjectPronoun;
 use std::str::FromStr;
 use strum_macros::EnumString;
 
@@ -189,101 +189,96 @@ struct PronounForms {
     reflexive: &'static str,
 }
 
-impl SubjectPronoun {
-    fn forms(self) -> PronounForms {
-        use SubjectPronoun::*;
-        match self {
-            I => PronounForms {
-                subjective: "I",
-                objective: "me",
-                possessive: "my",
-                adjective: "mine",
-                reflexive: "myself",
-            },
-            You => PronounForms {
-                subjective: "you",
-                objective: "you",
-                possessive: "your",
-                adjective: "yours",
-                reflexive: "yourself",
-            },
-            Thou => PronounForms {
-                subjective: "thou",
-                objective: "thee",
-                possessive: "thy",
-                adjective: "thine",
-                reflexive: "thyself",
-            },
-            He => PronounForms {
-                subjective: "he",
-                objective: "him",
-                possessive: "his",
-                adjective: "his",
-                reflexive: "himself",
-            },
-            She => PronounForms {
-                subjective: "she",
-                objective: "her",
-                possessive: "her",
-                adjective: "hers",
-                reflexive: "herself",
-            },
-            It => PronounForms {
-                subjective: "it",
-                objective: "it",
-                possessive: "its",
-                adjective: "its",
-                reflexive: "itself",
-            },
-            We => PronounForms {
-                subjective: "we",
-                objective: "us",
-                possessive: "our",
-                adjective: "ours",
-                reflexive: "ourselves",
-            },
-            Ye => PronounForms {
-                subjective: "ye",
-                objective: "you",
-                possessive: "your",
-                adjective: "yours",
-                reflexive: "yourselves",
-            },
-            They => PronounForms {
-                subjective: "they",
-                objective: "them",
-                possessive: "their",
-                adjective: "theirs",
-                reflexive: "themselves",
-            },
-        }
+/// `SubjectPronoun` is defined in `ranting_core`, so this can't be an
+/// inherent `impl` here (E0116 — the type isn't local to this crate); a free
+/// function does the same job.
+fn pronoun_forms(subject: SubjectPronoun) -> PronounForms {
+    use SubjectPronoun::*;
+    match subject {
+        I => PronounForms {
+            subjective: "I",
+            objective: "me",
+            possessive: "my",
+            adjective: "mine",
+            reflexive: "myself",
+        },
+        You => PronounForms {
+            subjective: "you",
+            objective: "you",
+            possessive: "your",
+            adjective: "yours",
+            reflexive: "yourself",
+        },
+        Thou => PronounForms {
+            subjective: "thou",
+            objective: "thee",
+            possessive: "thy",
+            adjective: "thine",
+            reflexive: "thyself",
+        },
+        He => PronounForms {
+            subjective: "he",
+            objective: "him",
+            possessive: "his",
+            adjective: "his",
+            reflexive: "himself",
+        },
+        She => PronounForms {
+            subjective: "she",
+            objective: "her",
+            possessive: "her",
+            adjective: "hers",
+            reflexive: "herself",
+        },
+        It => PronounForms {
+            subjective: "it",
+            objective: "it",
+            possessive: "its",
+            adjective: "its",
+            reflexive: "itself",
+        },
+        We => PronounForms {
+            subjective: "we",
+            objective: "us",
+            possessive: "our",
+            adjective: "ours",
+            reflexive: "ourselves",
+        },
+        Ye => PronounForms {
+            subjective: "ye",
+            objective: "you",
+            possessive: "your",
+            adjective: "yours",
+            reflexive: "yourselves",
+        },
+        They => PronounForms {
+            subjective: "they",
+            objective: "them",
+            possessive: "their",
+            adjective: "theirs",
+            reflexive: "themselves",
+        },
     }
 }
 
 /// Inflect possesive pronoun as to_plural indicates. The first character capitalized with uc set.
 pub(crate) fn inflect_adjective(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
-    let forms = SubjectPronoun::from_str(pluralized)
-        .expect("Not a subject")
-        .forms();
+    let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).expect("Not a subject"));
     uc_1st_if(forms.adjective, uc)
 }
 
 /// singular-/pluralize subjective with as to_plural and set uc to capitalize first character
 pub(crate) fn inflect_subjective(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
-    let forms = SubjectPronoun::from_str(pluralized)
-        .expect("Not a subject")
-        .forms();
+    let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).expect("Not a subject"));
     uc_1st_if(forms.subjective, uc)
 }
 
 /// Inflect objective pronoun as to_plural indicates. The first character capitalized with uc set.
 pub(crate) fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
-    let forms = SubjectPronoun::from_str(pluralized)
-        .expect("Not a subject")
-        .forms();
+    let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).expect("Not a subject"));
     uc_1st_if(forms.objective, uc)
 }
 
@@ -303,9 +298,7 @@ pub(crate) fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> Str
 /// ```
 pub fn inflect_possesive(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
-    let forms = SubjectPronoun::from_str(pluralized)
-        .expect("Not a subject")
-        .forms();
+    let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).expect("Not a subject"));
     uc_1st_if(forms.possessive, uc)
 }
 
@@ -333,10 +326,7 @@ pub fn inflect_reflexive(subject: &str, to_plural: bool, uc: bool) -> String {
     let reflexive = if pluralized == "you" {
         if to_plural { "yourselves" } else { "yourself" }
     } else {
-        SubjectPronoun::from_str(pluralized)
-            .expect("Not a subject")
-            .forms()
-            .reflexive
+        pronoun_forms(SubjectPronoun::from_str(pluralized).expect("Not a subject")).reflexive
     };
     uc_1st_if(reflexive, uc)
 }
@@ -363,9 +353,9 @@ pub fn inflect_noun_irregular(noun_form: &str, to_plural: bool) -> Option<String
 
 #[cfg(test)]
 mod tests {
-    use super::super::english_shared::SubjectPronoun;
-    use super::{IrregularPluralVerb, inflect_noun_irregular};
+    use super::{IrregularPluralVerb, inflect_noun_irregular, pronoun_forms};
     use ranting::*;
+    use ranting_core::grammar::SubjectPronoun;
 
     #[test]
     fn test_inflect_noun_irregular_plurals() {
@@ -570,7 +560,7 @@ mod tests {
         );
         for (p, expected_subj, expected_obj, expected_poss, expected_adj, expected_refl) in EXPECTED
         {
-            let f = p.forms();
+            let f = pronoun_forms(*p);
             assert_eq!(
                 (
                     f.subjective,
