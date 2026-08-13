@@ -25,7 +25,9 @@ mod orthography;
 mod property_based;
 mod readme_example;
 mod recursive_inflection;
+mod reexports;
 mod reflexive_pronouns;
+
 mod runtime_tense;
 mod runtime_viewpoint;
 mod script_segmentation;

@@ -1,7 +1,6 @@
 // (c) Roel Kluin 2022 MIT
 
 use ranting::*;
-use ranting_derive::*;
 use std::collections::HashMap;
 
 #[derive_ranting]

@@ -1,6 +1,5 @@
 // Comprehensive examples of inclusive language using singular they/them pronouns
 use ranting::*;
-use ranting_derive::*;
 
 #[test]
 fn test_workplace_introduction() {

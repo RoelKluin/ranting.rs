@@ -172,6 +172,29 @@ pub use ranting_derive::nay;
 /// ```
 pub use ranting_derive::say;
 
+/// Like `say!()`, but takes a [`NarrationContext`] as its first argument and
+/// calls `handle_placeholder_with_context()` — placeholders with tense markers
+/// (`<`,`=`,`>`,`<=`,`%`,`<%`) bake the uninflected base verb rather than a
+/// compile-time-conjugated form, so `context.tense` can override it at
+/// runtime. Without an override, `say_with!()` reproduces `say!()`'s output
+/// exactly. See `ranting_derive::say_with`.
+///
+/// # Examples
+///
+/// ```rust
+/// # use ranting::{Noun, say_with, NarrationContext, Tense};
+/// let jordan = Noun::new("Jordan", "they");
+/// let ctx = NarrationContext {
+///     tense: Some(Tense::Past),
+///     ..Default::default()
+/// };
+/// assert_eq!(
+///     say_with!(ctx, "{=jordan <arrive} here."),
+///     "They arrived here.".to_string()
+/// );
+/// ```
+pub use ranting_derive::say_with;
+
 /// heed!(template, input) — scanf-like input parsing; see `ranting_derive::heed`.
 pub use ranting_derive::heed;
 
@@ -185,6 +208,11 @@ pub use ranting_derive::Heed;
 /// like `heed!()`, then forwards the captures to `audience`'s [`Answerable::answer`],
 /// returning `Option<String>` (`None` on no match). See `ranting_derive::ask`.
 pub use ranting_derive::ask;
+
+/// Attribute macro that derives the `Ranting` trait implementation and enables
+/// inflection within `say!()` placeholders — `#[derive_ranting]` plus
+/// `#[ranting(...)]` on a struct or enum. See `ranting_derive::derive_ranting`.
+pub use ranting_derive::derive_ranting;
 
 /// If you want to implement Ranting on a `Box<&dyn Trait>` where Trait has Ranting
 pub use ranting_derive::boxed_ranting_trait;

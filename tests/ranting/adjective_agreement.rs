@@ -20,7 +20,6 @@
 // `!` for a plain positive-degree adjective and ignores `degree`. See
 // docs/EXTENSIBILITY.md §2.5.
 use ranting::*;
-use ranting_derive::*;
 use std::fmt;
 
 /// One French noun type for both genders and both numbers — deliberately one
