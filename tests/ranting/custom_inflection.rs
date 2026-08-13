@@ -508,19 +508,36 @@ fn test_verb_hook_called_on_post_noun_verb() {
 ///
 /// That file is not `include_str!`'d, so its examples are never compiled as doctests. This is
 /// the only thing keeping the documented output honest — and its verb sits after the noun, so
-/// it only holds while the custom hook stays wired into the post-noun path.
+/// it only holds while the custom hook stays wired into the post-noun path. Gender is declared
+/// on the entity via `NounClass`, not guessed from the noun's spelling: "problema" ends in "-a"
+/// like "casa" but is masculine (the Greek-derived "-ma" class), which is exactly the trap an
+/// `ends_with('a')` heuristic falls into — see `ranting_es/README.md`'s note on this same word.
 #[derive(Clone, Copy)]
-struct SpanishNoun;
+struct SpanishNoun {
+    singular: &'static str,
+    plural: &'static str,
+    class: NounClass,
+}
+
+impl SpanishNoun {
+    const fn new(singular: &'static str, plural: &'static str, class: &'static str) -> Self {
+        SpanishNoun {
+            singular,
+            plural,
+            class: NounClass::new(class),
+        }
+    }
+}
 
 impl fmt::Display for SpanishNoun {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "cosa")
+        write!(f, "{}", self.singular)
     }
 }
 
 impl Ranting for SpanishNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("cosa", uc)
+        uc_1st_if(self.singular, uc)
     }
 
     fn subjective(&self) -> &str {
@@ -532,15 +549,22 @@ impl Ranting for SpanishNoun {
     }
 
     fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
-        if to_plural {
-            uc_1st_if("cosas", uc)
-        } else {
-            uc_1st_if("cosa", uc)
-        }
+        uc_1st_if(
+            if to_plural {
+                self.plural
+            } else {
+                self.singular
+            },
+            uc,
+        )
     }
 
     fn skip_article(&self) -> bool {
         false
+    }
+
+    fn noun_class(&self) -> NounClass {
+        self.class
     }
 
     fn inflect_verb_custom(
@@ -561,20 +585,21 @@ impl Ranting for SpanishNoun {
     fn inflect_article_custom(
         &self,
         article: &str,
-        noun_singular: &str,
+        _noun_singular: &str,
         _case: GrammaticalCase,
-        _class: NounClass,
+        class: NounClass,
         as_plural: bool,
         _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         if article == "the" {
-            let form = if noun_singular.ends_with('a') {
-                if as_plural { "las" } else { "la" }
-            } else if as_plural {
-                "los"
-            } else {
-                "el"
+            // Gender comes from the entity's own declared class — never from
+            // noun_singular's spelling, which "problema" would get wrong.
+            let form = match (class.as_str(), as_plural) {
+                ("feminine", true) => "las",
+                ("feminine", false) => "la",
+                (_, true) => "los",
+                (_, false) => "el",
             };
             return Some(uc_1st_if(form, uc));
         }
@@ -584,15 +609,23 @@ impl Ranting for SpanishNoun {
 
 #[test]
 fn test_doc_spanish_article_and_verb() {
-    let cosa = SpanishNoun;
-    // Feminine ending 'a' triggers "la", verb "be" becomes "es".
+    let casa = SpanishNoun::new("casa", "casas", "feminine");
+    // The regular case: "casa" ends in "-a" and is feminine.
     assert_eq!(
-        say!("{the 0 be} hermosa", cosa),
-        "La cosa es hermosa".to_string()
+        say!("{the 0 be} bonita.", casa),
+        "La casa es bonita.".to_string()
+    );
+
+    let problema = SpanishNoun::new("problema", "problemas", "masculine");
+    // "problema" also ends in "-a", but is masculine — declaring class on the
+    // entity renders it correctly instead of falling into the spelling trap.
+    assert_eq!(
+        say!("{the 0 be} grave.", problema),
+        "El problema es grave.".to_string()
     );
     assert_eq!(
-        say!("{the +0 be} hermosas", cosa),
-        "Las cosas son hermosas".to_string()
+        say!("{the +0 be} graves.", problema),
+        "Los problemas son graves.".to_string()
     );
 }
 
