@@ -41,7 +41,10 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
    - ✅ Support 100+ common irregular plurals: child→children, person→people, mouse→mice, goose→geese, etc.
    - ✅ Codegen from data/irregular_plurals.txt (single source of truth, like verbs)
    - ✅ Integrated with existing `#[ranting(plural_end="...")]` attribute system
-   - ✅ Automatic lookup in Noun::inflect() method with fallback to regular rules
+   - ⚠️ Lookup functions (`get_plural`/`get_singular`) exist and are unit-tested in
+     `src/language/plurals.rs`, but are **not yet called from any inflection call
+     site** (`Noun::inflect()` doesn't invoke them) — see
+     `docs/architecture-review-2026-08-13.md`. Wiring this up is unclaimed work.
    - ✅ 9 new integration tests + unit tests (217 total tests passing)
    - ✅ Case-preserving lookups (child→Children when capitalized)
 
@@ -350,7 +353,7 @@ is a valid outcome; the roadmap only asks that it stop being an accident.
 | Documentation (Tutorial + Cookbook) | ✅ Complete | 30-40 min tutorial, 10 practical recipes |
 | Placeholder syntax (full grammar support) | ✅ Locked | Sigil grammar is the crate's identity; keep it. v1.2 swaps the `PH_EXT` regex recognizer for a tokenizer (better error spans) without changing the grammar |
 | Built-in English rules (extensibility in v1.1) | ✅ v1.0; 🎯 v1.1 | Free functions now; trait methods in v1.1 |
-| Irregular noun plurals codegen | ✅ Complete (v1.1) | Single source of truth: data/irregular_plurals.txt; runtime lookup |
+| Irregular noun plurals codegen | ✅ Complete (v1.1); ⚠️ lookup not wired to call sites | Single source of truth: data/irregular_plurals.txt; `get_plural`/`get_singular` exist and are tested but currently dead code — see docs/architecture-review-2026-08-13.md |
 | Context-aware runtime tense | ✅ Complete | `say_with!(context, ...)` + `NarrationContext`/`Tense`; unblocks Recounting M9 (tense portion) |
 | Context-aware runtime viewpoint | ✅ Complete | `NarrationContext.narration_person` + `Person`; scoped to first-person-declared (`I`/`we`) nouns only; unblocks Recounting M9 (viewpoint portion) |
 | Consolidate english_shared.rs | ✅ Complete → superseded (v1.2) | Single canonical copy + build.rs copy solved the drift; `ranting_core` extraction (Phase 4, item 1) replaces the copy mechanism outright |

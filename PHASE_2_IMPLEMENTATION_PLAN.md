@@ -1,6 +1,12 @@
 # Phase 2 (v0.4.0) Implementation Plan: Grammar Depth
 
-**Status**: In Progress (skeleton work started)  
+> **Superseded.** This plan predates Phase 2's completion. See `DONE.md` (Phase 2
+> is marked complete, all 7 tenses shipped) and `ROADMAP.md`'s "Current State
+> (v1.0.0)" section for what's actually current. Kept here as a historical
+> record only — the "Status: In Progress" line below and the "walkeds" bug it
+> describes are both stale; that bug is fixed.
+
+**Status**: In Progress (skeleton work started) — historical, see banner above
 **Timeline**: 3-4 months | **Target Coverage**: >85%
 
 ---
