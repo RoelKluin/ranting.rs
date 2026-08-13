@@ -103,7 +103,7 @@ claim the way `PHASE_2_IMPLEMENTATION_PLAN.md` did, and nothing in
 `CLAUDE.md`/`ROADMAP.md` points to them, so they were left as-is —
 orphaned historical artifacts rather than actively misleading ones.
 
-## 5. `{`who title are}`-style placeholders mishandle "they" (unfixed bug, code-side)
+## 5. `{`who title are}`-style placeholders mishandle "they" (fixed)
 
 While verifying `docs/TUTORIAL.md`'s Section 1 example (the `say_this(who,
 title)` pattern from README.md), found that the three-token possessive
@@ -122,16 +122,25 @@ say_this(Noun::new("Jordan", "they"),&title) // "They do say its name is Jordan.
 ```
 
 Reproduced directly (not inferred from docs). Neither `tests/ranting/tutorial.rs`
-nor `tests/ranting/readme_example.rs` exercises `who = "they"` for this
-pattern — both only cover `"I"` and `"he"` — so this gap has no test coverage
-either way. This looks like a real bug in whatever resolves the possessive
-determiner for the `` `noun other_noun verb `` three-token form, not a doc
-problem: I/he/she all correctly use `who`'s own possessive, but "they"
-falls back to `title`'s subject ("it" → "its") instead. Left unfixed per the
-docs-audit triage rule (code looks like the bug, don't enshrine it in docs) —
-`docs/TUTORIAL.md`'s example was written to avoid "they" for this pattern
-instead. Flagging here so it isn't lost; a fix + regression test (both call
-sites, plus a "they" case) is unclaimed work.
+nor `tests/ranting/readme_example.rs` exercised `who = "they"` for this
+pattern — both only covered `"I"` and `"he"` — so this gap had no test coverage
+either way. Root cause: `ranting_derive/src/lib.rs`'s codegen for the
+backtick-possessive substitution (`` `who `` → `who`'s possessive determiner)
+hardcoded `to_plural: false` when calling `ranting::inflect_possessive`,
+regardless of `who`'s actual plurality — so a `they`-declared `who` was always
+singularized before its possessive form was looked up, landing on "its"
+(`it`'s form) instead of "their". I/he/she happened to look correct only
+because singularizing an already-singular pronoun is a no-op.
+
+**Fixed**: `ranting_derive/src/lib.rs:765` now passes `#expr.is_plural()`
+instead of the hardcoded `false`, so the possessive reflects `who`'s real
+declared plurality. Regression coverage added: `tests/ranting/tutorial.rs`'s
+`section_1_why_say_vs_format` gained a `"they"` case, and
+`tests/ranting/property_based.rs` gained a `"they"`-adjacent no-panic property
+test for `inflect_possessive`/`inflect_reflexive` (see section 6 below —
+found alongside a related graceful-degradation fix for the same two
+functions). `docs/TUTORIAL.md`'s Section 1 example now also shows the
+`"they"` case instead of avoiding it.
 
 ## 6. CLAUDE.md's "Planned restructuring" section was describing finished work as future (fixed)
 
@@ -152,25 +161,31 @@ had been named anywhere in the file despite being live, load-bearing code.
 `ROADMAP.md`'s own "Current State (v1.0.0)" banner was equally stale (predating
 Phases 3-5, all done further down the same file) — updated to "v1.2.1".
 
-**Internal tension in `ROADMAP.md` itself, left unresolved (not a doc/code bug,
-just noted here):** Phase 4 item 4's implementation notes explicitly list five
-`.expect("Not a subject")` calls in `src/language/english.rs`
+**Internal tension in `ROADMAP.md` itself — now resolved in code.** Phase 4
+item 4's implementation notes explicitly listed five `.expect("Not a
+subject")` calls in `src/language/english.rs`
 (`inflect_adjective`/`inflect_subjective`/`inflect_objective`/
 `inflect_possessive`/`inflect_reflexive`) as a deliberate deferral — "left
 alone, out of this item's explicit scope" — reasoning that they operate on
 already-validated data. But two of those five (`inflect_possessive`,
 `inflect_reflexive`) are public functions taking a raw `subject: &str`, so
 they *are* reachable with unvalidated input from outside `say!()`'s own call
-sites, and a "v1.2 success criteria" bullet elsewhere in `ROADMAP.md` claims
-"no runtime panics reachable from public API with invalid data." The
-deferral's own reasoning and the separate success-criteria bullet aren't
-fully consistent with each other. Not touched here — no doc currently makes
-a claim to a reader that contradicts observed behavior (the deferral note is
-honest about what's deferred), this is `ROADMAP.md` disagreeing with itself
-across two sections. Flagging as unclaimed work: either the success-criteria
-bullet needs a caveat, or `inflect_possessive`/`inflect_reflexive` need the
-same graceful-degradation treatment `inflect()`/`is_subjective_plural` already
-got in that same item.
+sites, in tension with a separate "v1.2 success criteria" bullet elsewhere in
+`ROADMAP.md` claiming "no runtime panics reachable from public API with
+invalid data."
+
+**Fixed**: all five `.expect("Not a subject")` calls in
+`src/language/english.rs` now degrade gracefully to `SubjectPronoun::It`'s
+forms on unrecognized input, the same treatment `is_subjective_plural`
+already got in Phase 4 item 4 — not just the two public ones, since fixing
+all five for a consistent invariant ("`SubjectPronoun::from_str` failure
+never panics anywhere in this file") was cheap and removes the tension
+entirely rather than leaving `inflect_adjective`/`inflect_subjective`/
+`inflect_objective` on a different standard from their two public siblings.
+Regression coverage: `tests/ranting/property_based.rs` gained
+`inflect_possessive_and_reflexive_invalid_subject_degrade_to_it` and two
+`proptest` no-panic properties (`prop_inflect_possessive_no_panic`,
+`prop_inflect_reflexive_no_panic`).
 
 Three other top-level docs (`ARGUMENT_PARSING_IMPROVEMENTS.md`,
 `DESIGN_REPORT_SUMMARY.md`, `RECOUNTING_INTEGRATION.md`) were reconsidered for

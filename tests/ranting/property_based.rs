@@ -1,12 +1,16 @@
 // Property-based tests for public inflection API using proptest.
-// Tests the three publicly exported functions:
-// - inflect_possessive (requires valid pronoun input, so only tested on known pronouns)
+// Tests the publicly exported functions:
+// - inflect_possessive / inflect_reflexive (safe on all input — degrade to
+//   `it`'s forms on an unrecognized pronoun instead of panicking; previously
+//   the last two of the five `.expect("Not a subject")` calls in
+//   src/language/english.rs left un-degraded by ROADMAP.md Phase 4 item 4's
+//   original scoping, since fixed — see docs/architecture-review-2026-08-13.md)
 // - is_subject (safe on all input — returns bool)
 // - is_subjective_plural (safe on all input — degrades to `false` on an
 //   unrecognized pronoun instead of panicking; see ROADMAP.md Phase 4 item 4)
 
 use proptest::prelude::*;
-use ranting::{Noun, inflect_possessive, is_subject, is_subjective_plural};
+use ranting::{Noun, inflect_possessive, inflect_reflexive, is_subject, is_subjective_plural};
 
 // Known valid subject pronouns (strum serialization is uppercase for all except you/ye/they)
 const VALID_PRONOUNS: &[&str] = &["I", "you", "thou", "he", "she", "it", "we", "ye", "they"];
@@ -36,6 +40,16 @@ proptest! {
         // Degrades gracefully (see ROADMAP.md Phase 4 item 4): any input,
         // valid pronoun or not, must return a bool rather than panic.
         let _ = is_subjective_plural(&subject);
+    }
+
+    #[test]
+    fn prop_inflect_possessive_no_panic(subject in any::<String>(), to_plural: bool, uc: bool) {
+        let _ = inflect_possessive(&subject, to_plural, uc);
+    }
+
+    #[test]
+    fn prop_inflect_reflexive_no_panic(subject in any::<String>(), to_plural: bool, uc: bool) {
+        let _ = inflect_reflexive(&subject, to_plural, uc);
     }
 
     #[test]
@@ -98,6 +112,18 @@ fn inflect_degrades_gracefully_on_suffix_mismatch() {
 
     let sheep = Sheep;
     assert_eq!(Ranting::inflect(&sheep, false, false), "sheep");
+}
+
+#[test]
+fn inflect_possessive_and_reflexive_invalid_subject_degrade_to_it() {
+    // Previously these two called `.expect(...)` and panicked on an invalid
+    // subject — left un-degraded by Phase 4 item 4's original scoping since
+    // they were assumed to only ever see already-validated Noun/Ranting
+    // data, but both are public functions taking a raw &str. Now they
+    // degrade gracefully to `it`'s forms instead, same as
+    // `is_subjective_plural` (see docs/architecture-review-2026-08-13.md).
+    assert_eq!(inflect_possessive("not-a-pronoun", false, false), "its");
+    assert_eq!(inflect_reflexive("not-a-pronoun", false, false), "itself");
 }
 
 #[test]
