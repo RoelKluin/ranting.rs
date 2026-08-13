@@ -877,6 +877,19 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
      (`x.ends_with(&['x', ...])` → `x.ends_with(['x', ...])`) were fixed
      directly. `cargo clippy --all-targets -- -D warnings` is now clean in
      all three crates individually and as a workspace.
+   - **Follow-up, 2026-08-13**: the other `ranting_derive`-gate wart
+     referenced throughout this item's log — the pre-existing
+     `src/lib.rs - derive_ranting` doctest failure (`unresolved import
+     'ranting'`) — is fixed too, the same way CLAUDE.md's "Doctests in
+     proc-macro crate" note always said to fix it: the example (singular
+     "they" via `#[derive_ranting]`) is now a real, passing doctest on
+     `Ranting`'s trait doc in `ranting/src/lib.rs` (where `ranting` and
+     `ranting_derive` are both actually in scope), and the original copy on
+     `ranting_derive::derive_ranting` itself is marked `` ```rust,ignore ``
+     with a comment pointing at the runnable copy, instead of silently
+     failing every `cargo test --doc` run in that crate. `ranting_derive`'s
+     doctest count goes from "9 unit + 1 failing doctest" to "9 unit + 1
+     ignored doctest"; `ranting`'s doctest count goes from 11 to 12.
 
 7. **Licensing decision** (orthogonal, but decides whether the rest gets an audience)
    - GPL-3 on a *library* crate is the single biggest adoption barrier: dependents'
