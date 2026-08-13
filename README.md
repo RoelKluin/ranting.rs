@@ -132,6 +132,32 @@ fn main() {
           "A {*can can} contain water."
   (removed the mutname variant)
 
+- Collections and nested `Ranting` values can be used as placeholder subjects/arguments directly:
+  * `Box<T>` where `T: Ranting` — delegates every method straight through to the boxed value.
+  * `Many<T>` (wraps `Vec<T>`, `T: Ranting`) — a collective noun phrase. Its rendered name joins
+    the items' own names as `"a, b and c"`; it's treated as plural ("they"/"are") whenever the
+    `Vec` doesn't hold exactly one item (zero items included — "there are no items", not "there
+    is no item"), and delegates plurality/pronoun/custom-hook behavior straight through to the
+    single item when there is exactly one. An empty `Many` skips its article rather than leaving
+    a dangling "a"/"the".
+  * `Maybe<T>` (wraps `Option<T>`, `T: Ranting`) — `Maybe(Some(x))` behaves exactly like `x`;
+    `Maybe(None)` renders as nothing, is singular with subject `"it"`, and skips its article.
+
+  `Vec<T>`/`Option<T>` can't implement `Ranting` directly — the trait requires `Display`, and Rust's
+  orphan rules forbid implementing the foreign `Display` trait for the foreign, non-`#[fundamental]`
+  `Vec`/`Option` types regardless of `T` — hence the `Many`/`Maybe` wrapper types (`Box` has no such
+  problem since `std` already provides `Display` for it). These wrappers compose, e.g. `Many<Box<Noun>>`
+  or `Box<Many<Noun>>` both work.
+
+  ```rust
+  use ranting::*;
+  fn main() {
+      let heroes = Many(vec![Noun::new("Alice", "she"), Noun::new("Bob", "he")]);
+      assert_eq!(say!("{=heroes are} ready."), "They are ready.".to_string());
+      assert_eq!(say!("{heroes}"), "Alice and Bob".to_string());
+  }
+  ```
+
 - If a Noun or numeric plurality has a leading question mark, it is hidden but its inferred inflection does apply.
 
 - An 'article' can be one of `a`, `an`, `some`, `the`, `those` or `these`. These and those are converted to

@@ -14,6 +14,7 @@ mod male_female_and_object;
 mod narration_context_threading;
 mod property_based;
 mod readme_example;
+mod recursive_inflection;
 mod reflexive_pronouns;
 mod runtime_tense;
 mod runtime_viewpoint;
