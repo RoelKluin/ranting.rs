@@ -190,6 +190,7 @@ impl Ranting for Dignitary {
         &self,
         subject: &str,
         case: PronounCase,
+        _class: NounClass,
         _as_plural: bool,
         uc: bool,
     ) -> Option<String> {
@@ -267,6 +268,7 @@ impl Ranting for SpanishFeminine {
         article: &str,
         _noun_singular: &str,
         _case: GrammaticalCase,
+        _class: NounClass,
         as_plural: bool,
         uc: bool,
     ) -> Option<String> {
@@ -356,6 +358,7 @@ impl Ranting for ScottishHighlander {
         &self,
         subject: &str,
         case: PronounCase,
+        _class: NounClass,
         _as_plural: bool,
         uc: bool,
     ) -> Option<String> {
@@ -552,6 +555,7 @@ impl Ranting for SpanishNoun {
         article: &str,
         noun_singular: &str,
         _case: GrammaticalCase,
+        _class: NounClass,
         as_plural: bool,
         uc: bool,
     ) -> Option<String> {

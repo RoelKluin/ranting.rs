@@ -138,6 +138,7 @@ impl Ranting for Dignitary {
         &self,
         subject: &str,
         case: PronounCase,
+        _class: NounClass,
         _as_plural: bool,
         uc: bool,
     ) -> Option<String> {

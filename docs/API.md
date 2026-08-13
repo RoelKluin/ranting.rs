@@ -46,6 +46,12 @@ for your own structs/enums; `Box<T>`, `Many<T>`, `Maybe<T>` all forward it
 | `inflect(&self, to_plural: bool, uc: bool) -> String` | singular/plural name form | uses `#[ranting(singular_end, plural_end)]` |
 | `skip_article(&self) -> bool` | whether to omit an article | for proper nouns, uncountables, etc; `#[ranting(no_article = true)]` |
 
+**Defaulted method:**
+
+| Method | Returns | Purpose |
+|---|---|---|
+| `noun_class(&self) -> NounClass` | lexical gender / noun class | `NounClass::UNSET` unless set; `#[ranting(gender = "...")]`, or `self.gender` if `gender = "$"`. See [`NounClass`](#nounclass) |
+
 **Customization hooks** (all default to `None`, meaning "fall back to
 built-in English rules"; each `_with_context` variant is what every call site
 in the crate actually invokes — `say!()` passes `ctx: None`, `say_with!()`
@@ -54,8 +60,12 @@ passes `Some(ctx)` — so overriding only the `_with_context` form is enough):
 | Method pair | Customizes |
 |---|---|
 | `inflect_verb_custom` / `_with_context` | verb conjugation (tense, plurality, person) |
-| `inflect_pronoun_custom` / `_with_context` | pronoun form, keyed by `PronounCase` (`Subjective`/`Objective`/`PossessiveDeterminer`/`PossessivePronoun`/`Reflexive`) |
-| `inflect_article_custom` / `_with_context` | article form (a/an/the/some, demonstratives) |
+| `inflect_pronoun_custom` / `_with_context` | pronoun form, keyed by `PronounCase` (`Subjective`/`Objective`/`PossessiveDeterminer`/`PossessivePronoun`/`Reflexive`) and `NounClass` |
+| `inflect_article_custom` / `_with_context` | article form (a/an/the/some, demonstratives), keyed by `GrammaticalCase` and `NounClass` |
+
+The pronoun and article hooks also receive the noun's own
+[`NounClass`](#nounclass) as a `class` parameter, and the article hook its
+`GrammaticalCase`; the verb hook receives neither.
 
 `ctx: Option<&NarrationContext>` is always a plain parameter on these hooks,
 never read from `self` — an entity's own `subject` stays entity-owned, while
@@ -82,6 +92,44 @@ Valid `subject` values: `"I"`, `"you"`, `"thou"`, `"he"`, `"she"`, `"it"`,
 sites that already know their subject string is valid; prefer `try_new` when
 `subject` isn't a compile-time literal.
 
+```rust
+Noun::with_noun_class(self, class: NounClass) -> Noun    // chains off new/try_new
+```
+
+Both constructors leave the class [`UNSET`](#nounclass); `with_noun_class`
+consumes and returns the `Noun`, so it chains:
+`Noun::new("Katze", "she").with_noun_class(NounClass::new("feminine"))`.
+
+## `NounClass`
+
+An open-ended lexical-gender / noun-class label carried by the entity and
+handed to the pronoun and article hooks as their `class` parameter, so a
+non-English implementation can pick `der`/`die`/`das` without an external
+gender table keyed by the display string (which breaks on homographs, names,
+and runtime-built nouns).
+
+```rust
+pub struct NounClass(&'static str);              // a newtype, not a closed enum
+
+NounClass::UNSET                                  // == NounClass::new("")
+NounClass::new(label: &'static str) -> NounClass
+NounClass::as_str(&self) -> &'static str          // "" when unset
+NounClass::is_unset(&self) -> bool
+```
+
+It is a newtype over `&'static str` rather than an
+`enum { Masculine, Feminine, Neuter }` because Bantu languages have a
+dozen-plus classes and Danish has common/neuter. `ranting` never interprets
+the label — English has no lexical gender — it only carries it, like
+`NarrationContext::dialect`. `Copy`, `Eq`, `Hash`, `Display`, and `Default`
+(= `UNSET`).
+
+Set it with `#[ranting(gender = "...")]`, `Noun::with_noun_class`, or by
+overriding `Ranting::noun_class`. A noun that sets none reports `UNSET` and
+renders byte-identically to how it did before this channel existed. See
+[`docs/EXTENSIBILITY.md` §2.4](EXTENSIBILITY.md) for the worked German
+example.
+
 ## Wrapper types
 
 `Vec<T>` and `Option<T>` can't implement `Ranting` directly — the trait
@@ -93,8 +141,8 @@ already provides `Display` for it):
 | Type | Wraps | Behavior |
 |---|---|---|
 | `Box<T: Ranting>` | — | Delegates every `Ranting` method straight through to `*self`. |
-| `Many<T: Ranting>` | `Vec<T>` | Collective noun phrase. Name renders as `"a, b and c"`. Plural whenever `len() != 1` (zero items included — "there are no items", not "there is no item"). Delegates plurality/pronoun/custom-hook behavior straight through when exactly one item; falls back to built-in English for 0 or 2+. `skip_article()` is `true` when empty. |
-| `Maybe<T: Ranting>` | `Option<T>` | `Maybe(Some(x))` behaves exactly like `x`. `Maybe(None)` renders as nothing, is singular with subject `"it"`, and skips its article. |
+| `Many<T: Ranting>` | `Vec<T>` | Collective noun phrase. Name renders as `"a, b and c"`. Plural whenever `len() != 1` (zero items included — "there are no items", not "there is no item"). Delegates plurality/pronoun/custom-hook behavior straight through when exactly one item; falls back to built-in English for 0 or 2+. `skip_article()` is `true` when empty. `noun_class()` reports the single item's class when `len() == 1`, else `NounClass::UNSET`. |
+| `Maybe<T: Ranting>` | `Option<T>` | `Maybe(Some(x))` behaves exactly like `x`. `Maybe(None)` renders as nothing, is singular with subject `"it"`, skips its article, and reports `NounClass::UNSET`. |
 
 These compose: `Many<Box<Noun>>`, `Box<Many<Noun>>`, etc. all work.
 
@@ -232,6 +280,7 @@ struct Wizard {}
 | `name` | struct/enum name | Display name; `"$"` means read a `name: String` field instead. |
 | `singular_end` | `""` | Suffix stripped when singularizing (for `inflect()`). |
 | `plural_end` | `"s"` | Suffix added when pluralizing. |
+| `gender` | `""` (unset) | Lexical gender / noun class label, e.g. `"masculine"`; any label a fork wants. `"$"` means read a `gender: ranting::NounClass` field instead. Surfaces as [`noun_class()`](#nounclass); omitting it generates no `noun_class` override at all. |
 
 **Cosmetic attributes** — formatting/display only:
 

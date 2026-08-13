@@ -1227,7 +1227,7 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      CLAUDE.md), and whether item 6's orthography hook should expose
      "sentence-initial" explicitly rather than the implicit `uc: bool`.
 
-2. **Lexical gender / noun-class channel** (10-14 hours) — *the single
+2. ✅ **Lexical gender / noun-class channel** (10-14 hours) — *the single
    highest-leverage enabling change*
    - Today a fork has no way to learn a noun's gender: `inflect_article_custom`
      receives `noun_singular` as a bare `&str`, so `ranting-german` must keep an
@@ -1248,6 +1248,68 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
    - Must be additive: existing impls that don't set a class keep today's
      behavior byte-for-byte. Worked test: German `der Hund`/`die Katze`/`das
      Haus` selecting three different articles from one code path.
+   - ✅ **COMPLETE 2026-08-13** — `NounClass` (public, in `ranting`), a
+     defaulted `Ranting::noun_class()`, a `#[ranting(gender = "...")]` derive
+     attribute, and a `class: NounClass` parameter on
+     `inflect_article_custom`/`_with_context` and
+     `inflect_pronoun_custom`/`_with_context`. 293 integration tests + 14
+     doctests pass under both `cargo test` and `cargo test --all-features`
+     (285 + 12 before; 8 new tests in `tests/ranting/noun_class.rs`), with
+     every pre-existing assertion byte-identical — only hook signatures in
+     those files changed. `cargo clippy --all-targets --all-features
+     -D warnings` is clean, as is `ranting_derive`'s standalone clippy.
+   - **Deviation from item 1's stated reference pattern, deliberately**:
+     `GrammaticalCase` mirrors `ranting_core::placeholder::CaseKind` via `From`
+     because `CaseKind` lives at the macro↔runtime seam — the derive macro
+     parses it out of placeholder syntax and bakes it into a `PlaceholderSpec`.
+     A noun class is never written in a placeholder; it comes off the entity at
+     runtime, so there is no `ranting_core` type to mirror and none was
+     invented. `NounClass` is defined in `ranting` alone. Everything else in the
+     pattern was followed: parameter on the `_custom` hook *and* its
+     `_with_context` twin, threaded from `handle_placeholder_impl` /
+     `get_article_or_so`, worked example in a real language under
+     `tests/ranting/`.
+   - **Newtype over `&'static str`, as scoped** — `NounClass::new(label)`,
+     `as_str()`, `is_unset()`, and `UNSET` (defined as the empty label, so a
+     fork matching on `as_str()` sees `""` and "absent" as one case, not two).
+     `Copy`/`Eq`/`Hash`/`Display`/`Default`. What `&'static str` makes static is
+     the *set of labels*, not the *assignment*: which label an entity carries is
+     ordinary per-value data, which is what fixes the homograph problem the item
+     motivates — `tests/ranting/noun_class.rs` asserts `die Band` (music group)
+     and `das Band` (ribbon) are distinguishable, where a
+     `HashMap<&str, Gender>` keyed by display string has one entry for both.
+   - **Threading is redundant for a plain impl but load-bearing for the
+     wrappers**: the hook already has `self`, hence `self.noun_class()` — but
+     `Many`/`Maybe`/`Box` read the class off the *wrapper* at the call site
+     while `self` inside the delegated-to hook is the *inner* value, so the
+     parameter is what keeps those consistent. All three now override
+     `noun_class()`: `Many` reports its single item's class only at
+     `len() == 1`, `Maybe(None)` and a 0-or-2+ `Many` report `UNSET` (no one
+     unambiguous class to report). `ref_expr_ranting_trait` delegates it too,
+     alongside `skip_article`.
+   - **Additivity, mechanically**: an absent `gender` attribute generates *no*
+     `noun_class()` override at all, so derived impls are byte-identical to
+     pre-change codegen rather than merely equivalent. `gender = "$"` reads a
+     `gender: ranting::NounClass` field (attribute name == field name, the same
+     rule as `name`/`subject`) — that is how `Noun` carries one, since its
+     `Ranting` impl is derived and cannot be hand-extended with a second
+     `impl Ranting for Noun`; the public setter is the chaining
+     `Noun::with_noun_class(NounClass)`.
+   - **Not threaded into `inflect_verb_custom`**, deliberately: verb agreement
+     in the target languages is person/number, not noun class, and the item
+     scopes the verb hook out. `inflect_article_custom_with_context` (8 args
+     with `self`) and `inflect_pronoun_custom_with_context` carry
+     `#[allow(clippy::too_many_arguments)]` — flat args on a public hook, unlike
+     `GrammaticalCase`'s struct-bundling of the *private* `get_article_or_so`.
+     The adjective hook is item 5's to extend.
+   - Documented in `docs/EXTENSIBILITY.md` §2.4 (with the `der Hund`/`die
+     Katze`/`das Haus` table and a note that §4.3's Spanish example's
+     spelling-based gender heuristic is what `class` replaces — it gets
+     `el problema`/`la mano` wrong), `docs/API.md`, and a CLAUDE.md
+     "Non-obvious behaviors" bullet. The `gender` attribute was also added to
+     the three other places that enumerate the derive attributes: README.md's
+     core-attributes list, and the `// ## Derive Attributes` comment block
+     above `pub trait Ranting` in `src/lib.rs`.
 
 3. **Pronoun-inventory & T-V register design spike** (doc-only, 8-12 hours) —
    *the deepest open question in the phase*

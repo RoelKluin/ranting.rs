@@ -17,6 +17,7 @@ mod inclusive_language;
 mod irregular_plurals;
 mod male_female_and_object;
 mod narration_context_threading;
+mod noun_class;
 mod property_based;
 mod readme_example;
 mod recursive_inflection;

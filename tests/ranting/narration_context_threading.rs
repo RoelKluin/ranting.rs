@@ -134,6 +134,7 @@ impl Ranting for Innkeeper {
         &self,
         subject: &str,
         case: PronounCase,
+        class: NounClass,
         as_plural: bool,
         uc: bool,
         ctx: Option<&NarrationContext>,
@@ -144,7 +145,7 @@ impl Ranting for Innkeeper {
         // Falls back to the plain (non-context) hook for every other case,
         // proving the default `_with_context` delegation still runs when a
         // fork overrides both hooks.
-        self.inflect_pronoun_custom(subject, case, as_plural, uc)
+        self.inflect_pronoun_custom(subject, case, class, as_plural, uc)
     }
 }
 
@@ -212,6 +213,7 @@ impl Ranting for Merchant {
         article: &str,
         _noun_singular: &str,
         _case: GrammaticalCase,
+        _class: NounClass,
         as_plural: bool,
         uc: bool,
         ctx: Option<&NarrationContext>,

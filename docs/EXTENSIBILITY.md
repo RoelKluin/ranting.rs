@@ -165,6 +165,7 @@ fn inflect_pronoun_custom(
     &self,
     subject: &str,
     case: PronounCase,
+    class: NounClass,
     as_plural: bool,
     uc: bool,
 ) -> Option<String>
@@ -173,6 +174,8 @@ fn inflect_pronoun_custom(
 **Parameters:**
 - `subject` (&str): The subject pronoun (e.g., "I", "you", "he", "she", "it", "we", "they")
 - `case` (PronounCase): Which pronoun form is requested (see enum below)
+- `class` (`NounClass`): The noun's own lexical gender / noun class, or `NounClass::UNSET` when
+  it declares none — see §2.4
 - `as_plural` (bool): Whether to pluralize the pronoun
 - `uc` (bool): Whether to uppercase the first character
 
@@ -197,6 +200,7 @@ fn inflect_pronoun_custom(
     &self,
     subject: &str,
     case: PronounCase,
+    _class: NounClass,
     _as_plural: bool,
     uc: bool,
 ) -> Option<String> {
@@ -221,6 +225,7 @@ fn inflect_article_custom(
     article: &str,
     noun_singular: &str,
     case: GrammaticalCase,
+    class: NounClass,
     as_plural: bool,
     uc: bool,
 ) -> Option<String>
@@ -235,6 +240,8 @@ fn inflect_article_custom(
   nothing more specific to report in that form, so neither does this. Exists for case-declining
   languages (German `der`/`den`/`dem`) where the article's own form depends on more than gender
   and number; English forks can ignore it.
+- `class` (`NounClass`): The noun's own lexical gender / noun class, carried by the entity rather
+  than inferred from `noun_singular`, or `NounClass::UNSET` when it declares none — see §2.4.
 - `as_plural` (bool): Whether the noun is plural
 - `uc` (bool): Whether to uppercase the first character
 
@@ -250,6 +257,7 @@ fn inflect_article_custom(
     article: &str,
     noun_singular: &str,
     _case: GrammaticalCase,
+    _class: NounClass,
     as_plural: bool,
     uc: bool,
 ) -> Option<String> {
@@ -268,7 +276,108 @@ fn inflect_article_custom(
 }
 ```
 
-**Best Practice:** Examine `noun_singular` for vowel/gender patterns. This parameter is the singularized form of the noun, allowing you to make decisions based on linguistic properties (e.g., French uses "un" for masculine, "une" for feminine). Spanish's own gender doesn't need `case` — its gap is on the pronoun side, not the article side — but a case-declining language's article hook should route on it the same way pronoun hooks already route on `PronounCase`.
+**Best Practice:** Examine `noun_singular` for vowel/gender patterns. This parameter is the singularized form of the noun, allowing you to make decisions based on linguistic properties (e.g., French uses "un" for masculine, "une" for feminine). Spanish's own gender doesn't need `case` — its gap is on the pronoun side, not the article side — but a case-declining language's article hook should route on it the same way pronoun hooks already route on `PronounCase`. Where gender itself is what you need, prefer the `class` parameter (§2.4) over inferring it from `noun_singular`'s spelling — the Spanish example above is a spelling heuristic, and it is wrong for `el problema`/`la mano`.
+
+### 2.4 Lexical Gender / Noun Class: `noun_class()` and the `class` parameter (v1.3)
+
+`NounClass` is an open-ended label carried **by the entity**, handed to
+`inflect_article_custom` and `inflect_pronoun_custom` (and their `_with_context` twins) as the
+`class` parameter. It is the channel that lets a non-English implementation stop keying gender
+off the display string.
+
+```rust
+pub struct NounClass(&'static str);      // a newtype, not an enum
+
+impl NounClass {
+    pub const UNSET: NounClass;                       // == NounClass::new("")
+    pub const fn new(label: &'static str) -> Self;
+    pub const fn as_str(&self) -> &'static str;       // "" when unset
+    pub const fn is_unset(&self) -> bool;
+}
+```
+
+**Why a newtype over `&'static str`, not `enum { Masculine, Feminine, Neuter }`.** Bantu
+languages have a dozen-plus noun classes and Danish has common/neuter, so an English-adjacent
+closed enum would be wrong on arrival. `ranting` attaches no meaning to the label at all — it
+carries it from the noun to your hook, exactly like `NarrationContext::dialect`. What the classes
+*are* is your language module's business, and adding one costs nothing in this crate.
+
+**What `&'static str` does and doesn't make static.** The *set of labels* a program uses must be
+known at compile time (or leaked). Which label a given entity carries is ordinary per-value data,
+so a `Noun` built at runtime picks its class at runtime — that's what fixes the homograph problem
+below. It is not a promise of runtime-*computed* label strings.
+
+**Declaring a class.** Three ways, all optional:
+
+```rust
+// 1. On a derived struct or enum:
+#[derive_ranting]
+#[ranting(subject = "he", name = "Hund", gender = "masculine")]
+struct Hund {}
+
+// 2. On a `Noun`, at construction:
+let katze = Noun::new("Katze", "she").with_noun_class(NounClass::new("feminine"));
+
+// 3. In a hand-written `Ranting` impl:
+fn noun_class(&self) -> NounClass { self.class }
+```
+
+`#[ranting(gender = "$")]` reads the class from a `gender: ranting::NounClass` field on the
+struct, following the same attribute-name-is-field-name rule as `name = "$"`/`subject = "$"`.
+(`Noun` itself uses this form.)
+
+**Why not just look at `noun_singular`?** Because a gender table keyed by the display string
+breaks on homographs, on names, and on nouns built at runtime:
+
+```rust
+let music_band = GermanNoun::new("Band", "feminine");  // die Band (a music group)
+let ribbon     = GermanNoun::new("Band", "neuter");    // das Band (a ribbon)
+```
+
+Both spell `Band`. A `HashMap<&str, Gender>` has one entry for them; the entity has two. Gender
+is a property *of the entity*, exactly like `subject`, so that is where it lives.
+
+**Worked example: `der Hund` / `die Katze` / `das Haus` from one code path.** `class` picks the
+column, `case` (§2.3) picks the row — nothing here looks at the noun's spelling:
+
+```rust
+fn inflect_article_custom(
+    &self,
+    article: &str,
+    _noun_singular: &str,
+    case: GrammaticalCase,
+    class: NounClass,
+    as_plural: bool,
+    uc: bool,
+) -> Option<String> {
+    if article != "the" {
+        return None;
+    }
+    let form = match (class.as_str(), case) {
+        (_, _) if as_plural => "die",
+        ("masculine", GrammaticalCase::Objective) => "den",
+        ("masculine", _) => "der",
+        ("feminine", _) => "die",
+        ("neuter", _) => "das",
+        _ => return None,   // no class declared: let English through
+    };
+    Some(uc_1st_if(form, uc))
+}
+```
+
+See `tests/ranting/noun_class.rs` for the runnable version, including the accusative
+`den Hund`/`die Katze` contrast and the `Band` homograph pair.
+
+**Additive by construction.** A noun that declares no class reports `NounClass::UNSET`, which is
+what a hook would have received before this channel existed; `ranting` itself never reads the
+value, so English rendering is byte-identical whether or not a class is set. `Box<T>` forwards
+its inner value's class; `Maybe(None)` and a `Many` that doesn't hold exactly one item report
+`UNSET`, since neither has one unambiguous class to report.
+
+**Not threaded into `inflect_verb_custom`.** Verb agreement in the languages this targets is
+driven by person/number, not by noun class; the verb hook's signature is unchanged. The adjective
+hook will receive `class` when it lands (ROADMAP.md Phase 6 item 5) — adjective *agreement* is
+exactly where a class label is needed next.
 
 ## Partial Customization
 
@@ -526,6 +635,7 @@ impl Ranting for SpanishNoun {
         article: &str,
         noun_singular: &str,
         _case: GrammaticalCase,
+        _class: NounClass,
         as_plural: bool,
         uc: bool,
     ) -> Option<String> {
@@ -559,6 +669,11 @@ fn main() {
 **Output:**
 - `"{the 0 be} hermosa"` → `"La cosa es hermosa"` (feminine article + Spanish verb)
 - `"{the +0 be} hermosas"` → `"Las cosas son hermosas"` (plural feminine + plural verb)
+
+Note this example predates `NounClass` (§2.4) and still infers gender from the noun's ending —
+a heuristic that gets `el problema` and `la mano` wrong. A `ranting-spanish` written today should
+declare `#[ranting(gender = "feminine")]` (or set it per-`Noun`) and match on the `class`
+parameter instead of on `noun_singular`'s last character.
 
 ## Best Practices
 

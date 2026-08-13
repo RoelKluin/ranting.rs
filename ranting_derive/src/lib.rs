@@ -225,6 +225,9 @@ fn ref_expr_ranting_trait(ref_expr: TokenStream) -> TokenStream {
             fn skip_article(&self) -> bool {
                 (**self).skip_article()
             }
+            fn noun_class(&self) -> ranting::NounClass {
+                (**self).noun_class()
+            }
         }
     }
 }
