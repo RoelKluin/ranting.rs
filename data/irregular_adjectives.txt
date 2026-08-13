@@ -1,0 +1,10 @@
+# Irregular comparative/superlative adjective forms.
+# Format: base|comparative|superlative
+# Single source of truth, consumed by ranting_derive/build.rs (compile-time
+# say!() adjective-degree baking, see src/lib.rs's `!`/`!!` post-noun markers).
+bad|worse|worst
+far|further|furthest
+good|better|best
+little|less|least
+many|more|most
+much|more|most
