@@ -912,6 +912,113 @@ into a crate that deliberately keeps them out). See
 `docs/superpowers/specs/2026-08-13-word-order-feasibility.md` for the full option-scoring table and
 `ranting_i18n/README.md`'s finding 4 for the worked German example.
 
+### 2.13 Non-English Pronoun Inventories (ROADMAP.md Phase 6 item 21)
+
+`SubjectPronoun` (`ranting_core::grammar`) is a closed enum of nine English pronouns — `I`, `You`,
+`Thou`, `He`, `She`, `It`, `We`, `Ye`, `They` — and it stays that way. This section documents what
+that means for a fork that needs German `Sie`/`du`, French `vous`/`tu`, or any other inventory
+English doesn't have, and it changes nothing about the crate: every mechanism described below
+already exists. See `docs/superpowers/specs/2026-08-13-pronoun-inventory.md` for the full design
+spike this section summarizes — the "keep `SubjectPronoun` English-only" row is locked in
+ROADMAP.md's Key Architecture Decisions table, with that spec as the reason.
+
+**`subjective() -> &str` is an open, uninterpreted channel.** `Ranting::subjective(&self) -> &str`
+returns a plain string, not a `SubjectPronoun` — nothing in the trait signature requires it to be
+one of the nine English words. `handle_placeholder_impl` passes whatever `subjective()` returns
+straight to the pronoun/verb/article hooks (§2.1–§2.3) as their `subject: &str` parameter, with no
+validation and no normalization along the way. A fork's `subjective()` can return `"Sie"`, `"du"`,
+`"vous"`, an inclusive/exclusive `"we"`, or anything else its language needs.
+
+**The five `PronounCase` arms, plus `inflect_verb_custom`, are the fork's own table.** `subjective()`
+supplies the *label*; rendering it is entirely the fork's responsibility, via the hooks already
+described in §2.1 and §2.2:
+
+- `inflect_pronoun_custom`/`_with_context` (§2.2), matched against all five `PronounCase` arms —
+  `Subjective`, `Objective`, `PossessiveDeterminer`, `PossessivePronoun`, `Reflexive` — is where a
+  fork maps `"Sie"`/`"du"` to their case forms.
+- `inflect_verb_custom`/`_with_context` (§2.1) is where the fork supplies verb agreement for its own
+  pronoun set — English's built-in tables never see a label they don't recognize as anything other
+  than the unhandled-arm fallback described below.
+
+Both hooks are consulted *first*, before the English fallback table (`src/language/english.rs`)
+ever runs, so a fork that implements both never touches English's pronoun/verb logic at all for its
+own labels.
+
+**Declare a `#[ranting(subject = "…")]` struct rather than reusing `Noun`.** `Noun`'s `subject`
+field is typed `SubjectPronoun`, and `Noun::try_new` rejects (via `InvalidSubjectError`) any label
+`SubjectPronoun::from_str` doesn't recognize — that's Phase 4 item 4's deliberate invariant, and it
+is not reachable for a non-English label. A fork carrying `"Sie"` or `"du"` declares its own
+`#[derive_ranting]` struct instead, with `#[ranting(subject = "…")]` (a literal) or
+`#[ranting(subject = "$")]` (reads a `subject: String` field at runtime) — the derive macro does
+*not* validate a literal `subject` attribute against `is_subject`, so both compile today for any
+string. This is the one thing option (c) costs: a fork cannot use `Noun` as the carrier, but since
+such a fork is already writing its own `inflect_pronoun_custom`/`inflect_verb_custom` table, it is
+already writing its own struct anyway.
+
+**T-V precedence: the addressee's own label wins, always.** German `Sie` and French `vous` are not
+a modifier layered onto a pronoun — they *are* pronoun slots (3rd-person-plural and 2nd-person-
+plural respectively, reused as a polite 2nd-person-singular), so the T-V distinction is carried by
+`subject` itself, at the granularity of one addressee per `#[derive_ranting]` struct:
+
+```rust
+#[derive_ranting] #[ranting(subject = "du")]  struct Freund {}
+#[derive_ranting] #[ranting(subject = "Sie")] struct Kunde {}
+```
+
+Both render through the same `inflect_pronoun_custom`/`inflect_verb_custom` impl in the same
+`say!()` call, with no `NarrationContext` involved — which is what lets one sentence address one
+character with `du` and another with `Sie`. The precedence rule, in order:
+
+1. **The addressee's own declared `subject` label wins, always.** If the entity already carries a
+   T-V-specific label, that's the answer; there's nothing left for the other two steps to do.
+2. **`ctx.register` (`NarrationContext.register`, §2.0) is a fallback for the indifferent case
+   only.** A fork's `inflect_pronoun_custom_with_context` *may* consult `ctx.register` when its own
+   entity model leaves address form unspecified — e.g. a generic "the merchant" with no declared
+   politeness — but only via `say_with!()`, and only because the fork's own hook chose to read it.
+   `ranting` never reads `register` itself; see §2.0.
+3. **`register: None` (or no `say_with!()` context at all) means no override in effect** — identical
+   to step 1 deciding unopposed.
+
+`ranting` will never arbitrate between a declared label and `ctx.register` in-crate, because doing
+so requires knowing that `"Sie"` and `"du"` denote the same referent addressed two ways — that's
+language knowledge, and it stays in the fork. A true speaker×addressee T-V *relation* (the same
+person addressed as `du` by one speaker and `Sie` by another, in the same story) is out of reach for
+a different reason: `say!()`'s placeholders have no reference to a speaker or narrator, and
+`ask!()`'s speaker parameter reaches only `Answerable::answer`, never an inflection hook. A fork
+that needs that relation selects the addressee representation (which struct, which declared label)
+at the call site, before `say!()` is reached.
+
+**The `unwrap_or(It)` degrade is the documented cost of an unhandled arm.** `SubjectPronoun` staying
+closed is what makes the compiler check exhaustive for the nine English pronouns — but a fork's
+*own* table has no such compiler backing, because it's an ordinary `match` inside
+`inflect_pronoun_custom`/`inflect_verb_custom`, not a match on `SubjectPronoun` itself. If a fork's
+hook doesn't recognize a label it's handed (a genuinely new one, or a typo), it returns `None`, and
+the call falls through to English's own fallback tables in `src/language/english.rs`. Those tables
+resolve any unrecognized label via `SubjectPronoun::from_str(label).unwrap_or(SubjectPronoun::It)`
+at five sites (`inflect_adjective`, `inflect_subjective`, `inflect_objective`, `inflect_possessive`,
+`inflect_reflexive`) — so a label like `"Sie"` or `"er"`, unrecognized by both the fork's hook and
+by `SubjectPronoun::from_str`, silently renders as `it`/`its`/`itself`.
+
+Verb agreement degrades differently, and worth stating precisely because it isn't the same failure:
+`english::inflect_verb`'s dispatch has a catch-all `_` arm that renders the **bare, uninflected**
+verb form rather than `it`'s conjugation. Phase 6 item 10's German reference lexicon confirmed this
+concretely — a declined German verb, left unhandled by the fork's own `inflect_verb_custom`, falls
+through to that catch-all arm and renders as `"Der Hund walk."`, not `"Der Hund walks."` or
+`"Der Hund it-conjugation"`. Two further sites degrade silently in their own way, without an
+`unwrap_or`: `is_subjective_plural` returns `false` for any unrecognized label (so an unhandled
+`"Sie"` is singular for agreement purposes unless the fork's own `is_plural()` says otherwise), and
+`is_first_person_subject` (§2.10) is a hard-coded `matches!(subject, "I" | "we")` with no fallback
+signal at all for a fork whose first-person labels are `"ich"`/`"wir"` — the one hook-shaped gap
+this spike named without closing (see `is_first_person_subject_custom`, §2.10, which *was* built to
+close it).
+
+None of this is a bug: it's the same "degrade, don't panic" contract `SubjectPronoun::from_str`
+already ships for English (Phase 4 item 4), extended to cover the one case that contract can't see
+— a label that's meaningful to the fork's own grammar but foreign to English's. The degrade stays
+silent — no error, no panic, nothing pointing at the unhandled arm — which is the price of the
+closed-enum decision made concrete: a fork gets a compile-time-safe `SubjectPronoun` for the nine
+English pronouns, and an ordinary, un-typechecked `match` for everything else it adds.
+
 ## Partial Customization
 
 You don't need to implement every `_custom` method. If you only need verb customization, implement `inflect_verb_custom()` and leave the rest as default (returning `None`). The trait provides a default for all of them:

@@ -2551,10 +2551,42 @@ because it exercises everything before it.*
     - ✅ No production code touched — `docs/EXTENSIBILITY.md`, `CLAUDE.md` and
       `README.md` only, matching the item's doc-only scope.
 
-21. **Document non-English pronoun inventories** (doc-only, 6-8 hours) — the
+21. ✅ **Document non-English pronoun inventories** (doc-only, 6-8 hours) — the
     entire follow-up the pronoun-inventory spec authorizes (its recommendation
     is "change nothing, document what exists"), plus flipping the
     `SubjectPronoun` row in Key Architecture Decisions to ✅ Locked.
+    - ✅ **COMPLETE 2026-08-13** — `docs/EXTENSIBILITY.md` §2.13 written in full:
+      `subjective() -> &str` as an open, uninterpreted channel; the five
+      `PronounCase` arms (`Subjective`/`Objective`/`PossessiveDeterminer`/
+      `PossessivePronoun`/`Reflexive`) plus `inflect_verb_custom` as the fork's
+      own table, consulted before English's fallback tables ever run;
+      declaring a `#[ranting(subject = "…")]` struct rather than reusing
+      `Noun` (whose `SubjectPronoun`-typed field and `try_new` validation are
+      Phase 4 item 4's invariant, not reachable for a non-English label); the
+      T-V precedence rule (addressee's own declared label wins, always >
+      `ctx.register` as a fallback for the indifferent case only, consulted
+      only inside a fork's own `_with_context` hook > no override in effect);
+      and the `unwrap_or(It)` degrade at English's five pronoun-fallback sites
+      as the documented consequence of a fork leaving a `PronounCase` arm
+      unhandled.
+    - ✅ Folded in item 10's confirmation, from the other side: an unrecognized
+      `subjective()` label degrades *silently* for verb agreement too, but via
+      a different path than the five `unwrap_or(It)` sites — `english::
+      inflect_verb`'s catch-all `_` arm renders the bare, uninflected verb
+      form, so a declined German verb left unhandled by the fork's own
+      `inflect_verb_custom` renders `"Der Hund walk."`, not `"Der Hund
+      walks."`. §2.13 states this as the closed-enum decision's cost made
+      concrete, cross-referencing item 18's confirmation of the same finding.
+    - ✅ The `SubjectPronoun` row in ROADMAP.md's Key Architecture Decisions
+      table was already `✅ Locked (v1.3, Phase 6 item 3)`, pointing at
+      `docs/superpowers/specs/2026-08-13-pronoun-inventory.md` — flipped ahead
+      of this item when Phase 6 was scoped (commit `6bb54c6a`). No further
+      change needed there; verified rather than re-flipped.
+    - ✅ No production code touched — `docs/EXTENSIBILITY.md` only, matching
+      the item's doc-only scope. `cargo fmt --check`, `cargo clippy -- -D
+      warnings` and `cargo test` are unaffected (doc-only diff) but were run
+      at the repo root, in `ranting_core`, in `ranting_derive` and in
+      `ranting_i18n` to confirm the working tree was green before and after.
 
 22. **Per-language template selection spike** (doc-only, 6-10 hours)
     - Item 1 recommends per-language templates and says the caller selects one
