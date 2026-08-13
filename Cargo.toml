@@ -17,6 +17,7 @@ document-features = "0.2"
 english-numbers = "0.3"
 in_definite = "1.0"
 lazy_static = "1.5"
+ranting_core = { version = "0.1.0", path = "ranting_core" }
 ranting_derive = { version = "=0.2.1", path = "ranting_derive", default-features = false }
 regex = "1.11"
 strum_macros = "0.27"

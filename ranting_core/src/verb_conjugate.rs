@@ -1,13 +1,13 @@
 // (c) Roel Kluin 2024 GPL v3
-// Verb conjugation helpers, used both at compile time (say!() literal baking
-// in ranting_derive) and at runtime (say_with!() runtime tense resolution).
-// Converts base verbs to past/continuous/future forms using regular and irregular rules.
-// Irregular verb tables are generated at build time from data/irregular_verbs.txt.
-//
-// Canonical copy: this file lives at repo-root `src/language/verb_conjugate.rs`;
-// `ranting_derive/src/language/verb.rs` is a generated `include!()` wrapper
-// copied at build time by `ranting_derive/build.rs` (same mechanism as
-// `english_shared.rs` — see CLAUDE.md). Only ever edit this repo-root copy.
+//! Verb conjugation helpers, used both at compile time (`say!()` literal
+//! baking in `ranting_derive`) and at runtime (`say_with!()` runtime tense
+//! resolution and `detect_tense` in `ranting`). Converts base verbs to
+//! past/continuous/future forms using regular and irregular rules.
+//!
+//! `IRREGULAR_PAST`/`IRREGULAR_PAST_PARTICIPLE` are generated at build time
+//! from `data/irregular_verbs.txt` (see `build.rs`) — this is now the single
+//! place that table is generated; `ranting` and `ranting_derive` both read
+//! it from here instead of each running their own copy of the codegen.
 
 include!(concat!(env!("OUT_DIR"), "/irregular_verbs_generated.rs"));
 
@@ -29,7 +29,7 @@ fn regular_past_form(verb_lower: &str) -> String {
 }
 
 /// Convert a base verb to its past tense form.
-pub(crate) fn to_past(verb: &str) -> String {
+pub fn to_past(verb: &str) -> String {
     let verb_lower = verb.to_lowercase();
 
     if let Some((_, past)) = IRREGULAR_PAST.iter().find(|(base, _)| verb_lower == *base) {
@@ -40,7 +40,7 @@ pub(crate) fn to_past(verb: &str) -> String {
 }
 
 /// Convert a base verb to its past participle form.
-pub(crate) fn to_past_participle(verb: &str) -> String {
+pub fn to_past_participle(verb: &str) -> String {
     let verb_lower = verb.to_lowercase();
 
     if let Some((_, participle)) = IRREGULAR_PAST_PARTICIPLE
@@ -54,7 +54,7 @@ pub(crate) fn to_past_participle(verb: &str) -> String {
 }
 
 /// Convert a base verb to its continuous (present participle) form (-ing).
-pub(crate) fn to_continuous(verb: &str) -> String {
+pub fn to_continuous(verb: &str) -> String {
     let verb_lower = verb.to_lowercase();
 
     let base = if verb_lower.ends_with("ie") {
@@ -94,7 +94,7 @@ pub(crate) fn to_continuous(verb: &str) -> String {
 }
 
 /// Convert a verb to its future form (base form, since future tense is "will [base]").
-pub(crate) fn to_future(verb: &str) -> String {
+pub fn to_future(verb: &str) -> String {
     // Future tense in English is always "will [base verb]", so just return the base.
     verb.to_string()
 }

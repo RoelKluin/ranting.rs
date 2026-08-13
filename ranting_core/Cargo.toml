@@ -1,0 +1,15 @@
+[package]
+name = "ranting_core"
+version = "0.1.0"
+authors = ["Roel Kluin <Roel.Kluin@gmail.com>"]
+description = "Internal shared grammar engine for ranting / ranting_derive (not a stable public API)"
+license-file = "../LICENSE.txt"
+edition = "2021"
+repository = "https://github.com/RoelKluin/ranting.rs"
+
+[dependencies]
+strum = "0.27"
+strum_macros = "0.27"
+
+[dev-dependencies]
+proptest = "1"

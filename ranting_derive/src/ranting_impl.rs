@@ -1,8 +1,8 @@
 // (c) RoelKluin 2022 GPL v3
 
-use crate::language::english_shared as language;
 use darling::FromDeriveInput;
 use proc_macro2::TokenStream;
+use ranting_core::grammar as language;
 use syn::{parse_quote, Ident};
 
 fn string_it() -> String {

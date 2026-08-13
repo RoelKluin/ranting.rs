@@ -6,8 +6,8 @@ mod ranting_impl;
 mod str_lit;
 
 use language::adjective;
-use language::english_shared as lang;
-use language::verb as verb_conjugate;
+use ranting_core::grammar as lang;
+use ranting_core::verb_conjugate;
 
 use darling::{FromDeriveInput, ToTokens};
 use itertools::join;
