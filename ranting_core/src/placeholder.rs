@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2026 GPL v3
+// (c) Roel Kluin 2026 MIT
 //! Typed placeholder-spec types shared between `ranting_derive` (which bakes
 //! them, as compile-time-constant literal expressions, from `say!()`/
 //! `say_with!()` template parsing) and `ranting` (which consumes them at

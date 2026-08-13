@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2024 GPL v3
+// (c) Roel Kluin 2024 MIT
 //! Auxiliary verb conjugation for tense expressions.
 //! Handles insertion and conjugation of helping verbs (will, is/are, was/were, have, had).
 

@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2024 GPL v3
+// (c) Roel Kluin 2024 MIT
 //! Build script for ranting_derive: generates the irregular noun plurals and
 //! comparative/superlative adjective tables from data/*.txt.
 //!

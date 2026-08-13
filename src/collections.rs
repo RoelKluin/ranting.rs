@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2022 GPL v3
+// (c) Roel Kluin 2022 MIT
 //! Recursive [`Ranting`] impls for `Vec<T>`, `Option<T>`, and `Box<T>` — Phase 3 item 7.
 //!
 //! `Box<T>` gets a direct blanket impl: `Ranting` is local to this crate, so implementing it for

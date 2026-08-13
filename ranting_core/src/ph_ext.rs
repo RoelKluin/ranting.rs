@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2026 GPL v3
+// (c) Roel Kluin 2026 MIT
 //! Hand-written tokenizer for the placeholder-internals grammar previously
 //! matched by [`crate::grammar::PH_EXT`] (ROADMAP.md Phase 4 item 6).
 //!

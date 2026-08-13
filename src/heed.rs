@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2026 GPL v3
+// (c) Roel Kluin 2026 MIT
 // Runtime support for heed!() — matches input text against a compiled
 // template pattern and extracts the ordered set of named captures as raw
 // strings. Per-capture typing ({name} -> String, {$name} -> u64, etc.) is

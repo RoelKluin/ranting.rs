@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2026 GPL v3
+// (c) Roel Kluin 2026 MIT
 // Compile-time template parsing for heed!(). Deliberately a much smaller
 // grammar than say!()'s PH_START/PH_EXT: literal words plus three capture
 // forms ({name}, {name...}, {$name}) — no article/verb/pronoun-case markers,

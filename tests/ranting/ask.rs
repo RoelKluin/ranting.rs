@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2026 GPL v3
+// (c) Roel Kluin 2026 MIT
 //
 // Phase 5: ask!() reworked from a duck-typed `audience.answer(speaker, String)`
 // call built from a say!()-style rendered question, to a heed!()-shaped
