@@ -11,7 +11,13 @@ cd "$REPO_ROOT"
 
 TASKS_FILE="${TASKS_FILE:-tasks.txt}"
 DONE_FILE="${DONE_FILE:-tasks_done.txt}"
-LOG_DIR="${LOG_DIR:-$HOME/logs}"
+# Per-repo, not a shared $HOME/logs: every overnight loop on the machine wrote
+# to the same log and the same failures file, so entries from other repos
+# interleaved with this one's and neither file could be trusted to describe a
+# given run. Kept outside the repo deliberately -- a log directory inside it
+# would be swept up by the per-task 'git add -A' below, and would trip the
+# working-tree-clean pre-flight check in any repo that had not gitignored it.
+LOG_DIR="${LOG_DIR:-$HOME/logs/$(basename "$REPO_ROOT")}"
 DATE_TAG="$(date +%F)"
 LOG_FILE="$LOG_DIR/$DATE_TAG.log"
 FAIL_FILE="$LOG_DIR/failures"
@@ -77,23 +83,58 @@ fi
 n_done=0
 n_failed=0
 task_count=0
-mapfile -t TASKS < "$TASKS_FILE"
-remaining=()
 
-for task in "${TASKS[@]}"; do
-  [[ -z "$task" ]] && continue
+# Tasks are consumed one at a time, re-reading the file each iteration, so new
+# lines appended to it *while the run is in progress* get picked up. The file is
+# never rewritten wholesale -- a completed task is deleted from it individually,
+# the moment it lands -- so an append can never be clobbered by a stale in-memory
+# copy. (The previous mapfile-up-front + rewrite-at-the-end design silently
+# discarded anything appended mid-run.)
+declare -A attempted=()
+
+# First non-blank line not already tried this run. Failed tasks stay in the file
+# for the next run but are marked attempted, so one run never retries them --
+# without that, a failing task would be picked forever.
+next_task() {
+  local line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" ]] && continue
+    [[ -n "${attempted["$line"]:-}" ]] && continue
+    printf '%s' "$line"
+    return 0
+  done <"$TASKS_FILE"
+  return 1
+}
+
+# Delete one exact line, preserving everything else -- including lines appended
+# since the run started. awk compares the whole line as a literal string (no
+# regex), and writes via a temp file in the same directory so a concurrent
+# appender never sees a half-written file.
+drop_task() {
+  local tmp
+  tmp="$(mktemp "$TASKS_FILE.XXXXXX")"
+  TASK_TO_DROP="$1" awk 'BEGIN { t = ENVIRON["TASK_TO_DROP"] } $0 != t' \
+    "$TASKS_FILE" >"$tmp"
+  mv "$tmp" "$TASKS_FILE"
+}
+
+while :; do
+  [[ -f "$TASKS_FILE" ]] || break
 
   if [[ "$MAX_TASKS" -gt 0 && "$task_count" -ge "$MAX_TASKS" ]]; then
-    remaining+=("$task")
-    continue
+    echo "Reached --max-tasks $MAX_TASKS; stopping with tasks still queued." |
+      tee -a "$LOG_FILE"
+    break
   fi
+
+  task="$(next_task)" || break
+  attempted["$task"]=1
   task_count=$((task_count + 1))
 
   echo "=== TASK: $task ===" | tee -a "$LOG_FILE"
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     echo "[dry-run] would run: claude -p \"$task\" --permission-mode acceptEdits --allowedTools \"$ALLOWED_TOOLS\""
-    remaining+=("$task")
     continue
   fi
 
@@ -111,6 +152,11 @@ for task in "${TASKS[@]}"; do
   if cargo fmt --check >>"$LOG_FILE" 2>&1 \
     && cargo clippy -- -D warnings >>"$LOG_FILE" 2>&1 \
     && cargo test >>"$LOG_FILE" 2>&1; then
+    # Dequeue *before* committing, so the queue update is part of this task's
+    # own commit. If it were left uncommitted, a later task's gate failure
+    # would 'git stash push -u' it away along with that task's work, and the
+    # finished task would reappear in the queue (verified: it did).
+    drop_task "$task"
     if [[ -n "$(git status --porcelain)" ]]; then
       git add -A
       git commit -m "auto: ${task:0:72}" >>"$LOG_FILE" 2>&1
@@ -125,15 +171,14 @@ for task in "${TASKS[@]}"; do
     echo "FAILED: $task" >>"$FAIL_FILE"
     n_failed=$((n_failed + 1))
     echo "FAILED: $task" | tee -a "$LOG_FILE"
-    remaining+=("$task")
   fi
 done
 
-if [[ "$DRY_RUN" -eq 0 ]]; then
-  if [[ "${#remaining[@]}" -eq 0 ]]; then
+# Only remove the file once nothing is left in it -- a failed task, or one
+# appended mid-run and not reached, must survive for the next run.
+if [[ "$DRY_RUN" -eq 0 && -f "$TASKS_FILE" ]]; then
+  if ! grep -q '[^[:space:]]' "$TASKS_FILE"; then
     rm -f "$TASKS_FILE"
-  else
-    printf '%s\n' "${remaining[@]}" >"$TASKS_FILE"
   fi
 fi
 
