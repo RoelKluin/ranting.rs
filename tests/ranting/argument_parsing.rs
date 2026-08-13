@@ -105,7 +105,7 @@ fn test_multiple_references_same_variable() {
 fn test_numeric_placeholder_with_positional() {
     let alice = Noun::new("Alice", "I");
     let bob = Noun::new("Bob", "he");
-    assert_eq!(say!("{=0} and {=1}", alice, bob).len() > 0, true);
+    assert!(!say!("{=0} and {=1}", alice, bob).is_empty());
 }
 
 #[test]

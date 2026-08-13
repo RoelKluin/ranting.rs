@@ -7,6 +7,8 @@ include!(concat!(env!("OUT_DIR"), "/irregular_plurals_generated.rs"));
 
 /// Look up the plural form of a noun, preserving the case of the original.
 /// Returns Some(plural_form) if found in irregular table, None otherwise (fallback to regular rules).
+// Not yet wired into any inflection call site.
+#[allow(dead_code)]
 pub(crate) fn get_plural(singular: &str) -> Option<String> {
     IRREGULAR_PLURALS
         .iter()
@@ -16,6 +18,8 @@ pub(crate) fn get_plural(singular: &str) -> Option<String> {
 
 /// Look up the singular form of a noun, preserving the case of the original.
 /// Returns Some(singular_form) if found in irregular table, None otherwise (fallback to regular rules).
+// Not yet wired into any inflection call site.
+#[allow(dead_code)]
 pub(crate) fn get_singular(plural: &str) -> Option<String> {
     IRREGULAR_PLURALS
         .iter()
@@ -27,6 +31,7 @@ pub(crate) fn get_singular(plural: &str) -> Option<String> {
 /// If original is all uppercase, return target uppercase.
 /// If original starts with uppercase, return target with first char uppercase.
 /// Otherwise return target lowercase.
+#[allow(dead_code)]
 fn apply_case(original: &str, target: &str) -> String {
     if original
         .chars()
@@ -34,7 +39,7 @@ fn apply_case(original: &str, target: &str) -> String {
     {
         // All uppercase or no letters
         target.to_uppercase()
-    } else if original.chars().next().map_or(false, |c| c.is_uppercase()) {
+    } else if original.chars().next().is_some_and(|c| c.is_uppercase()) {
         // First character is uppercase
         let mut chars = target.chars();
         match chars.next() {
