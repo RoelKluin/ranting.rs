@@ -2137,6 +2137,123 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
       `name`/`inflect` already); its real customers remain Turkish and the
       caseless scripts, as its docs say.
 
+### Phase 6 follow-ups — items 11-23 (queued 2026-08-13, post-run)
+
+*Items 1-10 are complete. These come from two sources: the three design spikes'
+own "open questions" sections, which authorized concrete follow-up work nobody
+had picked up; and the seven holes item 10's German lexicon found. Ordered for
+execution — the two outright bugs and the gate gap land first, the owed
+signature break next, documentation after that, and the Spanish lexicon last
+because it exercises everything before it.*
+
+11. **Zero-length article still emits its separator** (4-8 hours) — *a bug, not
+    a gap; found by item 10, hole 6*
+    - German has no indefinite plural article, so `inflect_article_custom`
+      returns `""` to mean "no article here" — and the separator is emitted
+      anyway, rendering `" Hunde bellen."` with a leading/doubled space. This is
+      user-visible wrong output reachable from the public API.
+    - `elide_article_custom` (item 7) cannot repair it: the post-assembly splice
+      is skipped when the recorded article span is empty, so the hook is never
+      called for a zero-length article. `skip_article()` is the wrong tool — it
+      is per-entity and unconditional, so it cannot mean "no article in the
+      plural only" and would swallow `der`/`die`/`das` too.
+    - Cheapest, highest-value item in this batch.
+
+12. **Re-export `say_with!` and `derive_ranting` from `ranting`** (2-4 hours) —
+    *found by item 10, hole 1*
+    - `ranting` re-exports `say`, `ack`, `nay`, `heed`, `Heed`, `ask`,
+      `boxed_ranting_trait` and `ref_ranting_trait` — but not `say_with` and not
+      `derive_ranting`. A crate depending only on `ranting`'s public API
+      therefore cannot construct a call carrying a `NarrationContext`, which
+      makes all twelve `_with_context` hooks dead weight to a companion crate
+      and puts `dialect`-selected locales out of reach.
+    - Almost certainly an oversight rather than a decision — every other macro
+      is re-exported, and `ask!` was itself found unexported and fixed in
+      Phase 5 for the same reason.
+
+13. **The gate must cover sibling crates** (4-6 hours)
+    - This repo is not a workspace, so `cargo test` at the root never compiles
+      `ranting_i18n`. Item 10's crate passed its own gate, but the overnight
+      loop's gate could not have caught a broken lexicon — verified after the
+      fact, not by the gate.
+    - Make the root gate (and `scripts/overnight_loop.sh`'s) cover every sibling
+      crate, so this holds for future language modules too.
+
+14. **Numeral count channel, plus case on `Ranting::inflect`** (12-16 hours) —
+    *the owed signature break, done once*
+    - `docs/superpowers/specs/2026-08-13-number-categories.md` recommends a
+      count channel and says to land it inside item 5's signature change; item 5
+      already shipped, so it needs its own pass. Item 10's hole 2 wants a case
+      parameter on `Ranting::inflect` at the same site (German declines the noun
+      itself: dative plural `den Hunden`, genitive `des Hauses`). Both are
+      breaking changes to hook signatures — do them together, not twice.
+
+15. **`Many` exposes its length as the placeholder count** (4-6 hours) —
+    open question 3 of the number-categories spec; depends on item 14.
+
+16. **`is_first_person_subject` as an overridable hook** (6-8 hours) — open
+    question 1 of the pronoun-inventory spec, which calls it the one named gap
+    with no fork-side workaround.
+
+17. **Sentence detection beyond Latin punctuation** (8-12 hours)
+    - `PH_START` decides a placeholder is sentence-initial only after an ASCII
+      `.`/`?`/`!` *followed by whitespace*, so auto-capitalization silently
+      misses after Greek `;` (and Greek has case), Japanese/Chinese `。` (no
+      following space), Urdu `۔`, and before Spanish opening `¿`. Item 6 routed
+      capitalization through a hook but never touched detection, which is
+      upstream of it.
+
+18. **Dative/genitive on `GrammaticalCase`** (doc-only spike, 6-8 hours) —
+    *found by item 10, hole 3*
+    - `GrammaticalCase` carries English's inventory; German has four cases and
+      `@` means accusative-or-dative, so `dem`/`der` are unreachable. The sharper
+      finding: once the entity must carry case to reach dative at all, the `case`
+      parameter becomes *ignorable* — `{the =0}` and `{the @0}` render
+      identically. A spike, not an implementation task: it is a public enum in a
+      trait signature, and the pronoun-inventory spec set the precedent that
+      "change nothing, document it" is a legitimate conclusion.
+
+19. **Case marking and pronoun display share one hook** (8-12 hours) — *found by
+    item 10, hole 5*
+    - A case marker does two jobs: it tells `inflect_article_custom` the noun's
+      role *and* switches the noun slot from name to pronoun. A fork that
+      overrides `inflect_pronoun_custom` to return the name (which
+      `tests/ranting/grammatical_case.rs` demonstrates as typical) then loses
+      real pronouns for that entity — `say!("Ich sehe {@0}.", hund)` renders
+      "Ich sehe Hund." Needs a way to say "case-mark this, but render the name".
+
+20. **Document the word-order boundary** (doc-only, 4-6 hours) — open question 1
+    of the word-order spec: `docs/EXTENSIBILITY.md` in full, one-line pointers
+    from CLAUDE.md and README.md, written as a permanent boundary not a TODO.
+
+21. **Document non-English pronoun inventories** (doc-only, 6-8 hours) — the
+    entire follow-up the pronoun-inventory spec authorizes (its recommendation
+    is "change nothing, document what exists"), plus flipping the
+    `SubjectPronoun` row in Key Architecture Decisions to ✅ Locked.
+
+22. **Per-language template selection spike** (doc-only, 6-10 hours)
+    - Item 1 recommends per-language templates and says the caller selects one
+      before the `say!()` call — but never how. `say!()` parses its literal at
+      compile time, so selection cannot be a runtime catalogue lookup; it must be
+      a literal `match lang { … }` at every call site, scaling as languages ×
+      sentences. That is the real ergonomic cost of item 1's recommendation and
+      it is unexamined.
+
+23. **Spanish reference lexicon** (16-24 hours) — *the second acceptance test*
+    - Item 10 proved German exercises the hooks but **structurally cannot use
+      the adjective hook at all** (hole 4a: attributive adjectives are prenominal,
+      the `!` slot is post-noun, and predicative adjectives are uninflected — so
+      no German sentence renders the hook's output correctly). Spanish
+      adjectives are post-nominal (`el gato negro`), so Spanish can exercise
+      item 5 end-to-end where German cannot.
+    - Also the largest-userbase language that fully exercises the phase
+      (~485M speakers): `el`/`la` (item 2), `tú`/`usted` (item 3),
+      agreement (item 5), `¿` (item 17), `de`+`el`→`del` and `el agua`
+      (item 7), numeral agreement (item 8). `docs/EXTENSIBILITY.md` §4.3
+      already carries a complete Spanish impl to build from.
+    - Same falsification contract as item 10: public API only, every hole
+      recorded in the crate's README rather than worked around.
+
 ### v1.3 Success Criteria
 - A non-English `Ranting` impl can obtain gender/noun class, grammatical case,
   number, and register/dialect **without** an external string-keyed side table
