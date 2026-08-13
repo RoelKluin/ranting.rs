@@ -2,7 +2,7 @@
 
 > **Superseded.** This plan predates Phase 2's completion. See `DONE.md` (Phase 2
 > is marked complete, all 7 tenses shipped) and `ROADMAP.md`'s "Current State
-> (v1.0.0)" section for what's actually current. Kept here as a historical
+> (v1.2.1)" section for what's actually current. Kept here as a historical
 > record only — the "Status: In Progress" line below and the "walkeds" bug it
 > describes are both stale; that bug is fixed.
 

@@ -14,11 +14,15 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 
 ---
 
-## Current State (v1.0.0)
+## Current State (v1.2.1)
 
-✅ **v1.0 Complete** — See DONE.md for full Phase 1 & Phase 2 details.
+✅ **Phases 1-5 Complete** (through v1.2.1) — See DONE.md for full Phase 1 & Phase 2 details;
+Phase 3 (v1.1.0, plurals/extensibility), Phase 4 (v1.2.0, architecture consolidation — all 8
+items including the `ranting_core` extraction, dependency modernization, the typed placeholder
+spec, public-API cleanup, and the MIT relicensing) and Phase 5 (v1.2.1, `ask!()` stabilization)
+are each marked done further down in this file.
 
-**Features Working**:
+**v1.0 features working**:
 - All 7 tenses: Present, Past, Future, Present Continuous, Past Continuous, Present Perfect, Past Perfect
 - 118+ irregular verbs with phonetic rules
 - Gender-neutral pronouns (singular they/them)
