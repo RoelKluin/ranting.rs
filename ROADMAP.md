@@ -66,11 +66,29 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
    - ✅ Runtime viewpoint selection: `NarrationContext.narration_person` (`Person::First`/`Second`/`Third`) overrides pronoun set and verb agreement, scoped to nouns declared first-person (`subject` is `"I"`/`"we"`) — the narrator only; other subjects, and other nouns in the same call, pass through unchanged. Third-person rendering falls back to singular "they" (no gender data on a first-person-declared noun to render a gendered pronoun instead); `we`→`Person::Second` renders "you" as a one-way conversion, not round-trippable. See `narration::resolve_viewpoint` in `src/narration.rs` and the CLAUDE.md "Non-obvious behaviors" entry.
    - Backwards-compatible: compile-time markers remain default if context not provided ✅
 
-4. **Narration Context Threading** (12-16 hours) — *Supports feature 3*
-   - Pass story-wide settings (tense, viewpoint, register, dialect) through `say!()` macro and `Ranting` trait
-   - Design integration point: how context flows from story code through placeholder resolution
-   - Separate `subject` (entity property) from `narration_person` (story setting)
-   - Enable ecosystem forks to customize context behavior
+✅ **4. Narration Context Threading** (COMPLETE — 12-16 hours) — *Supports feature 3*
+   - ✅ `NarrationContext` gained `register: Option<Register>` (`Formal`/`Neutral`/`Casual`) and
+     `dialect: Option<&'static str>` fields, alongside item 3's `tense`/`narration_person`. Both
+     new fields are inert in the crate itself — no built-in English behavior reads them — until a
+     `Ranting` implementation consults them.
+   - ✅ Integration point: three new default `Ranting` trait methods,
+     `inflect_verb_custom_with_context`/`inflect_pronoun_custom_with_context`/
+     `inflect_article_custom_with_context`, each taking `ctx: Option<&NarrationContext>` as a
+     parameter (never read off `self`) and delegating to the existing non-context hook by
+     default. Every verb/pronoun/article call site in `handle_placeholder_impl` now calls the
+     `_with_context` hook (`say!()` passes `None`, `say_with!()` passes `Some(ctx)`), so
+     overriding only the `_with_context` hook is sufficient — no need to also override the
+     original.
+   - ✅ `subject` stays an entity property (`Ranting::subjective()`); `register`/`dialect`, like
+     `narration_person`, are story-wide settings that only ever arrive via the `ctx` parameter —
+     the trait-method-sourced-context design was already rejected in item 3 for conflating the two.
+   - ✅ Ecosystem forks: 8 integration tests in `tests/ranting/narration_context_threading.rs`,
+     including register-driven verb/article choice and dialect-driven pronoun choice (each via a
+     custom `impl Ranting` overriding only the relevant `_with_context` hook), a sentinel proving
+     `say!()` calls the `_with_context` hook rather than the plain one, and a fallback check for
+     when no register/dialect override applies.
+   - ✅ `say!()` unaffected: its call sites pass `ctx: None` to the same `_with_context` hooks, so
+     existing `say!()` output is unchanged (verified by `say_macro_still_passes_none_to_context_hooks`).
 
 5. **Reflexive Forms** (8-12 hours)
    - Support myself, yourself, himself, herself, itself, ourselves, themselves
@@ -356,6 +374,7 @@ is a valid outcome; the roadmap only asks that it stop being an accident.
 | Irregular noun plurals codegen | ✅ Complete (v1.1); ⚠️ lookup not wired to call sites | Single source of truth: data/irregular_plurals.txt; `get_plural`/`get_singular` exist and are tested but currently dead code — see docs/architecture-review-2026-08-13.md |
 | Context-aware runtime tense | ✅ Complete | `say_with!(context, ...)` + `NarrationContext`/`Tense`; unblocks Recounting M9 (tense portion) |
 | Context-aware runtime viewpoint | ✅ Complete | `NarrationContext.narration_person` + `Person`; scoped to first-person-declared (`I`/`we`) nouns only; unblocks Recounting M9 (viewpoint portion) |
+| Narration context threading (register/dialect) | ✅ Complete | `NarrationContext.register`/`.dialect` are inert in-crate; reachable via 3 new `Ranting::*_with_context` hooks (`ctx` as parameter, never entity-owned), defaulting to the pre-existing hooks |
 | Consolidate english_shared.rs | ✅ Complete → superseded (v1.2) | Single canonical copy + build.rs copy solved the drift; `ranting_core` extraction (Phase 4, item 1) replaces the copy mechanism outright |
 | Stringly-typed `subject: &str` in public API | 🔄 Revisit (v1.2) | Design review 2026-08-12: make `SubjectPronoun` public, store enum in `Noun`; invalid subjects become unrepresentable instead of panicking |
 | `ack!()`/`nay!()` expand to hidden `return` | 🔄 Revisit (v1.2) | Not usable as expressions; surprising control flow. Prefer `Ok(say!(...))`/`Err(say!(...))` expression forms |

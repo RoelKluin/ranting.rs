@@ -35,7 +35,7 @@ mod narration;
 use lazy_static::lazy_static;
 use regex::Regex;
 
-pub use narration::{NarrationContext, Person, Tense};
+pub use narration::{NarrationContext, Person, Register, Tense};
 
 #[doc(hidden)]
 pub use english_numbers::convert_no_fmt as rant_convert_numbers;
@@ -156,7 +156,14 @@ pub use ranting_derive::boxed_ranting_trait;
 /// If you want to implement Ranting on a `&'_ dyn Trait` where Trait has Ranting
 pub use ranting_derive::ref_ranting_trait;
 
-fn get_article_or_so<R>(noun: &R, s: &str, space: &str, as_pl: bool, uc: bool) -> Option<String>
+fn get_article_or_so<R>(
+    noun: &R,
+    s: &str,
+    space: &str,
+    as_pl: bool,
+    uc: bool,
+    ctx: Option<&NarrationContext>,
+) -> Option<String>
 where
     R: Ranting,
 {
@@ -169,7 +176,9 @@ where
             // "the" needs no singular of its own; deriving one via inflect() would panic for
             // plural nouns whose name cannot be singularized (e.g. Noun::new("one", "they")).
             let singular = noun.name(false);
-            if let Some(custom) = noun.inflect_article_custom("the", &singular, as_pl, uc) {
+            if let Some(custom) =
+                noun.inflect_article_custom_with_context("the", &singular, as_pl, uc, ctx)
+            {
                 Some(custom + space)
             } else {
                 Some(uc_1st_if(article_form, uc) + space)
@@ -183,7 +192,9 @@ where
             } else {
                 noun.inflect(false, false)
             };
-            if let Some(custom) = noun.inflect_article_custom(article_form, &singular, as_pl, uc) {
+            if let Some(custom) =
+                noun.inflect_article_custom_with_context(article_form, &singular, as_pl, uc, ctx)
+            {
                 Some(custom + space)
             } else {
                 let a_or_an = uc_1st_if(get_a_or_an(&singular), uc);
@@ -194,7 +205,9 @@ where
             // Demonstratives are chosen from as_pl alone; see the "the" arm for why the name is
             // used instead of an inflected singular.
             let singular = noun.name(false);
-            if let Some(custom) = noun.inflect_article_custom(article_form, &singular, as_pl, uc) {
+            if let Some(custom) =
+                noun.inflect_article_custom_with_context(article_form, &singular, as_pl, uc, ctx)
+            {
                 Some(custom + space)
             } else {
                 Some(ranting::adapt_article(s, s, space, as_pl, uc))
@@ -213,11 +226,18 @@ where
 /// Note: the `~TENSE~` marker path does *not* use this helper. There the verb arrives already
 /// conjugated by the macro, so the English fallback would inflect it a second time; that site
 /// tries the hook alone and keeps the conjugated form otherwise.
-fn conjugate_verb<R>(noun: &R, subjective: &str, verb: &str, as_pl: bool, uc: bool) -> String
+fn conjugate_verb<R>(
+    noun: &R,
+    subjective: &str,
+    verb: &str,
+    as_pl: bool,
+    uc: bool,
+    ctx: Option<&NarrationContext>,
+) -> String
 where
     R: Ranting,
 {
-    if let Some(custom) = noun.inflect_verb_custom(subjective, verb, as_pl, uc) {
+    if let Some(custom) = noun.inflect_verb_custom_with_context(subjective, verb, as_pl, uc, ctx) {
         custom
     } else {
         inflect_verb(subjective, verb, as_pl, uc)
@@ -309,13 +329,13 @@ where
     // This may be an article or certain verbs that can occur before the noun:
     if !pre.is_empty() {
         let p = pre.to_lowercase();
-        if let Some(a) = get_article_or_so(noun, p.as_str(), space, as_pl, uc) {
+        if let Some(a) = get_article_or_so(noun, p.as_str(), space, as_pl, uc, ctx) {
             res.push_str(&a);
         } else if has_possesive {
             res.push_str(&uc_1st_if(pre, uc));
         } else {
             assert!(post.is_empty(), "verb before and after?");
-            let verb = conjugate_verb(noun, subjective, p.as_str(), pronoun_as_pl, uc);
+            let verb = conjugate_verb(noun, subjective, p.as_str(), pronoun_as_pl, uc, ctx);
             res.push_str(&verb);
             if !etc1.is_empty() {
                 let art_space;
@@ -324,7 +344,7 @@ where
                 res.push_str(art_space);
                 let s;
                 (s, etc1) = split_at_find_start(etc1, |c| c.is_whitespace()).unwrap_or((etc1, ""));
-                if let Some(a) = get_article_or_so(noun, s, space, as_pl, false) {
+                if let Some(a) = get_article_or_so(noun, s, space, as_pl, false, ctx) {
                     res.push_str(&a);
                 } else {
                     res.push_str(s);
@@ -345,11 +365,12 @@ where
         res.push_str(noun_space);
         let s = match case {
             "=" => {
-                if let Some(custom) = noun.inflect_pronoun_custom(
+                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
                     subjective,
                     PronounCase::Subjective,
                     pronoun_as_pl,
                     uc,
+                    ctx,
                 ) {
                     custom
                 } else {
@@ -357,11 +378,12 @@ where
                 }
             }
             "@" => {
-                if let Some(custom) = noun.inflect_pronoun_custom(
+                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
                     subjective,
                     PronounCase::Objective,
                     pronoun_as_pl,
                     uc,
+                    ctx,
                 ) {
                     custom
                 } else {
@@ -369,11 +391,12 @@ where
                 }
             }
             "`" => {
-                if let Some(custom) = noun.inflect_pronoun_custom(
+                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
                     subjective,
                     PronounCase::PossessiveDeterminer,
                     pronoun_as_pl,
                     uc,
+                    ctx,
                 ) {
                     custom
                 } else {
@@ -381,11 +404,12 @@ where
                 }
             }
             "~" => {
-                if let Some(custom) = noun.inflect_pronoun_custom(
+                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
                     subjective,
                     PronounCase::PossessivePronoun,
                     pronoun_as_pl,
                     uc,
+                    ctx,
                 ) {
                     custom
                 } else {
@@ -422,11 +446,12 @@ where
                                     // ("will walks"), so offer the hook the conjugated
                                     // form and keep it verbatim when it declines.
                                     let main_verb = noun
-                                        .inflect_verb_custom(
+                                        .inflect_verb_custom_with_context(
                                             subjective,
                                             word,
                                             !singular_post_verb && pronoun_as_pl,
                                             false,
+                                            None,
                                         )
                                         .unwrap_or_else(|| word.to_string());
                                     handle_tense_marker(subjective, marker_part, &main_verb)
@@ -450,14 +475,16 @@ where
                                             &base_form,
                                             !singular_post_verb && pronoun_as_pl,
                                             false,
+                                            ctx,
                                         )
                                     } else {
                                         let main_verb = noun
-                                            .inflect_verb_custom(
+                                            .inflect_verb_custom_with_context(
                                                 subjective,
                                                 &base_form,
                                                 !singular_post_verb && pronoun_as_pl,
                                                 false,
+                                                ctx,
                                             )
                                             .unwrap_or(base_form);
                                         handle_tense_marker(subjective, marker, &main_verb)
@@ -485,6 +512,7 @@ where
                                 v,
                                 !singular_post_verb && pronoun_as_pl,
                                 uc,
+                                ctx,
                             );
                             res.push_str(&verb);
                         }
@@ -496,6 +524,7 @@ where
                             v,
                             !singular_post_verb && pronoun_as_pl,
                             uc,
+                            ctx,
                         );
                         res.push_str(&verb);
                     }
@@ -506,6 +535,7 @@ where
                         v,
                         !singular_post_verb && pronoun_as_pl,
                         uc,
+                        ctx,
                     );
                     res.push_str(&verb);
                 }
@@ -758,6 +788,46 @@ pub trait Ranting: std::fmt::Display {
         None
     }
 
+    /// Like [`inflect_verb_custom`](Self::inflect_verb_custom), but also receives the
+    /// story-wide [`NarrationContext`] in effect for this call, when there is one.
+    ///
+    /// Every call site that conjugates a verb calls this instead of `inflect_verb_custom`
+    /// directly (`say!()` calls it with `ctx: None`, `say_with!()` with `ctx: Some(_)`), so
+    /// overriding this hook alone is enough — you don't need both. The default implementation
+    /// ignores `ctx` and delegates to `inflect_verb_custom`, so existing implementations that
+    /// only override the non-context hook keep working unchanged.
+    ///
+    /// `ctx` is a parameter, not something read off `self` — an entity's own `subject` stays a
+    /// property of the entity, while tense/viewpoint/register/dialect are story-wide settings
+    /// that vary per `say_with!()` call, not per noun.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// fn inflect_verb_custom_with_context(
+    ///     &self,
+    ///     subject: &str,
+    ///     verb: &str,
+    ///     as_plural: bool,
+    ///     uc: bool,
+    ///     ctx: Option<&NarrationContext>,
+    /// ) -> Option<String> {
+    ///     match (verb, ctx.and_then(|c| c.register)) {
+    ///         ("be", Some(Register::Formal)) => Some(uc_1st_if("shall be", uc)),
+    ///         _ => self.inflect_verb_custom(subject, verb, as_plural, uc),
+    ///     }
+    /// }
+    /// ```
+    fn inflect_verb_custom_with_context(
+        &self,
+        subject: &str,
+        verb: &str,
+        as_plural: bool,
+        uc: bool,
+        _ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        self.inflect_verb_custom(subject, verb, as_plural, uc)
+    }
+
     /// Customize pronoun inflection (subject/object/possessive forms).
     /// Return Some(String) to use custom form, None to fall back to English.
     ///
@@ -785,6 +855,22 @@ pub trait Ranting: std::fmt::Display {
         _uc: bool,
     ) -> Option<String> {
         None
+    }
+
+    /// Like [`inflect_pronoun_custom`](Self::inflect_pronoun_custom), but also receives the
+    /// story-wide [`NarrationContext`] in effect for this call, when there is one. See
+    /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
+    /// general shape: every pronoun call site calls this one, and the default delegates to
+    /// `inflect_pronoun_custom` with `ctx` ignored.
+    fn inflect_pronoun_custom_with_context(
+        &self,
+        subject: &str,
+        case: PronounCase,
+        as_plural: bool,
+        uc: bool,
+        _ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        self.inflect_pronoun_custom(subject, case, as_plural, uc)
     }
 
     /// Customize article inflection (a/an/the/some, demonstratives, etc.).
@@ -821,5 +907,21 @@ pub trait Ranting: std::fmt::Display {
         _uc: bool,
     ) -> Option<String> {
         None
+    }
+
+    /// Like [`inflect_article_custom`](Self::inflect_article_custom), but also receives the
+    /// story-wide [`NarrationContext`] in effect for this call, when there is one. See
+    /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
+    /// general shape: every article call site calls this one, and the default delegates to
+    /// `inflect_article_custom` with `ctx` ignored.
+    fn inflect_article_custom_with_context(
+        &self,
+        article: &str,
+        noun_singular: &str,
+        as_plural: bool,
+        uc: bool,
+        _ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        self.inflect_article_custom(article, noun_singular, as_plural, uc)
     }
 }

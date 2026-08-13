@@ -70,6 +70,45 @@ fn main() {
 
 ## Extension Points (API Reference)
 
+### 2.0 Story-Wide Context: the `_with_context` Variants (v1.1)
+
+Each of the three hooks below (`inflect_verb_custom`, `inflect_pronoun_custom`,
+`inflect_article_custom`) has a `_with_context` counterpart —
+`inflect_verb_custom_with_context`, `inflect_pronoun_custom_with_context`,
+`inflect_article_custom_with_context` — that takes one extra parameter,
+`ctx: Option<&NarrationContext>`, and is what every call site in the crate
+actually invokes. The default implementation of each `_with_context` method
+ignores `ctx` and delegates to the plain hook, so everything above still
+works unchanged — override the plain hook if you don't need story-wide
+context, and only reach for the `_with_context` variant when you do.
+
+`say!()` calls the `_with_context` hooks with `ctx: None`. `say_with!(context, ...)`
+calls them with `ctx: Some(&context)`, where `context: NarrationContext` carries
+`tense`/`narration_person` (resolved by the crate itself, see the runtime tense/viewpoint
+sections above) plus `register: Option<Register>` (`Formal`/`Neutral`/`Casual`) and
+`dialect: Option<&'static str>`, which the crate never interprets — they exist purely
+for your hook to branch on:
+
+```rust
+fn inflect_verb_custom_with_context(
+    &self,
+    subject: &str,
+    verb: &str,
+    as_plural: bool,
+    uc: bool,
+    ctx: Option<&NarrationContext>,
+) -> Option<String> {
+    match (verb, ctx.and_then(|c| c.register)) {
+        ("greet", Some(Register::Formal)) => Some(uc_1st_if("bows before", uc)),
+        _ => self.inflect_verb_custom(subject, verb, as_plural, uc),
+    }
+}
+```
+
+`ctx` always arrives as a parameter, never read off `self` — an entity's own `subject`
+stays a property of the entity, while `register`/`dialect`/`narration_person` are
+story-wide settings that can differ per `say_with!()` call for the same noun.
+
 ### 2.1 Verb Inflection: `inflect_verb_custom()`
 
 Customize verb conjugation for any tense, plurality, or person.
