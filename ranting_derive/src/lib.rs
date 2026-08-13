@@ -762,7 +762,11 @@ fn handle_param(
     let mut poss: TokenStream = parse_quote!("".to_string());
     if let Some(p) = possesive {
         let expr = get_opt_num_ph_expr(&p, given).map_err(|s| (pre_s, pre_e, s))?;
-        poss = parse_quote!(ranting::inflect_possessive(#expr.subjective(), false, #possesive_uc));
+        poss = parse_quote!(ranting::inflect_possessive(
+            #expr.subjective(),
+            #expr.is_plural(),
+            #possesive_uc
+        ));
     }
     // Classify `pre`'s first word (and, when reachable, its second) at compile time --
     // see ranting_core::placeholder::ArticleKind's docs and ROADMAP.md's

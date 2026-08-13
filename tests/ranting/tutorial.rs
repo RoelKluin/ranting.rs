@@ -26,6 +26,15 @@ fn section_1_why_say_vs_format() {
         say_this(Noun::new("Tarzan", "he"), &title),
         "He does say his name is Tarzan."
     );
+
+    // Singular "they": the `` {`who title are} `` backtick-possessive form
+    // previously hardcoded to_plural=false when substituting `who`'s
+    // possessive, so "they" was silently singularized to "its" instead of
+    // "their" (see docs/architecture-review-2026-08-13.md section 5).
+    assert_eq!(
+        say_this(Noun::new("Jordan", "they"), &title),
+        "They do say their name is Jordan."
+    );
 }
 
 #[test]

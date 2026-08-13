@@ -264,25 +264,29 @@ fn pronoun_forms(subject: SubjectPronoun) -> PronounForms {
 /// Inflect possesive pronoun as to_plural indicates. The first character capitalized with uc set.
 pub(crate) fn inflect_adjective(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
-    let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).expect("Not a subject"));
+    let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).unwrap_or(SubjectPronoun::It));
     uc_1st_if(forms.adjective, uc)
 }
 
 /// singular-/pluralize subjective with as to_plural and set uc to capitalize first character
 pub(crate) fn inflect_subjective(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
-    let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).expect("Not a subject"));
+    let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).unwrap_or(SubjectPronoun::It));
     uc_1st_if(forms.subjective, uc)
 }
 
 /// Inflect objective pronoun as to_plural indicates. The first character capitalized with uc set.
 pub(crate) fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
-    let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).expect("Not a subject"));
+    let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).unwrap_or(SubjectPronoun::It));
     uc_1st_if(forms.objective, uc)
 }
 
 /// Inflect possesive pronoun as to_plural indicates. The first character capitalized with uc set.
+///
+/// An unrecognized `subject` degrades to `it`'s forms rather than panicking — this is public
+/// API reachable with a caller-supplied string, not just already-validated `Noun`/`Ranting`
+/// data flowing through `say!()`'s own call sites.
 ///
 /// # Examples
 ///
@@ -298,7 +302,7 @@ pub(crate) fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> Str
 /// ```
 pub fn inflect_possessive(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
-    let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).expect("Not a subject"));
+    let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).unwrap_or(SubjectPronoun::It));
     uc_1st_if(forms.possessive, uc)
 }
 
@@ -310,6 +314,10 @@ pub fn inflect_possessive(subject: &str, to_plural: bool, uc: bool) -> String {
 /// distinguish singular/plural "you" in its subjective/objective/possessive forms),
 /// so unlike the other `inflect_*` functions here, reflexive "you" is special-cased
 /// on `to_plural` directly to choose between "yourself" and "yourselves".
+///
+/// An unrecognized `subject` degrades to `it`'s forms rather than panicking — this is public
+/// API reachable with a caller-supplied string, not just already-validated `Noun`/`Ranting`
+/// data flowing through `say!()`'s own call sites.
 ///
 /// # Examples
 ///
@@ -326,7 +334,7 @@ pub fn inflect_reflexive(subject: &str, to_plural: bool, uc: bool) -> String {
     let reflexive = if pluralized == "you" {
         if to_plural { "yourselves" } else { "yourself" }
     } else {
-        pronoun_forms(SubjectPronoun::from_str(pluralized).expect("Not a subject")).reflexive
+        pronoun_forms(SubjectPronoun::from_str(pluralized).unwrap_or(SubjectPronoun::It)).reflexive
     };
     uc_1st_if(reflexive, uc)
 }

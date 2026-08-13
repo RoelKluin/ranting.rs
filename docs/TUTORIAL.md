@@ -26,6 +26,8 @@ say_this(Noun::new("Jordan", "he"), &title)
 // Output: "He does say his name is Jordan." ✓ Correct
 say_this(Noun::new("Jordan", "she"), &title)
 // Output: "She does say her name is Jordan." ✓ Also correct, no code change
+say_this(Noun::new("Jordan", "they"), &title)
+// Output: "They do say their name is Jordan." ✓ Singular "they", still correct
 ```
 
 The `say!()` macro **automatically conjugates verbs and adapts articles based on the pronoun**, so your text is grammatically correct regardless of who it's about.
