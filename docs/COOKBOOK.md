@@ -216,7 +216,7 @@ let text = say!("{=alice walk} fast.");
 
 // Use the display name (*) to disambiguate when needed
 let text2 = say!("{*alice walk} fast.");
-// "Alice walk fast."  (shows name explicitly)
+// "Alice walks fast."  (shows name explicitly, verb still agrees)
 ```
 
 **Why it matters**: Pronouns make text flow naturally, but can cause ambiguity when multiple people are mentioned. Ranting lets you switch between pronouns and explicit names without repeating code.
@@ -301,12 +301,15 @@ say!("{=person <go}");     // ✓ "He went" (base + past marker)
 
 ### "Articles aren't showing"
 
-Articles only appear if you explicitly include them in the placeholder:
+Articles only appear if you explicitly include them in the placeholder. Also note that a
+placeholder with no case marker (`=`, `@`, `` ` ``, `~`, `*`) displays the noun's **name**,
+not its pronoun:
 
 ```rust
-say!("{person walk}");     // "He walks"    (no article)
-say!("{the person walk}"); // "The he walks" (article included)
-say!("{a 0}", noun);       // "A he"        (article included)
+let person = Noun::new("person", "he");
+say!("{person walk}");     // "Person walks"     (no article; shows the name)
+say!("{the person walk}"); // "The person walks" (article included; still the name)
+say!("{=person walk}");    // "He walks"          (= shows the pronoun instead)
 ```
 
 ---

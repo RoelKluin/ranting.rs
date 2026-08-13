@@ -11,16 +11,21 @@ Ranting solves a fundamental problem with Rust's built-in string formatting: **p
 Compare:
 
 ```rust
-// With format!() — grammatically incorrect for most pronouns
-let who = "they";
-format!("{} do say their name is Jordan.", who)
-// Output: "they do say their name is Jordan." ✗ Wrong verb form
+// With format!() — the template is hardcoded for one pronoun ("they"), so it
+// silently produces wrong grammar for anyone else:
+format!("{} do say their name is Jordan.", "he")
+// Output: "he do say their name is Jordan." ✗ Wrong verb form and possessive
 
-// With say!() and Ranting — grammatically correct
+// With say!() and Ranting — the same template adapts to the noun's pronoun
 use ranting::*;
-let who = Noun::new("Jordan", "they");
-say!("{=who do} say {`who name} is {who}.")
-// Output: "They do say their name is Jordan." ✓ Correct
+fn say_this(who: Noun, title: &Noun) -> String {
+    say!("{=who do} say {`who title are} {who}.")
+}
+let title = Noun::new("name", "it");
+say_this(Noun::new("Jordan", "he"), &title)
+// Output: "He does say his name is Jordan." ✓ Correct
+say_this(Noun::new("Jordan", "she"), &title)
+// Output: "She does say her name is Jordan." ✓ Also correct, no code change
 ```
 
 The `say!()` macro **automatically conjugates verbs and adapts articles based on the pronoun**, so your text is grammatically correct regardless of who it's about.
@@ -178,12 +183,17 @@ A complete placeholder can include articles, plurality markers, and case markers
 
 ### Article adaptation
 
-Articles automatically adapt based on plurality:
+Articles automatically adapt based on the noun's plurality — `a`/`an` becomes `some`
+for a plural subject, while `the` stays `the`:
 
 ```rust
 let dog = Noun::new("dog", "it");
 say!("{a dog}")      // "A dog"
 say!("{the dog}")    // "The dog"
+
+let dogs = Noun::new("dog", "they");
+say!("{a dogs}")     // "Some dog"
+say!("{the dogs}")   // "The dog"
 ```
 
 ### Forcing singular/plural

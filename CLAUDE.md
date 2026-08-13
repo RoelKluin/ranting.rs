@@ -52,6 +52,6 @@ ROADMAP.md **Phase 4 (v1.2)** item 1, "Extract `ranting_core` shared crate," has
 ## When adding grammar rules
 
 1. **For new verb conjugation tables**: Edit `data/irregular_verbs.txt` (one line per verb: `base|past|participle`). The build scripts will regenerate the Rust tables at build time.
-2. **For runtime inflection logic** (e.g., `detect_tense`): Edit `src/language/english.rs`. Test with `cargo test --features debug` to see placeholder transforms.
+2. **For runtime inflection logic** (e.g., `detect_tense` in `src/language/verb.rs`, or pronoun/article rules in `src/language/english.rs`): edit the relevant file under `src/language/`. Test with `cargo test --features debug` to see placeholder transforms.
 3. **For compile-time inflection logic** (e.g., `handle_param` in the derive macro): Edit `ranting_derive/src/lib.rs`. Both crates' code changes are independent after codegen separation.
 4. Add doctests or integration tests demonstrating the new inflection in `tests/ranting/`.

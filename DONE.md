@@ -61,3 +61,75 @@
 - ✅ Zero breaking changes commitment (semver locked)
 - ✅ Zero critical known issues
 
+---
+
+## Phase 3: v1.1.0 — Plurals, Extensibility, and Ecosystem ✅
+
+*Goal: Complete core morphology; enable community contributions.*
+
+**Status**: Complete
+
+- ✅ Irregular noun plurals: 100+ nouns, codegen from `data/irregular_plurals.txt`.
+  ⚠️ `get_plural`/`get_singular` are unit-tested but still not wired into any
+  inflection call site — see `docs/architecture-review-2026-08-13.md`.
+- ✅ Trait-based inflection extensibility: `inflect_verb_custom()`/`inflect_pronoun_custom()`/
+  `inflect_article_custom()` with `None`-fallback defaults; documented in `docs/EXTENSIBILITY.md`.
+- ✅ Runtime tense & viewpoint selection: `say_with!(context, ...)` + `NarrationContext`/`Tense`/
+  `Person`, unblocking Recounting M9. `say!()` output is unaffected.
+- ✅ Narration context threading: `NarrationContext.register`/`.dialect`, surfaced via three
+  `Ranting::*_with_context` default trait methods (`ctx` as a parameter, never entity-owned).
+- ✅ Reflexive pronouns (`%` case marker): full 9-pronoun set (myself..themselves, thyself).
+- ✅ Comparative/superlative adjectives (`!`/`!!` post-noun markers), codegen from
+  `data/irregular_adjectives.txt`.
+- ✅ Recursive type inflection: `Box<T>`, `Many<T>` (wraps `Vec<T>`), `Maybe<T>` (wraps
+  `Option<T>`) as `say!()` placeholder subjects — `Vec`/`Option` can't get direct impls
+  due to orphan rules, hence the wrapper types.
+- ✅ `heed!()` input parsing (v1 scope): `heed!(template, input)` matches literal words plus
+  `{name}`/`{name...}`/`{$name}` captures against free-form input text. Full grammatical
+  inversion (`unsay!()`) was explicitly not pursued — several `say!()` inflection choices
+  aren't injective, so no general inverse is buildable.
+
+### v1.1 Success Criteria Met
+- ✅ Irregular plurals support for 100+ nouns
+- ✅ Trait extensibility API stable and documented
+- ✅ Runtime tense & viewpoint selection working (unblocks Recounting M9)
+- ✅ Narration context threading designed and integrated
+- ✅ Reflexive forms + comparative/superlative working
+- ✅ Zero breaking changes from v1.0
+
+---
+
+## Phase 4: v1.2.0 — Architecture Consolidation ✅ (items 1-6, 8; item 7 pending)
+
+*Goal: pay down structural debt while there is no userbase to break.*
+
+**Status**: Items 1-6 and 8 complete; item 7 (licensing) is an explicit pending human
+decision, not an agent task — see ROADMAP.md's "Proposed License Change" section.
+
+- ✅ Extracted `ranting_core`: one shared plain rlib crate `ranting`/`ranting_derive` both
+  depend on as an ordinary path dependency, replacing all three build.rs copy-into-`OUT_DIR`
+  mechanisms and the dual-strum-version constraint.
+- ✅ Dependency modernization: syn 1→2, darling 0.14→0.20, regex 1.6→1.11 in `ranting_derive`;
+  dropped `proc-macro-error`/`lazy_static` for `std::sync::LazyLock`; edition 2024 everywhere.
+- ✅ Typed placeholder spec: `PlaceholderSpec`/`CaseKind`/`PostSpec` (in `ranting_core::placeholder`)
+  replace the old `caps: [&str; 5]` array and `~TENSE~`/`~DEGREE~` string sentinels.
+- ✅ Typed `SubjectPronoun` stored in `Noun`; non-panicking `Noun::try_new`; `Noun::new()` keeps
+  its documented panic as an intentional convenience constructor.
+- ✅ Public API cleanup: `inflect_possesive` → `inflect_possessive`; `handle_placeholder` marked
+  `#[doc(hidden)]`; `ack!()`/`nay!()` now expand to plain `Ok(say!(...))`/`Err(say!(...))`
+  expressions instead of a hidden `return`.
+- ✅ Hand-written placeholder tokenizer in `ranting_core::ph_ext::parse`, giving precise
+  per-error compile messages; the old `PH_EXT` regex is retained only as a `#[cfg(test)]`
+  differential-fuzz reference oracle, not on the compile path.
+- ✅ Repo hygiene (item 8): scratch/log/scraped-source files excluded from publishing.
+- 🔄 Licensing decision (item 7): proposal is `MIT OR Apache-2.0` (replacing `GPL-3` via
+  `license-file`); awaiting the copyright holder's decision — nothing relicensed yet.
+
+### v1.2 Success Criteria
+- ✅ One shared `ranting_core` crate; zero build.rs copy/symlink mechanisms remain
+- ✅ No unmaintained dependencies; single strum/regex/syn versions
+- ✅ No stringly-typed macro↔runtime interface; no `~TENSE~` sentinel
+- ✅ No runtime panics reachable from public API with invalid data
+- ✅ Placeholder syntax errors report precise spans
+- 🔄 License decision — pending
+
