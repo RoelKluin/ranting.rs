@@ -62,6 +62,15 @@ are each marked done further down in this file.
    - ✅ Runtime fallback to English rules when custom method returns `None`
    - ✅ Enables ecosystem forks (ranting-spanish, ranting-pirate, ranting-scottish, etc.)
    - ✅ Full documentation in `docs/EXTENSIBILITY.md` with pirate, Scottish, Spanish examples
+   - ✅ (v1.3) `GrammaticalCase` parameter added to `inflect_article_custom`/
+     `_with_context`, threaded from the placeholder's own case marker
+     (`` {the =noun} ``/`` {the @noun} `` → `Subjective`/`Objective`; bare
+     `` {the noun} `` → `Name`). Closes a gap a `ranting-i18n` feasibility
+     spike found: without it, a case-declining language (German
+     `der`/`den`/`dem`) couldn't distinguish a subject placeholder from an
+     object placeholder — both produced identical hook calls. See
+     `docs/architecture-review-2026-08-13.md` section 7 and
+     `tests/ranting/grammatical_case.rs`.
    - ✅ 9 integration tests verifying full/partial customization and fallback behavior
 
 ✅ **3. Runtime Tense & Viewpoint Selection** (COMPLETE — 16-20 hours) — *Unblocks Recounting M9*

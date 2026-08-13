@@ -211,6 +211,7 @@ impl Ranting for Merchant {
         &self,
         article: &str,
         _noun_singular: &str,
+        _case: GrammaticalCase,
         as_plural: bool,
         uc: bool,
         ctx: Option<&NarrationContext>,

@@ -266,6 +266,7 @@ impl Ranting for SpanishFeminine {
         &self,
         article: &str,
         _noun_singular: &str,
+        _case: GrammaticalCase,
         as_plural: bool,
         uc: bool,
     ) -> Option<String> {
@@ -550,6 +551,7 @@ impl Ranting for SpanishNoun {
         &self,
         article: &str,
         noun_singular: &str,
+        _case: GrammaticalCase,
         as_plural: bool,
         uc: bool,
     ) -> Option<String> {

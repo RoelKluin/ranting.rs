@@ -193,3 +193,38 @@ a superseded banner (matching `PHASE_2_IMPLEMENTATION_PLAN.md`'s precedent) but
 left as-is, per section 4's already-recorded reasoning above: none make an
 active "in progress" claim, so a banner isn't load-bearing the way it was for
 `PHASE_2_IMPLEMENTATION_PLAN.md`'s stale "Status: In Progress" line.
+
+## 7. `ranting-i18n` feasibility spike: German case declension (fixed)
+
+Before scoping the `ranting-i18n` companion crate proposed in ROADMAP.md's
+Post-v1.2 section, spiked whether the existing `inflect_*_custom` trait
+hooks (built for lexicon-level forks like pirate/Spanish) could produce
+case-correct German output. Verb agreement (`bellt`/`bellen` via
+`as_plural`) worked immediately. Gendered/case-declined articles did not: a
+`Hund` (dog) noun used once as a sentence subject and once as the object of
+"I saw" produced two `inflect_article_custom` calls with an **identical**
+`(article, noun_singular, as_plural, uc)` tuple — the hook had no signal
+distinguishing "this placeholder is the subject" from "this placeholder is
+an object," so it necessarily returned the same article form for both,
+yielding the ungrammatical `"I saw der Hund."` (should be *den Hund*).
+
+**Fixed**: `inflect_article_custom`/`inflect_article_custom_with_context`
+gained a `case: GrammaticalCase` parameter (`src/lib.rs`), threaded from the
+placeholder's own `CaseKind` (its case marker — `` {the =noun} `` is
+`Subjective`, `` {the @noun} `` is `Objective`, etc.; a bare `` {the noun} ``
+with no marker reports `GrammaticalCase::Name`, since English has nothing
+more specific to give in that form). `GrammaticalCase` is a new public type
+that mirrors `ranting_core::placeholder::CaseKind` via a `From` impl rather
+than exposing `CaseKind` itself, since `ranting_core` types aren't part of
+`ranting`'s public semver surface. Re-running the spike with the fix and an
+`inflect_pronoun_custom` override that keeps returning the noun's own name
+(rather than falling back to an English pronoun for `` =noun ``/`` @noun ``)
+produced correct output: `"Der Mann bellt."` (nominative) and `"Ich sah den
+Mann."` (accusative). Regression coverage: `tests/ranting/grammatical_case.rs`.
+
+This closes the specific gap the spike found, but doesn't make `ranting-i18n`
+free: word order is still baked into the literal template string around
+placeholders (English's fixed slot order), so German verb-second or SOV
+languages still need per-language templates, not just per-language
+inflection hooks. `GrammaticalCase` only fixes the article/case-declension
+half of the gap.

@@ -190,29 +190,44 @@ pub use ranting_derive::boxed_ranting_trait;
 /// If you want to implement Ranting on a `&'_ dyn Trait` where Trait has Ranting
 pub use ranting_derive::ref_ranting_trait;
 
+/// How to render a noun's article at one call site — bundled to keep
+/// `get_article_or_so` under clippy's argument-count limit now that
+/// `case: GrammaticalCase` is threaded through alongside plurality/case/context.
+struct ArticleRenderCtx<'a> {
+    case: CaseKind,
+    as_pl: bool,
+    uc: bool,
+    ctx: Option<&'a NarrationContext>,
+}
+
 fn get_article_or_so<R>(
     noun: &R,
     s: &str,
     kind: ArticleKind,
     space: &str,
-    as_pl: bool,
-    uc: bool,
-    ctx: Option<&NarrationContext>,
+    render: ArticleRenderCtx,
 ) -> Option<String>
 where
     R: Ranting,
 {
+    let ArticleRenderCtx {
+        case,
+        as_pl,
+        uc,
+        ctx,
+    } = render;
     if noun.skip_article() && !s.starts_with('!') && !matches!(kind, ArticleKind::TheseThose) {
         return Some("".to_string());
     }
     let article_form = s.trim_start_matches('!');
+    let case: GrammaticalCase = case.into();
     match kind {
         ArticleKind::The => {
             // "the" needs no singular of its own; deriving one via inflect() would panic for
             // plural nouns whose name cannot be singularized (e.g. Noun::new("one", "they")).
             let singular = noun.name(false);
             if let Some(custom) =
-                noun.inflect_article_custom_with_context("the", &singular, as_pl, uc, ctx)
+                noun.inflect_article_custom_with_context("the", &singular, case, as_pl, uc, ctx)
             {
                 Some(custom + space)
             } else {
@@ -227,9 +242,14 @@ where
             } else {
                 noun.inflect(false, false)
             };
-            if let Some(custom) =
-                noun.inflect_article_custom_with_context(article_form, &singular, as_pl, uc, ctx)
-            {
+            if let Some(custom) = noun.inflect_article_custom_with_context(
+                article_form,
+                &singular,
+                case,
+                as_pl,
+                uc,
+                ctx,
+            ) {
                 Some(custom + space)
             } else {
                 let a_or_an = uc_1st_if(get_a_or_an(&singular), uc);
@@ -240,9 +260,14 @@ where
             // Demonstratives are chosen from as_pl alone; see the "the" arm for why the name is
             // used instead of an inflected singular.
             let singular = noun.name(false);
-            if let Some(custom) =
-                noun.inflect_article_custom_with_context(article_form, &singular, as_pl, uc, ctx)
-            {
+            if let Some(custom) = noun.inflect_article_custom_with_context(
+                article_form,
+                &singular,
+                case,
+                as_pl,
+                uc,
+                ctx,
+            ) {
                 Some(custom + space)
             } else {
                 Some(ranting::adapt_article(s, s, space, as_pl, uc))
@@ -373,7 +398,18 @@ where
     // This may be an article or certain verbs that can occur before the noun:
     if !pre.is_empty() {
         let p = pre.to_lowercase();
-        if let Some(a) = get_article_or_so(noun, p.as_str(), pre_kind, space, as_pl, uc, ctx) {
+        if let Some(a) = get_article_or_so(
+            noun,
+            p.as_str(),
+            pre_kind,
+            space,
+            ArticleRenderCtx {
+                case,
+                as_pl,
+                uc,
+                ctx,
+            },
+        ) {
             res.push_str(&a);
         } else if has_possesive {
             res.push_str(&uc_1st_if(pre, uc));
@@ -391,9 +427,18 @@ where
                 res.push_str(art_space);
                 let s;
                 (s, etc1) = split_at_find_start(etc1, |c| c.is_whitespace()).unwrap_or((etc1, ""));
-                if let Some(a) =
-                    get_article_or_so(noun, s, pre_chained_kind, space, as_pl, false, ctx)
-                {
+                if let Some(a) = get_article_or_so(
+                    noun,
+                    s,
+                    pre_chained_kind,
+                    space,
+                    ArticleRenderCtx {
+                        case,
+                        as_pl,
+                        uc: false,
+                        ctx,
+                    },
+                ) {
                     res.push_str(&a);
                 } else {
                     res.push_str(s);
@@ -805,6 +850,53 @@ pub enum PronounCase {
     Reflexive,
 }
 
+/// The grammatical role of the *noun an article attaches to*, for customization via
+/// [`Ranting::inflect_article_custom`]. Mirrors the case marker written directly on that
+/// placeholder's noun (`` {the =noun} `` is `Subjective`, `` {the @noun} `` is `Objective`,
+/// etc.) — English doesn't inflect articles by case, so this carries no information English
+/// itself needs, but a case-declining language's fork (e.g. German `der`/`den`/`dem`) does.
+///
+/// A placeholder with no case marker on the noun at all (the common case: `` {the noun} ``)
+/// reports [`GrammaticalCase::Name`] — there is nothing in the source to distinguish subject
+/// from object in that form, the same way English's own "the" doesn't. Getting a
+/// case-correct article for such a placeholder requires the template to add an explicit
+/// marker, e.g. `` {the =noun} ``; `GrammaticalCase` can only report what was written, not
+/// infer sentence role from surrounding words.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum GrammaticalCase {
+    /// No case marker on the noun (bare `` {the noun} ``) — English's own default; treat as
+    /// nominative unless the fork's grammar says otherwise.
+    Name,
+    /// `` {the =noun} `` — the noun is also displayed as a subject pronoun; nominative case.
+    Subjective,
+    /// `` {the @noun} `` — the noun is also displayed as an object pronoun; objective/accusative
+    /// case (English doesn't distinguish accusative from dative; neither does this).
+    Objective,
+    /// `` {the `noun} `` — the noun is also displayed as a possessive determiner; genitive-ish.
+    PossessiveDeterminer,
+    /// `` {the ~noun} `` — the noun is also displayed as a possessive pronoun; genitive-ish.
+    PossessivePronoun,
+    /// `` {the %noun} `` — the noun is also displayed reflexively.
+    Reflexive,
+    /// `` {?the noun} `` — the noun itself is hidden from output, but the article still renders
+    /// and still needs a grammatically correct form.
+    Hidden,
+}
+
+impl From<placeholder::CaseKind> for GrammaticalCase {
+    fn from(case: placeholder::CaseKind) -> Self {
+        match case {
+            placeholder::CaseKind::Name => GrammaticalCase::Name,
+            placeholder::CaseKind::Subjective => GrammaticalCase::Subjective,
+            placeholder::CaseKind::Objective => GrammaticalCase::Objective,
+            placeholder::CaseKind::PossessiveDeterminer => GrammaticalCase::PossessiveDeterminer,
+            placeholder::CaseKind::PossessivePronoun => GrammaticalCase::PossessivePronoun,
+            placeholder::CaseKind::Reflexive => GrammaticalCase::Reflexive,
+            placeholder::CaseKind::Hidden => GrammaticalCase::Hidden,
+        }
+    }
+}
+
 /// The trait required for a struct or enum to function as a noun in a placeholder, derived with `#[derive_ranting]`.
 /// Functions are used in `say!()` placeholders replacements.
 ///
@@ -1013,19 +1105,23 @@ pub trait Ranting: std::fmt::Display {
     /// # Arguments
     /// * `article` - Requested article form (e.g., "a", "the", "some", "these", "those")
     /// * `noun_singular` - Singular form of noun (for vowel detection, gender agreement, etc.)
+    /// * `case` - The noun's own grammatical role, from its case marker if it has one (see
+    ///   [`GrammaticalCase`] — a bare `` {the noun} `` reports `GrammaticalCase::Name`, since
+    ///   English gives nothing more specific to report). Lets a case-declining language's fork
+    ///   pick e.g. German `der`/`den`/`dem` correctly when the template annotates the noun's
+    ///   role explicitly (`` {the =noun} `` vs `` {the @noun} ``).
     /// * `as_plural` - Whether the noun is plural
     /// * `uc` - Whether to uppercase first character
     ///
     /// # Examples
     /// ```ignore
-    /// fn inflect_article_custom(&self, article: &str, noun_singular: &str, as_plural: bool, uc: bool) -> Option<String> {
+    /// fn inflect_article_custom(&self, article: &str, noun_singular: &str, case: GrammaticalCase, as_plural: bool, uc: bool) -> Option<String> {
     ///     match article {
     ///         "the" => {
-    ///             // Spanish gendered articles: la/el/los/las
-    ///             let form = if noun_singular.ends_with('a') {
-    ///                 if as_plural { "las" } else { "la" }
-    ///             } else {
-    ///                 if as_plural { "los" } else { "el" }
+    ///             // German gendered, case-declined articles (masculine noun only, for brevity)
+    ///             let form = match case {
+    ///                 GrammaticalCase::Objective => if as_plural { "die" } else { "den" },
+    ///                 _ => if as_plural { "die" } else { "der" },
     ///             };
     ///             Some(uc_1st_if(form, uc))
     ///         }
@@ -1037,6 +1133,7 @@ pub trait Ranting: std::fmt::Display {
         &self,
         _article: &str,
         _noun_singular: &str,
+        _case: GrammaticalCase,
         _as_plural: bool,
         _uc: bool,
     ) -> Option<String> {
@@ -1052,10 +1149,11 @@ pub trait Ranting: std::fmt::Display {
         &self,
         article: &str,
         noun_singular: &str,
+        case: GrammaticalCase,
         as_plural: bool,
         uc: bool,
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
-        self.inflect_article_custom(article, noun_singular, as_plural, uc)
+        self.inflect_article_custom(article, noun_singular, case, as_plural, uc)
     }
 }
