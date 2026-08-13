@@ -2751,6 +2751,50 @@ because it exercises everything before it.*
       `ranting_core`, `ranting_derive` and `ranting_i18n` to confirm the
       working tree was green before and after.
 
+25. ✅ **Preposition fusion and the closed pre-noun word list** (doc-only,
+    4-8 hours) — *hole 7 in `ranting_i18n/README.md`, the last item-10 hole
+    with no queued follow-up; independently confirmed as the only hole
+    item 23's Spanish lexicon hits*
+    - ✅ **COMPLETE 2026-08-13** —
+      `docs/superpowers/specs/2026-08-13-preposition-fusion.md` written, in
+      the same shape as the grammatical-case-inventory and number-categories
+      spikes. States the problem (German `zu`+`dem`→`zum`/`in`+`dem`→`im`,
+      French `de`+`le`→`du`/`à`+`le`→`au`, Spanish `de`+`el`→`del`/`a`+`el`→
+      `al`, Italian `di`+`il`→`del`), confirms `ph_ext::parse`'s `pre`
+      capture is a closed article/modal-verb word list so the escape hatch
+      of writing the preposition inside the placeholder doesn't exist
+      (`say!("{de the *=0}", gato)` is a compile error), and confirms
+      `elide_article_custom` cannot reach it because the preposition is
+      template literal text outside the placeholder's own assembled span —
+      not merely awkward to reach, structurally outside every span the hook
+      ever sees.
+    - ✅ Scored three options: (a) opening the pre-noun word list alone —
+      rejected, a grammar change with no runtime consumer fixes nothing by
+      itself; (b) a new hook fed the preceding literal word (the text
+      `parse_str_params` already reads for `at_sentence_start` today, but
+      currently collapsed to a bool and discarded) — named as the real fix,
+      not scheduled, to be bundled with any other owed hook-signature break
+      if picked up; (c) leave it to the caller's template — recommended for
+      now, but flagged as a *higher* ongoing cost than item 20's word-order
+      boundary, since the fused form depends on the same runtime gender/
+      number the hook system already resolves, so a caller must duplicate
+      that branch by hand to get it right in general.
+    - ✅ Recommendation departs from a typical "document and close" item:
+      because two structurally unrelated fork languages (German via item 10,
+      Spanish via item 23) converge on exactly this gap with nothing else
+      standing between either of them and full correctness, the spec records
+      this as the single highest-value remaining item in the extensibility
+      surface, not a German curiosity, and names (b) explicitly as what to
+      pick up first if this is ever re-prioritized.
+    - ✅ No code, hook signature, or placeholder grammar changed. Both holes
+      (`ranting_i18n/README.md`'s hole 7 and
+      `ranting_es/tests/holes.rs::hole_1_de_el_does_not_fuse_to_del`) stay
+      open and unstruck.
+    - ✅ `cargo fmt --check`, `cargo clippy -- -D warnings` and `cargo test`
+      are unaffected (doc-only diff) but were run at the repo root and in
+      `ranting_core`, `ranting_derive`, `ranting_i18n` and `ranting_es` to
+      confirm the working tree was green before and after.
+
 ### v1.3 Success Criteria
 - A non-English `Ranting` impl can obtain gender/noun class, grammatical case,
   number, and register/dialect **without** an external string-keyed side table
