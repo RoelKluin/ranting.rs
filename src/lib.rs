@@ -54,7 +54,7 @@ use language::english::{
 };
 pub use language::english::{inflect_noun_irregular, inflect_possessive, inflect_reflexive};
 pub use ranting_core::grammar::{SubjectPronoun, is_subject, is_subjective_plural};
-use ranting_core::placeholder::{CaseKind, PlaceholderSpec, PostSpec};
+use ranting_core::placeholder::{ArticleKind, CaseKind, PlaceholderSpec, PostSpec};
 use std::str::FromStr;
 
 /// Typed placeholder-spec types (`PlaceholderSpec`, `CaseKind`, `PostSpec`,
@@ -187,6 +187,7 @@ pub use ranting_derive::ref_ranting_trait;
 fn get_article_or_so<R>(
     noun: &R,
     s: &str,
+    kind: ArticleKind,
     space: &str,
     as_pl: bool,
     uc: bool,
@@ -195,12 +196,12 @@ fn get_article_or_so<R>(
 where
     R: Ranting,
 {
-    if noun.skip_article() && !s.starts_with('!') && !matches!(s, "these" | "those") {
+    if noun.skip_article() && !s.starts_with('!') && !matches!(kind, ArticleKind::TheseThose) {
         return Some("".to_string());
     }
     let article_form = s.trim_start_matches('!');
-    match article_form {
-        "the" => {
+    match kind {
+        ArticleKind::The => {
             // "the" needs no singular of its own; deriving one via inflect() would panic for
             // plural nouns whose name cannot be singularized (e.g. Noun::new("one", "they")).
             let singular = noun.name(false);
@@ -212,7 +213,7 @@ where
                 Some(uc_1st_if(article_form, uc) + space)
             }
         }
-        "a" | "an" | "some" => {
+        ArticleKind::AAnSome => {
             // adapt_article() discards the a/an choice when as_pl, so only singularize when the
             // singular form is actually rendered; inflect() would panic on non-standard plurals.
             let singular = if as_pl {
@@ -229,7 +230,7 @@ where
                 Some(ranting::adapt_article(&a_or_an, s, space, as_pl, uc))
             }
         }
-        "these" | "those" => {
+        ArticleKind::TheseThose => {
             // Demonstratives are chosen from as_pl alone; see the "the" arm for why the name is
             // used instead of an inflected singular.
             let singular = noun.name(false);
@@ -241,7 +242,7 @@ where
                 Some(ranting::adapt_article(s, s, space, as_pl, uc))
             }
         }
-        _ => None,
+        ArticleKind::Other => None,
     }
 }
 
@@ -320,6 +321,8 @@ where
     static OF: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bof\s+$").expect("valid regex"));
     let PlaceholderSpec {
         pre: pre_raw,
+        pre_kind,
+        pre_chained_kind,
         plurality,
         noun_space,
         case,
@@ -364,7 +367,7 @@ where
     // This may be an article or certain verbs that can occur before the noun:
     if !pre.is_empty() {
         let p = pre.to_lowercase();
-        if let Some(a) = get_article_or_so(noun, p.as_str(), space, as_pl, uc, ctx) {
+        if let Some(a) = get_article_or_so(noun, p.as_str(), pre_kind, space, as_pl, uc, ctx) {
             res.push_str(&a);
         } else if has_possesive {
             res.push_str(&uc_1st_if(pre, uc));
@@ -382,7 +385,9 @@ where
                 res.push_str(art_space);
                 let s;
                 (s, etc1) = split_at_find_start(etc1, |c| c.is_whitespace()).unwrap_or((etc1, ""));
-                if let Some(a) = get_article_or_so(noun, s, space, as_pl, false, ctx) {
+                if let Some(a) =
+                    get_article_or_so(noun, s, pre_chained_kind, space, as_pl, false, ctx)
+                {
                     res.push_str(&a);
                 } else {
                     res.push_str(s);

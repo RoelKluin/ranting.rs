@@ -107,4 +107,3 @@ fn generate_adjectives_table(manifest_dir: &str) -> io::Result<()> {
 
     Ok(())
 }
-

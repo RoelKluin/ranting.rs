@@ -680,9 +680,7 @@ fn handle_param(
             .partition(|&s| {
                 match s {
                     "#x" | "-" | "+" | "x?" | "X?" => false,
-                    x if x.starts_with('#')
-                        && x.ends_with(['x', 'X', 'o', 'p', 'b', 'e', 'E']) =>
-                    {
+                    x if x.starts_with('#') && x.ends_with(['x', 'X', 'o', 'p', 'b', 'e', 'E']) => {
                         false
                     }
                     x if x.ends_with(['$', '*']) => true,
@@ -762,6 +760,44 @@ fn handle_param(
         let expr = get_opt_num_ph_expr(&p, given).map_err(|s| (pre_s, pre_e, s))?;
         poss = parse_quote!(ranting::inflect_possessive(#expr.subjective(), false, #possesive_uc));
     }
+    // Classify `pre`'s first word (and, when reachable, its second) at compile time --
+    // see ranting_core::placeholder::ArticleKind's docs and ROADMAP.md's
+    // `get_article_or_so` fixability note for the proof that this is always safe,
+    // including when a `` ` `` possessive-substitution sentinel is present. Mirrors
+    // `ArticleKind::classify` exactly (kept in sync manually, like `CaseKind`'s and
+    // `TenseMarker`'s own local `match`es in this file) rather than calling it, since
+    // this runs at proc-macro build time, producing `quote!` tokens naming the variant.
+    fn article_kind_tokens(word: &str) -> TokenStream {
+        let variant = if word.contains('`') {
+            quote!(Other)
+        } else {
+            match word.trim_start_matches('!') {
+                "the" => quote!(The),
+                "a" | "an" | "some" => quote!(AAnSome),
+                "these" | "those" => quote!(TheseThose),
+                _ => quote!(Other),
+            }
+        };
+        quote!(ranting::placeholder::ArticleKind::#variant)
+    }
+    // Replicates handle_placeholder_impl's own `pre`/`etc1` splitting (same
+    // split_at_find_start defined below in this file) on the same literal text, so the
+    // baked classification matches exactly what the runtime would compute from it.
+    let (pre_first_word, pre_rest) = split_at_find_start(pre_string.as_str(), char::is_whitespace)
+        .unwrap_or((pre_string.as_str(), ""));
+    let pre_kind_q = article_kind_tokens(&pre_first_word.to_lowercase());
+    let pre_chained_kind_q = if pre_string.contains('`') {
+        // has_possesive: the runtime's chained (second) get_article_or_so call is
+        // never reached in this case (see ArticleKind's docs), so this value is
+        // unobserved -- Other is the harmless default.
+        quote!(ranting::placeholder::ArticleKind::Other)
+    } else {
+        let (_art_space, etc1_rest) =
+            split_at_find_start(pre_rest, |c: char| !c.is_whitespace()).unwrap_or(("", pre_rest));
+        let (s, _) = split_at_find_start(etc1_rest, char::is_whitespace).unwrap_or((etc1_rest, ""));
+        // Not lowercased: matches the runtime's case-sensitive second call site.
+        article_kind_tokens(s)
+    };
     // Typed `case` -- see ranting_core::placeholder's module docs for why the pre-noun
     // subjective `=` and the post-noun continuous-tense `=` (folded into `post_expr` above)
     // can never be confused now that each has its own typed field.
@@ -777,6 +813,8 @@ fn handle_param(
     let case_expr = quote!(ranting::placeholder::CaseKind::#case_variant);
     let spec_expr = quote!(ranting::placeholder::PlaceholderSpec {
         pre: #pre_string,
+        pre_kind: #pre_kind_q,
+        pre_chained_kind: #pre_chained_kind_q,
         plurality: #plurality,
         noun_space: #noun_space,
         case: #case_expr,
