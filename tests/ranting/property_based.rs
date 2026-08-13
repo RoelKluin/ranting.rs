@@ -98,7 +98,7 @@ fn noun_new_still_panics_on_invalid_subject() {
 
 #[test]
 fn inflect_degrades_gracefully_on_suffix_mismatch() {
-    use ranting::Ranting;
+    use ranting::{GrammaticalCase, Ranting};
     use ranting_derive::derive_ranting;
 
     // "Sheep" is declared plural (subject = "they") but its name doesn't end
@@ -111,7 +111,10 @@ fn inflect_degrades_gracefully_on_suffix_mismatch() {
     struct Sheep;
 
     let sheep = Sheep;
-    assert_eq!(Ranting::inflect(&sheep, false, false), "sheep");
+    assert_eq!(
+        Ranting::inflect(&sheep, false, false, GrammaticalCase::Name),
+        "sheep"
+    );
 }
 
 #[test]

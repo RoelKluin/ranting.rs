@@ -70,7 +70,7 @@ impl Ranting for FrenchNoun {
     fn is_plural(&self) -> bool {
         self.is_plural
     }
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         uc_1st_if(
             if to_plural {
                 self.plural
@@ -94,6 +94,7 @@ impl Ranting for FrenchNoun {
         _case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         let form = match (article, class.as_str(), as_plural) {
@@ -114,6 +115,7 @@ impl Ranting for FrenchNoun {
         _case: PronounCase,
         _class: NounClass,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         // As in tests/ranting/noun_class.rs: keep showing the noun's own name
@@ -128,6 +130,7 @@ impl Ranting for FrenchNoun {
         _case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         // Agreement: -e for feminine, -s for plural — the whole of regular
@@ -232,7 +235,7 @@ fn the_hook_receives_the_written_adjective_and_the_agreement_inputs() {
         fn is_plural(&self) -> bool {
             false
         }
-        fn inflect(&self, _to_plural: bool, uc: bool) -> String {
+        fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
             uc_1st_if("chat", uc)
         }
         fn skip_article(&self) -> bool {
@@ -248,6 +251,7 @@ fn the_hook_receives_the_written_adjective_and_the_agreement_inputs() {
             case: GrammaticalCase,
             class: NounClass,
             as_plural: bool,
+            _count: Option<PlaceholderCount>,
             _uc: bool,
         ) -> Option<String> {
             SEEN.with(|s| {
@@ -321,7 +325,7 @@ fn the_with_context_hook_is_the_one_called() {
         fn is_plural(&self) -> bool {
             false
         }
-        fn inflect(&self, _to_plural: bool, uc: bool) -> String {
+        fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
             uc_1st_if("chose", uc)
         }
         fn skip_article(&self) -> bool {
@@ -334,6 +338,7 @@ fn the_with_context_hook_is_the_one_called() {
             _case: GrammaticalCase,
             _class: NounClass,
             _as_plural: bool,
+            _count: Option<PlaceholderCount>,
             uc: bool,
             ctx: Option<&NarrationContext>,
         ) -> Option<String> {

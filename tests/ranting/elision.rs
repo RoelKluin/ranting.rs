@@ -75,7 +75,7 @@ impl Ranting for FrenchNoun {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         uc_1st_if(if to_plural { self.plural } else { self.word }, uc)
     }
     fn skip_article(&self) -> bool {
@@ -94,6 +94,7 @@ impl Ranting for FrenchNoun {
         _case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         if article != "the" {
@@ -116,6 +117,7 @@ impl Ranting for FrenchNoun {
         _case: GrammaticalCase,
         _class: NounClass,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
     ) -> Option<String> {
         if !self.elides {
             return None;
@@ -195,7 +197,7 @@ impl Ranting for ItalianNoun {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, _to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         uc_1st_if(self.0, uc)
     }
     fn skip_article(&self) -> bool {
@@ -209,6 +211,7 @@ impl Ranting for ItalianNoun {
         _case: GrammaticalCase,
         _class: NounClass,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         (article == "the").then(|| uc_1st_if("il", uc))
@@ -223,6 +226,7 @@ impl Ranting for ItalianNoun {
         _case: GrammaticalCase,
         _class: NounClass,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
     ) -> Option<String> {
         if article != "il" {
             return None;
@@ -288,7 +292,7 @@ impl Ranting for Probe {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         uc_1st_if(if to_plural { "chiens" } else { "chien" }, uc)
     }
     fn skip_article(&self) -> bool {
@@ -303,6 +307,7 @@ impl Ranting for Probe {
         _case: GrammaticalCase,
         _class: NounClass,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
     ) -> Option<String> {
         CALLS.with(|c| {
             c.borrow_mut().push((

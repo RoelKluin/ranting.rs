@@ -27,7 +27,7 @@ impl Ranting for PirateNoun {
         true
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         if to_plural {
             uc_1st_if("pirates", uc)
         } else {
@@ -44,6 +44,7 @@ impl Ranting for PirateNoun {
         _subject: &str,
         verb: &str,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         match verb {
@@ -95,7 +96,7 @@ impl Ranting for PirateCaptain {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         if to_plural {
             uc_1st_if("captains", uc)
         } else {
@@ -112,6 +113,7 @@ impl Ranting for PirateCaptain {
         _subject: &str,
         verb: &str,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         match verb {
@@ -174,7 +176,7 @@ impl Ranting for Dignitary {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         if to_plural {
             uc_1st_if("dignitaries", uc)
         } else {
@@ -192,6 +194,7 @@ impl Ranting for Dignitary {
         case: PronounCase,
         _class: NounClass,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         if subject == "you" && case == PronounCase::Objective {
@@ -251,7 +254,7 @@ impl Ranting for SpanishFeminine {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         if to_plural {
             uc_1st_if("cosas", uc)
         } else {
@@ -270,6 +273,7 @@ impl Ranting for SpanishFeminine {
         _case: GrammaticalCase,
         _class: NounClass,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         if article == "the" {
@@ -329,7 +333,7 @@ impl Ranting for ScottishHighlander {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         if to_plural {
             uc_1st_if("highlanders", uc)
         } else {
@@ -346,6 +350,7 @@ impl Ranting for ScottishHighlander {
         _subject: &str,
         verb: &str,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         match verb {
@@ -360,6 +365,7 @@ impl Ranting for ScottishHighlander {
         case: PronounCase,
         _class: NounClass,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         if subject == "he" && case == PronounCase::Subjective {
@@ -405,7 +411,7 @@ impl Ranting for PlainNoun {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         if to_plural {
             uc_1st_if("things", uc)
         } else {
@@ -458,7 +464,7 @@ impl Ranting for Sentinel {
         false
     }
 
-    fn inflect(&self, _to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         uc_1st_if("sentinel", uc)
     }
 
@@ -471,6 +477,7 @@ impl Ranting for Sentinel {
         _subject: &str,
         _verb: &str,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         _uc: bool,
     ) -> Option<String> {
         Some("XXHOOKCALLEDXX".to_string())
@@ -524,7 +531,7 @@ impl Ranting for SpanishNoun {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         if to_plural {
             uc_1st_if("cosas", uc)
         } else {
@@ -541,6 +548,7 @@ impl Ranting for SpanishNoun {
         _subject: &str,
         verb: &str,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         match verb {
@@ -557,6 +565,7 @@ impl Ranting for SpanishNoun {
         _case: GrammaticalCase,
         _class: NounClass,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         if article == "the" {

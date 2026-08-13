@@ -36,7 +36,7 @@ impl Ranting for Courtier {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         if to_plural {
             uc_1st_if("courtiers", uc)
         } else {
@@ -56,6 +56,7 @@ impl Ranting for Courtier {
         _subject: &str,
         verb: &str,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
@@ -118,7 +119,7 @@ impl Ranting for Innkeeper {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         if to_plural {
             uc_1st_if("innkeepers", uc)
         } else {
@@ -136,6 +137,7 @@ impl Ranting for Innkeeper {
         case: PronounCase,
         class: NounClass,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
@@ -145,7 +147,7 @@ impl Ranting for Innkeeper {
         // Falls back to the plain (non-context) hook for every other case,
         // proving the default `_with_context` delegation still runs when a
         // fork overrides both hooks.
-        self.inflect_pronoun_custom(subject, case, class, as_plural, uc)
+        self.inflect_pronoun_custom(subject, case, class, as_plural, _count, uc)
     }
 }
 
@@ -196,7 +198,7 @@ impl Ranting for Merchant {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         if to_plural {
             uc_1st_if("merchants", uc)
         } else {
@@ -215,6 +217,7 @@ impl Ranting for Merchant {
         _case: GrammaticalCase,
         _class: NounClass,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
@@ -287,7 +290,7 @@ impl Ranting for ContextHookSentinel {
         false
     }
 
-    fn inflect(&self, _to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         uc_1st_if("sentinel", uc)
     }
 
@@ -300,6 +303,7 @@ impl Ranting for ContextHookSentinel {
         _subject: &str,
         _verb: &str,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         _uc: bool,
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
