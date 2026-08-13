@@ -87,8 +87,6 @@ fn parse_str_params(
 ) -> syn::Result<(String, Vec<Expr>)> {
     static PH: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(lang::PH_START).expect("valid placeholder regex"));
-    static PHE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(lang::PH_EXT).expect("valid extended placeholder regex"));
     let src = lit.to_slice();
     let text = src.text();
     #[cfg(feature = "debug")]
@@ -116,35 +114,40 @@ fn parse_str_params(
                 }
             } else {
                 let ranting = caps.name("ranting").unwrap();
-                if !PHE.is_match(ranting.as_str()) {
-                    err = Some((
-                        ranting.start(),
-                        ranting.end(),
-                        "Error in placeholder".to_string(),
-                    ));
-                    return String::new();
-                }
+                // Hand-written tokenizer (ROADMAP.md Phase 4 item 6) replaces the old
+                // `PHE.is_match(...)` + `PHE.replace(...)` pair -- `PH_EXT` is fully
+                // anchored (`^...$`), so it only ever produced one whole-string match
+                // or none at all; `ranting_core::ph_ext::parse` mirrors that directly
+                // instead of going through a regex replace-closure, and returns a
+                // precise error span/message on failure instead of the old blanket
+                // "Error in placeholder".
+                let parsed = match ranting_core::ph_ext::parse(ranting.as_str()) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        let offs = ranting.start();
+                        err = Some((e.start + offs, e.end + offs, e.message));
+                        return String::new();
+                    }
+                };
                 let at_sentence_start = pre
                     .filter(|m| m.start() == 0 || m.as_str().starts_with(['.', '?', '!']))
                     .is_some();
-                pre.map_or("", |s| s.as_str()).to_string()
-                    + &PHE.replace(ranting.as_str(), |caps: &Captures| {
-                        match handle_param(
-                            caps,
-                            &params_in,
-                            &mut params,
-                            at_sentence_start,
-                            fmt,
-                            runtime_tense,
-                        ) {
-                            Ok(s) => s,
-                            Err((start, end, msg)) => {
-                                let offs = ranting.start();
-                                err = Some((start + offs, end + offs, msg));
-                                String::new()
-                            }
-                        }
-                    })
+                let replaced = match handle_param(
+                    &parsed,
+                    &params_in,
+                    &mut params,
+                    at_sentence_start,
+                    fmt,
+                    runtime_tense,
+                ) {
+                    Ok(s) => s,
+                    Err((start, end, msg)) => {
+                        let offs = ranting.start();
+                        err = Some((start + offs, end + offs, msg));
+                        String::new()
+                    }
+                };
+                pre.map_or("", |s| s.as_str()).to_string() + &replaced
             }
         })
         .to_string();
@@ -482,7 +485,7 @@ fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
 // Placeholder parts are examined, added are replacements known at compile time,
 // or placeholders are split in many and positionals are added.
 fn handle_param(
-    caps: &Captures,
+    caps: &ranting_core::ph_ext::PhExtMatch,
     given: &HashMap<String, Expr>,
     pos: &mut Vec<Expr>,
     at_sentence_start: bool,
@@ -690,7 +693,7 @@ fn handle_param(
         }
         parse_quote!("".to_string())
     } else {
-        let m = caps.get(0).unwrap();
+        let m = caps.whole();
         return Err((
             m.start(),
             m.end(),

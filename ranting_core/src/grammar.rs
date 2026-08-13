@@ -49,6 +49,18 @@ pub enum DemonstrativePronoun {
 // regex to capture the placholders or sentence ends
 // useful: https://regex101.com/r/Ly7O1x/3/
 /// The components captured in a Ranting trait placeholder are defined here.
+///
+/// As of ROADMAP.md Phase 4 item 6, this is no longer used to actually parse
+/// placeholder internals -- `crate::ph_ext::parse` is a hand-written
+/// tokenizer that replaced it at the one call site (`ranting_derive`'s
+/// `parse_str_params`), for precise per-error spans instead of one blanket
+/// "Error in placeholder" message. This string is kept as the *reference
+/// grammar*: `ph_ext`'s own test suite differentially fuzzes `parse` against
+/// `Regex::new(PH_EXT)` to confirm they agree, so this stays the
+/// authoritative spec `ph_ext::parse`'s doc comments and code structure are
+/// implementing by hand. The outer sigil grammar, `PH_START` below, is
+/// unaffected by item 6 and still does the real work of finding `{...}`
+/// placeholders in a template string.
 #[allow(dead_code)]
 pub static PH_EXT: &str = r"^(?x)
     (?P<uc>[,^])?+
