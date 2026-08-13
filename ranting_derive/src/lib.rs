@@ -614,9 +614,15 @@ fn handle_param(
             let leading_space = &post[..post.len() - post_trimmed.len()];
 
             if marker.chars().all(|c| c == '!') {
-                let degree_word = match marker.len() {
-                    1 => adjective::to_comparative(base_word),
-                    2 => adjective::to_superlative(base_word),
+                let (degree_word, degree_kind) = match marker.len() {
+                    1 => (
+                        adjective::to_comparative(base_word),
+                        quote!(ranting::placeholder::DegreeKind::Comparative),
+                    ),
+                    2 => (
+                        adjective::to_superlative(base_word),
+                        quote!(ranting::placeholder::DegreeKind::Superlative),
+                    ),
                     _ => {
                         let post_span = post_span.unwrap();
                         return Err((
@@ -629,6 +635,8 @@ fn handle_param(
                 };
                 quote!(ranting::placeholder::PostSpec::Degree {
                     leading_space: #leading_space,
+                    base: #base_word,
+                    degree: #degree_kind,
                     word: #degree_word,
                     trailing: #trailing,
                 })

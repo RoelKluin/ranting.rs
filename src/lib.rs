@@ -660,8 +660,28 @@ where
                 res.push_str(trailing);
             }
         }
-        PostSpec::Degree { word, trailing, .. } => {
-            if uc {
+        PostSpec::Degree {
+            base,
+            degree,
+            word,
+            trailing,
+            ..
+        } => {
+            // The hook gets the adjective as written plus the agreement inputs (case, class,
+            // number); only when it declines do we emit the compile-time English degree form,
+            // which is why say!()'s English output is unchanged.
+            let custom = noun.inflect_adjective_custom_with_context(
+                base,
+                degree.into(),
+                case.into(),
+                noun_class,
+                as_pl,
+                uc,
+                ctx,
+            );
+            if let Some(custom) = custom {
+                res.push_str(&custom);
+            } else if uc {
                 let mut chars = word.chars();
                 if let Some(first) = chars.next() {
                     res.push_str(&first.to_uppercase().collect::<String>());
@@ -823,8 +843,9 @@ impl Noun {
     /// off [`new`](Self::new)/[`try_new`](Self::try_new). Both constructors leave it
     /// [`NounClass::UNSET`], which is what every noun that never calls this keeps.
     ///
-    /// The class is handed to [`Ranting::inflect_article_custom`] and
-    /// [`Ranting::inflect_pronoun_custom`]; `ranting` itself never reads it, so setting one on a
+    /// The class is handed to [`Ranting::inflect_article_custom`],
+    /// [`Ranting::inflect_pronoun_custom`] and [`Ranting::inflect_adjective_custom`]; `ranting`
+    /// itself never reads it, so setting one on a
     /// noun rendered by plain English rules changes nothing.
     ///
     /// # Examples
@@ -888,8 +909,9 @@ pub enum PronounCase {
     Reflexive,
 }
 
-/// The grammatical role of the *noun an article attaches to*, for customization via
-/// [`Ranting::inflect_article_custom`]. Mirrors the case marker written directly on that
+/// The grammatical role of the *noun an article or adjective attaches to*, for customization via
+/// [`Ranting::inflect_article_custom`] and [`Ranting::inflect_adjective_custom`]. Mirrors the case
+/// marker written directly on that
 /// placeholder's noun (`` {the =noun} `` is `Subjective`, `` {the @noun} `` is `Objective`,
 /// etc.) — English doesn't inflect articles by case, so this carries no information English
 /// itself needs, but a case-declining language's fork (e.g. German `der`/`den`/`dem`) does.
@@ -922,7 +944,8 @@ pub enum GrammaticalCase {
 }
 
 /// An open-ended lexical-gender / noun-class label carried *by the entity*, for customization
-/// via [`Ranting::inflect_article_custom`] and [`Ranting::inflect_pronoun_custom`].
+/// via [`Ranting::inflect_article_custom`], [`Ranting::inflect_pronoun_custom`] and
+/// [`Ranting::inflect_adjective_custom`].
 ///
 /// Deliberately a newtype over a `&'static str` rather than a closed
 /// `enum { Masculine, Feminine, Neuter }`: Bantu languages have a dozen-plus noun classes and
@@ -979,6 +1002,33 @@ impl NounClass {
 impl std::fmt::Display for NounClass {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.0)
+    }
+}
+
+/// Which degree marker a post-noun adjective was written with, for customization via
+/// [`Ranting::inflect_adjective_custom`]. Mirrors
+/// [`placeholder::DegreeKind`], the compile-time type the
+/// macro bakes, the way [`GrammaticalCase`] mirrors `CaseKind`.
+///
+/// There are only two variants because `!`/`!!` are the only two markers the placeholder grammar
+/// has: an adjective written *without* a degree marker isn't a placeholder word at all (it's
+/// literal template text, which no hook can reach), and a post-noun word with no marker is parsed
+/// as a verb. A fork whose adjectives agree with their noun therefore writes `!` for the plain
+/// (positive-degree) case too, and ignores this parameter — see `docs/EXTENSIBILITY.md` §2.5.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum AdjectiveDegree {
+    /// `` {noun !adj} `` — comparative ("better", "more careful").
+    Comparative,
+    /// `` {noun !!adj} `` — superlative ("best", "most careful").
+    Superlative,
+}
+
+impl From<placeholder::DegreeKind> for AdjectiveDegree {
+    fn from(degree: placeholder::DegreeKind) -> Self {
+        match degree {
+            placeholder::DegreeKind::Comparative => AdjectiveDegree::Comparative,
+            placeholder::DegreeKind::Superlative => AdjectiveDegree::Superlative,
+        }
     }
 }
 
@@ -1090,8 +1140,9 @@ pub trait Ranting: std::fmt::Display {
     /// [`Noun::with_noun_class`].
     ///
     /// `ranting` itself never reads the value — English has no lexical gender. It exists to be
-    /// handed to [`inflect_article_custom`](Self::inflect_article_custom) and
-    /// [`inflect_pronoun_custom`](Self::inflect_pronoun_custom) so a non-English implementation
+    /// handed to [`inflect_article_custom`](Self::inflect_article_custom),
+    /// [`inflect_pronoun_custom`](Self::inflect_pronoun_custom) and
+    /// [`inflect_adjective_custom`](Self::inflect_adjective_custom) so a non-English implementation
     /// can select `der`/`die`/`das` from the entity rather than from an external table keyed by
     /// the display string. See [`NounClass`] for why the label is open-ended.
     fn noun_class(&self) -> NounClass {
@@ -1287,5 +1338,85 @@ pub trait Ranting: std::fmt::Display {
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         self.inflect_article_custom(article, noun_singular, case, class, as_plural, uc)
+    }
+
+    /// Customize a post-noun adjective (the `!`/`!!` degree slot).
+    /// Return Some(String) to use a custom form, None to keep the compile-time-resolved English
+    /// comparative/superlative.
+    ///
+    /// English resolves degree entirely at compile time and needs no agreement, so this hook has
+    /// no English use and returning `None` — the default — leaves `say!()`'s output byte-identical.
+    /// It exists for Romance and Germanic adjectives, which agree with their noun in gender,
+    /// number and (German) case: `un chat noir` / `une robe noire` / `des chats noirs`, none of
+    /// which is knowable when the macro bakes the degree form.
+    ///
+    /// # Arguments
+    /// * `adjective` - The adjective exactly as written in the placeholder, *before* the English
+    ///   degree table touched it (`` {a chat !noir} `` gives `"noir"`, not `"more noir"`). This is
+    ///   what a fork inflects; the English form it would otherwise get is not reversible back into
+    ///   the base.
+    /// * `degree` - Which marker was written, `!` or `!!` (see [`AdjectiveDegree`], including why
+    ///   there is no positive-degree variant).
+    /// * `case` - The noun's own grammatical role from its case marker, as for
+    ///   [`inflect_article_custom`](Self::inflect_article_custom); a bare `` {a chat !noir} ``
+    ///   reports [`GrammaticalCase::Name`].
+    /// * `class` - The noun's lexical gender / noun class (see [`NounClass`]), or
+    ///   [`NounClass::UNSET`]. Together with `as_plural` this is the agreement input.
+    /// * `as_plural` - Whether the noun renders plural here (see [`Ranting::is_plural`] for what
+    ///   this bool does and does not promise: plural *agreement*, not a referent count).
+    /// * `uc` - Whether to uppercase the first character. Applied by the caller only on the
+    ///   fallback path, so a custom form must apply it itself — [`uc_1st_if`] does that.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// fn inflect_adjective_custom(
+    ///     &self,
+    ///     adjective: &str,
+    ///     _degree: AdjectiveDegree,
+    ///     _case: GrammaticalCase,
+    ///     class: NounClass,
+    ///     as_plural: bool,
+    ///     uc: bool,
+    /// ) -> Option<String> {
+    ///     // French: noir / noire / noirs / noires
+    ///     let mut form = adjective.to_string();
+    ///     if class.as_str() == "feminine" {
+    ///         form.push('e');
+    ///     }
+    ///     if as_plural {
+    ///         form.push('s');
+    ///     }
+    ///     Some(uc_1st_if(&form, uc))
+    /// }
+    /// ```
+    fn inflect_adjective_custom(
+        &self,
+        _adjective: &str,
+        _degree: AdjectiveDegree,
+        _case: GrammaticalCase,
+        _class: NounClass,
+        _as_plural: bool,
+        _uc: bool,
+    ) -> Option<String> {
+        None
+    }
+
+    /// Like [`inflect_adjective_custom`](Self::inflect_adjective_custom), but also receives the
+    /// story-wide [`NarrationContext`] in effect for this call, when there is one. See
+    /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
+    /// general shape: the adjective call site calls this one, and the default delegates to
+    /// `inflect_adjective_custom` with `ctx` ignored.
+    #[allow(clippy::too_many_arguments)]
+    fn inflect_adjective_custom_with_context(
+        &self,
+        adjective: &str,
+        degree: AdjectiveDegree,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        uc: bool,
+        _ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        self.inflect_adjective_custom(adjective, degree, case, class, as_plural, uc)
     }
 }

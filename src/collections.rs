@@ -15,7 +15,9 @@
 //! and [`Maybe`], which *are* local types and so can freely implement both `Display` and
 //! `Ranting`.
 
-use crate::{GrammaticalCase, NarrationContext, NounClass, PronounCase, Ranting, uc_1st_if};
+use crate::{
+    AdjectiveDegree, GrammaticalCase, NarrationContext, NounClass, PronounCase, Ranting, uc_1st_if,
+};
 use std::fmt;
 
 /// Wraps a `Vec<T>` so it can be used as a `say!()` placeholder subject/argument.
@@ -223,6 +225,40 @@ impl<T: Ranting> Ranting for Many<T> {
             _ => None,
         }
     }
+
+    fn inflect_adjective_custom(
+        &self,
+        adjective: &str,
+        degree: AdjectiveDegree,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        uc: bool,
+    ) -> Option<String> {
+        match self.0.len() {
+            1 => self.0[0].inflect_adjective_custom(adjective, degree, case, class, as_plural, uc),
+            _ => None,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn inflect_adjective_custom_with_context(
+        &self,
+        adjective: &str,
+        degree: AdjectiveDegree,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        uc: bool,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        match self.0.len() {
+            1 => self.0[0].inflect_adjective_custom_with_context(
+                adjective, degree, case, class, as_plural, uc, ctx,
+            ),
+            _ => None,
+        }
+    }
 }
 
 /// Wraps an `Option<T>` so it can be used as a `say!()` placeholder subject/argument.
@@ -390,6 +426,38 @@ impl<T: Ranting> Ranting for Maybe<T> {
             )
         })
     }
+
+    fn inflect_adjective_custom(
+        &self,
+        adjective: &str,
+        degree: AdjectiveDegree,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        uc: bool,
+    ) -> Option<String> {
+        self.0.as_ref().and_then(|item| {
+            item.inflect_adjective_custom(adjective, degree, case, class, as_plural, uc)
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn inflect_adjective_custom_with_context(
+        &self,
+        adjective: &str,
+        degree: AdjectiveDegree,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        uc: bool,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        self.0.as_ref().and_then(|item| {
+            item.inflect_adjective_custom_with_context(
+                adjective, degree, case, class, as_plural, uc, ctx,
+            )
+        })
+    }
 }
 
 impl<T: Ranting> Ranting for Box<T> {
@@ -491,6 +559,34 @@ impl<T: Ranting> Ranting for Box<T> {
             as_plural,
             uc,
             ctx,
+        )
+    }
+
+    fn inflect_adjective_custom(
+        &self,
+        adjective: &str,
+        degree: AdjectiveDegree,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        uc: bool,
+    ) -> Option<String> {
+        (**self).inflect_adjective_custom(adjective, degree, case, class, as_plural, uc)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn inflect_adjective_custom_with_context(
+        &self,
+        adjective: &str,
+        degree: AdjectiveDegree,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        uc: bool,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        (**self).inflect_adjective_custom_with_context(
+            adjective, degree, case, class, as_plural, uc, ctx,
         )
     }
 }

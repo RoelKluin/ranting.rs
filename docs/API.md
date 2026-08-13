@@ -62,10 +62,11 @@ passes `Some(ctx)` — so overriding only the `_with_context` form is enough):
 | `inflect_verb_custom` / `_with_context` | verb conjugation (tense, plurality, person) |
 | `inflect_pronoun_custom` / `_with_context` | pronoun form, keyed by `PronounCase` (`Subjective`/`Objective`/`PossessiveDeterminer`/`PossessivePronoun`/`Reflexive`) and `NounClass` |
 | `inflect_article_custom` / `_with_context` | article form (a/an/the/some, demonstratives), keyed by `GrammaticalCase` and `NounClass` |
+| `inflect_adjective_custom` / `_with_context` | the post-noun `!`/`!!` adjective, keyed by [`AdjectiveDegree`](#adjectivedegree), `GrammaticalCase` and `NounClass` |
 
-The pronoun and article hooks also receive the noun's own
-[`NounClass`](#nounclass) as a `class` parameter, and the article hook its
-`GrammaticalCase`; the verb hook receives neither.
+The pronoun, article and adjective hooks also receive the noun's own
+[`NounClass`](#nounclass) as a `class` parameter, and the article and adjective
+hooks their `GrammaticalCase`; the verb hook receives neither.
 
 `ctx: Option<&NarrationContext>` is always a plain parameter on these hooks,
 never read from `self` — an entity's own `subject` stays entity-owned, while
@@ -103,7 +104,7 @@ consumes and returns the `Noun`, so it chains:
 ## `NounClass`
 
 An open-ended lexical-gender / noun-class label carried by the entity and
-handed to the pronoun and article hooks as their `class` parameter, so a
+handed to the pronoun, article and adjective hooks as their `class` parameter, so a
 non-English implementation can pick `der`/`die`/`das` without an external
 gender table keyed by the display string (which breaks on homographs, names,
 and runtime-built nouns).
@@ -129,6 +130,41 @@ overriding `Ranting::noun_class`. A noun that sets none reports `UNSET` and
 renders byte-identically to how it did before this channel existed. See
 [`docs/EXTENSIBILITY.md` §2.4](EXTENSIBILITY.md) for the worked German
 example.
+
+## `AdjectiveDegree`
+
+Which degree marker a post-noun adjective was written with, handed to the
+adjective hook:
+
+```rust
+pub enum AdjectiveDegree { Comparative, Superlative }   // `!` and `!!`
+```
+
+```rust
+fn inflect_adjective_custom(
+    &self,
+    adjective: &str,          // as written in the placeholder ("noir", not "noirer")
+    degree: AdjectiveDegree,
+    case: GrammaticalCase,
+    class: NounClass,
+    as_plural: bool,
+    uc: bool,
+) -> Option<String>
+```
+
+English resolves `!`/`!!` at compile time and needs no agreement, so this hook
+defaults to `None` and English output is unaffected by its existence. It is
+there for languages whose adjectives agree with their noun in gender, number
+and case: `un chat noir` / `une robe noire` / `des chats noirs`. The hook
+receives the adjective **as written**, since the compile-time English form is
+not reversible back into it; on `None` that English form is emitted, `uc`
+included (a custom form applies `uc_1st_if` itself).
+
+There is no positive-degree variant because there is no positive-degree
+marker: an unmarked post-noun word is parsed as a verb, so a fork whose
+adjectives merely agree writes `!` and ignores `degree`. See
+[`docs/EXTENSIBILITY.md` §2.5](EXTENSIBILITY.md) and
+`tests/ranting/adjective_agreement.rs`.
 
 ## Wrapper types
 

@@ -72,10 +72,11 @@ fn main() {
 
 ### 2.0 Story-Wide Context: the `_with_context` Variants (v1.1)
 
-Each of the three hooks below (`inflect_verb_custom`, `inflect_pronoun_custom`,
-`inflect_article_custom`) has a `_with_context` counterpart —
-`inflect_verb_custom_with_context`, `inflect_pronoun_custom_with_context`,
-`inflect_article_custom_with_context` — that takes one extra parameter,
+Each of the four hooks below (`inflect_verb_custom`, `inflect_pronoun_custom`,
+`inflect_article_custom`, and `inflect_adjective_custom` since v1.3) has a
+`_with_context` counterpart — `inflect_verb_custom_with_context`,
+`inflect_pronoun_custom_with_context`, `inflect_article_custom_with_context`,
+`inflect_adjective_custom_with_context` — that takes one extra parameter,
 `ctx: Option<&NarrationContext>`, and is what every call site in the crate
 actually invokes. The default implementation of each `_with_context` method
 ignores `ctx` and delegates to the plain hook, so everything above still
@@ -281,8 +282,8 @@ fn inflect_article_custom(
 ### 2.4 Lexical Gender / Noun Class: `noun_class()` and the `class` parameter (v1.3)
 
 `NounClass` is an open-ended label carried **by the entity**, handed to
-`inflect_article_custom` and `inflect_pronoun_custom` (and their `_with_context` twins) as the
-`class` parameter. It is the channel that lets a non-English implementation stop keying gender
+`inflect_article_custom`, `inflect_pronoun_custom` and `inflect_adjective_custom` (§2.5) — and
+their `_with_context` twins — as the `class` parameter. It is the channel that lets a non-English implementation stop keying gender
 off the display string.
 
 ```rust
@@ -376,8 +377,82 @@ its inner value's class; `Maybe(None)` and a `Many` that doesn't hold exactly on
 
 **Not threaded into `inflect_verb_custom`.** Verb agreement in the languages this targets is
 driven by person/number, not by noun class; the verb hook's signature is unchanged. The adjective
-hook will receive `class` when it lands (ROADMAP.md Phase 6 item 5) — adjective *agreement* is
-exactly where a class label is needed next.
+hook (§2.5) does receive `class` — adjective *agreement* is exactly where a class label is needed.
+
+### 2.5 Adjective Agreement: `inflect_adjective_custom()` (v1.3)
+
+```rust
+fn inflect_adjective_custom(
+    &self,
+    adjective: &str,          // as written in the placeholder, e.g. "noir"
+    degree: AdjectiveDegree,  // Comparative (`!`) or Superlative (`!!`)
+    case: GrammaticalCase,    // as §2.3
+    class: NounClass,         // as §2.4
+    as_plural: bool,
+    uc: bool,
+) -> Option<String>
+
+fn inflect_adjective_custom_with_context(/* the same, plus */ ctx: Option<&NarrationContext>)
+    -> Option<String>
+```
+
+Called for the post-noun degree slot, `{noun !adj}` / `{noun !!adj}`. Return `Some` to render your
+own form; return `None` (the default) to keep the English comparative/superlative the macro
+resolved at compile time — which is why English output is unchanged by this hook's existence.
+
+**Why it exists.** English degree needs no agreement, so `ranting_derive` resolves `!good` to
+`better` at compile time and `ranting` had no runtime adjective path at all. Romance and Germanic
+adjectives agree with their noun in gender, number and (German) case — none of which is knowable
+when the macro runs.
+
+**You get the adjective as written, not English's degree form.** `{a chat !noir}` hands your hook
+`"noir"`, never `"noirer"`: the resolved form is not reversible back into the base, and parsing it
+back out would be the string-sniffing this API exists to avoid. The macro bakes both (the base for
+you, the English form for the fallback), the same way `say_with!()` bakes the uninflected base verb
+for runtime tense resolution.
+
+**Worked example: `un chat noir` / `une robe noire` / `des chats noirs` from one template.**
+
+```rust
+fn inflect_adjective_custom(
+    &self,
+    adjective: &str,
+    _degree: AdjectiveDegree,
+    _case: GrammaticalCase,
+    class: NounClass,
+    as_plural: bool,
+    uc: bool,
+) -> Option<String> {
+    let mut form = adjective.to_string();
+    if class.as_str() == "feminine" {
+        form.push('e');
+    }
+    if as_plural {
+        form.push('s');
+    }
+    Some(uc_1st_if(&form, uc))
+}
+```
+
+With `un`/`une`/`des` coming from `inflect_article_custom` (§2.3) off the same `class`, the single
+template `say!("J'ai vu {a 0 !noir}.", noun)` renders all three. `tests/ranting/adjective_agreement.rs`
+is the runnable version, including a French superlative (`le plus noir`) that uses `degree`.
+
+**Known limitation: `!` is the only adjective slot there is.** The placeholder grammar has no
+positive-degree adjective marker — an unmarked post-noun word is parsed as a *verb*, and an
+adjective written outside the placeholder is literal template text no hook can reach. So a fork
+whose adjectives merely agree (rather than compare) writes `!` and ignores `degree`, as above.
+That is a real wart, recorded rather than papered over; widening the grammar would add surface for
+every English user, the shape of point fix ROADMAP.md Phase 6 item 1 rejected for German word
+order. Note also that agreement is *form*, never *position*: French post-nominal vs. prenominal
+adjective placement is word order, which item 1 established stays with the caller's template.
+
+**`uc` is yours to apply.** As with the article and pronoun hooks, the caller's
+uppercase-first-character pass runs only on the fallback path, so a custom form should call
+`uc_1st_if` itself.
+
+**Wrappers.** `Box<T>` forwards to its inner value; `Many`/`Maybe` forward only when they hold
+exactly one item, and otherwise decline (there is no single entity whose gender could agree).
 
 ## Partial Customization
 
