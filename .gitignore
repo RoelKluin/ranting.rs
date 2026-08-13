@@ -7,3 +7,4 @@ tags
 .claude/
 .repo-map/
 tasks_done.txt
+.cargo-home/
