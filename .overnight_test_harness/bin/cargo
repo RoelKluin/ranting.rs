@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-# Stub cargo: always succeeds, regardless of subcommand.
-exit 0
