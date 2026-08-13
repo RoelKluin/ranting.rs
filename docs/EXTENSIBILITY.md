@@ -835,6 +835,83 @@ were scored and rejected before landing on this:
 is nothing for "render the name instead" to mean). See `tests/ranting/case_display_split.rs` and,
 worked through a full German example, `ranting_i18n/tests/holes.rs`'s `hole_5_closed_*`.
 
+### 2.12 The Word-Order Boundary (ROADMAP.md Phase 6 item 20)
+
+Every hook documented above — verb, pronoun, article, noun class, adjective, orthography,
+elision, numeral — operates *within* one placeholder's braces. None of them, individually or in
+combination, can change where a placeholder or a word of surrounding literal text sits relative to
+the rest of the sentence. This is not a gap any future hook will close. It is a permanent property
+of how `say!()` is built, stated here in full so a fork author reads it in the same place as the
+hooks themselves, rather than discovering it by trial and error.
+
+**The single-sentence version:**
+
+> `ranting` inflects words within a template; the order of those words is the template's, and the
+> template is the caller's — so a non-English application needs one template per language, and no
+> inflection hook will ever change that.
+
+**Why this is a property of the code, not a missing feature.** `ranting_derive`'s `Say` codegen
+emits exactly one `format!()` call: a compile-time string literal (every character of
+inter-placeholder text, argument position and all) plus one `handle_placeholder(...)` call per
+placeholder. Three consequences, each independently sufficient to block reordering:
+
+- The literal, and the position of each placeholder's `{}` hole within it, is a compile-time
+  constant — not a runtime value any hook receives or can act on.
+- A hook's only output is the `String` it returns for its own hole. There is no reference to
+  sibling placeholders and no channel for "render nothing here, and this word forty characters
+  later instead."
+- *Inside* one placeholder, the assembly order (article/pre-verb → number → noun-or-pronoun →
+  possessive/post-verb/tense/degree) is a fixed sequence of `res.push_str` calls in
+  `handle_placeholder_impl`, not data a hook can permute. A hook fills one step of that sequence;
+  it cannot swap two of them.
+
+**What this rules out, named so nobody has to rediscover it one at a time:**
+
+- **German verb-second with a clause-final element** — separable prefixes (*Ich sehe den Hund
+  **an***) and perfect participles (*Ich habe den Hund **gesehen***). One verb needs two
+  positions; the placeholder grammar has one verb slot per placeholder and asserts against having
+  both a pre- and a post-verb.
+- **Japanese / Korean / Turkish SOV with postpositions** — the object precedes the verb and the
+  particle follows the noun. An English template's word order and its prepositions are both
+  wrong, and neither is text a hook owns.
+- **VSO languages** (Irish, Welsh, Classical Arabic) — the verb precedes the subject. `` {=dog}
+  {dog bark} `` cannot render verb-first.
+- **Suffixed definite articles** (Romanian, Norwegian/Danish/Swedish, Bulgarian) — blocked
+  *inside* a single placeholder by the fixed article-before-noun assembly order, independently of
+  everything else on this list.
+- **Adjective movement** — Romance post-nominal adjectives (*un chat noir*) when the template
+  places the adjective before the noun. §2.5's adjective hook gives agreement, i.e. the right
+  *form*; it does not move the word.
+- **Sentence-final particles** (Japanese *か*, Mandarin *吗*) and other clause-level particles
+  with no English counterpart to occupy.
+
+**The sharpest single illustration is German attributive adjectives**, found by Phase 6 item 10's
+`ranting_i18n` spike (its README's finding 4a). German attributive adjectives are prenominal
+(`der kleine Hund`), but §2.5's degree slot (`` {noun !word} ``/`` {noun !!word} ``) is post-noun
+only, so the agreement endings come out right and the word comes out in the wrong place:
+`` say!("{the *=0 !klein}", hund) `` renders `"Der Hund kleine"`, not `"Der kleine Hund"`. There is
+no template that fixes this, because §2.5's hook cannot move text out of its own slot. And
+German's *predicative* adjectives — the one position that is genuinely post-verbal — are
+uninflected in German, needing no agreement at all. Put together: **there is no German sentence in
+which the adjective hook's output is correct German.** The hook proves the agreement mechanism
+works in isolation; it is not usable in a real German sentence, and no signal added to the hook
+(case, class, count) changes that, because the defect is position, not agreement.
+
+**The fix is not a hook.** A non-English application supplies one template per language per
+sentence, selected by the caller before the `say!()` call, and lets `ranting` do what it already
+does well — inflecting the words inside whichever template was chosen. That costs the caller a
+template per language (a real cost, stated plainly rather than buried), and costs `ranting`
+nothing, because it changes nothing about how placeholders work.
+
+**Rejected designs**, scored in full in the source spike: numbered slots with per-language reorder
+metadata (blocked by mechanism — the `format!()` literal and its argument order are compile-time
+constants, and inter-placeholder glue words like "at" need deletion/insertion, not permutation);
+and a `sentence!()` syntax-tree API (works, but abandons the sigil grammar that is `say!()`'s
+identity, ships a second permanent product surface, and reintroduces per-language syntax rules
+into a crate that deliberately keeps them out). See
+`docs/superpowers/specs/2026-08-13-word-order-feasibility.md` for the full option-scoring table and
+`ranting_i18n/README.md`'s finding 4 for the worked German example.
+
 ## Partial Customization
 
 You don't need to implement every `_custom` method. If you only need verb customization, implement `inflect_verb_custom()` and leave the rest as default (returning `None`). The trait provides a default for all of them:

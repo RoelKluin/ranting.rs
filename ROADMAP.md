@@ -2526,9 +2526,30 @@ because it exercises everything before it.*
       warnings` and `cargo test` are green at the repo root, in
       `ranting_core`, in `ranting_derive`, and in `ranting_i18n`.
 
-20. **Document the word-order boundary** (doc-only, 4-6 hours) — open question 1
+20. ✅ **Document the word-order boundary** (doc-only, 4-6 hours) — open question 1
     of the word-order spec: `docs/EXTENSIBILITY.md` in full, one-line pointers
     from CLAUDE.md and README.md, written as a permanent boundary not a TODO.
+    - ✅ **COMPLETE 2026-08-13** — `docs/EXTENSIBILITY.md` §2.12 carries the full
+      boundary statement: why it's a property of `format!()` codegen and the
+      fixed pre→nr→noun→post assembly order rather than a missing hook, the
+      spec's named list of unreachable constructions (German verb-second with
+      separable prefixes, SOV with postpositions, VSO, suffixed definite
+      articles, adjective movement, sentence-final particles), and the two
+      rejected build options (numbered slots + reorder metadata; the
+      `sentence!()` syntax-tree API), each with why. CLAUDE.md's "Non-obvious
+      behaviors" and README.md gained one-line pointers, both quoting the
+      spec's single-sentence version verbatim and both linking to §2.12 rather
+      than duplicating the reasoning.
+    - ✅ Folded in item 10's sharpest finding rather than leaving it stranded in
+      `ranting_i18n/README.md`: German attributive adjectives are prenominal
+      (`der kleine Hund`) while the `!`/`!!` degree slot is post-noun only, and
+      German predicative adjectives — the one post-verbal position — are
+      uninflected, so there is no German sentence in which the adjective
+      hook's output is correct German. §2.12 states this as the one-example
+      proof that the boundary is real, not hypothetical, cross-referencing
+      `ranting_i18n/README.md`'s finding 4a for the worked example.
+    - ✅ No production code touched — `docs/EXTENSIBILITY.md`, `CLAUDE.md` and
+      `README.md` only, matching the item's doc-only scope.
 
 21. **Document non-English pronoun inventories** (doc-only, 6-8 hours) — the
     entire follow-up the pronoun-inventory spec authorizes (its recommendation
