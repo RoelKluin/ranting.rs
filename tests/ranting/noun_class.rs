@@ -45,7 +45,7 @@ impl Ranting for GermanNoun {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, _to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         uc_1st_if(self.word, uc)
     }
     fn skip_article(&self) -> bool {
@@ -63,6 +63,7 @@ impl Ranting for GermanNoun {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         if article != "the" {
@@ -88,6 +89,7 @@ impl Ranting for GermanNoun {
         _case: PronounCase,
         _class: NounClass,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         // A case-declining fork keeps showing the noun's own name after the
@@ -153,7 +155,7 @@ fn the_pronoun_hook_receives_the_class_too() {
         fn is_plural(&self) -> bool {
             false
         }
-        fn inflect(&self, _to_plural: bool, uc: bool) -> String {
+        fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
             uc_1st_if("Katze", uc)
         }
         fn skip_article(&self) -> bool {
@@ -168,6 +170,7 @@ fn the_pronoun_hook_receives_the_class_too() {
             _case: PronounCase,
             class: NounClass,
             _as_plural: bool,
+            _count: Option<PlaceholderCount>,
             _uc: bool,
         ) -> Option<String> {
             SEEN.with(|s| s.borrow_mut().push(class));
@@ -203,7 +206,7 @@ fn a_noun_that_declares_no_class_reports_unset() {
         fn is_plural(&self) -> bool {
             false
         }
-        fn inflect(&self, _to_plural: bool, uc: bool) -> String {
+        fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
             uc_1st_if("dog", uc)
         }
         fn skip_article(&self) -> bool {
@@ -216,6 +219,7 @@ fn a_noun_that_declares_no_class_reports_unset() {
             _case: GrammaticalCase,
             class: NounClass,
             _as_plural: bool,
+            _count: Option<PlaceholderCount>,
             _uc: bool,
         ) -> Option<String> {
             SEEN.with(|s| s.borrow_mut().push(class));

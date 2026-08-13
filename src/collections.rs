@@ -17,7 +17,7 @@
 
 use crate::{
     AdjectiveDegree, GrammaticalCase, NarrationContext, NounClass, NumeralStyle, OrthographyRole,
-    PronounCase, Ranting, uc_1st_if,
+    PlaceholderCount, PronounCase, Ranting, uc_1st_if,
 };
 use std::fmt;
 
@@ -102,12 +102,12 @@ impl<T: Ranting> Ranting for Many<T> {
         self.0.len() != 1
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, case: GrammaticalCase) -> String {
         // A collection of distinct named items has no separate singular/plural word form of its
         // own to choose between (unlike a single countable noun), except in the one-item case
         // where it just forwards to that item.
         match self.0.len() {
-            1 => self.0[0].inflect(to_plural, uc),
+            1 => self.0[0].inflect(to_plural, uc, case),
             _ => self.joined_names(uc),
         }
     }
@@ -159,10 +159,11 @@ impl<T: Ranting> Ranting for Many<T> {
         subject: &str,
         verb: &str,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         match self.0.len() {
-            1 => self.0[0].inflect_verb_custom(subject, verb, as_plural, uc),
+            1 => self.0[0].inflect_verb_custom(subject, verb, as_plural, count, uc),
             _ => None,
         }
     }
@@ -172,11 +173,14 @@ impl<T: Ranting> Ranting for Many<T> {
         subject: &str,
         verb: &str,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         match self.0.len() {
-            1 => self.0[0].inflect_verb_custom_with_context(subject, verb, as_plural, uc, ctx),
+            1 => {
+                self.0[0].inflect_verb_custom_with_context(subject, verb, as_plural, count, uc, ctx)
+            }
             _ => None,
         }
     }
@@ -187,10 +191,11 @@ impl<T: Ranting> Ranting for Many<T> {
         case: PronounCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         match self.0.len() {
-            1 => self.0[0].inflect_pronoun_custom(subject, case, class, as_plural, uc),
+            1 => self.0[0].inflect_pronoun_custom(subject, case, class, as_plural, count, uc),
             _ => None,
         }
     }
@@ -201,12 +206,14 @@ impl<T: Ranting> Ranting for Many<T> {
         case: PronounCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         match self.0.len() {
-            1 => self.0[0]
-                .inflect_pronoun_custom_with_context(subject, case, class, as_plural, uc, ctx),
+            1 => self.0[0].inflect_pronoun_custom_with_context(
+                subject, case, class, as_plural, count, uc, ctx,
+            ),
             _ => None,
         }
     }
@@ -218,12 +225,19 @@ impl<T: Ranting> Ranting for Many<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         match self.0.len() {
-            1 => {
-                self.0[0].inflect_article_custom(article, noun_singular, case, class, as_plural, uc)
-            }
+            1 => self.0[0].inflect_article_custom(
+                article,
+                noun_singular,
+                case,
+                class,
+                as_plural,
+                count,
+                uc,
+            ),
             _ => None,
         }
     }
@@ -235,6 +249,7 @@ impl<T: Ranting> Ranting for Many<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
@@ -245,6 +260,7 @@ impl<T: Ranting> Ranting for Many<T> {
                 case,
                 class,
                 as_plural,
+                count,
                 uc,
                 ctx,
             ),
@@ -260,12 +276,13 @@ impl<T: Ranting> Ranting for Many<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
     ) -> Option<String> {
         // Same one-item rule as `noun_class`/`capitalize`: for 2+ items `following` is the joined
         // phrase ("Alice, Bob and Carol"), whose members may elide differently.
         match self.0.len() {
             1 => self.0[0]
-                .elide_article_custom(article, separator, following, case, class, as_plural),
+                .elide_article_custom(article, separator, following, case, class, as_plural, count),
             _ => None,
         }
     }
@@ -278,11 +295,12 @@ impl<T: Ranting> Ranting for Many<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         match self.0.len() {
             1 => self.0[0].elide_article_custom_with_context(
-                article, separator, following, case, class, as_plural, ctx,
+                article, separator, following, case, class, as_plural, count, ctx,
             ),
             _ => None,
         }
@@ -295,10 +313,12 @@ impl<T: Ranting> Ranting for Many<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         match self.0.len() {
-            1 => self.0[0].inflect_adjective_custom(adjective, degree, case, class, as_plural, uc),
+            1 => self.0[0]
+                .inflect_adjective_custom(adjective, degree, case, class, as_plural, count, uc),
             _ => None,
         }
     }
@@ -311,12 +331,13 @@ impl<T: Ranting> Ranting for Many<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         match self.0.len() {
             1 => self.0[0].inflect_adjective_custom_with_context(
-                adjective, degree, case, class, as_plural, uc, ctx,
+                adjective, degree, case, class, as_plural, count, uc, ctx,
             ),
             _ => None,
         }
@@ -413,9 +434,9 @@ impl<T: Ranting> Ranting for Maybe<T> {
         }
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, case: GrammaticalCase) -> String {
         match &self.0 {
-            Some(item) => item.inflect(to_plural, uc),
+            Some(item) => item.inflect(to_plural, uc, case),
             None => String::new(),
         }
     }
@@ -462,11 +483,12 @@ impl<T: Ranting> Ranting for Maybe<T> {
         subject: &str,
         verb: &str,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         self.0
             .as_ref()
-            .and_then(|item| item.inflect_verb_custom(subject, verb, as_plural, uc))
+            .and_then(|item| item.inflect_verb_custom(subject, verb, as_plural, count, uc))
     }
 
     fn inflect_verb_custom_with_context(
@@ -474,11 +496,12 @@ impl<T: Ranting> Ranting for Maybe<T> {
         subject: &str,
         verb: &str,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         self.0.as_ref().and_then(|item| {
-            item.inflect_verb_custom_with_context(subject, verb, as_plural, uc, ctx)
+            item.inflect_verb_custom_with_context(subject, verb, as_plural, count, uc, ctx)
         })
     }
 
@@ -488,11 +511,12 @@ impl<T: Ranting> Ranting for Maybe<T> {
         case: PronounCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
-        self.0
-            .as_ref()
-            .and_then(|item| item.inflect_pronoun_custom(subject, case, class, as_plural, uc))
+        self.0.as_ref().and_then(|item| {
+            item.inflect_pronoun_custom(subject, case, class, as_plural, count, uc)
+        })
     }
 
     fn inflect_pronoun_custom_with_context(
@@ -501,11 +525,14 @@ impl<T: Ranting> Ranting for Maybe<T> {
         case: PronounCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         self.0.as_ref().and_then(|item| {
-            item.inflect_pronoun_custom_with_context(subject, case, class, as_plural, uc, ctx)
+            item.inflect_pronoun_custom_with_context(
+                subject, case, class, as_plural, count, uc, ctx,
+            )
         })
     }
 
@@ -516,10 +543,11 @@ impl<T: Ranting> Ranting for Maybe<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         self.0.as_ref().and_then(|item| {
-            item.inflect_article_custom(article, noun_singular, case, class, as_plural, uc)
+            item.inflect_article_custom(article, noun_singular, case, class, as_plural, count, uc)
         })
     }
 
@@ -530,6 +558,7 @@ impl<T: Ranting> Ranting for Maybe<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
@@ -540,6 +569,7 @@ impl<T: Ranting> Ranting for Maybe<T> {
                 case,
                 class,
                 as_plural,
+                count,
                 uc,
                 ctx,
             )
@@ -554,9 +584,10 @@ impl<T: Ranting> Ranting for Maybe<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
     ) -> Option<String> {
         self.0.as_ref().and_then(|item| {
-            item.elide_article_custom(article, separator, following, case, class, as_plural)
+            item.elide_article_custom(article, separator, following, case, class, as_plural, count)
         })
     }
 
@@ -568,11 +599,12 @@ impl<T: Ranting> Ranting for Maybe<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         self.0.as_ref().and_then(|item| {
             item.elide_article_custom_with_context(
-                article, separator, following, case, class, as_plural, ctx,
+                article, separator, following, case, class, as_plural, count, ctx,
             )
         })
     }
@@ -584,10 +616,11 @@ impl<T: Ranting> Ranting for Maybe<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         self.0.as_ref().and_then(|item| {
-            item.inflect_adjective_custom(adjective, degree, case, class, as_plural, uc)
+            item.inflect_adjective_custom(adjective, degree, case, class, as_plural, count, uc)
         })
     }
 
@@ -599,12 +632,13 @@ impl<T: Ranting> Ranting for Maybe<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         self.0.as_ref().and_then(|item| {
             item.inflect_adjective_custom_with_context(
-                adjective, degree, case, class, as_plural, uc, ctx,
+                adjective, degree, case, class, as_plural, count, uc, ctx,
             )
         })
     }
@@ -655,8 +689,8 @@ impl<T: Ranting> Ranting for Box<T> {
         (**self).is_plural()
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
-        (**self).inflect(to_plural, uc)
+    fn inflect(&self, to_plural: bool, uc: bool, case: GrammaticalCase) -> String {
+        (**self).inflect(to_plural, uc, case)
     }
 
     fn skip_article(&self) -> bool {
@@ -686,9 +720,10 @@ impl<T: Ranting> Ranting for Box<T> {
         subject: &str,
         verb: &str,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
-        (**self).inflect_verb_custom(subject, verb, as_plural, uc)
+        (**self).inflect_verb_custom(subject, verb, as_plural, count, uc)
     }
 
     fn inflect_verb_custom_with_context(
@@ -696,10 +731,11 @@ impl<T: Ranting> Ranting for Box<T> {
         subject: &str,
         verb: &str,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
-        (**self).inflect_verb_custom_with_context(subject, verb, as_plural, uc, ctx)
+        (**self).inflect_verb_custom_with_context(subject, verb, as_plural, count, uc, ctx)
     }
 
     fn inflect_pronoun_custom(
@@ -708,9 +744,10 @@ impl<T: Ranting> Ranting for Box<T> {
         case: PronounCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
-        (**self).inflect_pronoun_custom(subject, case, class, as_plural, uc)
+        (**self).inflect_pronoun_custom(subject, case, class, as_plural, count, uc)
     }
 
     fn inflect_pronoun_custom_with_context(
@@ -719,10 +756,12 @@ impl<T: Ranting> Ranting for Box<T> {
         case: PronounCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
-        (**self).inflect_pronoun_custom_with_context(subject, case, class, as_plural, uc, ctx)
+        (**self)
+            .inflect_pronoun_custom_with_context(subject, case, class, as_plural, count, uc, ctx)
     }
 
     fn inflect_article_custom(
@@ -732,9 +771,10 @@ impl<T: Ranting> Ranting for Box<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
-        (**self).inflect_article_custom(article, noun_singular, case, class, as_plural, uc)
+        (**self).inflect_article_custom(article, noun_singular, case, class, as_plural, count, uc)
     }
 
     fn inflect_article_custom_with_context(
@@ -744,6 +784,7 @@ impl<T: Ranting> Ranting for Box<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
@@ -753,6 +794,7 @@ impl<T: Ranting> Ranting for Box<T> {
             case,
             class,
             as_plural,
+            count,
             uc,
             ctx,
         )
@@ -766,8 +808,9 @@ impl<T: Ranting> Ranting for Box<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
     ) -> Option<String> {
-        (**self).elide_article_custom(article, separator, following, case, class, as_plural)
+        (**self).elide_article_custom(article, separator, following, case, class, as_plural, count)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -779,10 +822,11 @@ impl<T: Ranting> Ranting for Box<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         (**self).elide_article_custom_with_context(
-            article, separator, following, case, class, as_plural, ctx,
+            article, separator, following, case, class, as_plural, count, ctx,
         )
     }
 
@@ -793,9 +837,10 @@ impl<T: Ranting> Ranting for Box<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
-        (**self).inflect_adjective_custom(adjective, degree, case, class, as_plural, uc)
+        (**self).inflect_adjective_custom(adjective, degree, case, class, as_plural, count, uc)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -806,11 +851,12 @@ impl<T: Ranting> Ranting for Box<T> {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        count: Option<PlaceholderCount>,
         uc: bool,
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         (**self).inflect_adjective_custom_with_context(
-            adjective, degree, case, class, as_plural, uc, ctx,
+            adjective, degree, case, class, as_plural, count, uc, ctx,
         )
     }
 

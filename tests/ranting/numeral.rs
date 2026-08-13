@@ -52,7 +52,7 @@ impl Ranting for RussianNoun {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         uc_1st_if(
             if to_plural {
                 self.plural
@@ -199,7 +199,7 @@ impl Ranting for LocalizedCount {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         uc_1st_if(if to_plural { "items" } else { "item" }, uc)
     }
     fn skip_article(&self) -> bool {

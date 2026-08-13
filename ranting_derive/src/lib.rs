@@ -230,8 +230,8 @@ fn ref_expr_ranting_trait(ref_expr: TokenStream) -> TokenStream {
             fn is_plural(&self) -> bool {
                 (**self).is_plural()
             }
-            fn inflect(&self, as_plural: bool, uc: bool) -> String {
-                (**self).inflect(as_plural, uc)
+            fn inflect(&self, as_plural: bool, uc: bool, case: ranting::GrammaticalCase) -> String {
+                (**self).inflect(as_plural, uc, case)
             }
             fn skip_article(&self) -> bool {
                 (**self).skip_article()

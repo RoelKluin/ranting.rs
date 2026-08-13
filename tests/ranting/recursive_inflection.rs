@@ -150,7 +150,7 @@ impl Ranting for PirateNoun {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         if to_plural {
             uc_1st_if("swabs", uc)
         } else {
@@ -167,6 +167,7 @@ impl Ranting for PirateNoun {
         _subject: &str,
         verb: &str,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         match verb {
@@ -181,6 +182,7 @@ impl Ranting for PirateNoun {
         case: PronounCase,
         _class: NounClass,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         if subject == "he" && case == PronounCase::Subjective {

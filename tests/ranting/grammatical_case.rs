@@ -31,7 +31,7 @@ impl Ranting for GermanNoun {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, _to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
         uc_1st_if("Mann", uc)
     }
     fn skip_article(&self) -> bool {
@@ -45,6 +45,7 @@ impl Ranting for GermanNoun {
         case: GrammaticalCase,
         _class: NounClass,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         if article != "the" {
@@ -63,6 +64,7 @@ impl Ranting for GermanNoun {
         _case: PronounCase,
         _class: NounClass,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         // A case-declining fork typically keeps showing the noun's own name
@@ -101,7 +103,7 @@ fn bare_placeholder_with_no_case_marker_reports_name_case() {
         fn is_plural(&self) -> bool {
             false
         }
-        fn inflect(&self, _to_plural: bool, uc: bool) -> String {
+        fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
             uc_1st_if("dog", uc)
         }
         fn skip_article(&self) -> bool {
@@ -114,6 +116,7 @@ fn bare_placeholder_with_no_case_marker_reports_name_case() {
             case: GrammaticalCase,
             _class: NounClass,
             _as_plural: bool,
+            _count: Option<PlaceholderCount>,
             _uc: bool,
         ) -> Option<String> {
             SEEN.with(|s| s.borrow_mut().push(case));

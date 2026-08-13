@@ -133,7 +133,7 @@ fn get_plurality_fns(opt: &RantingOptions) -> TokenStream {
             fn is_plural(&self) -> bool {
                 ranting::is_subjective_plural(self.subject.as_str())
             }
-            fn inflect(&self, as_plural: bool, uc: bool) -> String {
+            fn inflect(&self, as_plural: bool, uc: bool, _case: ranting::GrammaticalCase) -> String {
                 let name = self.name(uc);
                 if as_plural == self.is_plural() {
                     name
@@ -180,7 +180,7 @@ fn get_plurality_fns(opt: &RantingOptions) -> TokenStream {
             fn subjective(&self) -> &str {
                 #subject_str
             }
-            fn inflect(&self, as_plural: bool, uc: bool) -> String {
+            fn inflect(&self, as_plural: bool, uc: bool, _case: ranting::GrammaticalCase) -> String {
                 let name = self.name(uc);
                 if as_plural == self.is_plural() {
                     name
