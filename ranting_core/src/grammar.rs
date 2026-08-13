@@ -28,9 +28,32 @@ use strum_macros::EnumString;
 //     it is `\s*+` (optional, not required) rather than `\s+`.
 // `SENTENCE_TRIGGER_CHARS` below is the single source of truth for "does this pre-capture start
 // a sentence" so the regex here and `ranting_derive`'s `at_sentence_start` check can't drift.
+//
+// ROADMAP.md Phase 6 item 26 (docs/superpowers/specs/2026-08-13-preposition-fusion.md, option
+// (b)): `pre`'s alternation gained one more branch, `\w[\w'-]*\s+` -- a single literal word (plus
+// its trailing whitespace) immediately before the placeholder, e.g. the `"de "`/`"zu "` in `"de
+// {the *=0}"`/`"zu {the *=0}"`. It is the *last* alternative (a fallback, tried only once `^`,
+// the sentence-terminator branches, and `{{` have failed) because it is the only branch with no
+// fixed leading character -- ordering it last means it can never shadow the punctuation/`{{`
+// branches, which start with a disjoint character class. `ranting_derive`'s `parse_str_params`
+// is what actually turns this into data (the matched word forwarded to a new
+// `inflect_preposition_custom` hook instead of being emitted as inert literal text); this regex
+// only widens what `pre` is *allowed* to capture. Consequently `pre.start() == 0` is no longer
+// sufficient on its own to mean "nothing precedes this placeholder" -- a word can now match at
+// position 0 too -- so `at_sentence_start` also has to check the captured text is empty; see
+// `ranting_derive::parse_str_params`.
 #[allow(dead_code)]
 pub static PH_START: &str = concat!(
-    r"(?P<pre>(?:^|[.?!\u{37E}\u{6D4}]\s+|[\u{3002}\u{FF01}\u{FF1F}]|[\u{BF}\u{A1}]\s*+|\{\{)?+)",
+    // The outer group is a plain `?` (0-or-1), not `?+`: this `regex` crate's `X?+` is not a
+    // possessive single-optional the way PCRE's is -- empirically it behaves as `(X?)+` (see
+    // ROADMAP.md Phase 6 item 26's implementation notes), which is harmless for the pre-existing
+    // branches (each can match at most once in practice: `^` is zero-width, and the punctuation
+    // branches require a placeholder to immediately follow, so two can never abut) but would
+    // silently chain the new word branch across every preceding word ("Vengo de " instead of just
+    // "de ") were it left as `?+`. `\s*+` just below is a different, unrelated possessive
+    // quantifier -- it bounds *whitespace repetition inside one branch*, not the branch
+    // alternation itself, and is unaffected by this.
+    r"(?P<pre>(?:^|[.?!\u{37E}\u{6D4}]\s+|[\u{3002}\u{FF01}\u{FF1F}]|[\u{BF}\u{A1}]\s*+|\{\{|\w[\w'-]*\s+)?)",
     r"\{(?:(?P<plain>\w*+)|(?P<ranting>[^{}:]*+))(?P<fmt>:.*?)?\}"
 );
 
@@ -226,5 +249,16 @@ mod tests {
         // gracefully to `false` (see ROADMAP.md Phase 4 item 4).
         assert!(!is_subjective_plural("not-a-pronoun"));
         assert!(!is_subjective_plural(""));
+    }
+
+    #[test]
+    fn pre_captures_only_the_single_word_immediately_before_a_placeholder() {
+        // Regression guard for the repetition quirk this crate's regex engine gave `?+`
+        // (documented on `PH_START` above): a plain `?` on the outer group is what keeps a
+        // *second* preceding word ("Vengo") out of `pre` when the placeholder is only meant to
+        // capture the one immediately adjacent to it ("de").
+        let re = regex::Regex::new(PH_START).unwrap();
+        let caps = re.captures("Vengo de {the gato}.").unwrap();
+        assert_eq!(caps.name("pre").map(|m| m.as_str()), Some("de "));
     }
 }

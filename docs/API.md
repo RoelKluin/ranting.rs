@@ -65,12 +65,13 @@ passes `Some(ctx)` — so overriding only the `_with_context` form is enough):
 | `inflect_article_custom` / `_with_context` | article form (a/an/the/some, demonstratives), keyed by `GrammaticalCase` and `NounClass` |
 | `inflect_adjective_custom` / `_with_context` | the post-noun `!`/`!!` adjective, keyed by [`AdjectiveDegree`](#adjectivedegree), `GrammaticalCase` and `NounClass` |
 | `elide_article_custom` / `_with_context` | elision/contraction of a rendered article with the word after it — see [Elision](#elision-elide_article_custom) |
+| `inflect_preposition_custom` / `_with_context` | fusion of a template-literal preposition with the article rendered right after it — see [Preposition Fusion](#preposition-fusion-inflect_preposition_custom) |
 | `inflect_numeral_custom` / `_with_context` | how a placeholder's `#var`/`$var` number is written, keyed by [`NumeralStyle`](#numeralstyle), `GrammaticalCase` and `NounClass` — see [Numerals](#numerals-inflect_numeral_custom) |
 
-The pronoun, article, adjective, elision and numeral hooks also receive the
-noun's own [`NounClass`](#nounclass) as a `class` parameter, and the article,
-adjective, elision and numeral hooks their `GrammaticalCase`; the verb hook
-receives neither.
+The pronoun, article, adjective, elision, preposition-fusion and numeral hooks
+also receive the noun's own [`NounClass`](#nounclass) as a `class` parameter,
+and the article, adjective, elision, preposition-fusion and numeral hooks
+their `GrammaticalCase`; the verb hook receives neither.
 
 **Orthography hook** (defaults to today's English behavior rather than to
 `None` — see [`OrthographyRole`](#orthographyrole)):
@@ -271,11 +272,53 @@ nothing left to decide. English `a`/`an` never routes through here, and the
 default returns `None`, so `say!()`'s English output is byte-identical.
 
 Not reachable from here: preposition-article fusion across a placeholder
-boundary (`de` + `le` → `du`), since the preposition is template literal text
-outside the placeholder; and hidden nouns (`` {?the noun} ``), which render
-nothing to elide against. See
-[`docs/EXTENSIBILITY.md` §2.7](EXTENSIBILITY.md) and
+boundary (`de` + `le` → `du`) — that gap now has its own hook, described next
+— and hidden nouns (`` {?the noun} ``), which render nothing to elide
+against. See [`docs/EXTENSIBILITY.md` §2.7](EXTENSIBILITY.md) and
 `tests/ranting/elision.rs`.
+
+## Preposition Fusion (`inflect_preposition_custom`)
+
+The literal word immediately before a placeholder in the template, fused with
+the article rendered right after it — German `zu` + `dem` → `zum`, Spanish
+`de` + `el` → `del`:
+
+```rust
+fn inflect_preposition_custom(
+    &self,
+    preposition: &str,   // the literal word exactly as written in the template
+    article: &str,       // as rendered — from inflect_article_custom or the English fallback
+    case: GrammaticalCase,
+    class: NounClass,
+    as_plural: bool,
+    count: Option<PlaceholderCount>,
+    uc: bool,
+) -> Option<String>      // Some(fused) replaces both preposition and article; None keeps both as rendered
+fn inflect_preposition_custom_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) -> Option<String>
+```
+
+The preposition is template literal text sitting *before* the placeholder's
+`{...}` even opens, so `inflect_article_custom` (which renders before the
+following text exists) and `elide_article_custom` (whose span starts at the
+article, never before it) cannot reach it. `ranting_derive::parse_str_params`
+captures the single literal word immediately adjacent to a placeholder — the
+same regex match `at_sentence_start` already reads — and bakes it into
+`PlaceholderSpec::preposition` instead of discarding it, so this hook can see
+it. Called at the same post-assembly point as `elide_article_custom`, and
+tried first: if it returns `Some`, the preposition and the article it
+consumed are both replaced and `elide_article_custom` is not called at all
+(the article no longer exists to elide). If it returns `None` — the default,
+and every case English needs — the preposition renders exactly as written and
+`elide_article_custom` still gets its normal, unaffected chance, so `say!()`'s
+English output is byte-identical either way.
+
+Not reachable from here: a multi-word preposition, or one separated from the
+placeholder by punctuation or an adverb (only the single adjacent word is
+ever captured); anything rendered between the preposition and the article
+(the hook is only offered the directly-adjacent case); and hidden nouns
+(`` {?the noun} ``), which render no article to fuse against. See
+[`docs/EXTENSIBILITY.md` §2.14](EXTENSIBILITY.md) and
+`tests/ranting/preposition_fusion.rs`.
 
 ## Numerals (`inflect_numeral_custom`)
 

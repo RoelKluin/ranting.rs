@@ -457,6 +457,7 @@ where
         display_as_name,
         post: post_spec,
         sentence_start,
+        preposition,
     } = spec;
     let mut pre = pre_raw;
     let has_possesive = pre.contains('`');
@@ -526,6 +527,18 @@ where
     // below. Recorded here rather than returned by `get_article_or_so` so that function keeps
     // its signature — and so the English path stays provably untouched.
     let mut article_span: Option<(usize, usize)> = None;
+
+    // The literal preposition word (with its trailing whitespace), when
+    // `PlaceholderSpec::preposition` carried one -- rendered here, exactly as written, instead of
+    // the macro baking it as inert literal format-string text, so `inflect_preposition_custom`
+    // below can replace it together with the article that follows. Recorded the same way
+    // `article_span` is, for the same reason. See ROADMAP.md Phase 6 item 26.
+    let mut preposition_span: Option<(usize, usize)> = None;
+    if let Some(word) = preposition {
+        let start = res.len();
+        res.push_str(word);
+        preposition_span = Some((start, res.len()));
+    }
 
     // This may be an article or certain verbs that can occur before the noun:
     if !pre.is_empty() {
@@ -813,14 +826,54 @@ where
             }
         };
         res.push_str(&s);
+        // Preposition-article fusion (ROADMAP.md Phase 6 item 26): tried first, at the same
+        // post-assembly point the elision splice below runs at, since it needs the same rendered
+        // article text elision does. On success it consumes both the preposition and the article,
+        // so the elision splice below is skipped -- the article it would have elided against no
+        // longer exists. See `Ranting::inflect_preposition_custom`.
+        let mut prep_fused = false;
+        if let (Some((p_start, p_end)), Some((a_start, a_end))) = (preposition_span, article_span) {
+            // Only the simple, adjacent case is offered to the hook -- nothing rendered between
+            // the preposition and the article (e.g. no pre-noun verb in between). `following`
+            // isn't part of the hook's contract the way it is for `elide_article_custom`, so
+            // there is nothing sensible to splice a mid-section into.
+            if p_start != p_end && a_start != a_end && p_end == a_start {
+                let prep_word = res[p_start..p_end].trim_end();
+                let (article, _art_ws) =
+                    split_at_find_end(&res[a_start..a_end], |c: char| !c.is_whitespace())
+                        .unwrap_or((&res[a_start..a_end], ""));
+                let fused = noun.inflect_preposition_custom_with_context(
+                    prep_word,
+                    article,
+                    case.into(),
+                    noun_class,
+                    as_pl,
+                    placeholder_count,
+                    uc,
+                    ctx,
+                );
+                if let Some(fused) = fused {
+                    // Everything after the article (separator, numeral, noun/pronoun) must
+                    // survive the splice -- unlike `elide_article_custom`, whose `following`
+                    // parameter lets the hook rebuild it, this hook only replaces the
+                    // preposition+article pair itself.
+                    let tail = res[a_end..].to_string();
+                    res.truncate(p_start);
+                    res.push_str(&fused);
+                    res.push_str(&tail);
+                    prep_fused = true;
+                }
+            }
+        }
         // Post-assembly elision: the article and everything the placeholder renders after it are
         // both in `res` now, which is the whole point — `inflect_article_custom` ran before this
         // text existed. Inside the `case != Hidden` block on purpose: `{?the noun}` renders
         // nothing to elide against. See `Ranting::elide_article_custom`.
-        if let Some((start, end)) = article_span.filter(|(start, end)| start != end) {
-            // The separator is not necessarily the article string's own trailing whitespace: the
-            // noun's leading space is pushed later (`noun_space`), so collect whitespace from
-            // both sides of the boundary rather than assuming which side carries it.
+        if !prep_fused && let Some((start, end)) = article_span.filter(|(start, end)| start != end)
+        {
+            // The separator is not necessarily the article string's own trailing whitespace:
+            // the noun's leading space is pushed later (`noun_space`), so collect whitespace
+            // from both sides of the boundary rather than assuming which side carries it.
             let (article, art_ws) =
                 split_at_find_end(&res[start..end], |c: char| !c.is_whitespace())
                     .unwrap_or((&res[start..end], ""));
@@ -1796,10 +1849,14 @@ pub trait Ranting: std::fmt::Display {
     ///
     /// # Not reachable from here
     /// Preposition-article fusion across a placeholder boundary (French `de` + `le` → `du`,
-    /// Italian `di` + `il` → `del`) is *not* expressible: the preposition lives in the template's
-    /// literal text, outside the placeholder, and `` {de le chien} `` parses `de` as a pre-noun
-    /// verb. A hidden noun (`` {?the noun} ``) also renders nothing to elide against, so the hook
-    /// is not called there. See ROADMAP.md Phase 6 item 7.
+    /// Italian `di` + `il` → `del`) is *not* expressible from this hook: the preposition lives in
+    /// the template's literal text, outside the placeholder, and this hook's span starts at the
+    /// article. That gap now has its own hook,
+    /// [`inflect_preposition_custom`](Self::inflect_preposition_custom) (ROADMAP.md Phase 6 item
+    /// 26) — called first, at the same post-assembly point, and skipping this hook's own call
+    /// when it fires, since the article it would have elided against no longer exists. A hidden
+    /// noun (`` {?the noun} ``) still renders nothing to elide against, so neither hook is called
+    /// there. See ROADMAP.md Phase 6 item 7.
     ///
     /// # Examples
     /// ```ignore
@@ -1843,6 +1900,88 @@ pub trait Ranting: std::fmt::Display {
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         self.elide_article_custom(article, separator, following, case, class, as_plural, count)
+    }
+
+    /// Fuse a literal preposition, written in the template immediately before a placeholder, with
+    /// the article that placeholder renders.
+    ///
+    /// This is the hook [`elide_article_custom`](Self::elide_article_custom)'s own docs name as
+    /// unreachable: German `zu` + `dem` → `zum`, Spanish `de` + `el` → `del`. The preposition is
+    /// template *literal* text sitting outside the placeholder's `{...}`, so no hook confined to
+    /// the placeholder's own assembled span could ever see it — reaching it needed
+    /// `ranting_derive`'s `parse_str_params` to capture that literal word and forward it as data
+    /// (`PlaceholderSpec::preposition`) instead of baking it as inert text. See ROADMAP.md Phase 6
+    /// item 26 and `docs/superpowers/specs/2026-08-13-preposition-fusion.md`.
+    ///
+    /// Called at the same post-assembly point as `elide_article_custom`, and *before* it: if this
+    /// hook returns `Some`, the preposition and the article it consumed are both replaced and
+    /// `elide_article_custom` is not called at all (the article no longer exists to elide). If it
+    /// returns `None` — the default, and every case English needs, since English never fuses a
+    /// preposition with an article — the preposition is rendered exactly as written and
+    /// `elide_article_custom` still gets its normal chance at the (untouched) article, so English
+    /// output is byte-identical either way.
+    ///
+    /// # Arguments
+    /// * `preposition` - The literal word exactly as written in the template (capitalization
+    ///   included), with no trailing whitespace.
+    /// * `article` - The article exactly as it was rendered — whether that came from
+    ///   `inflect_article_custom` or the English fallback — with no leading/trailing whitespace.
+    /// * `case` / `class` / `as_plural` / `count` - As for
+    ///   [`inflect_article_custom`](Self::inflect_article_custom).
+    /// * `uc` - Whether the placeholder itself would force an uppercase first character (a `^`/`,`
+    ///   marker, or sentence position) — the preposition's own capitalization is not this hook's
+    ///   concern (it is rendered exactly as the caller typed it when this hook declines), but a
+    ///   fused replacement starting a sentence may need it.
+    ///
+    /// # Not reachable from here
+    /// Only the single literal word immediately adjacent to the placeholder (whitespace-separated,
+    /// nothing else between it and `{`) is ever captured — a multi-word preposition, or one
+    /// separated from the placeholder by punctuation or an adverb, is not. A hidden noun
+    /// (`` {?the noun} ``) renders no article to fuse against, so the hook is not called there
+    /// either, same as `elide_article_custom`.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// fn inflect_preposition_custom(&self, preposition: &str, article: &str, _case: GrammaticalCase, _class: NounClass, _as_plural: bool, _count: Option<PlaceholderCount>, _uc: bool) -> Option<String> {
+    ///     match (preposition, article) {
+    ///         ("de", "el") => Some("del".to_string()),
+    ///         ("a", "el") => Some("al".to_string()),
+    ///         _ => None, // de la / de los / de las / a la / ... are already correct unfused
+    ///     }
+    /// }
+    /// ```
+    #[allow(clippy::too_many_arguments)]
+    fn inflect_preposition_custom(
+        &self,
+        _preposition: &str,
+        _article: &str,
+        _case: GrammaticalCase,
+        _class: NounClass,
+        _as_plural: bool,
+        _count: Option<PlaceholderCount>,
+        _uc: bool,
+    ) -> Option<String> {
+        None
+    }
+
+    /// Like [`inflect_preposition_custom`](Self::inflect_preposition_custom), but also receives
+    /// the story-wide [`NarrationContext`] in effect for this call, when there is one. See
+    /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
+    /// general shape: the preposition-fusion call site calls this one, and the default delegates
+    /// to `inflect_preposition_custom` with `ctx` ignored.
+    #[allow(clippy::too_many_arguments)]
+    fn inflect_preposition_custom_with_context(
+        &self,
+        preposition: &str,
+        article: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        count: Option<PlaceholderCount>,
+        uc: bool,
+        _ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        self.inflect_preposition_custom(preposition, article, case, class, as_plural, count, uc)
     }
 
     /// Customize a post-noun adjective (the `!`/`!!` degree slot).

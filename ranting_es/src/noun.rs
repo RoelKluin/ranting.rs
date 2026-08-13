@@ -205,10 +205,32 @@ impl Ranting for SpanishNoun {
     // never elide before a following vowel the way French `le`/`la` do (there is no `l'agua`),
     // and `el agua`'s euphonic article is a straight article-selection rule reachable from
     // `inflect_article_custom` alone — see the README. The one real Spanish fusion,
-    // preposition + article (`de` + `el` → `del`, `a` + `el` → `al`), is out of reach for the
-    // same structural reason `ranting_i18n` records as hole 7: the preposition is template
-    // literal text outside the placeholder, and this hook never sees it. Overriding it here
-    // would be dead code, exactly as `ranting_i18n::GermanNoun`'s own comment says.
+    // preposition + article (`de` + `el` → `del`, `a` + `el` → `al`), is `inflect_preposition_custom`
+    // below, not this hook — same split `ranting_i18n::GermanNoun` makes for its own fusions.
+
+    fn inflect_preposition_custom(
+        &self,
+        preposition: &str,
+        article: &str,
+        _case: GrammaticalCase,
+        _class: NounClass,
+        _as_plural: bool,
+        _count: Option<PlaceholderCount>,
+        uc: bool,
+    ) -> Option<String> {
+        // Formerly README hole 1: "de"/"a" are template literal text before the placeholder, out
+        // of every hook's reach until `inflect_preposition_custom` (ROADMAP.md Phase 6 item 26)
+        // started receiving that literal word directly. Spanish has exactly two obligatory
+        // fusions, both with the masculine singular article "el" — "de la"/"a la" (feminine),
+        // "de los"/"a los"/"de las"/"a las" (plural) are already correct unfused, so every other
+        // combination declines.
+        let fused = match (preposition, article) {
+            ("de", "el") => "del",
+            ("a", "el") => "al",
+            _ => return None,
+        };
+        Some(uc_1st_if(fused, uc))
+    }
 
     fn inflect_verb_custom(
         &self,

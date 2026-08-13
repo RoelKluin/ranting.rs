@@ -404,4 +404,14 @@ pub struct PlaceholderSpec {
     /// `capitalize_with_context` can tell the two apart (docs/superpowers/specs/
     /// 2026-08-13-word-order-feasibility.md, open question 2).
     pub sentence_start: bool,
+    /// The literal word (with its trailing whitespace) immediately preceding this placeholder in
+    /// the template, when `PH_START`'s `pre` capture matched its word-run branch rather than a
+    /// sentence-start marker, `{{`, or nothing (ROADMAP.md Phase 6 item 26,
+    /// docs/superpowers/specs/2026-08-13-preposition-fusion.md option (b)). `None` covers every
+    /// other case, including "no preceding text at all" -- there is no separate variant for that,
+    /// since `handle_placeholder_impl` only needs to know whether there is a word to try fusing.
+    /// When `Some`, `handle_placeholder_impl` renders this text itself (instead of the macro
+    /// baking it as inert literal format-string text) so that `Ranting::inflect_preposition_custom`
+    /// can replace it together with the article that follows -- `"de"` + `"el"` -> `"del"`.
+    pub preposition: Option<&'static str>,
 }

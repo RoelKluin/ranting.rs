@@ -275,11 +275,41 @@ impl Ranting for GermanNoun {
     }
 
     // `elide_article_custom` is deliberately *not* overridden. German's real fusions —
-    // `in dem` → `im`, `zu dem` → `zum`, `an das` → `ans` — are all preposition+article, and the
-    // preposition is template text outside the placeholder (README hole 7). The other thing a
-    // fork might want it for, splicing away the separator left behind by the empty indefinite
-    // plural article, is out of reach too: the hook is skipped when the article renders empty
-    // (README hole 6). Overriding it would be dead code.
+    // `in dem` → `im`, `zu dem` → `zum`, `an das` → `ans` — are all preposition+article, and
+    // that gap is `inflect_preposition_custom` below, not this hook (see ROADMAP.md Phase 6 item
+    // 26 — previously recorded here as README hole 7). The other thing a fork might want
+    // `elide_article_custom` for, splicing away the separator left behind by the empty
+    // indefinite plural article, is out of reach too: the hook is skipped when the article
+    // renders empty (README hole 6). Overriding it would be dead code.
+
+    fn inflect_preposition_custom(
+        &self,
+        preposition: &str,
+        article: &str,
+        _case: GrammaticalCase,
+        _class: NounClass,
+        _as_plural: bool,
+        _count: Option<PlaceholderCount>,
+        uc: bool,
+    ) -> Option<String> {
+        // Formerly README hole 7: the pre-noun placeholder slot is a closed English word list, so
+        // a preposition can only ever be template literal text, outside `elide_article_custom`'s
+        // own reach (its span starts at the article). `inflect_preposition_custom` is fed that
+        // literal word directly instead, closing the gap. Only the well-known, universally used
+        // contractions are listed — German has others that are colloquial/optional (`aufs`,
+        // `übers`) rather than obligatory, and this lexicon only speaks for the obligatory ones.
+        let fused = match (preposition, article) {
+            ("zu", "dem") => "zum",
+            ("bei", "dem") => "beim",
+            ("von", "dem") => "vom",
+            ("in", "dem") => "im",
+            ("in", "das") => "ins",
+            ("an", "dem") => "am",
+            ("an", "das") => "ans",
+            _ => return None,
+        };
+        Some(uc_1st_if(fused, uc))
+    }
 
     fn inflect_verb_custom(
         &self,

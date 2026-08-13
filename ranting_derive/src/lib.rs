@@ -144,16 +144,33 @@ fn parse_str_params(
                         return String::new();
                     }
                 };
+                // ROADMAP.md Phase 6 item 26: `pre` may now also match a plain literal word (the
+                // `\w[\w'-]*\s+` branch PH_START just gained), not only sentence-start
+                // punctuation/`^`/`{{`. `m.start() == 0` alone is no longer proof that nothing
+                // precedes the placeholder -- a word can match at position 0 too -- so
+                // sentence-start additionally requires the captured text be empty in that case.
                 let at_sentence_start = pre
                     .filter(|m| {
-                        m.start() == 0 || m.as_str().starts_with(lang::SENTENCE_TRIGGER_CHARS)
+                        (m.start() == 0 && m.as_str().is_empty())
+                            || m.as_str().starts_with(lang::SENTENCE_TRIGGER_CHARS)
                     })
                     .is_some();
+                // The preceding literal word, if `pre` matched the new word branch rather than a
+                // sentence-start marker/`{{`/nothing -- forwarded as data (not collapsed to a
+                // bool, unlike `at_sentence_start`) to `inflect_preposition_custom` via
+                // `PlaceholderSpec::preposition`. `None` for every other `pre` shape, including
+                // when there's no preceding text at all.
+                let preposition = pre.filter(|m| {
+                    !m.as_str().is_empty()
+                        && !m.as_str().starts_with(lang::SENTENCE_TRIGGER_CHARS)
+                        && m.as_str() != "{{"
+                });
                 let replaced = match handle_param(
                     &parsed,
                     &params_in,
                     &mut params,
                     at_sentence_start,
+                    preposition.map(|m| m.as_str()),
                     fmt,
                     runtime_tense,
                 ) {
@@ -164,7 +181,17 @@ fn parse_str_params(
                         String::new()
                     }
                 };
-                pre.map_or("", |s| s.as_str()).to_string() + &replaced
+                // The matched preceding word is now baked into the generated call
+                // (`PlaceholderSpec::preposition`) and rendered at runtime by
+                // `handle_placeholder_impl`, so it must *not* also be re-emitted here as
+                // inert literal text -- that would render it twice. Every other `pre` shape
+                // (sentence-start marker, `{{`, or nothing) is untouched: still plain literal
+                // text, emitted exactly as before.
+                if preposition.is_some() {
+                    replaced
+                } else {
+                    pre.map_or("", |s| s.as_str()).to_string() + &replaced
+                }
             }
         })
         .to_string();
@@ -562,6 +589,7 @@ fn handle_param(
     given: &HashMap<String, Expr>,
     pos: &mut Vec<Expr>,
     at_sentence_start: bool,
+    preposition: Option<&str>,
     orig_fmt: &str,
     runtime_tense: bool,
 ) -> Result<String, (usize, usize, String)> {
@@ -905,6 +933,10 @@ fn handle_param(
         _ => (quote!(Name), false),
     };
     let case_expr = quote!(ranting::placeholder::CaseKind::#case_variant);
+    let preposition_expr: TokenStream = match preposition {
+        Some(word) => quote!(Some(#word)),
+        None => quote!(None),
+    };
     let spec_expr = quote!(ranting::placeholder::PlaceholderSpec {
         pre: #pre_string,
         pre_kind: #pre_kind_q,
@@ -916,6 +948,7 @@ fn handle_param(
         display_as_name: #display_as_name,
         post: #post_expr,
         sentence_start: #at_sentence_start,
+        preposition: #preposition_expr,
     });
     if runtime_tense {
         pos.push(parse_quote!(ranting::handle_placeholder_with_context(&#noun, #poss, #nr_expr, #count_expr, #uc, #spec_expr, &__ranting_narration_ctx)));

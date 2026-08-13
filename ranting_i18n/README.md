@@ -28,6 +28,7 @@ repository root.
 | Nouns capitalized wherever they stand | `capitalize` + `OrthographyRole::Noun` |
 | `er`/`ihn`/`ihm`, `sie`/`ihr`, `es`, `sich`, `mich`/`dich`/`uns`/`euch` — and, from the very same entity, `Der Hund`/`den Hund`/etc. via the fused `*=`/`*@` marker | `inflect_pronoun_custom` (see hole 5, closed) |
 | Dative-plural `-n` on the noun (`den Hunden`, `den Häusern`) | `inflect` + entity-carried case (see hole 2) |
+| `im Haus`, `zum Hund`, `ans Haus` — preposition fused with the article that follows it | `inflect_preposition_custom` (see hole 7, closed) |
 
 Two of these are worth calling out because they answer questions Phase 6 asked directly.
 `NounClass` (item 2) does what it promised: gender is read off the entity, never off the display
@@ -190,21 +191,31 @@ that would otherwise follow it — whichever comes first, a numeral or the noun 
 cannot mean "no article in the plural only", and it would swallow `der`/`die`/`das` too. Unaffected
 by this fix, since `der`/`die`/`das` is never itself a zero-length article.
 
-### 7. The pre-noun slot is a closed English word list, so preposition fusion stays unreachable
-*Belongs to: Phase 6 item 7 (which stated the limitation) and item 1.*
+### 7. ✅ Closed — preposition-article fusion (`in dem` → `im`, `zu dem` → `zum`)
+*Belongs to: Phase 6 item 7 (which stated the limitation) and item 1; closed by Phase 6 item 26.*
 
-`elide_article_custom` was designed for `le` + `homme` → `l'homme`, and item 7 already recorded
-that preposition-article fusion across a placeholder boundary (`de` + `le` → `du`) is not
-expressible. German's fusions are *all* of that kind — `in dem` → `im`, `zu dem` → `zum`,
-`an das` → `ans` — so the hook has no German use at all, and this crate does not override it.
+`elide_article_custom` was designed for `le` + `homme` → `l'homme`, and item 7 recorded that
+preposition-article fusion across a placeholder boundary (`de` + `le` → `du`) was not expressible
+from *that* hook — its span starts at the article, and the preposition is template literal text
+outside the placeholder entirely, not merely awkward to reach. German's fusions are all of that
+kind: `in dem` → `im`, `zu dem` → `zum`, `an das` → `ans`.
 
-This crate adds one detail to item 7's statement. The obvious escape — writing the preposition
-inside the placeholder, in the pre-noun verb slot, so the hook can see it — does not exist:
-`say!("{in the *=0}", haus)` is a **compile error** (`expected article or verb`). The pre-noun slot
-accepts an article (`a`/`an`/`some`/`the`/`these`/`those`) or one of a hard-coded list of English
-modal words (`can`, `may`, `shall`, `will`, `are`, `were`, `had`, `have`, …), and nothing else. So
-the pre-noun slot is not a general escape hatch for a non-English fork, and no hook ever sees a
-German preposition.
+This crate also confirmed the escape that doesn't exist: writing the preposition inside the
+placeholder, in the pre-noun verb slot, so an existing hook could see it. That is still a compile
+error — `say!("{in the *=0}", haus)` fails with "expected article or verb", since the pre-noun slot
+only accepts an article or one of a hard-coded list of English modal words. It stayed a closed
+word list; item 26 did not touch it.
+
+What closed the hole instead: `docs/superpowers/specs/2026-08-13-preposition-fusion.md`'s option
+(b), a dedicated hook. `ranting_derive::parse_str_params` now captures the literal word
+immediately before a placeholder (the same regex match `at_sentence_start` already read, forwarded
+as text instead of collapsed to a bool) and bakes it into `PlaceholderSpec::preposition`;
+`Ranting::inflect_preposition_custom` is called with that word and the rendered article, at the
+same post-assembly point `elide_article_custom` runs at, and can replace both. `GermanNoun::
+inflect_preposition_custom` (`src/noun.rs`) answers it for the well-known, obligatory contractions
+(`zum`, `beim`, `vom`, `im`, `ins`, `am`, `ans`) and declines for everything else, so
+`say!("in {the =0}.", haus)` now renders `"im Haus."` — see `hole_7_*` in `tests/holes.rs`, no
+longer asserting the unfused form.
 
 ### 8. Word order
 

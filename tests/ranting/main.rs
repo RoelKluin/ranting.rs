@@ -25,6 +25,7 @@ mod narration_context_threading;
 mod noun_class;
 mod numeral;
 mod orthography;
+mod preposition_fusion;
 mod property_based;
 mod readme_example;
 mod recursive_inflection;
