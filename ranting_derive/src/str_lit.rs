@@ -2,8 +2,8 @@ use std::fmt::Write;
 
 use proc_macro2::Literal;
 use syn::{
-    parse::{Parse, ParseStream},
     Error,
+    parse::{Parse, ParseStream},
 };
 use unicode_width::UnicodeWidthStr;
 

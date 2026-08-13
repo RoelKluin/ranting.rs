@@ -11,20 +11,19 @@ use ranting_core::verb_conjugate;
 
 use darling::{FromDeriveInput, ToTokens};
 use itertools::join;
-use lazy_static::lazy_static;
 use proc_macro::{self, TokenStream as TokenStream1};
 use proc_macro2::{Punct, Spacing, Span, TokenStream};
 use quote::quote;
 use ranting_impl::*;
 use regex::{Captures, Regex};
 use std::collections::HashMap;
+use std::sync::LazyLock;
 use str_lit::*;
 use syn::{
-    self,
+    self, Error, Expr, Ident, Token,
     parse::{Parse, ParseStream},
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
-    Error, Expr, Ident, Token,
 };
 
 #[proc_macro]
@@ -86,10 +85,10 @@ fn parse_str_params(
     params_in: HashMap<String, Expr>,
     runtime_tense: bool,
 ) -> syn::Result<(String, Vec<Expr>)> {
-    lazy_static! {
-        static ref PH: Regex = Regex::new(lang::PH_START).expect("valid placeholder regex");
-        static ref PHE: Regex = Regex::new(lang::PH_EXT).expect("valid extended placeholder regex");
-    }
+    static PH: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(lang::PH_START).expect("valid placeholder regex"));
+    static PHE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(lang::PH_EXT).expect("valid extended placeholder regex"));
     let src = lit.to_slice();
     let text = src.text();
     #[cfg(feature = "debug")]
@@ -490,9 +489,8 @@ fn handle_param(
     orig_fmt: &str,
     runtime_tense: bool,
 ) -> Result<String, (usize, usize, String)> {
-    lazy_static! {
-        static ref POSS: Regex = Regex::new(r"^((?:.*?\s+)?`)(\w+)\b(.*)$").unwrap();
-    }
+    static POSS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^((?:.*?\s+)?`)(\w+)\b(.*)$").unwrap());
     // uppercase if 1) noun has a caret ('^'), otherwise if not lc ('.') is specified
     // 2) uc if article or so is or 3) the noun is first or after start or `. '
     let pre_cap = caps.name("pre");

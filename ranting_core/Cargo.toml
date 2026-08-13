@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Roel Kluin <Roel.Kluin@gmail.com>"]
 description = "Internal shared grammar engine for ranting / ranting_derive (not a stable public API)"
 license-file = "../LICENSE.txt"
-edition = "2021"
+edition = "2024"
 repository = "https://github.com/RoelKluin/ranting.rs"
 
 [dependencies]

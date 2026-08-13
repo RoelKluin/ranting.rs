@@ -33,8 +33,8 @@ mod collections;
 mod heed;
 mod language;
 mod narration;
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::sync::LazyLock;
 
 pub use collections::{Many, Maybe};
 pub use narration::{NarrationContext, Person, Register, Tense};
@@ -289,9 +289,7 @@ fn handle_placeholder_impl<R>(
 where
     R: Ranting,
 {
-    lazy_static! {
-        static ref OF: Regex = Regex::new(r"\bof\s+$").expect("valid regex");
-    }
+    static OF: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bof\s+$").expect("valid regex"));
     let [mut pre, plurality, noun_space, case, mut post] = caps;
     let has_possesive = pre.contains('`');
     let singular_post_verb = OF.is_match(pre); // e.g. "{a set of $ten are} still singular"

@@ -10,7 +10,10 @@
 //! `data/irregular_adjectives.txt` via build.rs.
 
 // Include the generated irregular adjective table at compile time.
-include!(concat!(env!("OUT_DIR"), "/irregular_adjectives_generated.rs"));
+include!(concat!(
+    env!("OUT_DIR"),
+    "/irregular_adjectives_generated.rs"
+));
 
 /// Vowel groups, used as a rough syllable count. Silent trailing `e` (e.g.
 /// "large", "simple") doesn't count as an extra syllable.
@@ -92,11 +95,7 @@ fn apply_case(original: &str, target: &str) -> String {
         .all(|c| !c.is_alphabetic() || c.is_uppercase())
     {
         target.to_uppercase()
-    } else if original
-        .chars()
-        .next()
-        .is_some_and(|c| c.is_uppercase())
-    {
+    } else if original.chars().next().is_some_and(|c| c.is_uppercase()) {
         let mut chars = target.chars();
         match chars.next() {
             Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
@@ -114,10 +113,7 @@ fn degree(word: &str) -> (String, String) {
         .iter()
         .find(|(base, _, _)| word_lower == *base)
     {
-        return (
-            apply_case(word, comparative),
-            apply_case(word, superlative),
-        );
+        return (apply_case(word, comparative), apply_case(word, superlative));
     }
 
     // The `e`-ending and consonant+`y` suffix rules apply regardless of
@@ -138,7 +134,10 @@ fn degree(word: &str) -> (String, String) {
 
     if suffix_eligible {
         let (comparative, superlative) = regular_degree_suffixes(&word_lower);
-        return (apply_case(word, &comparative), apply_case(word, &superlative));
+        return (
+            apply_case(word, &comparative),
+            apply_case(word, &superlative),
+        );
     }
 
     (format!("more {word}"), format!("most {word}"))
