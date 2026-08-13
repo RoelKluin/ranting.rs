@@ -279,7 +279,7 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
      once `SubjectPronoun` isn't local to `ranting` anymore. Converted to a
      free function `pronoun_forms(subject: SubjectPronoun) -> PronounForms` in
      `src/language/english.rs`; all five call sites (`inflect_adjective`,
-     `inflect_subjective`, `inflect_objective`, `inflect_possesive`,
+     `inflect_subjective`, `inflect_objective`, `inflect_possessive`,
      `inflect_reflexive`) and the pronoun-table test updated accordingly. No
      behavior change, just a mechanical consequence of the crate split.
    - ⚠️ **Design call — what did *not* move into `ranting_core`**:
@@ -629,7 +629,7 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
      - Left alone, out of this item's explicit scope: the other five
        `.expect("Not a subject")` calls in `src/language/english.rs`
        (`inflect_adjective`/`inflect_subjective`/`inflect_objective`/
-       `inflect_possesive`/`inflect_reflexive`) — those operate on subjects
+       `inflect_possessive`/`inflect_reflexive`) — those operate on subjects
        that are already-validated `Noun`/`Ranting` data flowing through
        `say!()`'s own call sites, not raw external input, and this item named
        only `inflect()` and `is_subjective_plural`'s `.expect`s explicitly.
@@ -658,14 +658,88 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
      `map_or` lint, two needless-borrow lints) — no new findings introduced by
      this item's changes to `ranting_impl.rs`.
 
-5. **Public API cleanup** (free only while there's no userbase)
-   - Fix the `inflect_possesive` → `inflect_possessive` typo (public API).
-   - `#[doc(hidden)]` on macro plumbing: `handle_placeholder`,
-     `handle_placeholder_with_context`, `handle_tense_marker` (as `HeedMatcher`
-     already is) — these are not user API and shouldn't be stability commitments.
-   - Rework `ack!()`/`nay!()`: a macro that expands to a hidden `return` can't be
-     used as an expression and surprises readers. Prefer expression forms
-     (`Ok(say!(...))` / `Err(say!(...))`) and let callers write `return`.
+5. ✅ **Public API cleanup** (free only while there's no userbase)
+   - ✅ Fixed the `inflect_possesive` → `inflect_possessive` typo (public API):
+     the `src/language/english.rs` definition, its `src/lib.rs` re-export and
+     one internal call site, the `ranting_derive/src/lib.rs` codegen call site
+     (`ranting::inflect_possessive(...)`), the `src/language/verb.rs` doc
+     comment, `ROADMAP.md`'s own references, and every use in
+     `tests/ranting/property_based.rs` (including the two test fn names,
+     `inflect_possessive_known_pronouns`/`inflect_possessive_with_case_flag`).
+     `grep -rn inflect_possesive` (old spelling) over `.rs`/`.md` now returns
+     zero hits outside historical planning docs (`PHASE_2_IMPLEMENTATION_PLAN.md`,
+     `docs/superpowers/specs/...`, `docs/superpowers/plans/...`,
+     `.superpowers/sdd/...`) — those are dated snapshots of past design
+     discussion, not living reference docs, so left as-is rather than rewriting
+     history; `CLAUDE.md`'s own mention of the typo (in its "remaining Phase 4
+     items" summary line) was also left alone, matching the precedent set by
+     items 1-4's commits, none of which touched that summary line even though
+     it already listed items 2 and 3 as "still ahead" after they'd landed.
+   - ✅ `#[doc(hidden)]` on macro plumbing: added to `handle_placeholder`
+     (`src/lib.rs`) — `handle_placeholder_with_context` and
+     `handle_tense_marker` turned out to already carry `#[doc(hidden)]` from
+     earlier work, so only `handle_placeholder` needed the attribute, matching
+     `HeedMatcher`'s existing treatment (`src/heed.rs`).
+   - ✅ Reworked `ack!()`/`nay!()` (`ranting_derive/src/lib.rs`) from
+     `parse_quote!(return Ok(#output))`/`return Err(#output)` to plain
+     `parse_quote!(Ok(#output))`/`Err(#output)` — an ordinary expression, not a
+     hidden control-flow statement. **This is a real breaking change**: every
+     existing call site relying on the implicit early return needed either an
+     explicit `return`, or to already be in tail-expression position.
+     Verified the failure mode for call sites that get this wrong isn't
+     silent: a bare discarded statement like `nay!("...");` fails to compile
+     with `E0282 type annotations needed` in the common case (the `Ok<T>`
+     side of `Result<T, E>` is otherwise unconstrained at that statement), and
+     even when the type *is* fully inferable from context, `Result`'s
+     `#[must_use]` still fires (`unused_must_use`, hard error under this
+     repo's `-D warnings` gate) — so a caller who drops the `return` doesn't
+     get silent fallthrough, they get a compile error pointing at the exact
+     line, in every configuration tried.
+     Updated call sites: `tests/ranting/male_female_and_object.rs`'s
+     `Person::respond_to` — its `match` was already the function's tail
+     expression, so every arm's `ack!(...)`/`nay!(...)` simply dropped its
+     trailing `;`; no arm needed a `return` at all because the whole `match`
+     was already in tail position (an intermediate draft added explicit
+     `return`s here defensively, which clippy's `needless_return` then
+     correctly flagged as unnecessary — removed again, since they were never
+     needed in the first place). `docs/COOKBOOK.md`'s existing
+     "Error handling with ack!()/nay!()" example needed no code change at
+     all — its `if`/`else` was already the function's tail expression, so it
+     now doubles as a working demonstration of the new expression form (not
+     directly compiled by any test — `tests/ranting/cookbook.rs` backs other
+     recipes but not this one — verified by hand-compiling an equivalent
+     snippet in a scratch test file, since `person.name` in the doc's literal
+     form isn't externally visible: `name` is `pub(crate)` on `Noun`).
+     `README.md`'s bullet describing `ack!()`/`nay!()` was rewritten to
+     describe the expression-based semantics (`Ok(say!(...))`/`Err(say!(...))`,
+     usable as a plain expression, `return` is now the caller's job) instead
+     of the old "provides an Ok()/Err() return" hidden-control-flow phrasing.
+     The two doctests on `ack!`/`nay!` in `src/lib.rs` were updated to write
+     `return ack!(...)`/`return nay!(...)` explicitly, since those examples
+     are single-statement function bodies where the macro isn't in tail
+     position.
+   - ✅ New test file `tests/ranting/ack_nay_expression.rs` (registered in
+     `tests/ranting/main.rs`), 4 tests proving the new expression-based
+     surface: `ack!()`/`nay!()` bound directly to a `let` (not returned at
+     all), used as `match`-arm tail values inside a function that never
+     writes `return`, and — for contrast — still working when a caller
+     chooses to write `return ack!(...)` explicitly (early-return from an
+     `if` with no `else`, falling through to a tail-position `nay!(...)` on
+     the implicit "no" path).
+   - ✅ Full gate clean on all three crates; test counts against the
+     pre-task baseline (`git show f3799244`: 39 lib + 260 integration + 11
+     doctests in `ranting`, 14 in `ranting_core`, 9 unit in `ranting_derive`):
+     `ranting` now 39 lib + 264 integration (+4, the new
+     `ack_nay_expression.rs` tests) + 11 doctests (unchanged); `ranting_core`
+     unchanged at 14 unit tests; `ranting_derive` unchanged at 9 unit tests,
+     its one pre-existing doctest failure (`src/lib.rs - derive_ranting`,
+     `unresolved import 'ranting'`) unaffected — same CLAUDE.md-documented
+     proc-macro-crate-can't-self-test limitation, not a regression.
+     `ranting_derive`'s standalone `cargo clippy --all-targets -- -D warnings`
+     still fails on exactly the same 7 pre-existing findings documented in
+     `docs/architecture-review-2026-08-13.md` (dead code in `plurals.rs`, one
+     `map_or` lint, two needless-borrow lints) — no new findings introduced by
+     this item's changes.
 
 6. **Hand-written placeholder tokenizer** (replaces `PH_EXT` regex internals)
    - Keep the sigil grammar — it's the crate's identity — but recognize placeholder
@@ -875,7 +949,7 @@ is a valid outcome; the roadmap only asks that it stop being an accident.
 
 **Ecosystem Fragmentation**: Clear governance for companion crates; version-lock to core; single source of truth for grammar rules.
 
-**Premature API Lock-in**: v1.2 (Phase 4) contains renames (`inflect_possesive`), crate restructuring (`ranting_core`), and possibly a license change. Land these *before* actively recruiting ecosystem forks or promoting adoption — every early adopter converts these from free changes into breaking changes.
+**Premature API Lock-in**: v1.2 (Phase 4) contains renames (`inflect_possessive`), crate restructuring (`ranting_core`), and possibly a license change. Land these *before* actively recruiting ecosystem forks or promoting adoption — every early adopter converts these from free changes into breaking changes.
 
 **Unmaintained Dependencies**: `proc-macro-error` has an open RUSTSEC advisory and pins syn 1; resolved by Phase 4 item 2. Until then, expect `cargo audit`/`cargo deny` warnings downstream.
 

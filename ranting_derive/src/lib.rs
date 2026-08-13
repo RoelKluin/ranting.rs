@@ -29,14 +29,14 @@ use syn::{
 #[proc_macro]
 pub fn ack(input: TokenStream1) -> TokenStream1 {
     let output = parse_macro_input!(input as Say);
-    let tokens: TokenStream = parse_quote!(return Ok(#output));
+    let tokens: TokenStream = parse_quote!(Ok(#output));
     tokens.into()
 }
 
 #[proc_macro]
 pub fn nay(input: TokenStream1) -> TokenStream1 {
     let output = parse_macro_input!(input as Say);
-    let tokens: TokenStream = parse_quote!(return Err(#output));
+    let tokens: TokenStream = parse_quote!(Err(#output));
     tokens.into()
 }
 
@@ -715,7 +715,7 @@ fn handle_param(
     let mut poss: TokenStream = parse_quote!("".to_string());
     if let Some(p) = possesive {
         let expr = get_opt_num_ph_expr(&p, given).map_err(|s| (pre_s, pre_e, s))?;
-        poss = parse_quote!(ranting::inflect_possesive(#expr.subjective(), false, #possesive_uc));
+        poss = parse_quote!(ranting::inflect_possessive(#expr.subjective(), false, #possesive_uc));
     }
     // Typed `case` -- see ranting_core::placeholder's module docs for why the pre-noun
     // subjective `=` and the post-noun continuous-tense `=` (folded into `post_expr` above)

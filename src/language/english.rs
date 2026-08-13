@@ -296,7 +296,7 @@ pub(crate) fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> Str
 ///     "Can his pair of two shoes remain singular?".to_string());
 /// # }
 /// ```
-pub fn inflect_possesive(subject: &str, to_plural: bool, uc: bool) -> String {
+pub fn inflect_possessive(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
     let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).expect("Not a subject"));
     uc_1st_if(forms.possessive, uc)

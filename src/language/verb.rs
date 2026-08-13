@@ -3,7 +3,7 @@
 //! Supports detection of past, continuous, and present tenses.
 //! Built-in for Phase 2 grammar depth — to avoid introducing new trait methods,
 //! these functions live as free functions in src/language/, consistent with
-//! inflect_verb, inflect_possesive, and other existing inflection functions.
+//! inflect_verb, inflect_possessive, and other existing inflection functions.
 
 // This module only needs IRREGULAR_PAST, from ranting_core::verb_conjugate
 // (the single generated copy of the table — see CLAUDE.md's Architecture

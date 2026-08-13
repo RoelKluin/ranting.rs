@@ -1,12 +1,12 @@
 // Property-based tests for public inflection API using proptest.
 // Tests the three publicly exported functions:
-// - inflect_possesive (requires valid pronoun input, so only tested on known pronouns)
+// - inflect_possessive (requires valid pronoun input, so only tested on known pronouns)
 // - is_subject (safe on all input — returns bool)
 // - is_subjective_plural (safe on all input — degrades to `false` on an
 //   unrecognized pronoun instead of panicking; see ROADMAP.md Phase 4 item 4)
 
 use proptest::prelude::*;
-use ranting::{Noun, inflect_possesive, is_subject, is_subjective_plural};
+use ranting::{Noun, inflect_possessive, is_subject, is_subjective_plural};
 
 // Known valid subject pronouns (strum serialization is uppercase for all except you/ye/they)
 const VALID_PRONOUNS: &[&str] = &["I", "you", "thou", "he", "she", "it", "we", "ye", "they"];
@@ -101,23 +101,23 @@ fn inflect_degrades_gracefully_on_suffix_mismatch() {
 }
 
 #[test]
-fn inflect_possesive_known_pronouns() {
+fn inflect_possessive_known_pronouns() {
     // Known pronouns should have correct possessives (second param to_plural=false keeps singular form)
-    assert_eq!(inflect_possesive("I", false, false), "my");
-    assert_eq!(inflect_possesive("he", false, false), "his");
-    assert_eq!(inflect_possesive("she", false, false), "her");
-    assert_eq!(inflect_possesive("it", false, false), "its");
+    assert_eq!(inflect_possessive("I", false, false), "my");
+    assert_eq!(inflect_possessive("he", false, false), "his");
+    assert_eq!(inflect_possessive("she", false, false), "her");
+    assert_eq!(inflect_possessive("it", false, false), "its");
     // "they" is already plural; to_plural=false converts it to singular "it" -> "its"
-    assert_eq!(inflect_possesive("they", false, false), "its");
+    assert_eq!(inflect_possessive("they", false, false), "its");
     // "I" is singular; to_plural=true converts it to plural "we" -> "our"
-    assert_eq!(inflect_possesive("I", true, false), "our");
+    assert_eq!(inflect_possessive("I", true, false), "our");
 }
 
 #[test]
-fn inflect_possesive_with_case_flag() {
+fn inflect_possessive_with_case_flag() {
     // Uppercase flag should capitalize the first letter
-    assert_eq!(inflect_possesive("I", false, true), "My");
-    assert_eq!(inflect_possesive("he", false, true), "His");
+    assert_eq!(inflect_possessive("I", false, true), "My");
+    assert_eq!(inflect_possessive("he", false, true), "His");
 }
 
 #[test]
