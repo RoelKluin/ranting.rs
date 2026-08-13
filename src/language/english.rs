@@ -333,21 +333,14 @@ pub fn inflect_reflexive(subject: &str, to_plural: bool, uc: bool) -> String {
 
 /// Look up singular/plural form in irregular noun table.
 /// Returns the inflected form if found in table, or None to trigger fallback to regular rules.
-/// Lookup is case-insensitive; caller is responsible for applying capitalization via uc_1st_if.
+/// Lookup is case-insensitive; the result already carries `noun_form`'s own case pattern
+/// (all-caps/title-case/lowercase, via `plurals::apply_case`) — the caller only needs to
+/// layer sentence-position capitalization on top via `uc_1st_if`.
 pub fn inflect_noun_irregular(noun_form: &str, to_plural: bool) -> Option<String> {
-    use super::plurals::{IRREGULAR_PLURALS, IRREGULAR_SINGULARS};
-
-    let key_lower = noun_form.to_lowercase();
     if to_plural {
-        IRREGULAR_PLURALS
-            .iter()
-            .find(|(s, _)| s.to_lowercase() == key_lower)
-            .map(|(_, p)| p.to_string())
+        super::plurals::get_plural(noun_form)
     } else {
-        IRREGULAR_SINGULARS
-            .iter()
-            .find(|(p, _)| p.to_lowercase() == key_lower)
-            .map(|(_, s)| s.to_string())
+        super::plurals::get_singular(noun_form)
     }
 }
 
