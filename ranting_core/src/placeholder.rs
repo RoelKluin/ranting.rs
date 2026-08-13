@@ -188,6 +188,41 @@ pub enum PostSpec {
     },
 }
 
+/// Which numeral notation a placeholder's `#var`/`$var` marker asked for.
+///
+/// Mirrored into the public `ranting::NumeralStyle` for the
+/// `inflect_numeral_custom` hook -- like [`CaseKind`] and [`DegreeKind`],
+/// and unlike `ranting::NounClass`/`OrthographyRole`, because the marker is
+/// *written in the placeholder*: there is something at the macro<->runtime
+/// seam to mirror.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NumeralKind {
+    /// `#var` -- the number spelled out ("two"). `ranting` renders this at
+    /// runtime from [`NumeralSpec`]'s count, so a numeral hook can spell it
+    /// in another language.
+    Words,
+    /// `$var` -- the number as the argument's own `Display` output, with
+    /// any `:fmt` spec applied. ASCII digits in English.
+    Digits,
+}
+
+/// The numeral slot of a placeholder: which notation was asked for, and the
+/// whitespace that separates it from whatever precedes it.
+///
+/// `None` on a [`PlaceholderSpec`] means "no numeral is rendered here" --
+/// which covers both a placeholder without a `#var`/`$var` marker at all
+/// *and* a hidden one (`` {?$n noun} ``), where the number is used for
+/// number agreement but never rendered. Keeping the leading space inside
+/// this struct rather than in a field of its own makes a space without a
+/// numeral unrepresentable, and (unlike leaving it baked into the rendered
+/// string, as it was before ROADMAP.md Phase 6 item 8) keeps it out of the
+/// text a numeral hook is handed and returns a replacement for.
+#[derive(Debug, Clone, Copy)]
+pub struct NumeralSpec {
+    pub kind: NumeralKind,
+    pub leading_space: &'static str,
+}
+
 /// Which article keyword (if any) a word in the `pre` slot represents --
 /// `ranting::get_article_or_so`'s runtime `match article_form { "the" =>
 /// .., "a" | "an" | "some" => .., "these" | "those" => .., _ => None }`,
@@ -342,6 +377,9 @@ pub struct PlaceholderSpec {
     /// reached this is unobserved and its value doesn't matter.
     pub pre_chained_kind: ArticleKind,
     pub plurality: &'static str,
+    /// The numeral slot, or `None` when nothing numeric renders here (no
+    /// `#var`/`$var` marker, or a hidden one). See [`NumeralSpec`].
+    pub numeral: Option<NumeralSpec>,
     pub noun_space: &'static str,
     pub case: CaseKind,
     pub post: PostSpec,

@@ -16,8 +16,8 @@
 //! `Ranting`.
 
 use crate::{
-    AdjectiveDegree, GrammaticalCase, NarrationContext, NounClass, OrthographyRole, PronounCase,
-    Ranting, uc_1st_if,
+    AdjectiveDegree, GrammaticalCase, NarrationContext, NounClass, NumeralStyle, OrthographyRole,
+    PronounCase, Ranting, uc_1st_if,
 };
 use std::fmt;
 
@@ -321,6 +321,40 @@ impl<T: Ranting> Ranting for Many<T> {
             _ => None,
         }
     }
+
+    fn inflect_numeral_custom(
+        &self,
+        numeral: &str,
+        count: Option<i64>,
+        style: NumeralStyle,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+    ) -> Option<String> {
+        match self.0.len() {
+            1 => self.0[0].inflect_numeral_custom(numeral, count, style, case, class, as_plural),
+            _ => None,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn inflect_numeral_custom_with_context(
+        &self,
+        numeral: &str,
+        count: Option<i64>,
+        style: NumeralStyle,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        match self.0.len() {
+            1 => self.0[0].inflect_numeral_custom_with_context(
+                numeral, count, style, case, class, as_plural, ctx,
+            ),
+            _ => None,
+        }
+    }
 }
 
 /// Wraps an `Option<T>` so it can be used as a `say!()` placeholder subject/argument.
@@ -574,6 +608,38 @@ impl<T: Ranting> Ranting for Maybe<T> {
             )
         })
     }
+
+    fn inflect_numeral_custom(
+        &self,
+        numeral: &str,
+        count: Option<i64>,
+        style: NumeralStyle,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+    ) -> Option<String> {
+        self.0.as_ref().and_then(|item| {
+            item.inflect_numeral_custom(numeral, count, style, case, class, as_plural)
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn inflect_numeral_custom_with_context(
+        &self,
+        numeral: &str,
+        count: Option<i64>,
+        style: NumeralStyle,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        self.0.as_ref().and_then(|item| {
+            item.inflect_numeral_custom_with_context(
+                numeral, count, style, case, class, as_plural, ctx,
+            )
+        })
+    }
 }
 
 impl<T: Ranting> Ranting for Box<T> {
@@ -746,5 +812,32 @@ impl<T: Ranting> Ranting for Box<T> {
         (**self).inflect_adjective_custom_with_context(
             adjective, degree, case, class, as_plural, uc, ctx,
         )
+    }
+
+    fn inflect_numeral_custom(
+        &self,
+        numeral: &str,
+        count: Option<i64>,
+        style: NumeralStyle,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+    ) -> Option<String> {
+        (**self).inflect_numeral_custom(numeral, count, style, case, class, as_plural)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn inflect_numeral_custom_with_context(
+        &self,
+        numeral: &str,
+        count: Option<i64>,
+        style: NumeralStyle,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        (**self)
+            .inflect_numeral_custom_with_context(numeral, count, style, case, class, as_plural, ctx)
     }
 }

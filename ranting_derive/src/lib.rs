@@ -728,28 +728,68 @@ fn handle_param(
     };
     let len = pos.len().to_string();
     let noun_space;
+    // The numeral slot (ROADMAP.md Phase 6 item 8). `numeral_expr` is the baked
+    // `Option<NumeralSpec>` for the placeholder spec; `count_expr` the `Option<i64>` count
+    // handed to `handle_placeholder` alongside it -- `Some` only for `#var`, which is the
+    // one form whose argument the macro already casts to `i64` anyway. `$var` may be given
+    // any `Display` type (a float, a formatted width), so casting it here would fail to
+    // compile code that works today; its count is recovered at runtime by parsing the
+    // rendered digits instead, and is `None` when that parse fails.
+    let mut numeral_expr: TokenStream = parse_quote!(None);
+    let mut count_expr: TokenStream = parse_quote!(None);
     let nr_expr: Expr = if plurality.contains(['#', '$']) {
         let nr_space;
         (pre, nr_space) = split_at_find_end(pre, |c: char| !c.is_whitespace()).unwrap_or((pre, ""));
         (nr, noun_space) = split_at_find_end(nr, |c: char| !c.is_whitespace()).unwrap_or((nr, ""));
-        let nr_expr: TokenStream = match get_opt_num_ph_expr(nr, given) {
-            Ok(n) if plurality != "#" => parse_quote!(#n),
-            Ok(n) => parse_quote!(ranting::rant_convert_numbers(#n as i64)),
+        // A hidden number (`{?$n noun}`) renders nothing, so it gets no NumeralSpec and the
+        // numeral hook is not called for it -- same "nothing rendered, nothing to customize"
+        // gate as `elide_article_custom`'s hidden-noun case.
+        let hidden = plurality.contains('?');
+        let nr_ph_expr = match get_opt_num_ph_expr(nr, given) {
+            Ok(n) => n,
             Err(s) => return Err((nr_s, nr_e, s)),
         };
-        let nr_fmt_strlit = if nr_fmt.is_empty() {
-            format!("{nr_space}{{}}")
-        } else {
-            if plurality != "$" {
+        if !hidden {
+            let kind = if plurality.contains('#') {
+                quote!(Words)
+            } else {
+                quote!(Digits)
+            };
+            numeral_expr = parse_quote!(Some(ranting::placeholder::NumeralSpec {
+                kind: ranting::placeholder::NumeralKind::#kind,
+                leading_space: #nr_space,
+            }));
+        }
+        if plurality == "#" {
+            if !nr_fmt.is_empty() {
                 return Err((
                     nr_s,
                     nr_e,
                     "number formatting not allowed for `{nr}' converted to words.".to_string(),
                 ));
             }
-            format!("{nr_space}{{:{}}}", join(&nr_fmt, ":"))
-        };
-        parse_quote!(format!(#nr_fmt_strlit, #nr_expr))
+            // Words are spelled at *runtime* now, from this count, so that a numeral hook
+            // can spell them in another language; `ranting::rant_convert_numbers` (the same
+            // English speller as before) is the fallback there, so the output is unchanged.
+            count_expr = parse_quote!(Some(#nr_ph_expr as i64));
+            parse_quote!(String::new())
+        } else {
+            let nr_fmt_strlit = if nr_fmt.is_empty() {
+                // The leading space moved into NumeralSpec; for a hidden number nothing is
+                // rendered, so dropping it here is unobservable either way.
+                "{}".to_string()
+            } else {
+                if plurality != "$" {
+                    return Err((
+                        nr_s,
+                        nr_e,
+                        "number formatting not allowed for `{nr}' converted to words.".to_string(),
+                    ));
+                }
+                format!("{{:{}}}", join(&nr_fmt, ":"))
+            };
+            parse_quote!(format!(#nr_fmt_strlit, #nr_ph_expr))
+        }
     } else if nr_fmt.is_empty() {
         if pre.is_empty() {
             noun_space = "";
@@ -846,16 +886,22 @@ fn handle_param(
         pre_kind: #pre_kind_q,
         pre_chained_kind: #pre_chained_kind_q,
         plurality: #plurality,
+        numeral: #numeral_expr,
         noun_space: #noun_space,
         case: #case_expr,
         post: #post_expr,
     });
     if runtime_tense {
-        pos.push(parse_quote!(ranting::handle_placeholder_with_context(&#noun, #poss, #nr_expr, #uc, #spec_expr, &__ranting_narration_ctx)));
+        pos.push(parse_quote!(ranting::handle_placeholder_with_context(&#noun, #poss, #nr_expr, #count_expr, #uc, #spec_expr, &__ranting_narration_ctx)));
     } else {
-        pos.push(
-            parse_quote!(ranting::handle_placeholder(&#noun, #poss, #nr_expr, #uc, #spec_expr)),
-        );
+        pos.push(parse_quote!(ranting::handle_placeholder(
+            &#noun,
+            #poss,
+            #nr_expr,
+            #count_expr,
+            #uc,
+            #spec_expr
+        )));
     }
     Ok(format!("{{{len}{fmt}}}"))
 }
