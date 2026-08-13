@@ -2588,13 +2588,50 @@ because it exercises everything before it.*
       at the repo root, in `ranting_core`, in `ranting_derive` and in
       `ranting_i18n` to confirm the working tree was green before and after.
 
-22. **Per-language template selection spike** (doc-only, 6-10 hours)
+22. ✅ **Per-language template selection spike** (doc-only, 6-10 hours)
     - Item 1 recommends per-language templates and says the caller selects one
       before the `say!()` call — but never how. `say!()` parses its literal at
       compile time, so selection cannot be a runtime catalogue lookup; it must be
       a literal `match lang { … }` at every call site, scaling as languages ×
       sentences. That is the real ergonomic cost of item 1's recommendation and
       it is unexamined.
+    - ✅ Spike complete, doc-only, no production code:
+      `docs/superpowers/specs/2026-08-13-template-selection.md`. Read
+      `2026-08-13-word-order-feasibility.md` and `ranting_derive/src/lib.rs`'s
+      `Say`/`impl Parse for Say`/`impl ToTokens for Say` first — `say!()`'s
+      first argument is parsed as a `syn::LitStr` at macro-expansion time,
+      before any runtime value exists, so a `HashMap<Lang, &str>`/function-
+      call/`match`-returning-`&str` argument fails to *parse*, not just to
+      resolve correctly — ruling out a runtime catalogue lookup categorically.
+    - ✅ Scored three options: (1) leave it to the caller, inline `match lang {
+      Lang::De => say!(...), ... }`, written out at every call site — preserves
+      the ✅ Locked compile-time-parsing decision since every arm is its own
+      ordinary `say!()` expansion; (2) a sugar macro (`say_lang!(lang, {En =>
+      "...", De => "..."})`) expanding to the same `match` — also preserves it
+      if implemented as pure syntactic sugar over N independent `say!()`
+      expansions, but only removes boilerplate, not the languages × sentences
+      scaling; (3) a per-language template-set type declared once and indexed
+      by a runtime language value — does **not** preserve the Locked decision,
+      because it bifurcates into either option 2 relabeled (if the set's
+      entries are still individually-written `say!()` calls) or the rejected
+      runtime catalogue relabeled (if the set holds pre-rendered strings
+      selected at runtime, which can't carry `say!()`'s placeholder-inflection
+      semantics) — not a genuine third architecture.
+    - ✅ Recommendation: leave it to the caller, documented — no new macro, no
+      new type. The scaling cost (languages × sentences) is irreducible given
+      the compile-time-literal constraint; no design considered changes that
+      number, only where the multiplication is spelled out. Option 2 (sugar
+      macro) is recorded as a legitimate future ergonomics-only addition, not
+      scheduled, since no downstream fork has yet demonstrated the boilerplate
+      pain it would address. Option 3 is rejected outright as not a real
+      option (see above). `heed!()`/`ask!()` share the same constraint via
+      their own `StrLit`-consuming `compile_heed_template`, so the same answer
+      applies there without a separate spike.
+    - ✅ No production code touched — doc-only, matching the item's scope.
+      `cargo fmt --check`, `cargo clippy -- -D warnings` and `cargo test` are
+      unaffected (doc-only diff) but were run at the repo root, in
+      `ranting_core`, in `ranting_derive` and in `ranting_i18n` to confirm the
+      working tree was green before and after.
 
 23. **Spanish reference lexicon** (16-24 hours) — *the second acceptance test*
     - Item 10 proved German exercises the hooks but **structurally cannot use
