@@ -2223,13 +2223,37 @@ because it exercises everything before it.*
       explicit `use path::name;` isn't flagged as unused merely because the
       name is also reachable through a glob elsewhere.
 
-13. **The gate must cover sibling crates** (4-6 hours)
+✅ 13. **The gate must cover sibling crates** (4-6 hours)
     - This repo is not a workspace, so `cargo test` at the root never compiles
       `ranting_i18n`. Item 10's crate passed its own gate, but the overnight
       loop's gate could not have caught a broken lexicon — verified after the
       fact, not by the gate.
     - Make the root gate (and `scripts/overnight_loop.sh`'s) cover every sibling
       crate, so this holds for future language modules too.
+    - ✅ `scripts/overnight_loop.sh` gained `gate_dirs()` (lists every directory
+      containing a `Cargo.toml` — the repo root plus every immediate
+      subdirectory, so `ranting_core`, `ranting_derive` and `ranting_i18n` are
+      discovered rather than hardcoded — a future sibling crate needs no edit
+      here) and `run_gate()`/`run_gate_in()`, which run `cargo fmt --check`,
+      `cargo clippy -- -D warnings` and `cargo test` inside each of those
+      directories via `cd`, stopping and reporting which directory failed on
+      the first failure. Both the pre-flight check and the per-task gate now
+      call `run_gate` instead of running the three cargo commands inline at
+      the repo root only. Incremental task consumption, the per-repo
+      `LOG_DIR`, and every other script behavior are unchanged.
+    - ✅ Verified by deliberately appending a badly-formatted function to
+      `ranting_i18n/src/lexicon.rs` and confirming
+      `cargo fmt --manifest-path ranting_i18n/Cargo.toml --check` fails (it
+      did, with the expected diff), then reverting via `git checkout --
+      ranting_i18n/src/lexicon.rs` and confirming the check passes clean
+      again. This exercises the same fmt/clippy/test triad `run_gate_in` runs
+      per directory, just without needing to invoke the full script (this
+      task's own `claude -p` invocation is restricted to `Bash(cargo *)`/
+      `Bash(git *)`, so the verification used `--manifest-path` rather than
+      `cd`).
+    - ✅ Documented the gate's now-multi-crate scope in CLAUDE.md's Commands
+      section, so `cargo test` at the root is no longer read as sufficient on
+      its own.
 
 14. **Numeral count channel, plus case on `Ranting::inflect`** (12-16 hours) —
     *the owed signature break, done once*

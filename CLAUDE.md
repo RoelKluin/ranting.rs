@@ -14,6 +14,16 @@ cargo clippy --fix
 cargo fmt
 ```
 
+This repo is not a cargo workspace — `ranting`, `ranting_core`, `ranting_derive` and
+`ranting_i18n` each have their own `Cargo.toml`/`Cargo.lock` — so the commands above, run at the
+repo root, never compile or test `ranting_i18n` (or any future sibling crate directory). Before
+trusting a green gate, also run `cargo fmt --check`, `cargo clippy -- -D warnings` and `cargo test`
+inside each sibling crate directory, e.g. `cargo test --manifest-path ranting_i18n/Cargo.toml`.
+`scripts/overnight_loop.sh`'s pre-flight check and its per-task gate (ROADMAP.md Phase 6 item 13)
+already do this — its `gate_dirs`/`run_gate` helpers iterate every directory with its own
+`Cargo.toml`, so a broken `ranting_i18n` (or a new sibling crate added later) fails the gate the
+same as a broken `ranting`.
+
 ## Architecture status (read before extending the codegen machinery)
 
 ROADMAP.md **Phase 4 (v1.2.0)** is fully complete (all 8 items). Beyond item 1's `ranting_core`
