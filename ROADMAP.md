@@ -987,6 +987,38 @@ is a valid outcome; the roadmap only asks that it stop being an accident.
 
 ---
 
+## Phase 5 — v1.2.1 — `ask!()` Stabilization ✅
+
+*Goal: give `ask!()` a real, typed contract and test coverage, closing the gap
+flagged in the 2026-08-13 docs audit — zero usage anywhere in the repo, no
+trait, and an untyped `.answer()` call the macro simply trusted exists.*
+
+**Status**: Complete. Breaking change to `ask!()`'s public signature and
+return type, landed deliberately: 0.2.1 has no adopters yet, and Phase 4's
+own rationale (pay down structural debt while there's no userbase to break)
+applies here too.
+
+1. ✅ **`Answerable` trait + capture-forwarding `ask!()`**
+   - New `Answerable` trait in `ranting` (`src/answerable.rs`): `fn answer(&self, speaker: &dyn Ranting, captures: Self::Captures) -> String`, with `type Captures` declared per implementor — bare `String` for a single capture, `()` for none, a tuple of `String`s for 2+, mirroring `heed!()`'s existing 0/1-vs-2+ return convention exactly (no `$name` → `u64` auto-typing through the trait boundary; a caller that needs a typed value parses the `String` itself inside `answer()`).
+   - `ask!()` reworked from `ask!(speaker, audience, "fmt", args...)` (rendered a question via `say!()`-style formatting, then called `audience.answer(speaker, String)` as untyped duck-typing) to `ask!(speaker, audience, "template", input)` — reuses `heed!()`'s template-parsing engine (`ranting_derive/src/heed.rs::compile_heed_template`) to match `input` against `template`'s `{name}`/`{name...}`/`{$name}` captures, then forwards them to `audience.answer(&speaker, captures)`. Returns `Option<String>` (`None` on no match, `answer()` not called), joining `heed!()` in the crate's Option-returning macros instead of returning whatever `.answer()` happened to return.
+   - `ask!` is now re-exported from `ranting` (`pub use ranting_derive::ask;`) — previously the only one of the five core macros not re-exported, an oversight from when it was untested.
+   - Known, accepted limitation: `Captures` being an associated type means one type supports exactly one template capture-arity everywhere it's used as an `ask!()` audience — a type needing to answer differently-shaped questions would need `Captures = Vec<String>` (losing arity checking at the call site) or separate wrapper types. Not solved here; no current caller needs it.
+2. ✅ **Tests + docs**
+   - `tests/ranting/ask.rs`: 5 integration tests — 0/1/2-capture arities, a capture-driven response (`Villager` matching on `topic`), and a no-match `None` case.
+   - `docs/API.md`/`docs/CHEATSHEET.md`/`CLAUDE.md` updated to the new signature; the "sparsely used/documented, less-stable corner" caveat lifted now that tests exist.
+
+**Out of scope, proposed for a separate higher-level crate**: Inform7-style
+object disambiguation — resolving *which* candidate `Ranting`/`Answerable`
+object free-text input refers to, weighted by "likely"/"unlikely" rules when
+multiple objects could match (e.g. "talk to it" being far more likely to mean
+a nearby person than a stone). This is a world-model/candidate-registry
+problem with no existing shape in this crate — `ask!()` only ever targets one
+statically-known `audience` expression — and doesn't belong in `ranting`
+itself. See [v1.3.0](#v130-ecosystem-expansion) below for where a
+`ranting`-adjacent crate proposal like this belongs.
+
+---
+
 ## Post-v1.2: Future Directions
 
 ### v1.3.0: Ecosystem Expansion
@@ -994,6 +1026,16 @@ is a valid outcome; the roadmap only asks that it stop being an accident.
   - Multi-language support: German, French, Spanish, Japanese, etc.
   - Modular language modules using trait-based extensibility from v1.1
   - Proves extensibility model works; enables global adoption
+- **`ranting-if` (or similar) Companion Crate — Inform7-style object disambiguation**
+  (proposed 2026-08-13, not scoped): resolves which candidate object among
+  several free-text input refers to, using "likely"/"unlikely"-weighted rules
+  the way Inform 7's `Understand` rulebook does (e.g. a "talk to" action being
+  far more likely to target a person in scope than a stone). Builds on
+  `ranting`'s `Answerable` trait (Phase 5) and `heed!()`'s capture parsing,
+  but needs a candidate registry, a scoring/priority mechanism, and rule
+  authoring syntax that have no home in `ranting` itself — `ask!()` only ever
+  targets one statically-known `audience` expression per call site, by design.
+  A natural fit for a `ranting`-adjacent crate rather than a `ranting` feature.
 
 ### v1.4+: Advanced Features (Community-Driven)
 - Dialogue formatting with automatic punctuation and breaks

@@ -21,7 +21,7 @@ two — nothing in it is part of this crate's semver surface, even where
 | `ack!` | `ack!(fmt, args...)` | Expands to `Ok(say!(fmt, args...))` — a plain expression, usable anywhere an expression is valid (`let`-bound, match-arm tail, etc). Write `return ack!(...)` yourself for early-return behavior. Intended for "allow" responses, not error handling. |
 | `nay!` | `nay!(fmt, args...)` | Expands to `Err(say!(fmt, args...))` — same shape as `ack!()`. |
 | `heed!` | `heed!(template, input)` | The inverse of `say!()`'s placeholder grammar: matches `input` text against `template`'s literal words plus `{name}`/`{name...}`/`{$name}` captures. Returns `None` on no match; on match, a bare value for 0/1 captures or a tuple for 2+, positional like `say!()`. Deliberately smaller than `say!()`'s grammar — no article/verb/pronoun-case markers. |
-| `ask!` | `ask!(audience, fmt, args...)` | Expands to `audience.answer(speaker, format!(fmt, args...))`, requiring the caller to supply an `.answer(speaker, String)` method on `audience`. Present since Phase 1 but sparsely used/tested in this repo — treat as a less-stable corner of the API. |
+| `ask!` | `ask!(speaker, audience, template, input)` | Parses `input` against `template` exactly like `heed!()`, then forwards the captures to `audience`'s [`Answerable::answer`](#answerable-trait-asks-audience) — `audience.answer(&speaker, captures)`. Returns `Option<String>` (`None` on no match), joining `heed!()` in the Option-returning half of the macro family. Reworked in Phase 5 (ROADMAP.md) from an earlier, untested, duck-typed `audience.answer(speaker, format!(...))` shape. |
 | `boxed_ranting_trait!` | `boxed_ranting_trait!(SomeTrait)` | Generates a `Ranting` impl for `&'_ dyn SomeTrait` where `SomeTrait: Ranting`. For when you want to use a boxed trait object as a `say!()` placeholder subject. |
 | `ref_ranting_trait!` | `ref_ranting_trait!(SomeTrait)` | Same, for `Box<dyn SomeTrait>`. |
 
@@ -116,6 +116,58 @@ All fields are `Option`, builder methods are chainable, and the struct is
 | `Person` | `First`, `Second`, `Third` | Yes, but scoped: only overrides nouns declared first-person (`subject` exactly `"I"`/`"we"`). Third-person rendering always falls back to singular "they" (no gender data on a first-person-declared noun). `we` → `Person::Second` renders "you", same as `I` would — one-way, not round-trippable. |
 | `Register` | `Formal`, `Neutral`, `Casual` | No — inert unless a `Ranting` impl reads `ctx.register` from one of the `*_with_context` hooks. `None` means "no override"; `Some(Register::Neutral)` is a distinct, explicit middle value. |
 | `dialect` | `&'static str`, fork-defined | No — same as `register`, purely a hook for custom impls. |
+
+## The `Answerable` trait (`ask!()`'s audience)
+
+Implemented by anything that can be the audience of an `ask!()` call:
+
+```rust
+pub trait Answerable {
+    type Captures;
+    fn answer(&self, speaker: &dyn Ranting, captures: Self::Captures) -> String;
+}
+```
+
+`Captures` mirrors `heed!()`'s own 0/1-vs-2+ convention (`()` for zero
+captures, a bare `String` for one, a tuple of `String`s for two or more) —
+but unlike `heed!()`, a `{$name}` numeric capture is **not** auto-converted
+to `u64` here; `Captures` is always `String`/tuples of `String`, since a
+trait method needs one fixed signature regardless of which template reached
+it. Parse what you need inside `answer()`.
+
+```rust
+struct Dog;
+impl Answerable for Dog {
+    type Captures = ();
+    fn answer(&self, _speaker: &dyn Ranting, _: ()) -> String {
+        "Woof!".to_string()
+    }
+}
+
+struct Villager;
+impl Answerable for Villager {
+    type Captures = String;
+    fn answer(&self, speaker: &dyn Ranting, topic: String) -> String {
+        match topic.as_str() {
+            "bone" => format!("{} not looking for bones here.", speaker.subjective()),
+            _ => "I don't know anything about that.".to_string(),
+        }
+    }
+}
+
+let player = Noun::new("Jo", "she");
+assert_eq!(ask!(player, Dog, "pet dog", "pet dog"), Some("Woof!".to_string()));
+assert_eq!(
+    ask!(player, Villager, "about {topic}", "about bone"),
+    Some("she not looking for bones here.".to_string())
+);
+```
+
+Because `Captures` is an associated type, one implementor supports exactly
+one capture arity everywhere it's used as an `ask!()` audience — a type
+needing to answer differently-shaped questions would need `Captures =
+Vec<String>` (losing compile-time arity checking) or a different design.
+Accepted as a known limitation for now; see ROADMAP.md Phase 5.
 
 ## `heed!()` matching internals
 
