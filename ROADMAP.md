@@ -338,15 +338,108 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
      this is low-risk today; if/when `ranting_core` is published independently,
      revisit whether it should move to an exact pin like `ranting_derive`'s.
 
-2. **Dependency modernization** (`ranting_derive`)
-   - syn 1 → 2, darling 0.14 → 0.20+, unify strum on 0.27 (or drop it from the
-     derive path — `SubjectPronoun` parsing is simple enough to hand-write).
-   - **Drop `proc-macro-error`** (unmaintained, open RUSTSEC advisory; pins syn 1) —
-     use plain `syn::Error` for diagnostics.
-   - Drop `lazy_static` in both crates → `std::sync::LazyLock`/`OnceLock`
-     (edition 2024; `heed.rs` already uses `OnceLock`).
-   - Bump derive-side regex 1.6 → 1.11; unify editions (2021 → 2024) after syn 2.
-   - Payoff: fewer proc-macro deps = faster compile for every downstream user.
+2. ✅ **Dependency modernization** (`ranting_derive`)
+   - ✅ syn 1.0.98 → 2 (`syn = { version = "2.0", features = ["full"] }`), darling
+     0.14.1 → 0.20.11 (0.24 exists on crates.io; stopped at 0.20 deliberately —
+     it already satisfies the item's "0.20+" floor and 0.20 vs. 0.24 wasn't
+     forced by any compile error, so there was no reason to chase newer).
+     Both bumps compiled **with zero source changes required** in
+     `ranting_derive/src/{lib,ranting_impl,heed,str_lit}.rs` — the crate's
+     usage of `syn`/`darling` (parsing `DeriveInput`, `Expr`, building output
+     via `quote!`/`parse_quote!`, `FromDeriveInput`) turned out not to touch any
+     of the APIs that moved between those major versions (no `parse_meta`/
+     `NestedMeta`/`AttributeArgs` usage — darling owns all attribute parsing
+     here). Verified this was a real fresh compile against the new versions,
+     not a stale/cached artifact: build output shows `Compiling syn v2.0.119`
+     and `Compiling darling v0.20.11` from scratch, and `cargo tree` (both
+     from `ranting_derive/` and the repo root) shows zero occurrences of
+     `syn v1` or `darling v0.14` anywhere in the resolved graph afterward.
+   - ✅ **Strum: already resolved by item 1, nothing left to do here.** Before
+     starting, checked `ranting_derive/Cargo.toml` and confirmed item 1's
+     `ranting_core` extraction had already removed `strum`/`strum_macros` from
+     `ranting_derive`'s own dependency list entirely (not just unified the
+     version — dropped outright, since `SubjectPronoun` and its parsing now
+     live in `ranting_core`). `cargo tree -i strum` from both `ranting_derive/`
+     and the repo root confirms exactly one `strum v0.27.2` in the graph,
+     reached transitively through `ranting_core`. So neither of this item's two
+     original options ("unify on 0.27" / "hand-write parsing to drop strum from
+     the derive path") applied — the derive path never touches strum at all
+     post-extraction, direct or transitive-only-for-itself. Text above and in
+     item 1 was already accurate; no rewrite needed there, just confirmation.
+   - ✅ **Dropped `proc-macro-error`.** Turned out to be dead weight even before
+     this change — `grep` found zero uses of `proc_macro_error`/`abort!`/
+     `emit_error!`/`abort_call_site!` anywhere in `ranting_derive/src/`; the
+     crate already did its own diagnostics via `syn::Error`/`Result` plumbing
+     (`parse_str_params` etc. already returned `syn::Result`). Removed the
+     `Cargo.toml` line; no source changes needed since nothing referenced it.
+   - ✅ Dropped `lazy_static` in both `ranting` and `ranting_derive` →
+     `std::sync::LazyLock`. Three call sites converted, all the
+     `lazy_static! { static ref X: T = expr; }` → `static X: LazyLock<T> =
+     LazyLock::new(|| expr);` shape (`src/lib.rs`'s `OF` regex;
+     `ranting_derive/src/lib.rs`'s `PH`/`PHE` and `POSS` regexes). `OnceLock`
+     wasn't needed anywhere — every site was "compute once lazily on first
+     access," not an explicit set-once pattern, so `LazyLock` is the correct
+     fit per the item's own guidance. `heed.rs`'s pre-existing `OnceLock` usage
+     (compiled-regex cache behind `HeedMatcher`, a genuine set-once-explicitly
+     case) is unrelated and untouched.
+   - ✅ Bumped `ranting_derive`'s regex 1.6.0 → 1.11 (landed at 1.13.1 via `^1.11`
+     resolution — still satisfies the stated floor). Straightforward version
+     bump, no API changes hit; `heed!()`'s regex-version-independence from
+     `ranting`'s own regex dep (documented in CLAUDE.md) is unaffected since
+     that design was never about the *version* matching, just the type not
+     crossing the crate boundary.
+   - ✅ Unified editions to 2024: `ranting_derive` and `ranting_core` both
+     2021 → 2024 (root `ranting` was already on 2024 from an earlier session).
+     Done last, after the syn 2 migration was compiling and green, per the
+     item's own sequencing note. Only effect observed was `cargo fmt`
+     reformatting import blocks to 2024-edition-idiomatic grouping/ordering in
+     `ranting_derive/src/{lib,ranting_impl,str_lit,heed}.rs` and
+     `src/language/adjective.rs` (e.g. `use quote::{ToTokens, quote}` ordering,
+     multi-line `parse_quote!`/`include!` wrapping) — no behavioral diffs, no
+     new clippy findings, no test regressions.
+   - ✅ `cargo audit` (installed fresh via `cargo install cargo-audit --locked`,
+     network was available in this environment) ran clean — 0 vulnerabilities,
+     exit 0 — for all three `Cargo.lock`s (root `ranting`: 63 crates,
+     `ranting_core`: 43, `ranting_derive`: 57). `cargo-deny` was not installed
+     and not attempted to install (audit alone was sufficient to confirm the
+     RUSTSEC-clean claim this item cared about — the `proc-macro-error`
+     advisory that motivated this item is now unreachable from any of the
+     three dependency graphs). Confirmed via `cargo tree` that `proc-macro-
+     error`, `lazy_static`, and `syn v1` no longer appear anywhere in either
+     `ranting` or `ranting_derive`'s resolved graph.
+   - ✅ Gate green on all three crates standalone (`cargo fmt --check` +
+     `cargo clippy --all-targets -- -D warnings` + `cargo test`, run from each
+     crate's own directory, re-run *after* `cargo fmt` reformatted files so the
+     reported results reflect the final tree, not a pre-fmt snapshot): root
+     `ranting` clean (252 tests + 11 doctests, 4 ignored); `ranting_core` clean
+     (11 tests, 0 doctests). `ranting_derive` standalone clippy reproduces
+     exactly the same 7 pre-existing findings documented in
+     `docs/architecture-review-2026-08-13.md` (dead `IRREGULAR_PLURALS`/
+     `get_plural`/`get_singular`/`apply_case` in `plurals.rs`, one
+     `map_or`→`is_some_and`, two needless-borrow lints) — confirmed identical
+     before/after via `git stash` (same 7-error list both times), so nothing
+     new was introduced and none of the pre-existing ones were incidentally
+     fixed by this migration, despite `lib.rs` itself being touched (by the
+     `LazyLock` conversion and `cargo fmt`) — the specific lines clippy flags
+     there were untouched by either. `ranting_derive`'s one
+     doctest failure (`src/lib.rs - derive_ranting`, `unresolved import
+     'ranting'`) is the same pre-existing proc-macro-crate-can't-self-test
+     limitation CLAUDE.md already documents ("test in `ranting/src/lib.rs`
+     instead") — also confirmed identical via `git stash`, not a regression.
+   - ✅ Also verified under the `debug` feature (`#[cfg(feature = "debug")]`
+     `eprintln!` diagnostics in `parse_str_params`, exercised by CLAUDE.md's
+     documented `cargo test --features debug` command and the
+     `tutorial::section_5_debug_feature` integration test) — a default-features
+     gate run alone wouldn't compile that cfg'd branch at all. Root
+     `cargo test --features debug`: same 252 tests + 11 doctests, all green.
+     `ranting_derive`'s `cargo clippy --all-targets --features debug -- -D
+     warnings` surfaces two additional pre-existing findings beyond the 7 above
+     (`to_string` applied to a `Display` type inside `eprintln!` args, at
+     `lib.rs:294` and `lib.rs:430`) — same `git stash` before/after check shows
+     the identical 9-finding list both times, so these predate this migration
+     too and nothing new was introduced under `--features debug` either.
+   - Payoff realized: `proc-macro-error` and `syn 1` (and its old duplicate
+     `unicode-ident`/`quote` sub-tree) are gone from every downstream build.
 
 3. **Typed placeholder spec across the compile-time/runtime seam**
    - Replace `handle_placeholder(..., caps: [&str; 5])` and the `~TENSE~MARKER:WORD`

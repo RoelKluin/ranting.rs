@@ -162,10 +162,10 @@ pub(crate) fn compile_heed_template(lit: &StrLit) -> syn::Result<(String, Vec<He
 }
 
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
-    parse::{Parse, ParseStream},
     Error, Expr, Token,
+    parse::{Parse, ParseStream},
 };
 
 /// Converts a matched capture's raw `String` into its typed form. `Word`
