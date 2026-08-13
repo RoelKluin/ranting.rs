@@ -222,3 +222,28 @@ fn main() {
 - Returns `None` if the input doesn't match the template.
 - Two placeholders directly adjacent, with no text at all between them (`{a}{b}`), is a compile-time error — there would be no way to know where one capture ends and the next begins. Captures separated only by whitespace (`{a} {b}`) are fine.
 - `heed!()` doesn't understand `say!()`'s grammar markers (`=`, `@`, `` ` ``, `~`, tense markers, articles) — it matches plain input text against literal words and named captures only.
+
+### Whitespace is the only word boundary `heed!()`/`ask!()` know
+
+**By design and permanently, `heed!()` and `ask!()` split input on whitespace only.** They ship no
+word segmenter and will not gain one. Concretely:
+
+- Every boundary between a template's segments — literal-to-capture, capture-to-literal,
+  literal-to-literal — must be whitespace in the input. `{name}` matches a run of non-whitespace,
+  `{$name}` a run of digits, and `{name...}` runs up to the next *whitespace-separated* literal.
+- This is **not** an ASCII or Latin-script restriction: the matching is script-agnostic, so
+  `heed!("取る {item}", "取る 剣")` yields `"剣"` and `heed!("เอา {item}", "เอา ดาบ")` yields `"ดาบ"`
+  just as the English examples do. What is unsupported is a template whose pieces abut without
+  whitespace.
+- Consequently, a template like `heed!("{item}を取る", "剣を取る")` returns `None`. It does **not**
+  guess a split — for continuous-script input (Japanese, Chinese, Thai, Khmer, Lao …) written the
+  way it is normally written, `heed!()` will simply not match.
+- The supported approach for such input is to capture the unsegmented run whole and segment it
+  yourself with a real tokenizer: `heed!("{clause}", "剣を取る")` gives you `"剣を取る"`, since an
+  unspaced clause is exactly one whitespace-delimited token.
+
+The reason is honesty about ambiguity, not effort: with no whitespace to anchor on, a regex asked to
+split `{a}的{b}` out of `我的剑` finds *a* split rather than the *intended* one, which would trade a
+clear `None` for a silently wrong capture. Correct segmentation needs dictionary- or model-based
+tokenization, which belongs in the caller's choice of crate rather than baked into a proc macro.
+See `tests/ranting/script_segmentation.rs` for the pinned behavior.

@@ -28,6 +28,7 @@ mod recursive_inflection;
 mod reflexive_pronouns;
 mod runtime_tense;
 mod runtime_viewpoint;
+mod script_segmentation;
 mod singular_they;
 mod tutorial;
 mod verb_tense;

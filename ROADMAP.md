@@ -1869,7 +1869,7 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
        `$var` override, the count-of-one agreement guard, the hidden and
        no-numeral non-call cases, and the byte-identical-English guards.
 
-9. **Non-space-delimited script support in `heed!()`/`ask!()`** (10-14 hours)
+9. ✅ **Non-space-delimited script support in `heed!()`/`ask!()`** (10-14 hours)
    - `{name}` is documented as capturing "one whitespace-delimited token" and the
      compiled regex is built on that assumption — which returns nothing useful
      for Japanese, Chinese or Thai input, where words are not space-separated.
@@ -1879,6 +1879,64 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      pluggable tokenizer boundary in `ranting_derive/src/heed.rs`'s compiler.
      Whichever is chosen, README.md's `heed!()` section and CLAUDE.md's capture-
      syntax bullet must state it explicitly rather than leaving it implied.
+   - **Chosen: the documented, permanent restriction. Rejected: a pluggable
+     tokenizer boundary in `compile_heed_template`.** No code changed in
+     `ranting_derive/src/heed.rs` or `src/heed.rs` beyond a comment recording the
+     decision at the `\s+` join; the deliverable is the stated contract plus
+     `tests/ranting/script_segmentation.rs` (15 tests) pinning it, and the
+     README/CLAUDE.md statements the item required.
+   - **The restriction, stated precisely.** `build_heed_pattern` joins every pair
+     of adjacent segments with a mandatory `\s+` (punctuation-only literals
+     excepted — they attach to the preceding segment), and the capture patterns
+     are `\S+` / `\d+` / `.+?`. So the rule is *whitespace is the only word
+     boundary the macros know*: every literal↔capture boundary in a template must
+     be whitespace in the input.
+   - **It is not an ASCII or Latin-script restriction, and the docs say so in
+     those terms.** The compiled regex is script-agnostic, which the probe run
+     confirmed before any doc was written: `heed!("取る {item}", "取る 剣")` →
+     `Some("剣")`, `heed!("拿 {item}", "拿 剑")` → `Some("剑")`,
+     `heed!("เอา {item}", "เอา ดาบ")` → `Some("ดาบ")`, and `{$n}` parses `"3 個"`
+     fine. Writing this up as "Japanese/Chinese/Thai unsupported" would have been
+     false; the honest boundary is the *separator*, since that is what the regex
+     actually enforces. Documenting the wrong axis was the main risk here.
+   - **The failure mode is `None`, verified, never a wrong capture.**
+     `heed!("{item}を取る", "剣を取る")`, `heed!("剣を{action...}", "剣を取る")`,
+     `heed!("{$n}個", "3個")`, `heed!("เอา{item}", "เอาดาบ")` and
+     `heed!("{a}的{b}", "我的剑")` all return `None`. This is what makes "cheap and
+     honest" accurate rather than a euphemism, and it was checked before the
+     decision was written down precisely because a silently-wrong capture would
+     have broken the framing.
+   - **Escape hatch, documented rather than invented.** An unsegmented clause is
+     exactly one `\S+` token, so `heed!("{clause}", "剣を取る")` and
+     `heed!("命令 {rest...}", "命令 剣を取る")` hand the whole run back for the
+     caller to segment with a real tokenizer. No new syntax was needed for this —
+     it already falls out of `\S+`, and pointing at it costs nothing.
+   - **Why the pluggable boundary loses.** Three arguments, in order of weight.
+     - *It cannot be plugged in from where the user is.* `compile_heed_template`
+       runs inside the proc macro at compile time, so a runtime-registered
+       tokenizer can never reach it, and a compile-time one means a
+       proc-macro-visible trait or attribute selecting a segmenter — a second
+       registration mechanism that nothing else in the crate has. Contrast Phase
+       6 items 2/5/8, where every hook could hang off `Ranting` because the data
+       was carried by the entity at runtime; `heed!()` has no entity and no
+       runtime seam at template-compile time.
+     - *A boundary alone doesn't segment anything.* Making the `\s+` joins
+       optional (`\s*`) is the cheap version, and it is strictly worse than
+       today: `{a}的{b}` against `我的剑` would then find *a* split by
+       backtracking rather than the intended one, converting a clear `None` into
+       a silently wrong capture. That is the exact ambiguity
+       `docs/superpowers/specs/2026-08-12-input-parsing-feasibility.md` declined
+       for multi-word captures, and the same reasoning that makes two zero-gap
+       captures a compile error today. Real segmentation needs dictionary- or
+       model-based tokenization (MeCab/Jieba class), which is a dependency and a
+       data file, not a boundary.
+     - *Precedent.* The feasibility spec's whole method is declining unbuildable
+       generality and writing down what was declined — feature B (`unsay!()`) and
+       `#name` reverse-parsing were both cut that way. This is the same shape.
+   - **Scope note.** This does not restrict `say!()` output, only `heed!()`/
+     `ask!()` input; a fork can render any script it likes through the Phase 6
+     hooks and still be unable to parse that script back with `heed!()`. That
+     asymmetry is intended — inflection is the crate's job, tokenization isn't.
 
 10. **`ranting-i18n` companion crate — German reference lexicon** (16-24 hours)
     — *the acceptance test for items 1-9*
