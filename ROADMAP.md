@@ -1675,7 +1675,12 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      here. Passing `uc: false` at that one site makes the output byte-identical
      by construction while leaving an always-capitalize fork (which ignores
      `uc`) fully functional. A fork needing position-sensitive noun casing
-     overrides `name`/`inflect` instead. `tests/ranting/orthography.rs::
+     overrides `name`/`inflect` instead. Note the corollary: the four
+     `ranting::uc_1st_if` calls `ranting_derive/src/ranting_impl.rs` emits
+     inside the generated `name()`/`inflect()` are deliberately left alone —
+     they sit *below* the hook, which is the same fact the `uc: false` above
+     encodes. "Every site is routed" is true of `handle_placeholder_impl` and
+     `get_article_or_so`, not of derive-generated code. `tests/ranting/orthography.rs::
      lowercase_name_attribute_still_renders_lowercase` is the regression guard.
      The pre-noun possessive-substitution site (`` {`jane cat} `` → `"Her
      cat"`) is `OrthographyRole::Noun` too and is pre-capitalized the same way.

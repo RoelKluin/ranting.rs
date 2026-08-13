@@ -269,14 +269,65 @@ fn each_site_reports_its_own_role() {
 // A custom `inflect_*_custom` form still owns its own `uc`
 // ============================================================================
 
+/// Records into `SEEN` exactly like `Probe`, but also answers
+/// `inflect_article_custom` — so its article never takes the fallback path.
+#[derive(Clone, Copy)]
+struct ProbeWithCustomArticle;
+
+impl fmt::Display for ProbeWithCustomArticle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "thing")
+    }
+}
+
+impl Ranting for ProbeWithCustomArticle {
+    fn name(&self, uc: bool) -> String {
+        uc_1st_if("thing", uc)
+    }
+    fn subjective(&self) -> &str {
+        "it"
+    }
+    fn is_plural(&self) -> bool {
+        false
+    }
+    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+        uc_1st_if(if to_plural { "things" } else { "thing" }, uc)
+    }
+    fn skip_article(&self) -> bool {
+        false
+    }
+
+    fn inflect_article_custom(
+        &self,
+        _article: &str,
+        _noun_singular: &str,
+        _case: GrammaticalCase,
+        _class: NounClass,
+        _as_plural: bool,
+        uc: bool,
+    ) -> Option<String> {
+        Some(uc_1st_if("yon", uc))
+    }
+
+    fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
+        SEEN.with(|s| s.borrow_mut().push((role, word.to_string(), uc)));
+        uc_1st_if(word, uc)
+    }
+}
+
 #[test]
 fn custom_inflection_forms_bypass_the_hook() {
-    // `Hund`'s article hook returns "der"/"den" itself, so the article never
-    // reaches `capitalize` — which is why that hook applies `uc_1st_if` on its
-    // own. This is the pre-existing fallback-path-only contract, unchanged.
+    // A hook that returns `Some` owns its own `uc` and never reaches
+    // `capitalize` — the pre-existing fallback-path-only contract, unchanged.
+    // The noun and verb beside it still route normally.
     let _ = drain_seen();
-    assert_eq!(say!("Heute bellt {the 0}.", Hund), "Heute bellt der Hund.");
-    assert!(drain_seen().is_empty()); // (a different type's hook; nothing recorded)
+    assert_eq!(
+        say!("{The 0 are} here.", ProbeWithCustomArticle),
+        "Yon thing is here."
+    );
+    let roles: Vec<OrthographyRole> = drain_seen().iter().map(|(r, _, _)| *r).collect();
+    assert!(!roles.contains(&OrthographyRole::Article));
+    assert_eq!(roles, vec![OrthographyRole::Noun, OrthographyRole::Verb]);
 }
 
 // ============================================================================
