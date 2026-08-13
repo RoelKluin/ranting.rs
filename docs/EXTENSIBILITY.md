@@ -280,6 +280,56 @@ fn inflect_article_custom(
 
 **Best Practice:** Examine `noun_singular` for vowel/gender patterns. This parameter is the singularized form of the noun, allowing you to make decisions based on linguistic properties (e.g., French uses "un" for masculine, "une" for feminine). Spanish's own gender doesn't need `case` — its gap is on the pronoun side, not the article side — but a case-declining language's article hook should route on it the same way pronoun hooks already route on `PronounCase`. Where gender itself is what you need, prefer the `class` parameter (§2.4) over inferring it from `noun_singular`'s spelling — the Spanish example above is a spelling heuristic, and it is wrong for `el problema`/`la mano`.
 
+#### 2.3.1 What `GrammaticalCase` Scopes To (ROADMAP.md Phase 6 item 24)
+
+`GrammaticalCase`'s seven variants — `Name`, `Subjective`, `Objective`, `PossessiveDeterminer`,
+`PossessivePronoun`, `Reflexive`, `Hidden` — are not a general syntactic-case representation. They
+are English's own case inventory, mirrored 1:1 (via `impl From<CaseKind> for GrammaticalCase`)
+from the five placeholder markers (`=`, `@`, `` ` ``, `~`, `%`) plus the markerless `Name`/`Hidden`
+pair — i.e. they answer *which of five English-shaped display forms did this placeholder marker
+request*, not *what syntactic role does this noun play in its clause*. See
+`docs/superpowers/specs/2026-08-13-grammatical-case-inventory.md` for the full design spike; the
+"lock `GrammaticalCase` at English's five-marker inventory" row in ROADMAP.md's Key Architecture
+Decisions table points back at it, the same way §2.13's `SubjectPronoun` row points at the
+pronoun-inventory spike.
+
+**Why German dative/genitive can't be named by `case` alone.** German's four cases (nominative,
+accusative, dative, genitive) and English's five markers are different taxonomies that cross-cut
+each other: `@` (`Objective`) covers both accusative *and* dative direct/indirect objects, and a
+single German case can surface under more than one English marker. There is no finer split of the
+existing five variants that recovers a clean four-way partition, so widening the enum (new
+variants, new markers, or an open string-typed channel) was considered and rejected — see the spec
+for the full scoring of each option. `GrammaticalCase` stays exactly seven variants; the marker set
+stays exactly as ✅ Locked.
+
+**The worked pattern: carry the case the marker set can't name on the entity itself.**
+`ranting_i18n`'s `GermanNoun::in_case` (`ranting_i18n/src/noun.rs`) is exactly this — a fork whose
+language distinguishes more cases than `GrammaticalCase`'s five markers do sets its own case state
+on the entity before the `say!()` call, and reads it off `self` inside `inflect_article_custom`
+(and `inflect_pronoun_custom`, and `inflect()`) instead of trying to recover it from the `case`
+parameter:
+
+```rust
+let dativ = GermanNoun::hund().in_case(Case::Dative);
+assert_eq!(say!("{the =0}", dativ), "Dem Hund");
+assert_eq!(say!("{the @0}", dativ), "Dem Hund");
+```
+
+Both calls hand `inflect_article_custom` a different `GrammaticalCase` (`Subjective` vs.
+`Objective`), and `GermanNoun` returns the same `"Dem Hund"` either way, because its impl reads
+`Case::Dative` off `self` and never consults the `case` parameter it was passed. This is the same
+"the placeholder grammar has no marker for this distinction, so the entity carries it" pattern
+§2.4's `NounClass` and §2.11's `Render::Name`/`Render::Pronoun` split already establish — not a new
+mechanism. The `case: GrammaticalCase` parameter isn't wrong, only insufficient past two-way case
+marking: a fork that ignores it (as `GermanNoun` does) loses nothing it was using, and a fork whose
+distinction is coarser than English's five markers can still consult it.
+
+**What this leaves open.** `ranting_i18n/README.md`'s hole 3 — "once the entity must carry the case
+to reach dative at all, the `case` parameter handed to `inflect_article_custom` becomes ignorable"
+— stays open by design; it's pinned by `hole_3_grammatical_case_cannot_express_dative_so_the_marker_
+is_ignored` in `ranting_i18n/tests/holes.rs` and is not expected to close. No code, hook signature,
+or marker changed as part of this section — it documents existing behavior only.
+
 ### 2.4 Lexical Gender / Noun Class: `noun_class()` and the `class` parameter (v1.3)
 
 `NounClass` is an open-ended label carried **by the entity**, handed to

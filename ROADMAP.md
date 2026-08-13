@@ -2139,7 +2139,7 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
       `name`/`inflect` already); its real customers remain Turkish and the
       caseless scripts, as its docs say.
 
-### Phase 6 follow-ups — items 11-23 (queued 2026-08-13, post-run)
+### Phase 6 follow-ups — items 11-24 (queued 2026-08-13, post-run)
 
 *Items 1-10 are complete. These come from two sources: the three design spikes'
 own "open questions" sections, which authorized concrete follow-up work nobody
@@ -2721,6 +2721,36 @@ because it exercises everything before it.*
       green in `ranting_es/`, at the repo root, and (re-verified unaffected)
       in `ranting_core`, `ranting_derive` and `ranting_i18n`.
 
+24. ✅ **Fold the case-inventory spike into the reference docs** (doc-only,
+    2-4 hours) — follow-ups 2 and 3 of item 18's recommendation, which
+    concluded "change nothing, document it" but left the two documentation
+    changes it authorized unwritten.
+    - ✅ **COMPLETE 2026-08-13** — `docs/EXTENSIBILITY.md` gained §2.3.1,
+      folded in under `inflect_article_custom`'s `GrammaticalCase` discussion
+      (§2.3): what the enum's seven variants scope to (which of the five
+      placeholder markers a call site used, not a general syntactic-case
+      representation), why German's four cases cross-cut that five-marker
+      split so no re-slicing recovers a clean mapping, and
+      `ranting_i18n`'s `GermanNoun::in_case` as the worked pattern for a case
+      the marker set can't name — the same "entity carries what the
+      placeholder grammar can't" shape §2.4's `NounClass` and §2.13's
+      pronoun-inventory write-up already use.
+    - ✅ Added a `GrammaticalCase` row to ROADMAP.md's Key Architecture
+      Decisions table (it had none before this item), stating it's locked at
+      English's five-marker inventory and pointing at
+      `docs/superpowers/specs/2026-08-13-grammatical-case-inventory.md` —
+      mirroring the `SubjectPronoun` row's shape, immediately below it.
+    - ✅ No code, hook signature, or placeholder marker changed — the spike
+      explicitly rejected widening `GrammaticalCase` (new variants, new
+      markers, and an open string-typed channel were all scored and
+      rejected). `hole_3_grammatical_case_cannot_express_dative_so_the_
+      marker_is_ignored` in `ranting_i18n/tests/holes.rs` stays open and
+      unstruck, same as item 18 left it.
+    - ✅ `cargo fmt --check`, `cargo clippy -- -D warnings` and `cargo test`
+      are unaffected (doc-only diff) but were run at the repo root and in
+      `ranting_core`, `ranting_derive` and `ranting_i18n` to confirm the
+      working tree was green before and after.
+
 ### v1.3 Success Criteria
 - A non-English `Ranting` impl can obtain gender/noun class, grammatical case,
   number, and register/dialect **without** an external string-keyed side table
@@ -2796,6 +2826,7 @@ because it exercises everything before it.*
 | Word order lives in the literal template, not the placeholders | ✅ Locked (v1.3, Phase 6 item 1) | **Permanent boundary**: `ranting` inflects within a template and will not reorder across placeholders — nor within one (the pre→`nr`→noun→post assembly is fixed too). Non-English callers supply per-language templates. Numbered slots + reorder metadata rejected (blocked by the compile-time `format!()` seam); `sentence!()` syntax-tree API rejected (works, but abandons the sigil grammar). See `docs/superpowers/specs/2026-08-13-word-order-feasibility.md` |
 | Noun gender / noun class as an entity property | 🎯 v1.3 (Phase 6 item 2) | Open-ended `&'static str` class label, not a closed Masc/Fem/Neut enum — Bantu has a dozen-plus classes, Danish has common/neuter. Threaded like `GrammaticalCase` (commit `11d531ed`) |
 | `SubjectPronoun` is a closed English enum | ✅ Locked (v1.3, Phase 6 item 3) | **Stays English-only, unchanged**: the parallel fork-owned pronoun set already exists (`inflect_pronoun_custom`/`inflect_verb_custom`, consulted *first*; `subjective() -> &str` is an uninterpreted channel), so option (c) is doc-only and breaks nobody. Extending the enum is semver-major for every downstream `match` (re-exported, not `#[non_exhaustive]`); an open channel trades a build failure for silent `it`/`its`/`itself` at five `unwrap_or(It)` sites and reverses Phase 4 item 4's invariant. T-V (`du`/`Sie`, `tu`/`vous`) is a pronoun slot, so it rides the addressee's own subject label — `NarrationContext.register` stays story-wide and inert, a documented default only. See `docs/superpowers/specs/2026-08-13-pronoun-inventory.md` |
+| `GrammaticalCase` is locked at English's five-marker inventory | ✅ Locked (v1.3, Phase 6 item 24) | **Stays exactly seven variants (`Name`/`Subjective`/`Objective`/`PossessiveDeterminer`/`PossessivePronoun`/`Reflexive`/`Hidden`), unchanged**: it mirrors which of the five placeholder markers (`=`/`@`/`` ` ``/`~`/`%`) a call site used, not a general syntactic-case representation — German's four cases cross-cut those five markers, so no re-slicing recovers a clean mapping. New variants/markers are semver-major for every exhaustive match on `CaseKind`/`GrammaticalCase` (rejected sub-options a1/a2); an open string-typed channel is likewise breaking on `inflect_article_custom`/`_with_context` and doesn't close the gap either way (option b). A fork past two-way case marking carries its own case on the entity instead — `GermanNoun::in_case` (`ranting_i18n`) — the same pattern `NounClass` already uses. Hole 3 in `ranting_i18n/README.md` stays open by design. See `docs/superpowers/specs/2026-08-13-grammatical-case-inventory.md` |
 | Number is `bool` throughout the hook signatures | 🎯 v1.3 (Phase 6 item 4) | Arabic dual / Slavic paucal / CLDR categories don't fit. Replacing it is breaking in all six `_custom` hooks — spike states the cost before it's paid |
 | English orthography, phonology and numerals hard-coded | 🎯 v1.3 (Phase 6 items 5-8) | Adjective agreement, `uc_1st_if`/`apply_case`, `a`/`an` elision, and `#var` spelling all become hooks with English-preserving defaults |
 | GPL-3 via `license-file` | ✅ Complete (v1.2) | Relicensed to plain `license = "MIT"` 2026-08-13 (copyright holder's choice, differs from the dual-license recommendation in [PROPOSED LICENSE CHANGE](#proposed-license-change-awaiting-decision)); already-published 0.2.1 on crates.io remains GPL-3 |
