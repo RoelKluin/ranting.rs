@@ -163,8 +163,10 @@ fn main() {
 - An 'article' can be one of `a`, `an`, `some`, `the`, `those` or `these`. These and those are converted to
   this and that if the pronoun is singular. A question mark indicates its display dependends (see no_article).
 
-- `ack!()` and `nay!()` provide an Ok() / Err() return with a `say!()` formatted string included. Intended for allow or
-  deny ranting responses. Not for error handling, because true errors should be easy to search in code.
+- `ack!()` and `nay!()` expand to plain `Ok(say!(...))` / `Err(say!(...))` expressions — not a hidden `return` —
+  so they can be used anywhere an expression is valid (bound to a `let`, as a match arm's tail value, etc.); write
+  `return ack!(...)`/`return nay!(...)` yourself for early-return behavior. Intended for allow or deny ranting
+  responses. Not for error handling, because true errors should be easy to search in code.
 
 - A struct can receive via attributes. **Core attributes** determine how the noun functions grammatically:
   * **subject** ["it"] - the subject pronoun; if "$", the struct must contain a `subject: String` field

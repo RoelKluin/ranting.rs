@@ -50,7 +50,7 @@ use in_definite::get_a_or_an;
 use language::english::{
     adapt_article, inflect_adjective, inflect_objective, inflect_subjective, inflect_verb,
 };
-pub use language::english::{inflect_noun_irregular, inflect_possesive, inflect_reflexive};
+pub use language::english::{inflect_noun_irregular, inflect_possessive, inflect_reflexive};
 pub use ranting_core::grammar::{SubjectPronoun, is_subject, is_subjective_plural};
 use ranting_core::placeholder::{CaseKind, PlaceholderSpec, PostSpec};
 use std::str::FromStr;
@@ -72,14 +72,17 @@ pub use heed::HeedMatcher;
 // TODO: make this a feature:
 //pub(crate) use strum_macros;
 
-/// A wrapper for `return Ok(say!())`
+/// Expands to `Ok(say!(...))` — a plain expression, not a hidden `return`.
+/// Callers that want early-return behavior write `return ack!(...)` themselves;
+/// the macro can also be used anywhere an expression is valid (e.g. bound to a
+/// `let`, or as the tail expression of a block).
 ///
 /// # Examples
 ///
 /// ```rust
 /// # use ranting::{Noun, ack, Ranting};
 /// fn question(harr: Noun, friends: Noun, lad: Noun) -> Result<String, String> {
-///     ack!("{harr shall} {+=friends do} with {the drunken *lad}?");
+///     return ack!("{harr shall} {+=friends do} with {the drunken *lad}?");
 /// }
 ///
 /// # fn main() {
@@ -95,14 +98,17 @@ pub use heed::HeedMatcher;
 /// ```
 pub use ranting_derive::ack;
 
-/// A wrapper for `return Err(say!())`
+/// Expands to `Err(say!(...))` — a plain expression, not a hidden `return`.
+/// Callers that want early-return behavior write `return nay!(...)` themselves;
+/// the macro can also be used anywhere an expression is valid (e.g. bound to a
+/// `let`, or as the tail expression of a block).
 ///
 /// # Examples
 ///
 /// ```rust
 /// # use ranting::{Noun, nay, Ranting};
 /// fn home(p: Noun) -> Result<String, String> {
-///     nay!("{=p can't} get in {`p} house.")
+///     return nay!("{=p can't} get in {`p} house.");
 /// }
 ///
 /// # fn main() {
@@ -261,6 +267,7 @@ where
 
 /// The say macro parses placeholders and passes the compile-time-baked spec to this
 /// function which returns a string.
+#[doc(hidden)]
 pub fn handle_placeholder<R>(
     noun: &R,
     poss: String,
@@ -437,7 +444,7 @@ where
                 ) {
                     custom
                 } else {
-                    inflect_possesive(subjective, pronoun_as_pl, uc)
+                    inflect_possessive(subjective, pronoun_as_pl, uc)
                 }
             }
             CaseKind::PossessivePronoun => {
