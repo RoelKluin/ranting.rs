@@ -518,6 +518,72 @@ item — the same rule as `noun_class()` (§2.4) and for the same reason: a mult
 joined string whose members may disagree, so it keeps the English default. `Maybe(Some(x))`
 forwards to `x`; `Maybe(None)` keeps the default.
 
+### 2.7 Elision & Contraction: `elide_article_custom()` (v1.3)
+
+```rust
+fn elide_article_custom(
+    &self,
+    article: &str,          // the article as rendered, capitalization included
+    separator: &str,        // the whitespace between it and what follows (usually " ")
+    following: &str,        // the rendered text after it: the number, then noun or pronoun
+    case: GrammaticalCase,
+    class: NounClass,
+    as_plural: bool,
+) -> Option<String>         // Some(fused) replaces all three; None keeps them as rendered
+
+fn elide_article_custom_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) -> Option<String>
+```
+
+**Why it exists, and why it is not a parameter on `inflect_article_custom`.** English `a`/`an` is
+the crate's one article choice that depends on the word *after* the article — and it is hard-coded
+English phonology. No fork can express its equivalent through §2.3's hook, and the reason is
+structural rather than a missing parameter: `inflect_article_custom` returns its string *before*
+the following text has been rendered. French `l'homme` vs `le chien`, Italian `lo`/`il`/`l'` and
+Portuguese article fusion all need the two words side by side, so this hook runs *after* assembly,
+when they are.
+
+**Worked example: French elision.** Gender picks `le`/`la` in §2.3's hook, which cannot yet see the
+noun; elision then rewrites both alike.
+
+```rust
+fn elide_article_custom(
+    &self, article: &str, _separator: &str, following: &str,
+    _case: GrammaticalCase, _class: NounClass, _as_plural: bool,
+) -> Option<String> {
+    if !self.elides { return None; }          // aspirate h (le héros) declines, per-noun
+    match article {
+        "le" | "la" => Some(format!("l'{following}")),
+        "Le" | "La" => Some(format!("L'{following}")),
+        _ => None,
+    }
+}
+```
+
+`say!("Voici {the 0}.", homme)` → `"Voici l'homme."`, `say!("Voici {the 0}.", chien)` → `"Voici le
+chien."`. Note the elision decision is *lexical*, carried by the entity (mute vs. aspirate h is not
+derivable from spelling), exactly as `NounClass` is in §2.4. `tests/ranting/elision.rs` is the
+runnable version, including an Italian `lo`/`il`/`l'` body.
+
+**No `uc` parameter.** The `article` handed to this hook is already rendered *and* capitalized —
+whether by §2.3's hook or the English fallback — so there is nothing left for `uc` to decide. A
+fork that re-cases its fused form inspects the first character, or calls `capitalize` (§2.6)
+itself.
+
+**What is not reachable from here.** Preposition-article fusion *across a placeholder boundary* —
+French `de` + `le` → `du`, Italian `di` + `il` → `del` — is out of scope: the preposition lives in
+the template's literal text, outside the placeholder, and `` {de le chien} `` parses `de` as a
+pre-noun verb. Reaching it would take a post-pass over the whole rendered `say!()` output. A hidden
+noun (`` {?the noun} ``) also renders nothing to elide against, so the hook is not called there.
+
+**English is untouched.** `a`/`an` is chosen from the singular noun inside `get_article_or_so` and
+never routes through this hook; the default returns `None`, which keeps the article, separator and
+following text exactly as rendered.
+
+**Wrappers.** `Box<T>` forwards to its inner value. `Many` forwards only when it holds exactly one
+item — the same rule as `noun_class()` (§2.4) and `capitalize()` (§2.6), and for the same reason:
+for 2+ items `following` is the joined phrase, whose members may elide differently.
+`Maybe(Some(x))` forwards to `x`; `Maybe(None)` declines.
+
 ## Partial Customization
 
 You don't need to implement all three custom methods. If you only need verb customization, implement `inflect_verb_custom()` and leave the other two as default (returning `None`). The trait provides default implementations for all three methods:

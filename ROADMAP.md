@@ -1708,7 +1708,7 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      `capitalize_with_context` keyed on `NarrationContext::dialect`; the
      lowercase-`name` regression guard; and a byte-identical-English guard.
 
-7. **Phonological elision / contraction hook** (6-10 hours)
+7. ✅ **Phonological elision / contraction hook** (6-10 hours)
    - The `a`/`an` choice is hard-coded English phonology. French `le`+vowel →
      `l'`, `de`+`le` → `du`; Italian `lo`/`il`/`l'`; Portuguese preposition-
      article fusion. None is expressible today: the article hook returns a
@@ -1716,6 +1716,65 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
    - Give the article hook (or a new post-assembly hook) the *following* word,
      so a fork can elide or fuse. Keep English `a`/`an` on the existing path
      unchanged. Worked test: `l'homme` vs `le chien`.
+   - **✅ COMPLETE 2026-08-13** — `Ranting::elide_article_custom`/
+     `_with_context`, taking the rendered `article`, the `separator` between,
+     and the rendered `following` text, plus `case`/`class`/`as_plural`, and
+     returning `Option<String>`: `Some` replaces all three with one fused
+     string, `None` (the default) keeps them exactly as rendered. All 311
+     pre-existing tests, 13 new ones and every doctest pass; `cargo clippy
+     --all-targets` is clean and `cargo fmt` applied.
+   - **Chosen: a new post-assembly hook. Rejected: a `following: &str`
+     parameter on `inflect_article_custom`.** The rejection is structural, not
+     stylistic: at `get_article_or_so` time the following text *does not exist
+     yet*. `nr` and the noun are pushed into `res` afterwards (`src/lib.rs`
+     lines ~493 and ~512), and the noun's form depends on `inflect()` or
+     pronoun-case selection, so passing it would mean rendering the noun twice
+     or inverting `handle_placeholder_impl` to assemble right-to-left. It would
+     also break the article hook's signature a *seventh* time while item 4's
+     count-channel break is still owed. The post-assembly shape additionally
+     lets a fork drop the separator (`l'homme`) — a `following` parameter could
+     not, since the separator is emitted by a different call site.
+   - **Mechanism.** `handle_placeholder_impl` records the byte span of the last
+     article it pushed into `res` (both call sites: the leading article and the
+     chained one after a pre-noun verb — last one wins, since that is the one
+     adjacent to the noun), then splices just after the noun/pronoun is pushed.
+     `get_article_or_so` is deliberately left with its signature unchanged,
+     which is what makes the byte-identical-English claim easy to defend. The
+     separator is collected from *both* sides of the boundary rather than
+     assumed: `space` is normally empty and the whitespace actually comes from
+     `noun_space`, pushed later.
+   - **No `uc` parameter**, unlike the other seven hooks. By the time this runs
+     the article is already rendered *and* capitalized — by
+     `inflect_article_custom` or by `capitalize` on the fallback path — so `uc`
+     would have nothing left to decide, and `uc` itself has already been reset
+     to `false` at the splice point. A fork re-casing its fused form inspects
+     the first character or calls `capitalize` (item 6) itself.
+   - **`de` + `le` → `du` did *not* land, and cannot on this design.** The
+     preposition lives in the template's *literal* text, outside the
+     placeholder, and `` {de le chien} `` parses `de` as a pre-noun verb
+     (`ArticleKind::Other` → `None` → conjugated). Second rejected alternative:
+     a post-pass over the whole assembled `say!()` output, which would re-scan
+     rendered text and couple each placeholder to its neighbours — a much
+     larger blast radius than this item, for one Romance contraction class.
+     Recorded here rather than papered over; article↔following-word elision
+     (`l'homme`, Italian `lo`/`il`/`l'`) is what the item delivers. Related
+     boundary: a hidden noun (`` {?the noun} ``) renders nothing to elide
+     against, so the splice sits inside the `case != Hidden` block and the hook
+     is not called there — `elision.rs::hidden_noun_does_not_reach_the_hook`
+     pins it.
+   - **Wrappers.** `Many` delegates only at `len() == 1` (for 2+ items
+     `following` is the joined phrase, whose members may elide differently),
+     `Maybe(Some(x))` delegates to `x`, `Box<T>` forwards — the same rule as
+     `noun_class()` and `capitalize()`.
+   - **Tests** (`tests/ranting/elision.rs`, 13 tests): the `l'homme` vs
+     `le chien` worked example; both genders (`l'école`/`la voiture`); aspirate
+     h declining per-noun (`le héros`), which also shows elision is a *lexical*
+     property carried by the entity, not derivable from spelling; plural `les`;
+     sentence-initial `L'homme`; Italian `lo`/`il`/`l'` from one hook body; a
+     recording probe pinning what `separator` and `following` contain, including
+     `"2 chiens"` when a number renders between; the hidden-noun and
+     chained-article-after-a-verb boundaries; a byte-identical-English guard for
+     `a`/`an`/`the`/`these`/`those`; and all three wrappers plus `Many<Box<T>>`.
 
 8. **Locale-aware numeral rendering** (6-10 hours)
    - `#var` spells a number out in English words. Every other language needs its

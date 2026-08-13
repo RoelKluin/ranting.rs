@@ -63,10 +63,11 @@ passes `Some(ctx)` — so overriding only the `_with_context` form is enough):
 | `inflect_pronoun_custom` / `_with_context` | pronoun form, keyed by `PronounCase` (`Subjective`/`Objective`/`PossessiveDeterminer`/`PossessivePronoun`/`Reflexive`) and `NounClass` |
 | `inflect_article_custom` / `_with_context` | article form (a/an/the/some, demonstratives), keyed by `GrammaticalCase` and `NounClass` |
 | `inflect_adjective_custom` / `_with_context` | the post-noun `!`/`!!` adjective, keyed by [`AdjectiveDegree`](#adjectivedegree), `GrammaticalCase` and `NounClass` |
+| `elide_article_custom` / `_with_context` | elision/contraction of a rendered article with the word after it — see [Elision](#elision-elide_article_custom) |
 
-The pronoun, article and adjective hooks also receive the noun's own
-[`NounClass`](#nounclass) as a `class` parameter, and the article and adjective
-hooks their `GrammaticalCase`; the verb hook receives neither.
+The pronoun, article, adjective and elision hooks also receive the noun's own
+[`NounClass`](#nounclass) as a `class` parameter, and the article, adjective and
+elision hooks their `GrammaticalCase`; the verb hook receives neither.
 
 **Orthography hook** (defaults to today's English behavior rather than to
 `None` — see [`OrthographyRole`](#orthographyrole)):
@@ -205,6 +206,42 @@ An always-capitalize fork ignores `uc` anyway; a fork needing position-sensitive
 noun casing overrides `name`/`inflect`. See
 [`docs/EXTENSIBILITY.md` §2.6](EXTENSIBILITY.md) and
 `tests/ranting/orthography.rs`.
+
+## Elision (`elide_article_custom`)
+
+The one hook that runs *after* assembly rather than instead of it:
+
+```rust
+fn elide_article_custom(
+    &self,
+    article: &str,      // as rendered, capitalization included
+    separator: &str,    // whitespace between it and what follows, usually " "
+    following: &str,    // rendered text after it: the number, then noun or pronoun
+    case: GrammaticalCase,
+    class: NounClass,
+    as_plural: bool,
+) -> Option<String>     // Some(fused) replaces all three; None (default) keeps them
+fn elide_article_custom_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) -> Option<String>
+```
+
+English `a`/`an` is the crate's only article choice that depends on the word
+*after* the article, and it is hard-coded phonology. `inflect_article_custom`
+cannot express its equivalent for another language for a structural reason
+rather than a missing parameter: it returns its string *before* the following
+text has been rendered. French `l'homme` vs `le chien`, Italian `lo`/`il`/`l'`
+and Portuguese article fusion need both words at once, so this hook gets them
+after assembly and returns one fused replacement for the lot.
+
+There is no `uc` parameter — `article` arrives already capitalized, so `uc` has
+nothing left to decide. English `a`/`an` never routes through here, and the
+default returns `None`, so `say!()`'s English output is byte-identical.
+
+Not reachable from here: preposition-article fusion across a placeholder
+boundary (`de` + `le` → `du`), since the preposition is template literal text
+outside the placeholder; and hidden nouns (`` {?the noun} ``), which render
+nothing to elide against. See
+[`docs/EXTENSIBILITY.md` §2.7](EXTENSIBILITY.md) and
+`tests/ranting/elision.rs`.
 
 ## Wrapper types
 

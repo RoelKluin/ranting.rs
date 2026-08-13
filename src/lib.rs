@@ -426,6 +426,11 @@ where
     let noun_class = noun.noun_class();
     let mut res = String::new();
 
+    // Byte range of the last article pushed into `res`, for the post-assembly elision hook
+    // below. Recorded here rather than returned by `get_article_or_so` so that function keeps
+    // its signature — and so the English path stays provably untouched.
+    let mut article_span: Option<(usize, usize)> = None;
+
     // This may be an article or certain verbs that can occur before the noun:
     if !pre.is_empty() {
         let p = pre.to_lowercase();
@@ -441,7 +446,9 @@ where
                 ctx,
             },
         ) {
+            let start = res.len();
             res.push_str(&a);
+            article_span = Some((start, res.len()));
         } else if has_possesive {
             // A possessive noun phrase built from the noun's own name ("Jane's"), hence
             // OrthographyRole::Noun rather than a role of its own — and, as at the name site
@@ -479,7 +486,11 @@ where
                         ctx,
                     },
                 ) {
+                    // Last one wins: a chained article ("isn't the homme") is the one adjacent
+                    // to the noun, so it is the one elision applies to.
+                    let start = res.len();
                     res.push_str(&a);
+                    article_span = Some((start, res.len()));
                 } else {
                     res.push_str(s);
                 }
@@ -618,6 +629,35 @@ where
             }
         };
         res.push_str(&s);
+        // Post-assembly elision: the article and everything the placeholder renders after it are
+        // both in `res` now, which is the whole point — `inflect_article_custom` ran before this
+        // text existed. Inside the `case != Hidden` block on purpose: `{?the noun}` renders
+        // nothing to elide against. See `Ranting::elide_article_custom`.
+        if let Some((start, end)) = article_span.filter(|(start, end)| start != end) {
+            // The separator is not necessarily the article string's own trailing whitespace: the
+            // noun's leading space is pushed later (`noun_space`), so collect whitespace from
+            // both sides of the boundary rather than assuming which side carries it.
+            let (article, art_ws) =
+                split_at_find_end(&res[start..end], |c: char| !c.is_whitespace())
+                    .unwrap_or((&res[start..end], ""));
+            let (noun_ws, following) =
+                split_at_find_start(&res[end..], |c: char| !c.is_whitespace())
+                    .unwrap_or(("", &res[end..]));
+            let separator = format!("{art_ws}{noun_ws}");
+            let fused = noun.elide_article_custom_with_context(
+                article,
+                &separator,
+                following,
+                case.into(),
+                noun_class,
+                as_pl,
+                ctx,
+            );
+            if let Some(fused) = fused {
+                res.truncate(start);
+                res.push_str(&fused);
+            }
+        }
         res.push_str(post_leading_space);
         uc = false;
     }
@@ -1425,6 +1465,82 @@ pub trait Ranting: std::fmt::Display {
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         self.inflect_article_custom(article, noun_singular, case, class, as_plural, uc)
+    }
+
+    /// Elide or fuse a rendered article with the word that follows it.
+    ///
+    /// This is the one hook that runs *after* assembly rather than instead of it: by the time it
+    /// is called the article and the noun (or number, or pronoun) have both been rendered, so a
+    /// fork can see them together. That is what English `a`/`an` needs and what
+    /// [`inflect_article_custom`](Self::inflect_article_custom) structurally cannot give — that
+    /// hook returns its string before the following text exists.
+    ///
+    /// Return `Some(String)` to replace the article, the separator *and* the following text with
+    /// one fused string; return `None` (the default) to keep them exactly as rendered, which is
+    /// what keeps English output byte-identical. English needs nothing here: `a`/`an` is chosen
+    /// from the singular noun inside `get_article_or_so` and never reaches this hook.
+    ///
+    /// # Arguments
+    /// * `article` - The article exactly as it was rendered, capitalization included — whether
+    ///   that came from `inflect_article_custom` or the English fallback. There is deliberately
+    ///   no `uc` parameter: the word is already capitalized, so `uc` would have nothing left to
+    ///   decide. A fork that needs to re-case its fused form can inspect the first character or
+    ///   call [`capitalize`](Self::capitalize) itself.
+    /// * `separator` - The whitespace rendered between article and following text (usually `" "`).
+    ///   French `l'homme` returns a form that drops it; `le chien` returns `None` and keeps it.
+    /// * `following` - Everything the placeholder rendered between that separator and the
+    ///   post-noun slot: the number when there is one (`` {the $n chiens} `` gives `"2 chiens"`),
+    ///   then the noun name or the case-selected pronoun. It is the rendered text, not the
+    ///   dictionary form — that is the point of running after assembly.
+    /// * `case` / `class` / `as_plural` - As for
+    ///   [`inflect_article_custom`](Self::inflect_article_custom).
+    ///
+    /// # Not reachable from here
+    /// Preposition-article fusion across a placeholder boundary (French `de` + `le` → `du`,
+    /// Italian `di` + `il` → `del`) is *not* expressible: the preposition lives in the template's
+    /// literal text, outside the placeholder, and `` {de le chien} `` parses `de` as a pre-noun
+    /// verb. A hidden noun (`` {?the noun} ``) also renders nothing to elide against, so the hook
+    /// is not called there. See ROADMAP.md Phase 6 item 7.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// fn elide_article_custom(&self, article: &str, _separator: &str, following: &str, _case: GrammaticalCase, _class: NounClass, _as_plural: bool) -> Option<String> {
+    ///     let elides = matches!(following.chars().next(), Some(c) if "aeiouhâàéèêîôûAEIOUH".contains(c));
+    ///     match article {
+    ///         "le" | "la" if elides => Some(format!("l'{following}")),
+    ///         _ => None, // keep article, separator and following exactly as rendered
+    ///     }
+    /// }
+    /// ```
+    fn elide_article_custom(
+        &self,
+        _article: &str,
+        _separator: &str,
+        _following: &str,
+        _case: GrammaticalCase,
+        _class: NounClass,
+        _as_plural: bool,
+    ) -> Option<String> {
+        None
+    }
+
+    /// Like [`elide_article_custom`](Self::elide_article_custom), but also receives the
+    /// story-wide [`NarrationContext`] in effect for this call, when there is one. See
+    /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
+    /// general shape: the elision call site calls this one, and the default delegates to
+    /// `elide_article_custom` with `ctx` ignored.
+    #[allow(clippy::too_many_arguments)]
+    fn elide_article_custom_with_context(
+        &self,
+        article: &str,
+        separator: &str,
+        following: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        _ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        self.elide_article_custom(article, separator, following, case, class, as_plural)
     }
 
     /// Customize a post-noun adjective (the `!`/`!!` degree slot).

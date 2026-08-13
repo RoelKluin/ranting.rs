@@ -252,6 +252,42 @@ impl<T: Ranting> Ranting for Many<T> {
         }
     }
 
+    fn elide_article_custom(
+        &self,
+        article: &str,
+        separator: &str,
+        following: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+    ) -> Option<String> {
+        // Same one-item rule as `noun_class`/`capitalize`: for 2+ items `following` is the joined
+        // phrase ("Alice, Bob and Carol"), whose members may elide differently.
+        match self.0.len() {
+            1 => self.0[0]
+                .elide_article_custom(article, separator, following, case, class, as_plural),
+            _ => None,
+        }
+    }
+
+    fn elide_article_custom_with_context(
+        &self,
+        article: &str,
+        separator: &str,
+        following: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        match self.0.len() {
+            1 => self.0[0].elide_article_custom_with_context(
+                article, separator, following, case, class, as_plural, ctx,
+            ),
+            _ => None,
+        }
+    }
+
     fn inflect_adjective_custom(
         &self,
         adjective: &str,
@@ -476,6 +512,37 @@ impl<T: Ranting> Ranting for Maybe<T> {
         })
     }
 
+    fn elide_article_custom(
+        &self,
+        article: &str,
+        separator: &str,
+        following: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+    ) -> Option<String> {
+        self.0.as_ref().and_then(|item| {
+            item.elide_article_custom(article, separator, following, case, class, as_plural)
+        })
+    }
+
+    fn elide_article_custom_with_context(
+        &self,
+        article: &str,
+        separator: &str,
+        following: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        self.0.as_ref().and_then(|item| {
+            item.elide_article_custom_with_context(
+                article, separator, following, case, class, as_plural, ctx,
+            )
+        })
+    }
+
     fn inflect_adjective_custom(
         &self,
         adjective: &str,
@@ -622,6 +689,34 @@ impl<T: Ranting> Ranting for Box<T> {
             as_plural,
             uc,
             ctx,
+        )
+    }
+
+    fn elide_article_custom(
+        &self,
+        article: &str,
+        separator: &str,
+        following: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+    ) -> Option<String> {
+        (**self).elide_article_custom(article, separator, following, case, class, as_plural)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn elide_article_custom_with_context(
+        &self,
+        article: &str,
+        separator: &str,
+        following: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        (**self).elide_article_custom_with_context(
+            article, separator, following, case, class, as_plural, ctx,
         )
     }
 

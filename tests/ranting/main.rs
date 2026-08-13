@@ -9,6 +9,7 @@ mod comprehensive_coverage;
 mod cookbook;
 mod custom_inflection;
 mod edge_cases;
+mod elision;
 mod error_messages;
 mod grammatical_case;
 mod heed;
