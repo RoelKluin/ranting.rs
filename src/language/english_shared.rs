@@ -7,8 +7,9 @@ use strum_macros::EnumString;
 pub(crate) static PH_START: &str =
     r"(?P<pre>(?:^|[.?!]\s+|\{\{)?+)\{(?:(?P<plain>\w*+)|(?P<ranting>[^{}:]*+))(?P<fmt>:.*?)?\}";
 
-// Unused by `ranting` itself; kept for `ranting_derive`'s compile-time article
-// handling, which includes this same canonical file (see CLAUDE.md "Key constraint").
+// Currently unused in both crates (verified: ranting_derive's article handling
+// works via string literals, not these enums — see docs/architecture-review-2026-08-13.md).
+// Candidate for removal or for backing Phase 4 item 3's typed placeholder spec.
 #[allow(dead_code)]
 #[derive(EnumString, PartialEq, Eq, Copy, Clone)]
 #[strum(serialize_all = "lowercase")]
