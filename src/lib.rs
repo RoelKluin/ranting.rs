@@ -173,6 +173,12 @@ pub use ranting_derive::say;
 /// heed!(template, input) — scanf-like input parsing; see `ranting_derive::heed`.
 pub use ranting_derive::heed;
 
+/// `#[derive(Heed)]` — v2 of `heed!()`: put `#[heed(template = "...")]` on a
+/// struct with named fields (`String` for `{name}`/`{name...}`, `u64` for
+/// `{$name}`) and it gains `fn heed(input: &str) -> Option<Self>`, built on
+/// the same template compiler as `heed!()`. See `ranting_derive::Heed`.
+pub use ranting_derive::Heed;
+
 /// ask!(speaker, audience, template, input) — parses `input` against `template`
 /// like `heed!()`, then forwards the captures to `audience`'s [`Answerable::answer`],
 /// returning `Option<String>` (`None` on no match). See `ranting_derive::ask`.

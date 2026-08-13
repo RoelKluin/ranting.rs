@@ -1,6 +1,7 @@
 // (c) RoelKluin 2022 MIT
 
 mod heed;
+mod heed_derive;
 mod language;
 mod ranting_impl;
 mod str_lit;
@@ -404,6 +405,16 @@ pub fn inner_derive_ranting(input: TokenStream1) -> TokenStream1 {
         is_enum = true;
     }
     ranting_q(options, is_enum, &input.ident).into()
+}
+
+/// `#[derive(Heed)]` — generates `fn heed(input: &str) -> Option<Self>` from a
+/// `#[heed(template = "...")]` attribute, reusing `heed!()`'s own template
+/// compiler. Every capture in the template must have a same-named field
+/// (String for `{name}`/`{name...}`, `u64` for `{$name}`), and vice versa.
+#[proc_macro_derive(Heed, attributes(heed))]
+pub fn derive_heed(input: TokenStream1) -> TokenStream1 {
+    let input = parse_macro_input!(input);
+    heed_derive::derive_heed(input).into()
 }
 
 fn parse_params(input: ParseStream) -> syn::Result<HashMap<String, Expr>> {
