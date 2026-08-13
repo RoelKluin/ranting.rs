@@ -208,19 +208,27 @@ are each marked done further down in this file.
      types plus the multi-item English-fallback case), plus 2 doctests in
      `src/collections.rs`.
 
-8. **Input Parsing (`heed!()`)** (v1 scope, see
+8. ✅ **Input Parsing (`heed!()`)** (v1 + v2, see
    `docs/superpowers/specs/2026-08-12-input-parsing-feasibility.md`)
-   - `heed!(template, input)` matches free-form input text against a
+   - ✅ v1: `heed!(template, input)` matches free-form input text against a
      template — literal words plus `{name}`/`{name...}`/`{$name}`
      captures — the command-parser half of the input-parsing feasibility
      brainstorm. The full-grammatical-inversion half (`unsay!()`) was
      explicitly not pursued: several of `say!()`'s inflection choices are
      not injective (multiple original values render to the same text), so
      a general inverse isn't a buildable spec.
-   - v2 (not yet scoped in detail): `#[derive(Heed)]` +
-     `#[heed(template = "...")]` on a user struct, generating
-     `fn heed(input: &str) -> Option<Self>`, built on the same matching
-     engine as v1 rather than duplicating it.
+   - ✅ v2: `#[derive(Heed)]` + `#[heed(template = "...")]` on a user struct,
+     generating `fn heed(input: &str) -> Option<Self>`
+     (`ranting_derive/src/heed_derive.rs::derive_heed`), reusing v1's
+     `heed::compile_heed_template` rather than duplicating the matching
+     engine. Every template capture must have a same-named field and vice
+     versa (one-to-one, not partial — a stale field or unmapped capture is
+     a compile error), with each field's type checked against its capture
+     kind (`String` for `{name}`/`{name...}`, `u64` for `{$name}`). Only
+     structs are supported (named fields, or a unit struct for a
+     zero-capture template); field declaration order is independent of
+     template capture order, since the derive maps by name. 8 integration
+     tests in `tests/ranting/heed_derive.rs`.
 
 ### v1.1 Success Criteria
 - Irregular plurals support for 100+ nouns
@@ -925,17 +933,20 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
 
 ---
 
-## PROPOSED LICENSE CHANGE (awaiting decision)
+## Historical license change analysis (decided, implemented — kept for context)
 
-> **Status: DECIDED 2026-08-13 — relicensed to plain MIT.** The analysis below
-> recommended dual `MIT OR Apache-2.0`; the copyright holder chose plain `MIT`
-> instead. All crates now carry `license = "MIT"`, `LICENSE.txt` holds the MIT
-> text, and source headers read `// (c) Roel Kluin <year> MIT`. Kept here for the
-> historical tradeoff analysis.
+> **Status: DECIDED and IMPLEMENTED 2026-08-13 — relicensed to plain MIT.** The
+> analysis below recommended dual `MIT OR Apache-2.0`; the copyright holder chose
+> plain `MIT` instead. All crates carry `license = "MIT"`, `LICENSE.txt` holds the
+> MIT text, and source headers read `// (c) Roel Kluin <year> MIT`. Nothing below
+> is a pending action — the "Current state" and "If approved" sections describe
+> the pre-decision GPL-3 baseline this analysis was written against, kept only
+> for the historical tradeoff reasoning. See the *Key Architecture Decisions*
+> table for the authoritative current state.
 
-### Current state
+### State at the time of this analysis (superseded — see banner above)
 
-| Where | Value |
+| Where | Value (2026-08-13, pre-decision) |
 |-------|-------|
 | `Cargo.toml` (ranting) | `license-file = "LICENSE.txt"` |
 | `ranting_derive/Cargo.toml` | `license-file = "../LICENSE.txt"` |
@@ -943,7 +954,7 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
 | `src/lib.rs`, `ranting_derive/src/lib.rs` | `// (c) Roel Kluin 2022 GPL v3` |
 | Published | `ranting` / `ranting_derive` 0.2.1 on crates.io, under these terms |
 
-Two facts that shape the decision, both verified in this repo:
+Two facts that shaped the decision, both verified in this repo at the time:
 
 - **Sole copyright holder.** `git shortlog -sne --all` shows every commit authored
   by Roel Kluin (four spellings of the same address). There are no third-party
@@ -1020,7 +1031,12 @@ say "GPL v3" with no "or later". If "or later" was the intent, record
 `GPL-3.0-or-later` instead and say so in the headers.) Choosing this consciously
 is a valid outcome; the roadmap only asks that it stop being an accident.
 
-### If approved — implementation checklist
+### Implementation checklist this analysis proposed (not what was actually done)
+
+The recommendation above was `MIT OR Apache-2.0`; the actual decision was plain
+`MIT`, so this checklist doesn't match what shipped in every particular (no
+`LICENSE-MIT`/`LICENSE-APACHE` split, `LICENSE.txt` was kept and now holds the
+MIT text instead of being deleted). Kept verbatim for the historical record.
 
 1. Verify dependency licenses: `cargo deny check licenses` over both crates.
 2. Replace `license-file` with `license = "MIT OR Apache-2.0"` in `Cargo.toml` and

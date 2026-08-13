@@ -26,7 +26,8 @@ two — nothing in it is part of this crate's semver surface, even where
 | `ref_ranting_trait!` | `ref_ranting_trait!(SomeTrait)` | Same, for `Box<dyn SomeTrait>`. |
 
 `#[derive_ranting]` + `#[ranting(...)]` (attribute + derive macro pair) are
-covered under [Deriving `Ranting`](#deriving-ranting) below.
+covered under [Deriving `Ranting`](#deriving-ranting) below. `#[derive(Heed)]`
++ `#[heed(...)]` is covered under [Deriving `Heed`](#deriving-heed) below.
 
 ## The `Ranting` trait
 
@@ -178,6 +179,42 @@ covered here only because it's the reason `ranting_derive`'s regex version
 and `ranting`'s never need to match: `ranting_derive/src/heed.rs` only builds
 the pattern string and validates it at compile time, and generated code
 references `ranting::HeedMatcher`, never `regex::` types directly.
+
+## Deriving `Heed`
+
+```rust
+use ranting::Heed;
+
+#[derive(Heed)]
+#[heed(template = "give {item} to {target}")]
+struct Give {
+    item: String,
+    target: String,
+}
+
+assert_eq!(
+    Give::heed("give sword to guard"),
+    Some(Give { item: "sword".to_string(), target: "guard".to_string() })
+);
+assert_eq!(Give::heed("drop sword"), None);
+```
+
+Struct-level sugar over `heed!()` — not a separate matching engine. The
+`#[heed(template = "...")]` attribute is compiled with the exact same
+template parser `heed!()` uses, and generates `fn heed(input: &str) ->
+Option<Self>` on the struct. Rules:
+
+- Every capture in the template must have a same-named field, and every
+  field must have a same-named capture — this is a one-to-one mapping, not
+  partial. A stale field or a renamed/unmapped capture is a compile error.
+- Field types are checked against their capture kind: `{name}`/`{name...}`
+  require a `String` field; `{$name}` requires a `u64` field.
+- Only structs are supported (named fields, or a unit struct for a
+  zero-capture template) — no enums.
+- Field declaration order is independent of the template's capture-appearance
+  order; the derive maps by name, not position.
+
+See `ranting_derive/src/heed_derive.rs` and `tests/ranting/heed_derive.rs`.
 
 ## Deriving `Ranting`
 

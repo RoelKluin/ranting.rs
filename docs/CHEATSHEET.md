@@ -149,6 +149,21 @@ heed!("take {item}", "drop sword")                    // None
 input. `{$name}` — digits, parsed as `u64`. Two adjacent captures with no
 literal text between them is a **compile-time** error (ambiguous).
 
+### `#[derive(Heed)]`
+
+```rust
+#[derive(Heed)]
+#[heed(template = "give {item} to {target}")]
+struct Give { item: String, target: String }
+
+Give::heed("give sword to guard") // Some(Give { item: "sword".into(), target: "guard".into() })
+Give::heed("drop sword")          // None
+```
+Struct-flavored `heed!()` — same template grammar, but binds captures to
+same-named fields instead of returning a positional tuple. Every capture
+needs a matching field and vice versa; field type must match capture kind
+(`String` vs `u64`). See API.md for the full rules.
+
 ### `ask!()`
 
 ```rust

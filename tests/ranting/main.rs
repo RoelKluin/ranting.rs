@@ -10,6 +10,7 @@ mod custom_inflection;
 mod edge_cases;
 mod error_messages;
 mod heed;
+mod heed_derive;
 #[cfg(feature = "inclusive-pronouns")]
 mod inclusive_language;
 mod irregular_plurals;
