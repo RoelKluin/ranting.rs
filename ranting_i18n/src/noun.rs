@@ -315,7 +315,13 @@ impl Ranting for GermanNoun {
         lexicon::conjugate(verb, person).map(|form| uc_1st_if(form, uc))
     }
 
-    fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
+    fn capitalize(
+        &self,
+        word: &str,
+        role: OrthographyRole,
+        uc: bool,
+        _sentence_start: bool,
+    ) -> String {
         match role {
             // German capitalizes nouns wherever they stand. `inflect`/`name` already return them
             // capitalized, so this only has to promise not to undo it.

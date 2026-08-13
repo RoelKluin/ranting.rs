@@ -33,6 +33,7 @@ mod reflexive_pronouns;
 mod runtime_tense;
 mod runtime_viewpoint;
 mod script_segmentation;
+mod sentence_detection;
 mod singular_they;
 mod tutorial;
 mod verb_tense;

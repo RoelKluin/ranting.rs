@@ -145,7 +145,9 @@ fn parse_str_params(
                     }
                 };
                 let at_sentence_start = pre
-                    .filter(|m| m.start() == 0 || m.as_str().starts_with(['.', '?', '!']))
+                    .filter(|m| {
+                        m.start() == 0 || m.as_str().starts_with(lang::SENTENCE_TRIGGER_CHARS)
+                    })
                     .is_some();
                 let replaced = match handle_param(
                     &parsed,
@@ -901,6 +903,7 @@ fn handle_param(
         noun_space: #noun_space,
         case: #case_expr,
         post: #post_expr,
+        sentence_start: #at_sentence_start,
     });
     if runtime_tense {
         pos.push(parse_quote!(ranting::handle_placeholder_with_context(&#noun, #poss, #nr_expr, #count_expr, #uc, #spec_expr, &__ranting_narration_ctx)));

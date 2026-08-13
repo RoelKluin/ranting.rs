@@ -198,7 +198,7 @@ hook:
 ```rust
 pub enum OrthographyRole { Article, Verb, Pronoun, Noun, Adjective }
 
-fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String
+fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool, sentence_start: bool) -> String
 fn capitalize_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) -> String
 ```
 
@@ -215,6 +215,22 @@ no letter case so `uc` is meaningless, and Turkish needs `i` → `İ`, which
 `,`/`^` markers are resolved by the macro at compile time. Case *preservation*
 of a word's own spelling (an irregular plural's ALL-CAPS/Title/lowercase
 pattern) is a different thing and is not routed here.
+
+`sentence_start` (Phase 6 item 17) is `uc`'s underlying signal alone, without
+the `,`/`^`/uppercase-pre-word overrides folded in — `uc` and `sentence_start`
+can disagree in both directions (`` {The 0} `` mid-sentence: `uc == true`,
+`sentence_start == false`; `` {,noun} `` right after a period: `uc == false`,
+`sentence_start == true`). Most forks only need `uc` and can ignore the new
+parameter; it exists for a caseless-script fork that still tracks sentence
+boundaries, or a downstream word-order layer (see
+[`docs/EXTENSIBILITY.md` §2.6](EXTENSIBILITY.md)).
+
+Sentence-start detection itself was also widened in the same change: it used
+to recognize only an ASCII `.`/`?`/`!` followed by whitespace. It now also
+recognizes Greek's question mark, Japanese/Chinese full-width terminators
+(which take no following space), Urdu's full stop, and Spanish's opening
+`¿`/`¡` — see `ranting_core::grammar::SENTENCE_TRIGGER_CHARS` and
+`tests/ranting/sentence_detection.rs`.
 
 One asymmetry: at `OrthographyRole::Noun` the word has already been through
 `inflect()`, which takes `uc` itself, so the hook is passed `uc: false` there.

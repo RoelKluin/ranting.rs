@@ -153,14 +153,20 @@ impl<T: Ranting> Ranting for Many<T> {
         }
     }
 
-    fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
+    fn capitalize(
+        &self,
+        word: &str,
+        role: OrthographyRole,
+        uc: bool,
+        sentence_start: bool,
+    ) -> String {
         // Same rule as `noun_class` above, and for the same reason: only a one-item `Many` has a
         // single member whose orthography can speak for the whole phrase. A multi-item phrase is
         // one joined string ("Alice, Bob and Carol") whose members may disagree, so it keeps the
         // default English capitalization of that join — which is what the existing
         // uppercase-first-char-only join tests assert.
         match self.0.len() {
-            1 => self.0[0].capitalize(word, role, uc),
+            1 => self.0[0].capitalize(word, role, uc, sentence_start),
             _ => uc_1st_if(word, uc),
         }
     }
@@ -170,10 +176,11 @@ impl<T: Ranting> Ranting for Many<T> {
         word: &str,
         role: OrthographyRole,
         uc: bool,
+        sentence_start: bool,
         ctx: Option<&NarrationContext>,
     ) -> String {
         match self.0.len() {
-            1 => self.0[0].capitalize_with_context(word, role, uc, ctx),
+            1 => self.0[0].capitalize_with_context(word, role, uc, sentence_start, ctx),
             _ => uc_1st_if(word, uc),
         }
     }
@@ -515,12 +522,18 @@ impl<T: Ranting> Ranting for Maybe<T> {
         }
     }
 
-    fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
+    fn capitalize(
+        &self,
+        word: &str,
+        role: OrthographyRole,
+        uc: bool,
+        sentence_start: bool,
+    ) -> String {
         // `Maybe(None)` renders nothing, so there is no orthography to get wrong — but the
         // article path can still reach here with a non-empty word, hence the English default
         // rather than an unconditional empty string.
         match &self.0 {
-            Some(item) => item.capitalize(word, role, uc),
+            Some(item) => item.capitalize(word, role, uc, sentence_start),
             None => uc_1st_if(word, uc),
         }
     }
@@ -530,10 +543,11 @@ impl<T: Ranting> Ranting for Maybe<T> {
         word: &str,
         role: OrthographyRole,
         uc: bool,
+        sentence_start: bool,
         ctx: Option<&NarrationContext>,
     ) -> String {
         match &self.0 {
-            Some(item) => item.capitalize_with_context(word, role, uc, ctx),
+            Some(item) => item.capitalize_with_context(word, role, uc, sentence_start, ctx),
             None => uc_1st_if(word, uc),
         }
     }
@@ -765,8 +779,14 @@ impl<T: Ranting> Ranting for Box<T> {
         (**self).is_first_person_subject_custom(subject)
     }
 
-    fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
-        (**self).capitalize(word, role, uc)
+    fn capitalize(
+        &self,
+        word: &str,
+        role: OrthographyRole,
+        uc: bool,
+        sentence_start: bool,
+    ) -> String {
+        (**self).capitalize(word, role, uc, sentence_start)
     }
 
     fn capitalize_with_context(
@@ -774,9 +794,10 @@ impl<T: Ranting> Ranting for Box<T> {
         word: &str,
         role: OrthographyRole,
         uc: bool,
+        sentence_start: bool,
         ctx: Option<&NarrationContext>,
     ) -> String {
-        (**self).capitalize_with_context(word, role, uc, ctx)
+        (**self).capitalize_with_context(word, role, uc, sentence_start, ctx)
     }
 
     fn inflect_verb_custom(
