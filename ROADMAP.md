@@ -1311,7 +1311,7 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      core-attributes list, and the `// ## Derive Attributes` comment block
      above `pub trait Ranting` in `src/lib.rs`.
 
-3. **Pronoun-inventory & T-V register design spike** (doc-only, 8-12 hours) —
+3. ✅ **Pronoun-inventory & T-V register design spike** (doc-only, 8-12 hours) —
    *the deepest open question in the phase*
    - `SubjectPronoun` is a closed enum of English pronouns, now typed into
      `Noun` (Phase 4 item 4) and matched exhaustively with `#[deny(...)]`
@@ -1336,6 +1336,102 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      first (most conservative, most plumbing).
    - Deliverable: recommendation + explicit note of which option is breaking
      and for whom.
+   - ✅ **COMPLETE 2026-08-13** —
+     `docs/superpowers/specs/2026-08-13-pronoun-inventory.md`. Conclusion:
+     **(c) keep `SubjectPronoun` English-only, in its *thin* form — the
+     parallel fork-owned pronoun set already exists; document it, change
+     nothing.** Doc-only as scoped; no production code, no test changes.
+   - Grounding: the option-(c) deliverable is already installed.
+     `handle_placeholder_impl` (`src/lib.rs:479-553`) consults
+     `inflect_pronoun_custom_with_context` **first** in all five `CaseKind`
+     pronoun arms, English being the `else` branch; `conjugate_verb`
+     (`src/lib.rs:305`) and `get_article_or_so` do the same. The subject label
+     reaches those hooks uninterpreted (`pluralize_pronoun`'s English
+     rewriting happens inside the *fallback*), and
+     `Ranting::subjective() -> &str` is a string, not a `SubjectPronoun`.
+     Sharper than expected: `ranting_derive/src/ranting_impl.rs:174-181`
+     emits a literal `subject` attribute **without validating it against
+     `is_subject`**, so `#[ranting(subject = "Sie")]` compiles today and
+     `subjective()` returns `"Sie"`. Only `Noun` is closed (typed
+     `SubjectPronoun` field + `try_new`), so a fork declares its own
+     `#[derive_ranting]` struct — the whole of what (c) costs.
+   - **Correction to this item's own premise, recorded**: the
+     `#[deny(clippy::wildcard_enum_match_arm)]` guards in
+     `src/language/english.rs` sit on `ArticleOrSo` (line 20) and
+     `IrregularPluralVerb` (line 68), not on `SubjectPronoun`.
+     `SubjectPronoun`'s net is the compiler's own exhaustiveness check on a
+     closed enum at three total matches (`as_str`, `is_subjective_plural`,
+     `pronoun_forms`) plus three `SubjectPronoun::iter()`-driven tripwire
+     tests, one asserting an exact variant count. Stronger than a lint — which
+     is what makes option (b)'s loss of it total rather than partial.
+   - (a) extend the enum with non-English variants — **rejected**: puts
+     non-English vocabulary in `ranting_core::grammar` and forces
+     `pronoun_forms` (an *English* module) to answer "what is `Sie`'s
+     reflexive?"; unbounded, with no defensible stopping point (the same
+     argument that made item 2's `NounClass` open); and **semver-major for
+     every downstream user, English-only ones included** — `SubjectPronoun` is
+     `pub use`-re-exported (`src/lib.rs:56`) and carries no
+     `#[non_exhaustive]` (verified: the attribute appears nowhere in `src/` or
+     `ranting_core/src/`), so any downstream exhaustive `match` stops
+     compiling. Exhaustive-match safety is *preserved* here — that is the
+     option's cost, not its flaw.
+   - (b) open pronoun channel, `NounClass`-style — **rejected, on the
+     exhaustive-match trade specifically**: it swaps a hard build failure for
+     wrong output. Five sites in `src/language/english.rs` (`inflect_adjective`
+     /`_subjective`/`_objective`/`_possessive`/`_reflexive`) do
+     `SubjectPronoun::from_str(..).unwrap_or(SubjectPronoun::It)`, so an
+     unhandled label silently renders `it`/`its`/`itself`; `inflect_verb`'s and
+     `pluralize_pronoun`'s string matches pass it through to their `_` arms;
+     `is_subjective_plural` and `is_first_person_subject` silently answer
+     `false`. The `NounClass` precedent does **not** transfer: the crate never
+     *reads* a noun class, it only forwards it, whereas it reads the subject
+     label at every site just named.
+     Breaking as a **stated-invariant** break, not a signature one — it
+     reverses Phase 4 item 4's "invalid subjects unrepresentable" and makes
+     `Noun::try_new`/`InvalidSubjectError` decorative, with no compile error
+     anywhere to mark it. (c) breaks nobody.
+   - **T-V ownership, resolved by collapsing the axis**: German `Sie` and
+     French `vous` *are* pronoun slots (3pl/2pl reused as polite 2sg), not
+     modifiers over a pronoun — so under (c) the addressee's declared subject
+     label already carries the distinction and **no new per-addressee channel
+     is needed**. T-V is per-addressee (one scene addresses one character `du`
+     and another `Sie`), which is why story-wide `register` cannot own it.
+     `NarrationContext.register` stays story-wide and **stays inert**: its
+     documented role is a default for the *indifferent* case only, with the
+     precedence rule — declared label > `ctx.register` > nothing — stated in
+     the spec and `docs/EXTENSIBILITY.md`, never arbitrated in-crate (that
+     needs knowing two labels denote one referent addressed two ways, which is
+     fork knowledge).
+   - Also rejected: a separate per-addressee `Politeness`/`Honorific` channel
+     (redundant with the subject label, and would need in-crate arbitration
+     against it); making `register` drive T-V in-crate (wrong granularity —
+     mixed-formality addressees in one sentence are the common case); and
+     adding `#[non_exhaustive]` to `SubjectPronoun` pre-emptively (costs a
+     major version to buy flexibility only the rejected (a) would use).
+   - **No dependency on item 4**: formal `Sie` (plural agreement, singular
+     reference) is already expressible via the shipped singular-"they"
+     precedent — `is_subjective_plural("they") == true` drives agreement while
+     reference stays singular. Item 4 should not count T-V among its motivating
+     cases; genuine dual/paucal remain its problem.
+   - **Recorded for item 10** — what stays out of reach, by named
+     construction: a true speaker×addressee T-V *relation* (`say!()` has no
+     speaker channel; `ask!()`'s speaker isn't threaded into inflection, so the
+     caller selects the addressee representation before the macro); `Noun` as a
+     carrier for a non-English pronoun; and in-crate `register`-vs-label
+     arbitration. One gap has **no fork-side workaround**:
+     `narration::is_first_person_subject` is `matches!(subject, "I" | "we")`,
+     so a fork whose labels are `ich`/`wir` gets a silent no-op from
+     `NarrationContext.narration_person`, and `resolve_viewpoint` is
+     `pub(crate)`, consulted before any trait method.
+   - Follow-up, non-blocking: whether `is_first_person_subject` should become a
+     `Ranting` hook defaulting to today's behavior (small, additive,
+     English-preserving — but production code, hence out of a doc-only item);
+     the `docs/EXTENSIBILITY.md` section on non-English pronoun inventories
+     (open `subjective()` channel, the five `PronounCase` arms, the T-V
+     precedence rule, and the `unwrap_or(It)` degrade as the documented
+     consequence of an unhandled arm); and whether item 10's German lexicon
+     should exercise `du`/`Sie` as the cheapest validation of this spike's
+     central claim.
 
 4. **Number-category design spike** (doc-only, 6-8 hours)
    - Number is boolean everywhere in the crate — `is_plural()`,
@@ -1470,11 +1566,13 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
 - Pluralization of entire phrases (not just nouns)
 - Subjunctive mood and hypotheticals
 - Register and dialect specialization (formal vs. informal, archaic, etc.) via context system from v1.1
-  — note the overlap with [Phase 6 item 3](#phase-6--v130--internationalization-foundations): T-V
-  pronoun selection (`du`/`Sie`, `tu`/`vous`) is decided there, since it must settle whether
-  `NarrationContext.register` (story-wide) or a per-addressee channel owns the distinction. This
-  bullet covers only what remains after that — English-internal register/archaism, which needs no
-  new pronoun inventory.
+  — the overlap with [Phase 6 item 3](#phase-6--v130--internationalization-foundations) is now
+  settled: T-V pronoun selection (`du`/`Sie`, `tu`/`vous`) rides the addressee's **own declared
+  subject label** (`Sie`/`vous` are pronoun slots, not modifiers), so neither
+  `NarrationContext.register` nor a new per-addressee channel owns it; `register` stays story-wide
+  and inert, a documented fallback for the indifferent case only. This bullet therefore covers only
+  English-internal register/archaism, which needs no new pronoun inventory. See
+  `docs/superpowers/specs/2026-08-13-pronoun-inventory.md`.
 - Performance optimizations (cached inflection, const generics)
 
 ---
@@ -1500,7 +1598,7 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
 | `ack!()`/`nay!()` expand to hidden `return` | ✅ Complete (v1.2) | Phase 4 item 5: reworked to plain `Ok(say!(...))`/`Err(say!(...))` expression forms, usable anywhere an expression is valid |
 | Word order lives in the literal template, not the placeholders | ✅ Locked (v1.3, Phase 6 item 1) | **Permanent boundary**: `ranting` inflects within a template and will not reorder across placeholders — nor within one (the pre→`nr`→noun→post assembly is fixed too). Non-English callers supply per-language templates. Numbered slots + reorder metadata rejected (blocked by the compile-time `format!()` seam); `sentence!()` syntax-tree API rejected (works, but abandons the sigil grammar). See `docs/superpowers/specs/2026-08-13-word-order-feasibility.md` |
 | Noun gender / noun class as an entity property | 🎯 v1.3 (Phase 6 item 2) | Open-ended `&'static str` class label, not a closed Masc/Fem/Neut enum — Bantu has a dozen-plus classes, Danish has common/neuter. Threaded like `GrammaticalCase` (commit `11d531ed`) |
-| `SubjectPronoun` is a closed English enum | 🎯 v1.3 (Phase 6 item 3) | Exhaustive-match safety is a deliberate decision (row above); extending it for T-V / clusivity / dual trades that away. Spike scores extend-enum vs. open channel vs. parallel fork-owned pronoun set |
+| `SubjectPronoun` is a closed English enum | ✅ Locked (v1.3, Phase 6 item 3) | **Stays English-only, unchanged**: the parallel fork-owned pronoun set already exists (`inflect_pronoun_custom`/`inflect_verb_custom`, consulted *first*; `subjective() -> &str` is an uninterpreted channel), so option (c) is doc-only and breaks nobody. Extending the enum is semver-major for every downstream `match` (re-exported, not `#[non_exhaustive]`); an open channel trades a build failure for silent `it`/`its`/`itself` at five `unwrap_or(It)` sites and reverses Phase 4 item 4's invariant. T-V (`du`/`Sie`, `tu`/`vous`) is a pronoun slot, so it rides the addressee's own subject label — `NarrationContext.register` stays story-wide and inert, a documented default only. See `docs/superpowers/specs/2026-08-13-pronoun-inventory.md` |
 | Number is `bool` throughout the hook signatures | 🎯 v1.3 (Phase 6 item 4) | Arabic dual / Slavic paucal / CLDR categories don't fit. Replacing it is breaking in all six `_custom` hooks — spike states the cost before it's paid |
 | English orthography, phonology and numerals hard-coded | 🎯 v1.3 (Phase 6 items 5-8) | Adjective agreement, `uc_1st_if`/`apply_case`, `a`/`an` elision, and `#var` spelling all become hooks with English-preserving defaults |
 | GPL-3 via `license-file` | ✅ Complete (v1.2) | Relicensed to plain `license = "MIT"` 2026-08-13 (copyright holder's choice, differs from the dual-license recommendation in [PROPOSED LICENSE CHANGE](#proposed-license-change-awaiting-decision)); already-published 0.2.1 on crates.io remains GPL-3 |
