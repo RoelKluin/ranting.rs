@@ -34,7 +34,10 @@ fn third_person_override_uses_plural_verb_agreement() {
     let past_cont = NarrationContext::new()
         .tense(Tense::PastContinuous)
         .narration_person(Person::Third);
-    assert_eq!(say_with!(past_cont, "{=0 <walk}", hero), "They were walking");
+    assert_eq!(
+        say_with!(past_cont, "{=0 <walk}", hero),
+        "They were walking"
+    );
 
     let pres_perf = NarrationContext::new()
         .tense(Tense::PresentPerfect)

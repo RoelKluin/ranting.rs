@@ -7,6 +7,9 @@ use strum_macros::EnumString;
 pub(crate) static PH_START: &str =
     r"(?P<pre>(?:^|[.?!]\s+|\{\{)?+)\{(?:(?P<plain>\w*+)|(?P<ranting>[^{}:]*+))(?P<fmt>:.*?)?\}";
 
+// Unused by `ranting` itself; kept for `ranting_derive`'s compile-time article
+// handling, which includes this same canonical file (see CLAUDE.md "Key constraint").
+#[allow(dead_code)]
 #[derive(EnumString, PartialEq, Eq, Copy, Clone)]
 #[strum(serialize_all = "lowercase")]
 pub enum Article {
@@ -17,6 +20,7 @@ pub enum Article {
     Som,
 }
 
+#[allow(dead_code)]
 #[derive(EnumString, PartialEq, Eq, Copy, Clone)]
 #[strum(serialize_all = "lowercase")]
 pub enum DemonstrativePronoun {

@@ -155,7 +155,7 @@ fn test_case_sensitivity_in_arguments() {
 
     // Test both lowercase and uppercase in placeholders
     let result_lower = say!("{=person}", person);
-    assert!(result_lower.len() > 0);
+    assert!(!result_lower.is_empty());
 }
 
 // Edge cases for nested structures and complex sentences
@@ -220,7 +220,7 @@ fn test_article_capitalization_variants() {
 
     // Uppercase article (sentence start would be auto-handled by placeholder)
     let result2 = say!("{A 0} appeared.", person);
-    assert!(result2.len() > 0);
+    assert!(!result2.is_empty());
 }
 
 // Edge case: verb forms with contractions
@@ -229,13 +229,13 @@ fn test_verb_contractions() {
     let alice = Noun::new("Alice", "she");
 
     let result1 = say!("{=0 can't}", alice);
-    assert!(result1.len() > 0);
+    assert!(!result1.is_empty());
 
     let result2 = say!("{=0 won't}", alice);
-    assert!(result2.len() > 0);
+    assert!(!result2.is_empty());
 
     let result3 = say!("{=0 shouldn't}", alice);
-    assert!(result3.len() > 0);
+    assert!(!result3.is_empty());
 }
 
 // Edge case: possessive with apostrophe
@@ -250,7 +250,7 @@ fn test_possessive_apostrophe_forms() {
 
     // Plural possessive ends in ' only
     let result_p = say!("{+0's}", plural);
-    assert!(result_p.len() > 0);
+    assert!(!result_p.is_empty());
 }
 
 // Edge case: whitespace handling

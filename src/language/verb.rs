@@ -5,6 +5,11 @@
 //! these functions live as free functions in src/language/, consistent with
 //! inflect_verb, inflect_possesive, and other existing inflection functions.
 
+// This module only needs IRREGULAR_PAST below; IRREGULAR_PAST_PARTICIPLE comes
+// along unused since both tables are generated together (see
+// src/language/verb_conjugate.rs for the module that does use it).
+#![allow(dead_code)]
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Tense {
     Present,

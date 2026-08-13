@@ -6,9 +6,9 @@
 //! `say!()` is unaffected: without a context, placeholder markers keep
 //! meaning exactly what they meant in v1.0.
 
+use crate::is_subjective_plural;
 use crate::language::english_shared::is_first_person_subject;
 use crate::language::verb_conjugate;
-use crate::is_subjective_plural;
 
 /// One of the 7 tenses `say!()` supports via placeholder markers.
 ///

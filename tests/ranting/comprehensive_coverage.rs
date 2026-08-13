@@ -80,11 +80,11 @@ fn test_possessive_adaptation_singular_plural() {
 
     // Singular possessive
     let result_s = say!("{0's} book", singular);
-    assert!(result_s.len() > 0);
+    assert!(!result_s.is_empty());
 
     // Plural possessive
     let result_p = say!("{+0's} books", plural);
-    assert!(result_p.len() > 0);
+    assert!(!result_p.is_empty());
 }
 
 // Test case marker propagation
@@ -248,7 +248,7 @@ fn test_apostrophe_in_possessive() {
 
     // Basic possessive
     let result = say!("{0's}", obj);
-    assert!(result.len() > 0);
+    assert!(!result.is_empty());
 }
 
 // Test complex placeholder with article and possessive
