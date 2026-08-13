@@ -439,10 +439,12 @@ fn many_delegates_to_its_single_item_only() {
     assert_eq!(say!("{The 0} bellen.", two), "The hund and hund bellen.");
 
     // An empty `Many` has no member to speak for it either (and skips its
-    // article, as it did before this hook existed — the doubled space is the
-    // skipped article's, unchanged).
+    // article, as it did before this hook existed). Since ROADMAP.md Phase 6
+    // item 11, a skipped article also swallows the separator that would have
+    // followed it, so only one space remains here — the empty noun's own,
+    // not the article's.
     let none: Many<Hund> = Many(vec![]);
-    assert_eq!(say!("Heute bellen {the 0}.", none), "Heute bellen  .");
+    assert_eq!(say!("Heute bellen {the 0}.", none), "Heute bellen .");
 }
 
 #[test]
@@ -451,8 +453,11 @@ fn maybe_and_box_delegate_to_the_inner_value() {
         say!("Heute bellt {the 0}.", Maybe(Some(Hund))),
         "Heute bellt der Hund."
     );
+    // `Maybe(None)` skips its article too; see the `Many` test above for why only
+    // one space remains after ROADMAP.md Phase 6 item 11 (the empty noun's, not
+    // the article's).
     let nothing: Maybe<Hund> = Maybe(None);
-    assert_eq!(say!("Heute bellt {the 0}.", nothing), "Heute bellt  .");
+    assert_eq!(say!("Heute bellt {the 0}.", nothing), "Heute bellt .");
     assert_eq!(
         say!("Heute bellt {the 0}.", Box::new(Hund)),
         "Heute bellt der Hund."

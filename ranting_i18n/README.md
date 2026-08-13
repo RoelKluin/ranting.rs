@@ -169,19 +169,26 @@ describe are gone), and `say!("Ich sehe {@0}.", hund)` renders `"Ich sehe ihn."`
 `say!("Ich sehe {the *@0}.", hund)` renders `"Ich sehe den Hund."`. See `tests/holes.rs`'s
 `hole_5_closed_*` and, in the main crate, `tests/ranting/case_display_split.rs`.
 
-### 6. An article that renders as nothing still emits its separator
-*Belongs to: Phase 6 item 7 (the post-assembly splice) and item 2.*
+### 6. ✅ Closed — a zero-length article no longer emits its separator
+*Belongs to: Phase 6 item 7 (the post-assembly splice) and item 2; closed by Phase 6 item 11.*
 
 German has no indefinite plural article: `Hunde bellen`. The only way `inflect_article_custom` can
-express "no article here" is to return `""` — and the separator is emitted regardless, so the
-placeholder renders with a leading space (`" Hunde bellen."`, a doubled space mid-sentence).
+express "no article here" is to return `""` — and the separator used to be emitted regardless, so
+the placeholder rendered with a leading space (`" Hunde bellen."`, a doubled space mid-sentence).
 
 `elide_article_custom` cannot repair it: the post-assembly splice is skipped when the recorded
-article span is empty, so the hook is never called for a zero-length article. `hole_6_*` proves
-this with a probe whose elision hook would drop the separator if it ever ran.
+article span is empty, so the hook is never called for a zero-length article — still true after
+item 11, and no longer a problem, since the separator is gone before the hook would have run.
+`hole_6_*` proves this with a probe whose elision hook would drop the separator if it ever ran.
 
-`Ranting::skip_article` does suppress the article, but it is per-entity and unconditional — it
-cannot mean "no article in the plural only", and it would swallow `der`/`die`/`das` too.
+Item 11 fixed `handle_placeholder_impl` in the main crate to record when the last article rendered
+was zero-length (`article_span`'s start and end byte offsets equal) and swallow the one separator
+that would otherwise follow it — whichever comes first, a numeral or the noun itself.
+`say!("{a +*=0 bellen}.", GermanNoun::hund())` now renders `"Hunde bellen."`.
+
+`Ranting::skip_article` does suppress the article too, but it is per-entity and unconditional — it
+cannot mean "no article in the plural only", and it would swallow `der`/`die`/`das` too. Unaffected
+by this fix, since `der`/`die`/`das` is never itself a zero-length article.
 
 ### 7. The pre-noun slot is a closed English word list, so preposition fusion stays unreachable
 *Belongs to: Phase 6 item 7 (which stated the limitation) and item 1.*

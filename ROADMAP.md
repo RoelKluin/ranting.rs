@@ -2148,7 +2148,7 @@ execution — the two outright bugs and the gate gap land first, the owed
 signature break next, documentation after that, and the Spanish lexicon last
 because it exercises everything before it.*
 
-11. **Zero-length article still emits its separator** (4-8 hours) — *a bug, not
+✅ 11. **Zero-length article still emits its separator** (4-8 hours) — *a bug, not
     a gap; found by item 10, hole 6*
     - German has no indefinite plural article, so `inflect_article_custom`
       returns `""` to mean "no article here" — and the separator is emitted
@@ -2160,6 +2160,43 @@ because it exercises everything before it.*
       is per-entity and unconditional, so it cannot mean "no article in the
       plural only" and would swallow `der`/`die`/`das` too.
     - Cheapest, highest-value item in this batch.
+    - **Implementation notes:**
+      - Fixed in `handle_placeholder_impl` (`src/lib.rs`), not in
+        `get_article_or_so`: a new `swallow_separator` flag is set whenever the
+        last recorded `article_span` is empty (start == end byte offset) —
+        true both for `inflect_article_custom` returning `""` and for
+        `skip_article()` suppressing the article entirely, since both leave an
+        empty span. The flag swallows exactly one downstream separator —
+        whichever comes first, the numeral slot's `leading_space` or the
+        noun's own `noun_space` — instead of it rendering unconditionally.
+      - `elide_article_custom` is still never called for a zero-length article
+        (the post-assembly splice is still skipped when the span is empty) —
+        that is now moot rather than a residual gap, since the separator is
+        gone before the splice would have run.
+      - This run is a continuation of a prior failed attempt
+        (`f00fd94a`) on the same date: the source fix there was already
+        correct, but two pre-existing tests in `tests/ranting/orthography.rs`
+        (`many_delegates_to_its_single_item_only`,
+        `maybe_and_box_delegate_to_the_inner_value`) asserted the pre-fix
+        doubled-space output (`"Heute bellen  ."`, `"Heute bellt  ."`) with a
+        comment misattributing the double space to "the skipped article's,
+        unchanged". Both assertions and the comment were updated: only a
+        single space remains, from the empty `Many`/`Maybe(None)`'s own
+        `noun_space`, not the article — that residual space is out of scope
+        for this item.
+      - Added `tests/ranting/zero_length_article.rs` (main crate) covering:
+        empty article with no leading space, no doubled space mid-sentence,
+        interaction with a `$var` numeral (the numeral's leading space is
+        swallowed instead of `noun_space`), non-empty articles unaffected,
+        `elide_article_custom` still unreached (probe), and the
+        `skip_article()` path swallowing its separator too.
+      - `ranting_i18n/tests/holes.rs`'s `hole_6_*` test renamed (from
+        `..._no_hook_can_remove` to `..._no_longer_leaves_a_stray_separator`)
+        and updated to assert the corrected output; hole 6 struck (marked
+        ✅ closed) in `ranting_i18n/README.md`.
+      - Gate run clean at the repo root and inside `ranting_core`,
+        `ranting_derive` and `ranting_i18n` individually (`cargo fmt --check`,
+        `cargo clippy -- -D warnings`, `cargo test`).
 
 ✅ 12. **Re-export `say_with!` and `derive_ranting` from `ranting`** (2-4 hours) —
     *found by item 10, hole 1*

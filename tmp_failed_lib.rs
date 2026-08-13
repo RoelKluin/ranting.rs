@@ -172,29 +172,6 @@ pub use ranting_derive::nay;
 /// ```
 pub use ranting_derive::say;
 
-/// Like `say!()`, but takes a [`NarrationContext`] as its first argument and
-/// calls `handle_placeholder_with_context()` — placeholders with tense markers
-/// (`<`,`=`,`>`,`<=`,`%`,`<%`) bake the uninflected base verb rather than a
-/// compile-time-conjugated form, so `context.tense` can override it at
-/// runtime. Without an override, `say_with!()` reproduces `say!()`'s output
-/// exactly. See `ranting_derive::say_with`.
-///
-/// # Examples
-///
-/// ```rust
-/// # use ranting::{Noun, say_with, NarrationContext, Tense};
-/// let jordan = Noun::new("Jordan", "they");
-/// let ctx = NarrationContext {
-///     tense: Some(Tense::Past),
-///     ..Default::default()
-/// };
-/// assert_eq!(
-///     say_with!(ctx, "{=jordan <arrive} here."),
-///     "They arrived here.".to_string()
-/// );
-/// ```
-pub use ranting_derive::say_with;
-
 /// heed!(template, input) — scanf-like input parsing; see `ranting_derive::heed`.
 pub use ranting_derive::heed;
 
@@ -209,11 +186,6 @@ pub use ranting_derive::Heed;
 /// returning `Option<String>` (`None` on no match). See `ranting_derive::ask`.
 pub use ranting_derive::ask;
 
-/// Attribute macro that derives the `Ranting` trait implementation and enables
-/// inflection within `say!()` placeholders — `#[derive_ranting]` plus
-/// `#[ranting(...)]` on a struct or enum. See `ranting_derive::derive_ranting`.
-pub use ranting_derive::derive_ranting;
-
 /// If you want to implement Ranting on a `Box<&dyn Trait>` where Trait has Ranting
 pub use ranting_derive::boxed_ranting_trait;
 
@@ -227,9 +199,7 @@ struct ArticleRenderCtx<'a> {
     case: CaseKind,
     as_pl: bool,
     uc: bool,
-    sentence_start: bool,
     ctx: Option<&'a NarrationContext>,
-    count: Option<PlaceholderCount>,
 }
 
 fn get_article_or_so<R>(
@@ -246,9 +216,7 @@ where
         case,
         as_pl,
         uc,
-        sentence_start,
         ctx,
-        count,
     } = render;
     if noun.skip_article() && !s.starts_with('!') && !matches!(kind, ArticleKind::TheseThose) {
         return Some("".to_string());
@@ -263,19 +231,14 @@ where
             // "the" needs no singular of its own; deriving one via inflect() would panic for
             // plural nouns whose name cannot be singularized (e.g. Noun::new("one", "they")).
             let singular = noun.name(false);
-            if let Some(custom) = noun.inflect_article_custom_with_context(
-                "the", &singular, case, class, as_pl, count, uc, ctx,
-            ) {
+            if let Some(custom) = noun
+                .inflect_article_custom_with_context("the", &singular, case, class, as_pl, uc, ctx)
+            {
                 Some(custom + space)
             } else {
                 Some(
-                    noun.capitalize_with_context(
-                        article_form,
-                        OrthographyRole::Article,
-                        uc,
-                        sentence_start,
-                        ctx,
-                    ) + space,
+                    noun.capitalize_with_context(article_form, OrthographyRole::Article, uc, ctx)
+                        + space,
                 )
             }
         }
@@ -285,7 +248,7 @@ where
             let singular = if as_pl {
                 noun.name(false)
             } else {
-                noun.inflect(false, false, case)
+                noun.inflect(false, false)
             };
             if let Some(custom) = noun.inflect_article_custom_with_context(
                 article_form,
@@ -293,7 +256,6 @@ where
                 case,
                 class,
                 as_pl,
-                count,
                 uc,
                 ctx,
             ) {
@@ -304,13 +266,7 @@ where
                 // ran would mean capitalizing a form that gets discarded.
                 let a_or_an = get_a_or_an(&singular);
                 let article = ranting::adapt_article(a_or_an, s, space, as_pl, false);
-                Some(noun.capitalize_with_context(
-                    &article,
-                    OrthographyRole::Article,
-                    uc,
-                    sentence_start,
-                    ctx,
-                ))
+                Some(noun.capitalize_with_context(&article, OrthographyRole::Article, uc, ctx))
             }
         }
         ArticleKind::TheseThose => {
@@ -323,20 +279,13 @@ where
                 case,
                 class,
                 as_pl,
-                count,
                 uc,
                 ctx,
             ) {
                 Some(custom + space)
             } else {
                 let article = ranting::adapt_article(s, s, space, as_pl, false);
-                Some(noun.capitalize_with_context(
-                    &article,
-                    OrthographyRole::Article,
-                    uc,
-                    sentence_start,
-                    ctx,
-                ))
+                Some(noun.capitalize_with_context(&article, OrthographyRole::Article, uc, ctx))
             }
         }
         ArticleKind::Other => None,
@@ -352,29 +301,24 @@ where
 /// Note: the `~TENSE~` marker path does *not* use this helper. There the verb arrives already
 /// conjugated by the macro, so the English fallback would inflect it a second time; that site
 /// tries the hook alone and keeps the conjugated form otherwise.
-#[allow(clippy::too_many_arguments)]
 fn conjugate_verb<R>(
     noun: &R,
     subjective: &str,
     verb: &str,
     as_pl: bool,
-    count: Option<PlaceholderCount>,
     uc: bool,
-    sentence_start: bool,
     ctx: Option<&NarrationContext>,
 ) -> String
 where
     R: Ranting,
 {
-    if let Some(custom) =
-        noun.inflect_verb_custom_with_context(subjective, verb, as_pl, count, uc, ctx)
-    {
+    if let Some(custom) = noun.inflect_verb_custom_with_context(subjective, verb, as_pl, uc, ctx) {
         custom
     } else {
         // Fallback path only: a custom form applies `uc` itself (see the hook's docs), so
         // capitalizing here too would be a second, unasked-for pass over it.
         let conjugated = inflect_verb(subjective, verb, as_pl, false);
-        noun.capitalize_with_context(&conjugated, OrthographyRole::Verb, uc, sentence_start, ctx)
+        noun.capitalize_with_context(&conjugated, OrthographyRole::Verb, uc, ctx)
     }
 }
 
@@ -383,17 +327,11 @@ where
 /// Only the fallback matters here: the five pronoun arms of `handle_placeholder_impl` all render
 /// via `inflect_*(subjective, as_pl, false)` and hand the result to this, while a
 /// `inflect_pronoun_custom` form applies `uc` itself and never passes through.
-fn cap_pronoun<R>(
-    noun: &R,
-    pronoun: String,
-    uc: bool,
-    sentence_start: bool,
-    ctx: Option<&NarrationContext>,
-) -> String
+fn cap_pronoun<R>(noun: &R, pronoun: String, uc: bool, ctx: Option<&NarrationContext>) -> String
 where
     R: Ranting,
 {
-    noun.capitalize_with_context(&pronoun, OrthographyRole::Pronoun, uc, sentence_start, ctx)
+    noun.capitalize_with_context(&pronoun, OrthographyRole::Pronoun, uc, ctx)
 }
 
 /// The say macro parses placeholders and passes the compile-time-baked spec to this
@@ -454,9 +392,7 @@ where
         numeral,
         noun_space,
         case,
-        display_as_name,
         post: post_spec,
-        sentence_start,
     } = spec;
     let mut pre = pre_raw;
     let has_possesive = pre.contains('`');
@@ -477,27 +413,6 @@ where
             s != "1" && s.split('.').next() != Some("1")
         }
     };
-    // The count channel (ROADMAP.md Phase 6 item 14): mirrors the `as_pl` match immediately
-    // above, but carries the numeral's value (and visible fraction digits) through to the five
-    // `_custom` hooks that had no numeral signal at all, rather than collapsing it to a bool.
-    // `None` for a bare `{noun}`/`{+noun}`/`{-noun}` -- there is no numeral to report.
-    let placeholder_count: Option<PlaceholderCount> = match plurality {
-        "" | "+" | "-" => None,
-        "#" => count.map(|value| PlaceholderCount {
-            value,
-            fraction_digits: 0,
-        }),
-        _ => {
-            let s = nr.trim_start();
-            let mut parts = s.splitn(2, '.');
-            let int_part = parts.next().unwrap_or("");
-            let frac_part = parts.next();
-            int_part.parse::<i64>().ok().map(|value| PlaceholderCount {
-                value,
-                fraction_digits: frac_part.map_or(0, |f| f.chars().count() as u32),
-            })
-        }
-    };
     let pre_string = pre.replace('`', poss.as_str());
 
     let space;
@@ -513,8 +428,8 @@ where
     // pass through unchanged, and the article/noun-name plurality (`as_pl`
     // above) is untouched either way: viewpoint governs which pronoun set
     // and verb agreement render, not how the noun's own name pluralizes.
-    let viewpoint = ctx
-        .and_then(|c| narration::resolve_viewpoint(noun, declared_subjective, c.narration_person));
+    let viewpoint =
+        ctx.and_then(|c| narration::resolve_viewpoint(declared_subjective, c.narration_person));
     let subjective = viewpoint.map_or(declared_subjective, |(rendered, _)| rendered);
     let pronoun_as_pl = viewpoint.map_or(as_pl, |(_, forced_pl)| forced_pl);
     // The entity's own lexical gender / noun class, handed to the pronoun hooks below. Read off
@@ -539,9 +454,7 @@ where
                 case,
                 as_pl,
                 uc,
-                sentence_start,
                 ctx,
-                count: placeholder_count,
             },
         ) {
             let start = res.len();
@@ -556,7 +469,6 @@ where
                 &poss_phrase,
                 OrthographyRole::Noun,
                 false,
-                sentence_start,
                 ctx,
             ));
         } else {
@@ -564,16 +476,7 @@ where
                 matches!(post_spec, PostSpec::None),
                 "verb before and after?"
             );
-            let verb = conjugate_verb(
-                noun,
-                subjective,
-                p.as_str(),
-                pronoun_as_pl,
-                placeholder_count,
-                uc,
-                sentence_start,
-                ctx,
-            );
+            let verb = conjugate_verb(noun, subjective, p.as_str(), pronoun_as_pl, uc, ctx);
             res.push_str(&verb);
             if !etc1.is_empty() {
                 let art_space;
@@ -591,9 +494,7 @@ where
                         case,
                         as_pl,
                         uc: false,
-                        sentence_start,
                         ctx,
-                        count: placeholder_count,
                     },
                 ) {
                     // Last one wins: a chained article ("isn't the homme") is the one adjacent
@@ -611,12 +512,10 @@ where
         uc = false;
     }
     // A zero-length article (`inflect_article_custom` returning `""` — German's articleless
-    // indefinite plural, "Hunde bellen" — or `skip_article()` suppressing it entirely) is
-    // recorded as an empty `article_span`. The separator that would normally follow the article
-    // belongs to the article, not to whatever comes next, so it is swallowed once here — on
-    // whichever of the numeral or the noun comes first — rather than left to render as a stray
-    // leading or doubled space. See ROADMAP.md Phase 6 item 11 and
-    // `tests/ranting/zero_length_article.rs`.
+    // indefinite plural, "Hunde bellen") is recorded as an empty `article_span`. The separator
+    // that would normally follow the article belongs to the article, not to whatever comes
+    // next, so it is swallowed once here rather than left to render as a stray leading or
+    // doubled space. See ROADMAP.md Phase 6 item 11 and `tests/ranting/zero_length_article.rs`.
     let mut swallow_separator = article_span.is_some_and(|(start, end)| start == end);
 
     // The numeral slot. `numeral` is `None` both when the placeholder has no `#var`/`$var`
@@ -678,138 +577,111 @@ where
         if !swallow_separator {
             res.push_str(noun_space);
         }
-        // ROADMAP.md Phase 6 item 19: the fused `*=`/`*@`/etc. marker case-marks the placeholder
-        // (the article/elision hooks below still see `case`'s real `GrammaticalCase`, via
-        // `case.into()`) but asks for the noun's own name here, exactly like `CaseKind::Name`,
-        // instead of switching to `inflect_pronoun_custom`. `display_as_name` is only ever `true`
-        // for a real case variant (never `Name`/`Hidden` -- see the field's own docs), so this
-        // check has to run before the `case` match, not as one more arm of it.
-        let s = if display_as_name {
-            let name = noun.inflect(as_pl, uc, case.into());
-            noun.capitalize_with_context(&name, OrthographyRole::Noun, false, sentence_start, ctx)
-        } else {
-            match case {
-                CaseKind::Subjective => {
-                    if let Some(custom) = noun.inflect_pronoun_custom_with_context(
-                        subjective,
-                        PronounCase::Subjective,
-                        noun_class,
-                        pronoun_as_pl,
-                        placeholder_count,
+        let s = match case {
+            CaseKind::Subjective => {
+                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
+                    subjective,
+                    PronounCase::Subjective,
+                    noun_class,
+                    pronoun_as_pl,
+                    uc,
+                    ctx,
+                ) {
+                    custom
+                } else {
+                    cap_pronoun(
+                        noun,
+                        inflect_subjective(subjective, pronoun_as_pl, false),
                         uc,
-                        ctx,
-                    ) {
-                        custom
-                    } else {
-                        cap_pronoun(
-                            noun,
-                            inflect_subjective(subjective, pronoun_as_pl, false),
-                            uc,
-                            sentence_start,
-                            ctx,
-                        )
-                    }
-                }
-                CaseKind::Objective => {
-                    if let Some(custom) = noun.inflect_pronoun_custom_with_context(
-                        subjective,
-                        PronounCase::Objective,
-                        noun_class,
-                        pronoun_as_pl,
-                        placeholder_count,
-                        uc,
-                        ctx,
-                    ) {
-                        custom
-                    } else {
-                        cap_pronoun(
-                            noun,
-                            inflect_objective(subjective, pronoun_as_pl, false),
-                            uc,
-                            sentence_start,
-                            ctx,
-                        )
-                    }
-                }
-                CaseKind::PossessiveDeterminer => {
-                    if let Some(custom) = noun.inflect_pronoun_custom_with_context(
-                        subjective,
-                        PronounCase::PossessiveDeterminer,
-                        noun_class,
-                        pronoun_as_pl,
-                        placeholder_count,
-                        uc,
-                        ctx,
-                    ) {
-                        custom
-                    } else {
-                        cap_pronoun(
-                            noun,
-                            inflect_possessive(subjective, pronoun_as_pl, false),
-                            uc,
-                            sentence_start,
-                            ctx,
-                        )
-                    }
-                }
-                CaseKind::PossessivePronoun => {
-                    if let Some(custom) = noun.inflect_pronoun_custom_with_context(
-                        subjective,
-                        PronounCase::PossessivePronoun,
-                        noun_class,
-                        pronoun_as_pl,
-                        placeholder_count,
-                        uc,
-                        ctx,
-                    ) {
-                        custom
-                    } else {
-                        cap_pronoun(
-                            noun,
-                            inflect_adjective(subjective, pronoun_as_pl, false),
-                            uc,
-                            sentence_start,
-                            ctx,
-                        )
-                    }
-                }
-                CaseKind::Reflexive => {
-                    if let Some(custom) = noun.inflect_pronoun_custom_with_context(
-                        subjective,
-                        PronounCase::Reflexive,
-                        noun_class,
-                        pronoun_as_pl,
-                        placeholder_count,
-                        uc,
-                        ctx,
-                    ) {
-                        custom
-                    } else {
-                        cap_pronoun(
-                            noun,
-                            inflect_reflexive(subjective, pronoun_as_pl, false),
-                            uc,
-                            sentence_start,
-                            ctx,
-                        )
-                    }
-                }
-                // The only site that does *not* hand the hook an uncapitalized word: `inflect()`
-                // takes `uc` itself and is user-implementable, so English capitalization is already
-                // resolved here — and it is not the same as `uc_1st_if`, since a derive-generated
-                // `name()` for `#[ranting(name = "designer")]` reads `uc == true` as "as written",
-                // not "force uppercase". Hence `false`: the hook must not apply it a second time.
-                // A fork that capitalizes nouns unconditionally (German) ignores the flag anyway.
-                CaseKind::Name | CaseKind::Hidden => {
-                    let name = noun.inflect(as_pl, uc, case.into());
-                    noun.capitalize_with_context(
-                        &name,
-                        OrthographyRole::Noun,
-                        false,
-                        sentence_start,
                         ctx,
                     )
                 }
+            }
+            CaseKind::Objective => {
+                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
+                    subjective,
+                    PronounCase::Objective,
+                    noun_class,
+                    pronoun_as_pl,
+                    uc,
+                    ctx,
+                ) {
+                    custom
+                } else {
+                    cap_pronoun(
+                        noun,
+                        inflect_objective(subjective, pronoun_as_pl, false),
+                        uc,
+                        ctx,
+                    )
+                }
+            }
+            CaseKind::PossessiveDeterminer => {
+                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
+                    subjective,
+                    PronounCase::PossessiveDeterminer,
+                    noun_class,
+                    pronoun_as_pl,
+                    uc,
+                    ctx,
+                ) {
+                    custom
+                } else {
+                    cap_pronoun(
+                        noun,
+                        inflect_possessive(subjective, pronoun_as_pl, false),
+                        uc,
+                        ctx,
+                    )
+                }
+            }
+            CaseKind::PossessivePronoun => {
+                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
+                    subjective,
+                    PronounCase::PossessivePronoun,
+                    noun_class,
+                    pronoun_as_pl,
+                    uc,
+                    ctx,
+                ) {
+                    custom
+                } else {
+                    cap_pronoun(
+                        noun,
+                        inflect_adjective(subjective, pronoun_as_pl, false),
+                        uc,
+                        ctx,
+                    )
+                }
+            }
+            CaseKind::Reflexive => {
+                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
+                    subjective,
+                    PronounCase::Reflexive,
+                    noun_class,
+                    pronoun_as_pl,
+                    uc,
+                    ctx,
+                ) {
+                    custom
+                } else {
+                    cap_pronoun(
+                        noun,
+                        inflect_reflexive(subjective, pronoun_as_pl, false),
+                        uc,
+                        ctx,
+                    )
+                }
+            }
+            // The only site that does *not* hand the hook an uncapitalized word: `inflect()`
+            // takes `uc` itself and is user-implementable, so English capitalization is already
+            // resolved here — and it is not the same as `uc_1st_if`, since a derive-generated
+            // `name()` for `#[ranting(name = "designer")]` reads `uc == true` as "as written",
+            // not "force uppercase". Hence `false`: the hook must not apply it a second time.
+            // A fork that capitalizes nouns unconditionally (German) ignores the flag anyway.
+            CaseKind::Name | CaseKind::Hidden => {
+                let name = noun.inflect(as_pl, uc);
+                noun.capitalize_with_context(&name, OrthographyRole::Noun, false, ctx)
             }
         };
         res.push_str(&s);
@@ -835,7 +707,6 @@ where
                 case.into(),
                 noun_class,
                 as_pl,
-                placeholder_count,
                 ctx,
             );
             if let Some(fused) = fused {
@@ -872,9 +743,7 @@ where
                             subjective,
                             v,
                             !singular_post_verb && pronoun_as_pl,
-                            placeholder_count,
                             uc,
-                            sentence_start,
                             ctx,
                         );
                         res.push_str(&verb);
@@ -898,7 +767,6 @@ where
                             subjective,
                             word,
                             !singular_post_verb && pronoun_as_pl,
-                            placeholder_count,
                             false,
                             None,
                         )
@@ -923,9 +791,7 @@ where
                             subjective,
                             &base_form,
                             !singular_post_verb && pronoun_as_pl,
-                            placeholder_count,
                             false,
-                            sentence_start,
                             ctx,
                         )
                     } else {
@@ -934,7 +800,6 @@ where
                                 subjective,
                                 &base_form,
                                 !singular_post_verb && pronoun_as_pl,
-                                placeholder_count,
                                 false,
                                 ctx,
                             )
@@ -947,7 +812,6 @@ where
                 &tense_result,
                 OrthographyRole::Verb,
                 uc,
-                sentence_start,
                 ctx,
             ));
             if !trailing.is_empty() {
@@ -971,7 +835,6 @@ where
                 case.into(),
                 noun_class,
                 as_pl,
-                placeholder_count,
                 uc,
                 ctx,
             );
@@ -982,7 +845,6 @@ where
                     word,
                     OrthographyRole::Adjective,
                     uc,
-                    sentence_start,
                     ctx,
                 ));
             }
@@ -1376,41 +1238,6 @@ impl From<placeholder::NumeralKind> for NumeralStyle {
     }
 }
 
-/// The numeral value backing a placeholder occurrence, when it has one — the count channel owed
-/// by ROADMAP.md Phase 6 item 4 and closed by item 14. Threaded into five of the six `_custom`
-/// hook pairs (see the "which hooks" note below); `None` for a placeholder with no numeral at all
-/// (`` {noun} ``, `` {+noun} ``, `` {-noun} ``).
-///
-/// # Why a struct and not a bare `i64`
-/// `handle_placeholder_impl`'s own `as_pl` computation (`src/lib.rs:429-443`) already treats
-/// `1.0` differently from `1` — English `1.0 inches` takes plural agreement, `1 inch` does not —
-/// which means visible fraction digits are already load-bearing information the crate computes
-/// and then discards. A bare `i64` would lose that distinction a second time, for every fork that
-/// wants to reproduce it (e.g. CLDR's `one`/`other` split cares whether `1.0` was written with a
-/// visible fraction). `fraction_digits` carries exactly that: the count of digits actually
-/// rendered after a decimal point, `0` for a plain integer. This is Open Question 1 of
-/// `docs/superpowers/specs/2026-08-13-number-categories.md`, resolved in favor of the struct.
-///
-/// # Which hooks carry it, and which doesn't
-/// Added to `inflect_verb_custom`, `inflect_pronoun_custom`, `inflect_article_custom`,
-/// `elide_article_custom` and `inflect_adjective_custom` (and their five `_with_context` twins) —
-/// the five hook pairs that previously had *no* numeral signal at all. **Not** added to
-/// `inflect_numeral_custom`/`_with_context`: that hook already receives its own `count:
-/// Option<i64>` plus the rendered `numeral: &str` string itself, from which visible fraction
-/// digits are directly readable (`numeral.split('.').nth(1).map_or(0, str::len)` for the
-/// `NumeralStyle::Digits` case) — a second, differently-typed count parameter there would be
-/// redundant. This is Open Question 2 of the spike, resolved as "the five hooks with no numeral
-/// signal get the new channel; the one hook with richer numeral signal already does not."
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct PlaceholderCount {
-    /// The integer value of the placeholder's numeral (`{$n noun}`/`{#n noun}`).
-    pub value: i64,
-    /// How many digits were actually rendered after a decimal point — `0` for a plain integer,
-    /// e.g. `1` from `{$n noun}` with `n = 1` and no `:fmt`, or `1` from the same placeholder with
-    /// `n = 1.0` and `:.1`.
-    pub fraction_digits: u32,
-}
-
 impl From<placeholder::CaseKind> for GrammaticalCase {
     fn from(case: placeholder::CaseKind) -> Self {
         match case {
@@ -1507,17 +1334,7 @@ pub trait Ranting: std::fmt::Display {
     /// return the singular or plural form as configured, starting with capital if uc is set.
     /// use `#{ranting(singular_end = "..", plural_end = "..")]` if not plural = singular + "s"
     // if name can change this should be overridden to lookup each singular_end and plural_end:
-    ///
-    /// `case` is the placeholder's own grammatical role — the same [`GrammaticalCase`] handed to
-    /// [`inflect_article_custom`](Self::inflect_article_custom) — added by ROADMAP.md Phase 6
-    /// item 14 because English never declines a noun by case but German does (dative plural `den
-    /// Hunden`, genitive `des Hauses`): before this, an implementation had no way to honor the
-    /// placeholder's own case marker (`` {the =noun} `` vs. `` {the @noun} ``) inside `inflect`
-    /// itself, and had to carry case entity-side only. English implementations ignore it. See
-    /// `ranting_i18n`'s `GermanNoun::inflect` (hole 2 in `ranting_i18n/README.md`) for a worked
-    /// example that declines by both `self`'s own entity-carried case override *and*, when there
-    /// is none, this parameter.
-    fn inflect(&self, to_plural: bool, uc: bool, case: GrammaticalCase) -> String;
+    fn inflect(&self, to_plural: bool, uc: bool) -> String;
     /// If an article is only required when emphasizing, set `#{ranting(no_article = "true")]`,
     /// and this function will return accordingly (used by placeholders).
     // examples: Names, languages, elements, food grains, meals (unless particular), sports.
@@ -1538,25 +1355,6 @@ pub trait Ranting: std::fmt::Display {
         NounClass::UNSET
     }
 
-    /// Whether `subject` counts as first-person (the narrator) for
-    /// [`NarrationContext::narration_person`](crate::NarrationContext) viewpoint overrides —
-    /// consulted by `say_with!()`'s viewpoint resolution before anything else, so overriding
-    /// this is enough to make a non-English first-person label (`ich`, `wir`, …) participate
-    /// in viewpoint retelling. Defaults to exactly today's English behavior,
-    /// [`ranting_core::grammar::is_first_person_subject`] (`subject == "I" || subject == "we"`),
-    /// so English output and English-only implementations are unaffected by this hook existing.
-    ///
-    /// `subject` is a parameter rather than read off `self.subjective()` for the same reason
-    /// `inflect_verb_custom` takes an explicit `subject` — wrapper types (`Many`, `Maybe`, `Box`)
-    /// delegate a hook call to an inner value, and the caller — not the callee — decides which
-    /// entity's declared subject is in play.
-    ///
-    /// See ROADMAP.md Phase 6 item 16 and
-    /// `docs/superpowers/specs/2026-08-13-pronoun-inventory.md`'s open question 1.
-    fn is_first_person_subject_custom(&self, subject: &str) -> bool {
-        ranting_core::grammar::is_first_person_subject(subject)
-    }
-
     /// Customize verb conjugation (tense, plurality, person).
     /// Return Some(String) to use custom form, None to fall back to English.
     ///
@@ -1570,7 +1368,7 @@ pub trait Ranting: std::fmt::Display {
     ///
     /// # Examples
     /// ```ignore
-    /// fn inflect_verb_custom(&self, subject: &str, verb: &str, as_plural: bool, count: Option<PlaceholderCount>, uc: bool) -> Option<String> {
+    /// fn inflect_verb_custom(&self, subject: &str, verb: &str, as_plural: bool, uc: bool) -> Option<String> {
     ///     match verb {
     ///         "be" => Some("be".to_string()),  // Pirate: use "be" for all forms
     ///         _ => None,  // Fall back to English for other verbs
@@ -1582,7 +1380,6 @@ pub trait Ranting: std::fmt::Display {
         _subject: &str,
         _verb: &str,
         _as_plural: bool,
-        _count: Option<PlaceholderCount>,
         _uc: bool,
     ) -> Option<String> {
         None
@@ -1608,13 +1405,12 @@ pub trait Ranting: std::fmt::Display {
     ///     subject: &str,
     ///     verb: &str,
     ///     as_plural: bool,
-    ///     count: Option<PlaceholderCount>,
     ///     uc: bool,
     ///     ctx: Option<&NarrationContext>,
     /// ) -> Option<String> {
     ///     match (verb, ctx.and_then(|c| c.register)) {
     ///         ("be", Some(Register::Formal)) => Some(uc_1st_if("shall be", uc)),
-    ///         _ => self.inflect_verb_custom(subject, verb, as_plural, count, uc),
+    ///         _ => self.inflect_verb_custom(subject, verb, as_plural, uc),
     ///     }
     /// }
     /// ```
@@ -1623,11 +1419,10 @@ pub trait Ranting: std::fmt::Display {
         subject: &str,
         verb: &str,
         as_plural: bool,
-        count: Option<PlaceholderCount>,
         uc: bool,
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
-        self.inflect_verb_custom(subject, verb, as_plural, count, uc)
+        self.inflect_verb_custom(subject, verb, as_plural, uc)
     }
 
     /// Customize pronoun inflection (subject/object/possessive forms).
@@ -1640,15 +1435,11 @@ pub trait Ranting: std::fmt::Display {
     ///   [`NounClass::UNSET`] when it declares none. Lets a fork pick a gendered pronoun from the
     ///   entity instead of guessing from its display string.
     /// * `as_plural` - Whether to pluralize
-    /// * `count` - The placeholder's own numeral value, when it has one (see [`PlaceholderCount`]);
-    ///   `None` for a bare `` {noun} ``/`` {+noun} ``/`` {-noun} ``. Verb agreement in Arabic and
-    ///   Slavic is number-sensitive beyond singular/plural, which is why this hook carries it too,
-    ///   not only the article/adjective ones.
     /// * `uc` - Whether to uppercase first character
     ///
     /// # Examples
     /// ```ignore
-    /// fn inflect_pronoun_custom(&self, subject: &str, case: PronounCase, class: NounClass, as_plural: bool, count: Option<PlaceholderCount>, uc: bool) -> Option<String> {
+    /// fn inflect_pronoun_custom(&self, subject: &str, case: PronounCase, class: NounClass, as_plural: bool, uc: bool) -> Option<String> {
     ///     match (case, class.as_str()) {
     ///         // German: a neuter noun is "es", whatever English pronoun it was declared with.
     ///         (PronounCase::Subjective, "neuter") => Some(uc_1st_if("es", uc)),
@@ -1657,14 +1448,12 @@ pub trait Ranting: std::fmt::Display {
     ///     }
     /// }
     /// ```
-    #[allow(clippy::too_many_arguments)]
     fn inflect_pronoun_custom(
         &self,
         _subject: &str,
         _case: PronounCase,
         _class: NounClass,
         _as_plural: bool,
-        _count: Option<PlaceholderCount>,
         _uc: bool,
     ) -> Option<String> {
         None
@@ -1682,11 +1471,10 @@ pub trait Ranting: std::fmt::Display {
         case: PronounCase,
         class: NounClass,
         as_plural: bool,
-        count: Option<PlaceholderCount>,
         uc: bool,
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
-        self.inflect_pronoun_custom(subject, case, class, as_plural, count, uc)
+        self.inflect_pronoun_custom(subject, case, class, as_plural, uc)
     }
 
     /// Customize article inflection (a/an/the/some, demonstratives, etc.).
@@ -1705,13 +1493,11 @@ pub trait Ranting: std::fmt::Display {
     ///   `der`/`die`/`das` reachable from the entity alone, with no gender table keyed by
     ///   `noun_singular` — which would break on homographs, names, and runtime-built nouns.
     /// * `as_plural` - Whether the noun is plural
-    /// * `count` - The placeholder's own numeral value, when it has one (see [`PlaceholderCount`]);
-    ///   `None` for a bare `` {the noun} ``/`` {the +noun} ``/`` {the -noun} ``.
     /// * `uc` - Whether to uppercase first character
     ///
     /// # Examples
     /// ```ignore
-    /// fn inflect_article_custom(&self, article: &str, noun_singular: &str, case: GrammaticalCase, class: NounClass, as_plural: bool, count: Option<PlaceholderCount>, uc: bool) -> Option<String> {
+    /// fn inflect_article_custom(&self, article: &str, noun_singular: &str, case: GrammaticalCase, class: NounClass, as_plural: bool, uc: bool) -> Option<String> {
     ///     match article {
     ///         "the" => {
     ///             // German definite article, declined by class and case.
@@ -1736,7 +1522,6 @@ pub trait Ranting: std::fmt::Display {
         _case: GrammaticalCase,
         _class: NounClass,
         _as_plural: bool,
-        _count: Option<PlaceholderCount>,
         _uc: bool,
     ) -> Option<String> {
         None
@@ -1755,11 +1540,10 @@ pub trait Ranting: std::fmt::Display {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
-        count: Option<PlaceholderCount>,
         uc: bool,
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
-        self.inflect_article_custom(article, noun_singular, case, class, as_plural, count, uc)
+        self.inflect_article_custom(article, noun_singular, case, class, as_plural, uc)
     }
 
     /// Elide or fuse a rendered article with the word that follows it.
@@ -1789,10 +1573,8 @@ pub trait Ranting: std::fmt::Display {
     ///   `"set of 2 chiens"`), then the number when there is one, then the noun name or the
     ///   case-selected pronoun. It is the rendered text, not the dictionary form — that is the
     ///   point of running after assembly.
-    /// * `case` / `class` / `as_plural` / `count` - As for
-    ///   [`inflect_article_custom`](Self::inflect_article_custom). No `uc` parameter here either,
-    ///   for the same reason as `article`: `uc` has already been reset to `false` by the splice
-    ///   point.
+    /// * `case` / `class` / `as_plural` - As for
+    ///   [`inflect_article_custom`](Self::inflect_article_custom).
     ///
     /// # Not reachable from here
     /// Preposition-article fusion across a placeholder boundary (French `de` + `le` → `du`,
@@ -1803,7 +1585,7 @@ pub trait Ranting: std::fmt::Display {
     ///
     /// # Examples
     /// ```ignore
-    /// fn elide_article_custom(&self, article: &str, _separator: &str, following: &str, _case: GrammaticalCase, _class: NounClass, _as_plural: bool, _count: Option<PlaceholderCount>) -> Option<String> {
+    /// fn elide_article_custom(&self, article: &str, _separator: &str, following: &str, _case: GrammaticalCase, _class: NounClass, _as_plural: bool) -> Option<String> {
     ///     let elides = matches!(following.chars().next(), Some(c) if "aeiouhâàéèêîôûAEIOUH".contains(c));
     ///     match article {
     ///         "le" | "la" if elides => Some(format!("l'{following}")),
@@ -1811,7 +1593,6 @@ pub trait Ranting: std::fmt::Display {
     ///     }
     /// }
     /// ```
-    #[allow(clippy::too_many_arguments)]
     fn elide_article_custom(
         &self,
         _article: &str,
@@ -1820,7 +1601,6 @@ pub trait Ranting: std::fmt::Display {
         _case: GrammaticalCase,
         _class: NounClass,
         _as_plural: bool,
-        _count: Option<PlaceholderCount>,
     ) -> Option<String> {
         None
     }
@@ -1839,10 +1619,9 @@ pub trait Ranting: std::fmt::Display {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
-        count: Option<PlaceholderCount>,
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
-        self.elide_article_custom(article, separator, following, case, class, as_plural, count)
+        self.elide_article_custom(article, separator, following, case, class, as_plural)
     }
 
     /// Customize a post-noun adjective (the `!`/`!!` degree slot).
@@ -1869,8 +1648,6 @@ pub trait Ranting: std::fmt::Display {
     ///   [`NounClass::UNSET`]. Together with `as_plural` this is the agreement input.
     /// * `as_plural` - Whether the noun renders plural here (see [`Ranting::is_plural`] for what
     ///   this bool does and does not promise: plural *agreement*, not a referent count).
-    /// * `count` - The placeholder's own numeral value, when it has one (see [`PlaceholderCount`]);
-    ///   `None` for a bare `` {a chat !noir} `` with no `#var`/`$var` marker.
     /// * `uc` - Whether to uppercase the first character. Applied by the caller only on the
     ///   fallback path, so a custom form must apply it itself — [`uc_1st_if`] does that.
     ///
@@ -1883,7 +1660,6 @@ pub trait Ranting: std::fmt::Display {
     ///     _case: GrammaticalCase,
     ///     class: NounClass,
     ///     as_plural: bool,
-    ///     _count: Option<PlaceholderCount>,
     ///     uc: bool,
     /// ) -> Option<String> {
     ///     // French: noir / noire / noirs / noires
@@ -1897,7 +1673,6 @@ pub trait Ranting: std::fmt::Display {
     ///     Some(uc_1st_if(&form, uc))
     /// }
     /// ```
-    #[allow(clippy::too_many_arguments)]
     fn inflect_adjective_custom(
         &self,
         _adjective: &str,
@@ -1905,7 +1680,6 @@ pub trait Ranting: std::fmt::Display {
         _case: GrammaticalCase,
         _class: NounClass,
         _as_plural: bool,
-        _count: Option<PlaceholderCount>,
         _uc: bool,
     ) -> Option<String> {
         None
@@ -1924,11 +1698,10 @@ pub trait Ranting: std::fmt::Display {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
-        count: Option<PlaceholderCount>,
         uc: bool,
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
-        self.inflect_adjective_custom(adjective, degree, case, class, as_plural, count, uc)
+        self.inflect_adjective_custom(adjective, degree, case, class, as_plural, uc)
     }
 
     /// Customize how a placeholder's number is written (the `#var`/`$var` slot).
@@ -2064,16 +1837,6 @@ pub trait Ranting: std::fmt::Display {
     /// * `role` - Which part of the placeholder this is (see [`OrthographyRole`]), so a fork can
     ///   capitalize nouns always and everything else only sentence-initially.
     /// * `uc` - What English would do: uppercase the first character.
-    /// * `sentence_start` - Whether `ranting_core::grammar::PH_START` matched this placeholder as
-    ///   sentence-initial (ROADMAP.md Phase 6 item 17), independent of `uc`. `uc` conflates
-    ///   "sentence-initial" with "forced uppercase by a `^`/`,` marker or an uppercase pre-text
-    ///   word", so a placeholder mid-sentence after `` {,noun} `` or `` {The noun} `` can have
-    ///   `uc == true` and `sentence_start == false`. This is the raw signal alone — useful for a
-    ///   caseless-script fork that still wants to know sentence boundaries for its own
-    ///   punctuation, or for a downstream word-reordering layer (see
-    ///   `docs/superpowers/specs/2026-08-13-word-order-feasibility.md`, open question 2, which
-    ///   this parameter closes) — most forks that only care about letter case can ignore it and
-    ///   use `uc` exactly as before.
     ///
     /// One exception to "`word` arrives uncapitalized": at [`OrthographyRole::Noun`] the name has
     /// already been through [`inflect`](Self::inflect), which takes `uc` itself and is
@@ -2081,12 +1844,11 @@ pub trait Ranting: std::fmt::Display {
     /// `false`. (It is also not simply [`uc_1st_if`]: a derive-generated `name()` for
     /// `#[ranting(name = "designer")]` reads `uc == true` as "as written", not "force
     /// uppercase".) An always-capitalize fork ignores `uc` and is unaffected; a fork that needs
-    /// *position-sensitive* noun casing overrides `name`/`inflect` instead. `sentence_start` is
-    /// unaffected by this exception — it still reports the placeholder's real sentence position.
+    /// *position-sensitive* noun casing overrides `name`/`inflect` instead.
     ///
     /// # Examples
     /// ```ignore
-    /// fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool, sentence_start: bool) -> String {
+    /// fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
     ///     // German: nouns are capitalized wherever they stand, everything else only
     ///     // sentence-initially.
     ///     match role {
@@ -2095,13 +1857,7 @@ pub trait Ranting: std::fmt::Display {
     ///     }
     /// }
     /// ```
-    fn capitalize(
-        &self,
-        word: &str,
-        _role: OrthographyRole,
-        uc: bool,
-        _sentence_start: bool,
-    ) -> String {
+    fn capitalize(&self, word: &str, _role: OrthographyRole, uc: bool) -> String {
         uc_1st_if(word, uc)
     }
 
@@ -2117,9 +1873,8 @@ pub trait Ranting: std::fmt::Display {
         word: &str,
         role: OrthographyRole,
         uc: bool,
-        sentence_start: bool,
         _ctx: Option<&NarrationContext>,
     ) -> String {
-        self.capitalize(word, role, uc, sentence_start)
+        self.capitalize(word, role, uc)
     }
 }

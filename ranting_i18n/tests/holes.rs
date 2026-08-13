@@ -191,22 +191,25 @@ fn hole_5_closed_the_fused_marker_separates_case_marking_from_pronoun_display() 
 // ------------------------------------------ hole 6: no zero-article signal --
 
 #[test]
-fn hole_6_a_missing_article_leaves_a_separator_no_hook_can_remove() {
+fn hole_6_a_missing_article_no_longer_leaves_a_stray_separator() {
     // German has no indefinite plural article ("Hunde bellen"), and the only way
-    // `inflect_article_custom` can say so is to return `""`. The separator is emitted anyway, so
-    // the placeholder renders with a leading space — visible as a doubled space mid-sentence.
+    // `inflect_article_custom` can say so is to return `""`. ROADMAP.md Phase 6 item 11 fixed
+    // `handle_placeholder_impl` so the separator that would normally follow the article is
+    // swallowed along with it, instead of rendering as a stray leading or doubled space.
     assert_eq!(
         say!("{a +*=0 bellen}.", GermanNoun::hund()),
-        " Hunde bellen."
+        "Hunde bellen."
     );
     assert_eq!(
         say!("Dort {a +*=0 bellen}.", GermanNoun::hund()),
-        "Dort  Hunde bellen."
+        "Dort Hunde bellen."
     );
 
-    // `elide_article_custom` cannot repair it: the post-assembly splice is skipped when the
-    // recorded article span is empty, so the hook is never called for a zero-length article.
-    // This one is checked with a probe that would panic if it were reached.
+    // `elide_article_custom` still cannot repair a zero-length article on its own — the
+    // post-assembly splice is still skipped when the recorded article span is empty, so the hook
+    // is still never called for one. That is no longer a problem: the separator is gone before
+    // the hook would have run, not left for it to clean up. Checked with a probe that would
+    // panic if it were reached.
     struct ElisionProbe(GermanNoun);
     impl std::fmt::Display for ElisionProbe {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -271,10 +274,11 @@ fn hole_6_a_missing_article_leaves_a_separator_no_hook_can_remove() {
             Some(following.to_string())
         }
     }
-    assert_eq!(say!("{a +*=0}", ElisionProbe(GermanNoun::hund())), " Hunde");
+    assert_eq!(say!("{a +*=0}", ElisionProbe(GermanNoun::hund())), "Hunde");
 
     // `Ranting::skip_article` does suppress it, but it is per-entity and unconditional: it
     // cannot mean "no article in the plural only", and it would also swallow `der`/`die`/`das`.
+    // Unaffected by item 11's fix — `der`/`die`/`das` is never a zero-length article.
     assert_eq!(say!("{the +*=0}", GermanNoun::hund()), "Die Hunde");
 }
 
