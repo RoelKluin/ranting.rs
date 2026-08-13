@@ -55,7 +55,9 @@ fn generate_plurals_table(manifest_dir: &str) -> io::Result<()> {
         irregular_plurals.push((singular, plural));
     }
 
-    // Generate Rust code for both IRREGULAR_PLURALS and IRREGULAR_SINGULARS tables
+    // Generate Rust code for the IRREGULAR_PLURALS table. get_plural/get_singular
+    // (src/language/plurals.rs) both scan this single table — forward for plurals,
+    // reverse for singulars — so there's no separate reversed table to keep in sync.
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
     let output_path = PathBuf::from(&out_dir).join("irregular_plurals_generated.rs");
 
@@ -67,12 +69,6 @@ fn generate_plurals_table(manifest_dir: &str) -> io::Result<()> {
     code.push_str("pub(super) static IRREGULAR_PLURALS: &[(&str, &str)] = &[\n");
     for (singular, plural) in &irregular_plurals {
         code.push_str(&format!("    (\"{}\", \"{}\"),\n", singular, plural));
-    }
-    code.push_str("];\n\n");
-
-    code.push_str("pub(super) static IRREGULAR_SINGULARS: &[(&str, &str)] = &[\n");
-    for (singular, plural) in &irregular_plurals {
-        code.push_str(&format!("    (\"{}\", \"{}\"),\n", plural, singular));
     }
     code.push_str("];\n");
 

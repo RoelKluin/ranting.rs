@@ -291,6 +291,15 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
      code into the shared crate wouldn't resolve that, only relocate it.
      Wiring plurals up (or consolidating the lookup functions) remains
      unclaimed work, as CLAUDE.md already noted before this item.
+     **Update 2026-08-13**: the `ranting`-side copy is wired now —
+     `english::inflect_noun_irregular` delegates to `get_plural`/`get_singular`
+     instead of re-implementing the same table scan, so `Ranting::inflect()`'s
+     irregular-noun path uses them for real and gains `apply_case`'s
+     case-preservation as a side effect (previously lost, since the caller only
+     applied `uc_1st_if`'s first-letter rule). The `ranting_derive`-side copy
+     is still deliberately unwired (see CLAUDE.md's Architecture section) —
+     noun pluralization happens at `Ranting::inflect()` runtime, never at
+     `ranting_derive` compile time, so it has no call site to wire into.
      `ranting_derive/src/language/adjective.rs` (comparative/superlative
      tables, Phase 3 item 6) also stayed put — `ranting` has no runtime use
      for it, so it was never one of the three copy mechanisms this item
@@ -1063,7 +1072,7 @@ itself. See [v1.3.0](#v130-ecosystem-expansion) below for where a
 | Documentation (Tutorial + Cookbook) | ✅ Complete | 30-40 min tutorial, 10 practical recipes |
 | Placeholder syntax (full grammar support) | ✅ Locked | Sigil grammar is the crate's identity; keep it. v1.2 swaps the `PH_EXT` regex recognizer for a tokenizer (better error spans) without changing the grammar |
 | Built-in English rules (extensibility in v1.1) | ✅ v1.0; 🎯 v1.1 | Free functions now; trait methods in v1.1 |
-| Irregular noun plurals codegen | ✅ Complete (v1.1); ⚠️ lookup not wired to call sites | Single source of truth: data/irregular_plurals.txt; `get_plural`/`get_singular` exist and are tested but currently dead code — see docs/architecture-review-2026-08-13.md |
+| Irregular noun plurals codegen | ✅ Complete (v1.1); ✅ wired to `Ranting::inflect()` (2026-08-13) | Single source of truth: data/irregular_plurals.txt; `english::inflect_noun_irregular` now delegates to `get_plural`/`get_singular`, so `Ranting::inflect()`'s irregular-noun path uses them (with `apply_case` case-preservation). `ranting_derive`'s own copy is still unwired — no compile-time call site exists — see docs/architecture-review-2026-08-13.md |
 | Context-aware runtime tense | ✅ Complete | `say_with!(context, ...)` + `NarrationContext`/`Tense`; unblocks Recounting M9 (tense portion) |
 | Context-aware runtime viewpoint | ✅ Complete | `NarrationContext.narration_person` + `Person`; scoped to first-person-declared (`I`/`we`) nouns only; unblocks Recounting M9 (viewpoint portion) |
 | Narration context threading (register/dialect) | ✅ Complete | `NarrationContext.register`/`.dialect` are inert in-crate; reachable via 3 new `Ranting::*_with_context` hooks (`ctx` as parameter, never entity-owned), defaulting to the pre-existing hooks |

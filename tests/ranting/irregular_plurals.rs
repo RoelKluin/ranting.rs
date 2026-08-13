@@ -65,6 +65,13 @@ fn test_derive_macro_irregular_plural() {
 }
 
 #[test]
+fn test_irregular_plural_preserves_all_caps() {
+    let child = Noun::new("CHILD", "it");
+    let result = say!("The {+0} are here.", child);
+    assert_eq!(result, "The CHILDREN are here.");
+}
+
+#[test]
 fn test_derive_macro_irregular_singular() {
     #[derive_ranting]
     #[ranting(name = "children", subject = "they")]
