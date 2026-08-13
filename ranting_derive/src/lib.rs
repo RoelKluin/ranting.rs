@@ -5,6 +5,7 @@ mod language;
 mod ranting_impl;
 mod str_lit;
 
+use language::adjective;
 use language::english_shared as lang;
 use language::verb as verb_conjugate;
 
@@ -521,51 +522,87 @@ fn handle_param(
     let mut post = caps.name("post").map_or("", |m| m.as_str()).to_string();
 
     // Handle tense markers in post: <verb (past), =verb (continuous), >verb (future), <=verb (past continuous)
-    // When detected, we encode it as ~TENSE~MARKER:CONJUGATED so handle_placeholder can detect it
+    // When detected, we encode it as ~TENSE~MARKER:CONJUGATED so handle_placeholder can detect it.
+    // Handle degree markers in post: !word (comparative), !!word (superlative). Since degree
+    // inflection needs no subject/number/tense agreement, it's baked as a plain ~DEGREE~WORD
+    // sentinel that handle_placeholder_impl emits verbatim (see src/lib.rs), unlike the
+    // ~TENSE~ sentinel which still needs subject-verb agreement resolved at output time.
     if !post.is_empty() {
         let post_trimmed = post.trim_start();
         if !post_trimmed.is_empty() {
-            // Extract marker run: take all leading <, =, >, % characters
+            // Extract marker run: take all leading <, =, >, %, ! characters
             let marker_end = post_trimmed
                 .chars()
-                .take_while(|c| matches!(c, '<' | '=' | '>' | '%'))
+                .take_while(|c| matches!(c, '<' | '=' | '>' | '%' | '!'))
                 .count();
 
             if marker_end > 0 && marker_end < post_trimmed.len() {
                 let marker = &post_trimmed[..marker_end];
                 let rest = post_trimmed[marker_end..].trim_start();
 
-                // Split verb from any trailing content
-                let (base_verb, trailing) =
+                // Split verb/adjective from any trailing content
+                let (base_word, trailing) =
                     rest.split_once(char::is_whitespace).unwrap_or((rest, ""));
-
-                // say!() bakes the fully-conjugated form (as before); say_with!()
-                // bakes the uninflected base verb so it can be re-resolved at
-                // runtime against a NarrationContext (see handle_placeholder_with_context).
-                let conjugated = if runtime_tense {
-                    base_verb.to_string()
-                } else {
-                    match marker {
-                        "<" => verb_conjugate::to_past(base_verb),
-                        "=" => verb_conjugate::to_continuous(base_verb),
-                        ">" => verb_conjugate::to_future(base_verb),
-                        "<=" => verb_conjugate::to_continuous(base_verb),
-                        "%" => verb_conjugate::to_past_participle(base_verb),
-                        "<%" => verb_conjugate::to_past_participle(base_verb),
-                        _ => base_verb.to_string(),
-                    }
-                };
-
-                // Encode tense marker info with special prefix ~TENSE~MARKER:CONJUGATED
                 let leading_space = &post[..post.len() - post_trimmed.len()];
-                post = if trailing.is_empty() {
-                    format!("{}~TENSE~{}:{}", leading_space, marker, conjugated)
+
+                if marker.chars().all(|c| c == '!') {
+                    let degree_word = match marker.len() {
+                        1 => adjective::to_comparative(base_word),
+                        2 => adjective::to_superlative(base_word),
+                        _ => {
+                            let post_span = caps.name("post").unwrap();
+                            return Err((
+                                post_span.start(),
+                                post_span.end(),
+                                "degree marker must be `!` (comparative) or `!!` (superlative)"
+                                    .to_string(),
+                            ));
+                        }
+                    };
+                    // Encode as ~DEGREE~WORD or ~DEGREE~WORD:TRAILING. A ':' separator
+                    // (not a space) is used because WORD may itself contain a literal
+                    // space for periphrastic forms ("more beautiful"), so handle_placeholder
+                    // can't tell WORD apart from TRAILING by whitespace alone.
+                    post = if trailing.is_empty() {
+                        format!("{}~DEGREE~{}", leading_space, degree_word)
+                    } else {
+                        format!("{}~DEGREE~{}:{}", leading_space, degree_word, trailing)
+                    };
+                } else if marker.contains('!') {
+                    let post_span = caps.name("post").unwrap();
+                    return Err((
+                        post_span.start(),
+                        post_span.end(),
+                        "degree marker `!`/`!!` cannot be combined with tense markers".to_string(),
+                    ));
                 } else {
-                    format!(
-                        "{}~TENSE~{}:{} {}",
-                        leading_space, marker, conjugated, trailing
-                    )
-                };
+                    // say!() bakes the fully-conjugated form (as before); say_with!()
+                    // bakes the uninflected base verb so it can be re-resolved at
+                    // runtime against a NarrationContext (see handle_placeholder_with_context).
+                    let conjugated = if runtime_tense {
+                        base_word.to_string()
+                    } else {
+                        match marker {
+                            "<" => verb_conjugate::to_past(base_word),
+                            "=" => verb_conjugate::to_continuous(base_word),
+                            ">" => verb_conjugate::to_future(base_word),
+                            "<=" => verb_conjugate::to_continuous(base_word),
+                            "%" => verb_conjugate::to_past_participle(base_word),
+                            "<%" => verb_conjugate::to_past_participle(base_word),
+                            _ => base_word.to_string(),
+                        }
+                    };
+
+                    // Encode tense marker info with special prefix ~TENSE~MARKER:CONJUGATED
+                    post = if trailing.is_empty() {
+                        format!("{}~TENSE~{}:{}", leading_space, marker, conjugated)
+                    } else {
+                        format!(
+                            "{}~TENSE~{}:{} {}",
+                            leading_space, marker, conjugated, trailing
+                        )
+                    };
+                }
             }
         }
     }

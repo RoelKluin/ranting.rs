@@ -436,7 +436,15 @@ where
         uc = false;
     }
     let etc2;
-    (etc2, post) = split_at_find_end(post, |c| c.is_whitespace()).unwrap_or(("", post));
+    (etc2, post) = if post.starts_with("~DEGREE~") {
+        // A comparative/superlative degree word can itself contain a literal space
+        // ("more beautiful"), so unlike ~TENSE~ (always a single-token verb) it can't
+        // be found by splitting at the last whitespace in `post` — keep the whole
+        // sentinel intact and let the ~DEGREE~ handler below split word from trailing.
+        ("", post)
+    } else {
+        split_at_find_end(post, |c| c.is_whitespace()).unwrap_or(("", post))
+    };
 
     res.push_str(etc2);
     if !post.is_empty() {
@@ -445,10 +453,31 @@ where
                 res.push_str(adapt_possesive_s(noun, as_pl));
             }
             v => {
-                // Check for tense marker encoding: ~TENSE~MARKER:WORD
-                // (say!() bakes WORD already conjugated; say_with!() bakes the base
-                // verb so it can be re-resolved here against a runtime NarrationContext.)
-                if let Some(remainder) = v.strip_prefix("~TENSE~") {
+                // Check for degree marker encoding: ~DEGREE~WORD (comparative/superlative
+                // adjective, baked fully at compile time by ranting_derive from the `!`/`!!`
+                // post-noun markers — no subject/number/tense agreement applies, so unlike
+                // ~TENSE~ it's emitted verbatim rather than run through conjugate_verb()).
+                if let Some(remainder) = v.strip_prefix("~DEGREE~") {
+                    // A trailing word or two (e.g. "!good at chess") is baked after a
+                    // ':' separator, since the degree word itself may contain a real
+                    // space ("more beautiful") and so can't be told apart from trailing
+                    // content by whitespace alone (see the ~TENSE~ marker:conjugated
+                    // convention this mirrors).
+                    let (word, trailing) = remainder.split_once(':').unwrap_or((remainder, ""));
+                    if uc {
+                        let mut chars = word.chars();
+                        if let Some(first) = chars.next() {
+                            res.push_str(&first.to_uppercase().collect::<String>());
+                            res.push_str(chars.as_str());
+                        }
+                    } else {
+                        res.push_str(word);
+                    }
+                    if !trailing.is_empty() {
+                        res.push(' ');
+                        res.push_str(trailing);
+                    }
+                } else if let Some(remainder) = v.strip_prefix("~TENSE~") {
                     if let Some((marker_part, word)) = remainder.split_once(':') {
                         if !marker_part.is_empty() {
                             let (word, trailing) = word.split_once(' ').unwrap_or((word, ""));

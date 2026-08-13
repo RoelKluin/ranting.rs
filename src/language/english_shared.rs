@@ -48,7 +48,7 @@ pub(crate) static PH_EXT: &str = r"^(?x)
     (?P<nr>[+-]|(?:\#|\??\$)\w+\s+)?+
     (?P<case>[`=@~*?%])?+
     (?P<noun>[\w-]+)
-    (?P<post>\s+[<=>%]*(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$";
+    (?P<post>\s+[<=>%!]*(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$";
 
 /// An enum with pronouns in subjective form.
 #[derive(EnumString, Copy, Clone, Debug, strum_macros::EnumIter)]

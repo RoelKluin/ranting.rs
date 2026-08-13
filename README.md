@@ -121,6 +121,13 @@ fn main() {
   * `` ` `` - possesive
   * `~` - adjective
   * `%` - reflexive (myself, yourself, thyself, himself, herself, itself, ourselves, yourselves, themselves)
+
+- A post-noun word can carry a degree marker to convert it to its comparative or superlative form:
+  `{noun !word}` for comparative (good → better), `{noun !!word}` for superlative (good → best).
+  Degree needs no subject/number agreement, so it's resolved once at compile time from an irregular
+  table (`data/irregular_adjectives.txt`) plus regular `-er`/`-est` (or periphrastic `more`/`most` for
+  longer adjectives) rules — e.g. `say!("{?w !good} than that.", w)` → `"better than that."`,
+  `say!("{?w !!good} in class", w)` → `"best in class"`.
   * `*` - display the name (as is the default) but also mark this word as the Ranting element in the placeholder.
           "A {*can can} contain water."
   (removed the mutname variant)
