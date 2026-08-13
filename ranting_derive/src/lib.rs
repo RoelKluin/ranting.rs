@@ -77,6 +77,14 @@ pub fn ask(input: TokenStream1) -> TokenStream1 {
 /// literal or end of input), and `{$name}` (digits, parsed to u64) captures
 /// — returning `None` on no match, or the captured value(s) on match: bare
 /// for 0/1 captures, a tuple for 2+, matching say!()'s positional style.
+///
+/// Whitespace is the only word boundary heed!() knows, permanently: every
+/// literal/capture boundary must be whitespace in the input. This is
+/// script-agnostic rather than ASCII-only — `heed!("取る {item}", "取る 剣")`
+/// captures `"剣"` — but continuous-script input written without spaces
+/// (`"剣を取る"`) simply returns `None` rather than being split by guesswork.
+/// Capture such a run whole (`heed!("{clause}", "剣を取る")`) and segment it
+/// with a real tokenizer. See README.md and ROADMAP.md Phase 6 item 9.
 #[proc_macro]
 pub fn heed(input: TokenStream1) -> TokenStream1 {
     let output = parse_macro_input!(input as heed::Heed);

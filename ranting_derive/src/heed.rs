@@ -127,6 +127,16 @@ fn parse_heed_segments(slice: &StrLitSlice) -> syn::Result<Vec<HeedSegment>> {
 /// mandatory (`\s+`); leading/trailing whitespace in the input is tolerated
 /// (`\s*` at both ends). Punctuation-only literals (no alphanumeric chars)
 /// attach to the preceding segment without whitespace.
+///
+/// The mandatory `\s+` is a **decided, permanent restriction**, not a gap:
+/// whitespace is the only word boundary `heed!()`/`ask!()` know, and no
+/// tokenizer hook exists here (ROADMAP.md Phase 6 item 9). Note this is not an
+/// ASCII/Latin restriction — the pattern is script-agnostic, so `"取る {item}"`
+/// against `"取る 剣"` captures fine; what will not match is a template whose
+/// segments abut, e.g. `"{item}を取る"` against `"剣を取る"`, which returns
+/// `None` rather than letting backtracking invent a split. Relaxing these
+/// joins to `\s*` would trade that honest `None` for a silently wrong capture.
+/// See `tests/ranting/script_segmentation.rs`.
 fn build_heed_pattern(segments: &[HeedSegment]) -> (String, Vec<HeedCapture>) {
     let mut pattern = String::from(r"^\s*");
     let mut captures = Vec::new();
