@@ -1433,7 +1433,7 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      should exercise `du`/`Sie` as the cheapest validation of this spike's
      central claim.
 
-4. **Number-category design spike** (doc-only, 6-8 hours)
+4. ✅ **Number-category design spike** (doc-only, 6-8 hours)
    - Number is boolean everywhere in the crate — `is_plural()`,
      `as_plural: bool` in all six `_custom` hooks, `inflect(to_plural: bool,
      ...)`, the `+`/`-` markers, `#var`/`$var` numeric agreement. Arabic dual,
@@ -1451,6 +1451,92 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      option is recommended, state plainly in ROADMAP.md and CLAUDE.md what
      `as_plural: bool` does and does not promise, so a fork author isn't
      surprised.
+   - ✅ **COMPLETE 2026-08-13** —
+     `docs/superpowers/specs/2026-08-13-number-categories.md`. Conclusion:
+     **(b), narrowed — keep the bool authoritative for English and add a
+     *count* channel (not a category channel) to the hooks, folded into item
+     5's already-planned signature change.** Doc-only as scoped; no production
+     code, no test changes. The recommended change is *not* implemented by
+     this item and must be scheduled — item 5 is the recommended landing site.
+   - **What `as_plural: bool` promises** (the statement this item requires in
+     both files; the CLAUDE.md "Non-obvious behaviors" bullet is its twin):
+     *render the plural **agreement** form*, resolved per placeholder
+     occurrence at `src/lib.rs:371-381`. It does **not** promise the referent
+     count is > 1 — `is_subjective_plural("they")` is `true` (singular *they*:
+     plural agreement, singular reference), an empty `Many` is plural ("there
+     **are** no items"), and `inflect_reflexive` special-cases the same bool
+     for `yourself`/`yourselves` because "you" is number-underspecified
+     elsewhere. It does not let a fork recover the count either.
+   - **Inventory, as the item asked** — the bool appears in: the 6 `_custom`
+     hooks (`src/lib.rs:1121`-`1289`) plus `is_plural()`/`inflect(to_plural,..)`
+     (`:1077`/`:1081`); its single computation site `as_pl`
+     (`src/lib.rs:371-381`) and every consumer (`ArticleRenderCtx.as_pl`,
+     `conjugate_verb`, the five `CaseKind` pronoun arms, `adapt_possesive_s`);
+     nine functions in `src/language/english.rs` (three of them **public**:
+     `inflect_possessive`, `inflect_reflexive`, `inflect_noun_irregular`) and
+     `plurals.rs`'s `get_plural`/`get_singular`; public
+     `is_subjective_plural` (`ranting_core/src/grammar.rs:130`), the ultimate
+     source of an entity's number — `Noun` has **no** number field, it derives
+     from the `SubjectPronoun`; 24 delegations in `src/collections.rs`; the
+     `plural_you` derive attribute; and generated code —
+     `ranting_derive/src/lib.rs:781` bakes `#expr.is_plural()` into every
+     possessive call site and `ranting_impl.rs:118-215` emits
+     `is_plural`/`inflect` in two branches, so changing those two return types
+     is a **lockstep `ranting`↔`ranting_derive` version bump**, not a trait
+     edit. `PlaceholderSpec.plurality` is already a `&'static str`, but
+     `ph_ext::match_nr` accepts only `[+-]|(#|\??\$)\w+`, so a dual marker
+     would be a compile-time *grammar* change.
+   - **The discriminating finding**: the number is **gone by runtime**. `nr`
+     reaches `handle_placeholder` as an already-formatted `String` (`#var` is
+     already English *words*), the bool is recovered by string-sniffing
+     (`nr.trim_start() != "one"`, `s != "1"`), and that string is never passed
+     to any hook. So Arabic dual, Slavic paucal and CLDR
+     `zero/one/two/few/many/other` are unreachable **with no side-table
+     workaround** — unlike item 2's gender gap — and a literal
+     `plural_category()` cannot be computed from what hooks receive today by
+     the fork *or* the crate. That is (b)'s real cost, and it is most of (c)'s
+     plumbing.
+   - (a) keep the bool, categories out of scope — **rejected**: it contradicts
+     this phase's own v1.3 success criterion 1, which names "number" among the
+     signals obtainable without an external side table. If ever taken, that
+     criterion must be reworded in the same change; shipping (a) while leaving
+     it standing is the one outcome the spec rules out.
+   - (c) `Number` enum replacing the bool — **rejected on cost-to-increment**:
+     breaks four kinds of surface at once (trait signatures, four public free
+     functions, generated code, 24 wrapper delegations) for every user
+     including English-only ones; **still** needs (b)'s numeral threading to be
+     usable; needs a grammar change before any non-boolean variant is
+     constructible (a `Dual` nothing can produce is worse than a bool); and
+     forces `src/language/english.rs` to interpret non-English categories —
+     item 3's objection to extending `SubjectPronoun`, repeated.
+   - **Two amendments to (b) as scoped**, both forced by the code: a *count*,
+     not a category (mapping number→category is a per-language, versioned CLDR
+     function; `ranting` carries the signal, never the interpretation — item
+     2's `NounClass` precedent), and a hook *parameter*, not an entity method
+     (`Many`/`Maybe`/`Box` delegate hooks where `self` is the *inner* value —
+     item 2's exact wrapper argument). Also rejected: passing the rendered
+     `nr: &str` (the fork would parse back a string its own item-8 numeral hook
+     wrote), a `{2noun}` dual marker (grammar surface for every English user to
+     serve one construction — item 1's point-fix objection), and deferring past
+     item 5 (costs the phase a second signature break).
+   - **Prerequisite recorded for item 8, regardless of option**: `src/lib.rs:376`
+     compares against the literal English word `"one"`, so the moment a fork's
+     numeral hook spells `#var` in its own language the placeholder silently
+     takes plural agreement for a count of one.
+   - **Stays impossible under the recommendation**: categorial number with no
+     numeral in the placeholder (bare `{+noun}` dual), numeral-governed case
+     (Russian *два дома* — `GrammaticalCase` comes from the placeholder's
+     `CaseKind`, never from a numeral), Welsh/Irish number-triggered mutation
+     (needs item 7 as well), and number under `conjugate_auxiliary`
+     (`src/language/auxiliary.rs:15`), which takes no number at all and sits
+     behind no hook.
+   - Follow-up, non-blocking: the exact count payload (bare `i64` vs. a struct
+     carrying visible fraction digits, so the existing `1.0`-is-not-`one`
+     behavior at `src/lib.rs:379` stays expressible); whether the count goes on
+     all six hooks or only article/pronoun/adjective (current reading: all six —
+     unlike `NounClass`, number *is* a verb-agreement axis); and whether `Many`
+     should report its `len()` as the count when a placeholder has no numeral,
+     the only path to categorial number without a grammar change.
 
 5. **Adjective-agreement runtime hook** (10-14 hours)
    - Degree (`!`/`!!`, Phase 3 item 6) is baked entirely at compile time in
@@ -1465,6 +1551,12 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      `None` — so `say!()`'s English output is unchanged.
    - Worked test: French `un chat noir` / `une robe noire` / `des chats noirs`
      from one template.
+   - **The number type for this hook is decided by item 4's spike**
+     (`docs/superpowers/specs/2026-08-13-number-categories.md`): `as_plural:
+     bool` *plus* a count parameter — and that count parameter should be added
+     to the other six `_custom` hooks in this same change, so Phase 6 breaks
+     hook signatures once rather than twice. Read that spec before fixing this
+     hook's signature.
 
 6. **Orthography & capitalization hook** (8-12 hours)
    - `uc_1st_if`, the sentence-start-uppercase default, the `,`/`^` markers, and
@@ -1496,6 +1588,13 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
    - Add a numeral hook on `Ranting` (or a small `Numeral` trait a language
      module implements), defaulting to the current English speller, threaded
      wherever `#var`/`$var` is rendered.
+   - **Prerequisite, found by item 4's spike**: `src/lib.rs:376` decides
+     plurality for `#var` by string-sniffing the rendered numeral against the
+     literal English word `"one"`. Overriding `#var` rendering therefore
+     silently flips number agreement for a count of one (`"eins"` != `"one"` →
+     plural article, verb and pronoun). Either take the count from item 4's
+     recommended count channel or document the break explicitly. See
+     `docs/superpowers/specs/2026-08-13-number-categories.md`.
 
 9. **Non-space-delimited script support in `heed!()`/`ask!()`** (10-14 hours)
    - `{name}` is documented as capturing "one whitespace-delimited token" and the
