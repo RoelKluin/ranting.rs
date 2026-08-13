@@ -186,6 +186,7 @@ struct PronounForms {
     objective: &'static str,
     possessive: &'static str,
     adjective: &'static str,
+    reflexive: &'static str,
 }
 
 impl SubjectPronoun {
@@ -197,54 +198,63 @@ impl SubjectPronoun {
                 objective: "me",
                 possessive: "my",
                 adjective: "mine",
+                reflexive: "myself",
             },
             You => PronounForms {
                 subjective: "you",
                 objective: "you",
                 possessive: "your",
                 adjective: "yours",
+                reflexive: "yourself",
             },
             Thou => PronounForms {
                 subjective: "thou",
                 objective: "thee",
                 possessive: "thy",
                 adjective: "thine",
+                reflexive: "thyself",
             },
             He => PronounForms {
                 subjective: "he",
                 objective: "him",
                 possessive: "his",
                 adjective: "his",
+                reflexive: "himself",
             },
             She => PronounForms {
                 subjective: "she",
                 objective: "her",
                 possessive: "her",
                 adjective: "hers",
+                reflexive: "herself",
             },
             It => PronounForms {
                 subjective: "it",
                 objective: "it",
                 possessive: "its",
                 adjective: "its",
+                reflexive: "itself",
             },
             We => PronounForms {
                 subjective: "we",
                 objective: "us",
                 possessive: "our",
                 adjective: "ours",
+                reflexive: "ourselves",
             },
             Ye => PronounForms {
                 subjective: "ye",
                 objective: "you",
                 possessive: "your",
                 adjective: "yours",
+                reflexive: "yourselves",
             },
             They => PronounForms {
                 subjective: "they",
                 objective: "them",
                 possessive: "their",
                 adjective: "theirs",
+                reflexive: "themselves",
             },
         }
     }
@@ -297,6 +307,38 @@ pub fn inflect_possesive(subject: &str, to_plural: bool, uc: bool) -> String {
         .expect("Not a subject")
         .forms();
     uc_1st_if(forms.possessive, uc)
+}
+
+/// Inflect reflexive pronoun (myself, yourself, himself, herself, itself, thyself,
+/// ourselves, yourselves, themselves) as to_plural indicates. The first character
+/// capitalized with uc set.
+///
+/// `pluralize_pronoun` leaves "you" as "you" regardless of number (English doesn't
+/// distinguish singular/plural "you" in its subjective/objective/possessive forms),
+/// so unlike the other `inflect_*` functions here, reflexive "you" is special-cased
+/// on `to_plural` directly to choose between "yourself" and "yourselves".
+///
+/// # Examples
+///
+/// ```rust
+/// # use ranting::{Noun, say, Ranting};
+/// # fn main() {
+///     let alex = Noun::new("Alex", "they");
+///
+/// assert_eq!(say!("{alex hurt} {%alex}."), "Alex hurt themselves.".to_string());
+/// # }
+/// ```
+pub fn inflect_reflexive(subject: &str, to_plural: bool, uc: bool) -> String {
+    let pluralized = pluralize_pronoun(subject, to_plural);
+    let reflexive = if pluralized == "you" {
+        if to_plural { "yourselves" } else { "yourself" }
+    } else {
+        SubjectPronoun::from_str(pluralized)
+            .expect("Not a subject")
+            .forms()
+            .reflexive
+    };
+    uc_1st_if(reflexive, uc)
 }
 
 /// Look up singular/plural form in irregular noun table.
@@ -444,18 +486,20 @@ mod tests {
     }
     #[test]
     fn upper() {
-        assert_eq!(["I", "you", "she", "they"]
-     .iter()
-     .map(|s| {
-         let w = Noun::new("one", s);
-         say!("{=?w're} {the w}? {=?w'd} say for {`w}self! {=?w've} got here all of {@w}. ")
-        })
-     .collect::<String>(),
-     "'M the one? 'D say for myself! 'Ve got here all of me. \
+        assert_eq!(
+            ["I", "you", "she", "they"]
+                .iter()
+                .map(|s| {
+                    let w = Noun::new("one", s);
+                    say!("{=?w're} {the w}? {=?w'd} say for {%w}! {=?w've} got here all of {@w}. ")
+                })
+                .collect::<String>(),
+            "'M the one? 'D say for myself! 'Ve got here all of me. \
      'Re the one? 'D say for yourself! 'Ve got here all of you. \
      'S the one? 'D say for herself! 'S got here all of her. \
-     'Re the one? 'D say for theirself! 'Ve got here all of them. "
-     .to_string());
+     'Re the one? 'D say for themselves! 'Ve got here all of them. "
+                .to_string()
+        );
     }
 
     #[test]
@@ -508,30 +552,81 @@ mod tests {
     fn pronoun_forms_match_expected_table() {
         use strum::IntoEnumIterator;
         #[rustfmt::skip]
-        const EXPECTED: &[(SubjectPronoun, &str, &str, &str, &str)] = &[
-            (SubjectPronoun::I, "I", "me", "my", "mine"),
-            (SubjectPronoun::You, "you", "you", "your", "yours"),
-            (SubjectPronoun::Thou, "thou", "thee", "thy", "thine"),
-            (SubjectPronoun::He, "he", "him", "his", "his"),
-            (SubjectPronoun::She, "she", "her", "her", "hers"),
-            (SubjectPronoun::It, "it", "it", "its", "its"),
-            (SubjectPronoun::We, "we", "us", "our", "ours"),
-            (SubjectPronoun::Ye, "ye", "you", "your", "yours"),
-            (SubjectPronoun::They, "they", "them", "their", "theirs"),
+        const EXPECTED: &[(SubjectPronoun, &str, &str, &str, &str, &str)] = &[
+            (SubjectPronoun::I, "I", "me", "my", "mine", "myself"),
+            (SubjectPronoun::You, "you", "you", "your", "yours", "yourself"),
+            (SubjectPronoun::Thou, "thou", "thee", "thy", "thine", "thyself"),
+            (SubjectPronoun::He, "he", "him", "his", "his", "himself"),
+            (SubjectPronoun::She, "she", "her", "her", "hers", "herself"),
+            (SubjectPronoun::It, "it", "it", "its", "its", "itself"),
+            (SubjectPronoun::We, "we", "us", "our", "ours", "ourselves"),
+            (SubjectPronoun::Ye, "ye", "you", "your", "yours", "yourselves"),
+            (SubjectPronoun::They, "they", "them", "their", "theirs", "themselves"),
         ];
         assert_eq!(
             SubjectPronoun::iter().count(),
             EXPECTED.len(),
             "variant count mismatch"
         );
-        for (p, expected_subj, expected_obj, expected_poss, expected_adj) in EXPECTED {
+        for (p, expected_subj, expected_obj, expected_poss, expected_adj, expected_refl) in EXPECTED
+        {
             let f = p.forms();
             assert_eq!(
-                (f.subjective, f.objective, f.possessive, f.adjective),
-                (*expected_subj, *expected_obj, *expected_poss, *expected_adj),
+                (
+                    f.subjective,
+                    f.objective,
+                    f.possessive,
+                    f.adjective,
+                    f.reflexive
+                ),
+                (
+                    *expected_subj,
+                    *expected_obj,
+                    *expected_poss,
+                    *expected_adj,
+                    *expected_refl
+                ),
                 "pronoun forms mismatch for {:?}",
                 p
             );
         }
+    }
+
+    #[test]
+    fn inflect_reflexive_all_pronouns() {
+        use super::inflect_reflexive;
+        // pass each pronoun's own natural plurality through, mirroring how
+        // handle_placeholder derives `to_plural` from the noun/subject itself.
+        assert_eq!(
+            ["I", "you", "thou", "he", "she", "it", "we", "ye", "they"]
+                .iter()
+                .map(|s| inflect_reflexive(s, is_subjective_plural(s), false))
+                .collect::<Vec<_>>(),
+            vec![
+                "myself",
+                "yourself",
+                "thyself",
+                "himself",
+                "herself",
+                "itself",
+                "ourselves",
+                "yourselves",
+                "themselves",
+            ]
+        );
+    }
+
+    #[test]
+    fn inflect_reflexive_you_pluralizes_by_flag() {
+        use super::inflect_reflexive;
+        assert_eq!(inflect_reflexive("you", false, false), "yourself");
+        assert_eq!(inflect_reflexive("you", true, false), "yourselves");
+    }
+
+    #[test]
+    fn inflect_reflexive_uc() {
+        use super::inflect_reflexive;
+        assert_eq!(inflect_reflexive("they", true, true), "Themselves");
+        assert_eq!(inflect_reflexive("it", false, true), "Itself");
     }
 }
