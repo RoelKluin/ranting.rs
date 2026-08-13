@@ -11,6 +11,7 @@ mod custom_inflection;
 mod edge_cases;
 mod elision;
 mod error_messages;
+mod first_person_hook;
 mod grammatical_case;
 mod heed;
 mod heed_derive;

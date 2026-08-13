@@ -6,8 +6,7 @@
 //! `say!()` is unaffected: without a context, placeholder markers keep
 //! meaning exactly what they meant in v1.0.
 
-use crate::is_subjective_plural;
-use ranting_core::grammar::is_first_person_subject;
+use crate::{Ranting, is_subjective_plural};
 use ranting_core::verb_conjugate;
 
 /// One of the 7 tenses `say!()` supports via placeholder markers.
@@ -143,12 +142,19 @@ impl NarrationContext {
 /// data for a first-person-declared noun to render a gendered third-person
 /// pronoun instead. Nouns that want gendered third-person output should
 /// declare that `subject` directly rather than relying on this override.
-pub(crate) fn resolve_viewpoint(
+///
+/// Whether `declared_subject` counts as first-person is delegated to
+/// `noun.is_first_person_subject_custom` (ROADMAP.md Phase 6 item 16) rather
+/// than hard-coded, so a fork whose first-person labels aren't `I`/`we` can
+/// still get viewpoint retelling by overriding that hook — English behavior
+/// is unchanged, since the hook's default is exactly the old hard-coded check.
+pub(crate) fn resolve_viewpoint<R: Ranting + ?Sized>(
+    noun: &R,
     declared_subject: &str,
     narration_person: Option<Person>,
 ) -> Option<(&'static str, bool)> {
     let person = narration_person?;
-    if person == Person::First || !is_first_person_subject(declared_subject) {
+    if person == Person::First || !noun.is_first_person_subject_custom(declared_subject) {
         return None;
     }
     let rendered = match person {

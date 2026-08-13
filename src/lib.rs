@@ -485,8 +485,8 @@ where
     // pass through unchanged, and the article/noun-name plurality (`as_pl`
     // above) is untouched either way: viewpoint governs which pronoun set
     // and verb agreement render, not how the noun's own name pluralizes.
-    let viewpoint =
-        ctx.and_then(|c| narration::resolve_viewpoint(declared_subjective, c.narration_person));
+    let viewpoint = ctx
+        .and_then(|c| narration::resolve_viewpoint(noun, declared_subjective, c.narration_person));
     let subjective = viewpoint.map_or(declared_subjective, |(rendered, _)| rendered);
     let pronoun_as_pl = viewpoint.map_or(as_pl, |(_, forced_pl)| forced_pl);
     // The entity's own lexical gender / noun class, handed to the pronoun hooks below. Read off
@@ -1463,6 +1463,25 @@ pub trait Ranting: std::fmt::Display {
     /// the display string. See [`NounClass`] for why the label is open-ended.
     fn noun_class(&self) -> NounClass {
         NounClass::UNSET
+    }
+
+    /// Whether `subject` counts as first-person (the narrator) for
+    /// [`NarrationContext::narration_person`](crate::NarrationContext) viewpoint overrides —
+    /// consulted by `say_with!()`'s viewpoint resolution before anything else, so overriding
+    /// this is enough to make a non-English first-person label (`ich`, `wir`, …) participate
+    /// in viewpoint retelling. Defaults to exactly today's English behavior,
+    /// [`ranting_core::grammar::is_first_person_subject`] (`subject == "I" || subject == "we"`),
+    /// so English output and English-only implementations are unaffected by this hook existing.
+    ///
+    /// `subject` is a parameter rather than read off `self.subjective()` for the same reason
+    /// `inflect_verb_custom` takes an explicit `subject` — wrapper types (`Many`, `Maybe`, `Box`)
+    /// delegate a hook call to an inner value, and the caller — not the callee — decides which
+    /// entity's declared subject is in play.
+    ///
+    /// See ROADMAP.md Phase 6 item 16 and
+    /// `docs/superpowers/specs/2026-08-13-pronoun-inventory.md`'s open question 1.
+    fn is_first_person_subject_custom(&self, subject: &str) -> bool {
+        ranting_core::grammar::is_first_person_subject(subject)
     }
 
     /// Customize verb conjugation (tense, plurality, person).

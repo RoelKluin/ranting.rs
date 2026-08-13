@@ -2330,9 +2330,35 @@ because it exercises everything before it.*
     - ✅ Documented in `docs/EXTENSIBILITY.md` §2.9 and a new CLAUDE.md
       "Non-obvious behaviors" bullet.
 
-16. **`is_first_person_subject` as an overridable hook** (6-8 hours) — open
+✅ 16. **`is_first_person_subject` as an overridable hook** (6-8 hours) — open
     question 1 of the pronoun-inventory spec, which calls it the one named gap
     with no fork-side workaround.
+    - ✅ Added `Ranting::is_first_person_subject_custom(&self, subject: &str)
+      -> bool`, defaulting to exactly the old hard-coded
+      `ranting_core::grammar::is_first_person_subject` (`matches!(subject, "I"
+      | "we")`) — English output and every implementation that doesn't
+      override it are byte-identical to before.
+    - ✅ `narration::resolve_viewpoint` (`src/narration.rs`) now takes
+      `noun: &R` and calls `noun.is_first_person_subject_custom(declared_subject)`
+      instead of calling the free function directly; its one call site
+      (`handle_placeholder_impl`, `src/lib.rs`) already had `noun` in scope, so
+      the change is additive at both ends — no other signature moved.
+    - ✅ `Many`/`Maybe`/`Box` (`src/collections.rs`) all delegate the new hook,
+      matching the existing `noun_class()` delegation rule (`Many` only at
+      `len() == 1`; `Box`/`Maybe(Some(_))` always; the `None`/0-or-2+ arms fall
+      back to the free function), so wrapping a fork's impl in any of the three
+      doesn't silently lose the override.
+    - ✅ New `tests/ranting/first_person_hook.rs`: a hand-written `GermanNarrator`
+      (`subject` "ich"/"wir") overriding the hook gets `say_with!()` viewpoint
+      retelling exactly like an English `subject = "I"` noun; a sibling
+      `UnhookedGermanNarrator` with no override pins the pre-item-16 gap this
+      closes — `narration_person` remains a byte-identical no-op, and the
+      unrecognized label separately degrades to `it`'s forms via the
+      pre-existing `unwrap_or(It)` fallback, which is unrelated to and
+      unaffected by this hook.
+    - ✅ Documented in `docs/EXTENSIBILITY.md` §2.10, `docs/API.md`'s `Ranting`
+      trait table and its Narration Context section, and a new CLAUDE.md
+      "Non-obvious behaviors" bullet.
 
 17. **Sentence detection beyond Latin punctuation** (8-12 hours)
     - `PH_START` decides a placeholder is sentence-initial only after an ASCII
