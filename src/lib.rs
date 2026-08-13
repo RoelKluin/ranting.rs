@@ -831,6 +831,26 @@ pub enum PronounCase {
 ///     "I will grant him his fight, but he is going to lose today.");
 /// # }
 /// ```
+///
+/// Using singular they for an individual with gender-neutral pronouns (the runnable copy of
+/// `ranting_derive::derive_ranting`'s own doc example, which can't compile standalone there --
+/// see CLAUDE.md's "Doctests in proc-macro crate" note):
+///
+/// ```
+/// # use ranting::*;
+/// # use ranting_derive::*;
+/// #[derive_ranting]
+/// #[ranting(subject = "they", name = "Alex")]
+/// struct Person {}
+///
+/// # fn main() {
+/// let alex = Person {};
+/// assert_eq!(
+///     say!("{=alex are} a wonderful colleague."),
+///     "They are a wonderful colleague.".to_string()
+/// );
+/// # }
+/// ```
 // By overriding functions one can adapt default behavior, which affects the
 // [placeholder](https://docs.rs/ranting_derive/0.2.1/ranting_derive/) behavior.
 //

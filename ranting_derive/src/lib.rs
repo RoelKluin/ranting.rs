@@ -353,7 +353,11 @@ impl ToTokens for Ask {
 ///
 /// Using singular they for an individual with gender-neutral pronouns:
 ///
-/// ```rust
+/// ```rust,ignore
+/// // `ignore`: this doctest can't compile standalone -- `ranting_derive` can't depend on
+/// // `ranting` (that dependency runs the other way), so `use ranting::say` can never
+/// // resolve here. See CLAUDE.md's "Doctests in proc-macro crate" note. The runnable
+/// // copy of this exact example lives on `Ranting`'s trait doc in ranting/src/lib.rs.
 /// # use ranting::say;
 /// # use ranting_derive::derive_ranting;
 /// #[derive_ranting]
