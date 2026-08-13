@@ -589,6 +589,97 @@ item — the same rule as `noun_class()` (§2.4) and `capitalize()` (§2.6), and
 for 2+ items `following` is the joined phrase, whose members may elide differently.
 `Maybe(Some(x))` forwards to `x`; `Maybe(None)` declines.
 
+### 2.8 Numerals: `inflect_numeral_custom()` (v1.3)
+
+```rust
+fn inflect_numeral_custom(
+    &self,
+    numeral: &str,          // the number as English renders it — the fallback if this declines
+    count: Option<i64>,     // the number itself, when available (see below)
+    style: NumeralStyle,    // Words for `#var`, Digits for `$var`
+    case: GrammaticalCase,
+    class: NounClass,
+    as_plural: bool,
+) -> Option<String>         // Some(numeral) replaces the rendering; None keeps English's
+
+fn inflect_numeral_custom_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) -> Option<String>
+```
+
+**Why it exists.** A placeholder can write its number two ways, and before this hook both were
+hard-coded: `` {#n boots} `` spelled it in English words via the `english-numbers` crate, and
+`` {$n boots} `` printed the argument's own `Display`, i.e. ASCII digits. Every other language
+needs its own speller (`zwei`, `deux`, `два`), several agree the numeral itself with the noun's
+gender and case — Russian `два стола` but `две книги` — and several scripts have digits of their
+own (Devanagari `२`, Arabic-Indic `٢`).
+
+**What changed to make it possible.** `#var` used to be spelled by the *macro*, baked into the
+`format!()` argument as a finished English word. It is spelled at runtime now, from a count the
+macro bakes instead, with `rant_convert_numbers` — the same speller — as the fallback. That is why
+English output is unchanged and why a fork can replace the speller outright rather than
+post-processing its output. The number's leading space moved along with it, out of the baked string
+and into `placeholder::NumeralSpec`, so the text handed to this hook is the numeral alone.
+
+**Worked example: Russian gender agreement.**
+
+```rust
+fn inflect_numeral_custom(
+    &self, numeral: &str, count: Option<i64>, style: NumeralStyle,
+    _case: GrammaticalCase, class: NounClass, _as_plural: bool,
+) -> Option<String> {
+    match style {
+        NumeralStyle::Words => Some(match (count?, class.as_str()) {
+            (1, "feminine") => "одна".to_string(),
+            (1, _)          => "один".to_string(),
+            (2, "feminine") => "две".to_string(),
+            (2, _)          => "два".to_string(),
+            (n, _)          => n.to_string(),
+        }),
+        // Devanagari digits: a transcription of what English rendered.
+        NumeralStyle::Digits => Some(numeral.chars().map(|c| match c {
+            '0'..='9' => char::from_u32(c as u32 - '0' as u32 + 0x966).unwrap_or(c),
+            other => other,
+        }).collect()),
+    }
+}
+```
+
+One template, one hook body, gender off the entity (§2.4): `say!("есть {#0 1}", 2, stol)` →
+`"есть два стола"`, `say!("есть {#0 1}", 2, kniga)` → `"есть две книги"`.
+`tests/ranting/numeral.rs` is the runnable version.
+
+**When `count` is `Some`.** Always for `NumeralStyle::Words`: the macro bakes the same `as i64`
+cast it always applied before spelling. For `NumeralStyle::Digits` it is recovered by parsing
+`numeral`, because a `$var` argument need not be an integer at all — anything `Display` will do —
+so it is `None` for a float, a width-padded or otherwise formatted number, and a non-numeric
+argument. A digit-transcribing fork wants `numeral` anyway; a spelling fork wants `count`.
+
+**This is not item 4's count channel.** The count here is local to the numeral. It says nothing to
+the other seven hooks, which still receive `as_plural: bool` alone — so Arabic dual, Slavic paucal
+and CLDR-style categories on the *noun, article and verb* remain out of reach. See the
+`as_plural` discussion in CLAUDE.md and ROADMAP.md Phase 6 item 4.
+
+**Number agreement is decided before this runs.** `as_plural` comes from the count, not from the
+rendered word, so a custom numeral can never flip it. (It used to come from the word: the old test
+compared the rendering against the literal English `"one"`, which would have made a fork's `"один"`
+plural. That was the prerequisite ROADMAP.md item 8 called out, and it is fixed rather than
+documented-around.)
+
+**No `uc` parameter.** `handle_placeholder` never capitalizes the numeral — a placeholder that
+starts a sentence spends its `uc` on the article, verb or noun — so there is nothing for the hook
+to decide. Note also that a returned string replaces the rendering outright, so a `:fmt` width/fill
+spec on `$var` is not re-applied to it; a fork that wants padding pads its own output.
+
+**When it is not called.** A placeholder with no `#var`/`$var` marker, and a hidden one
+(`` {?$n boots} ``, where the number governs agreement but is not written) — the same
+"nothing rendered, nothing to customize" rule as §2.7. `heed!()`/`ask!()`'s `{$name}` is input
+parsing, the inverse direction, and does not route here either.
+
+**English is untouched.** The default returns `None`, which keeps `rant_convert_numbers` for `#var`
+and the argument's own `Display` for `$var`.
+
+**Wrappers.** `Box<T>` forwards to its inner value; `Many` forwards only when it holds exactly one
+item, as in §2.4/§2.6/§2.7; `Maybe(Some(x))` forwards to `x`, `Maybe(None)` declines.
+
 ## Partial Customization
 
 You don't need to implement all three custom methods. If you only need verb customization, implement `inflect_verb_custom()` and leave the other two as default (returning `None`). The trait provides default implementations for all three methods:
