@@ -1142,7 +1142,7 @@ hook (number). Deciding them on paper first is what keeps items 2 and 5–9 from
 being rewritten mid-phase. Items 5–8 are independent of each other and can land
 in any order. Item 10 is the acceptance test for items 1–9 and must land last.
 
-1. **Word-order & template-slot design spike** (doc-only, 6-10 hours) —
+1. ✅ **Word-order & template-slot design spike** (doc-only, 6-10 hours) —
    *blocks item 10; de-risks the whole phase*
    - The unclosed half of the German spike: `GrammaticalCase` fixed article
      declension, but word order is still baked into the literal string
@@ -1171,6 +1171,61 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      one, and stating it plainly is more valuable than a half-built (b).
    - No production code, so it lands trivially green; nothing after it has to
      guess.
+   - ✅ **COMPLETE 2026-08-13** —
+     `docs/superpowers/specs/2026-08-13-word-order-feasibility.md`. Conclusion:
+     **(a) per-language template sets, documented as a permanent boundary.**
+     Doc-only as scoped; no production code, no test changes.
+   - Grounding the spike established in `handle_placeholder_impl`
+     (`src/lib.rs`) and `impl ToTokens for Say` (`ranting_derive/src/lib.rs`):
+     the seam is a single `format!(lit, args…)` whose literal (all
+     inter-placeholder text) and argument order are compile-time constants; a
+     hook receives `(&R, poss, nr, uc, spec, ctx)` with no sibling reference
+     and returns one `String` for one hole. Sharper than expected:
+     **intra-placeholder order is hard-coded too** — the fixed
+     pre→`nr`→noun→post `push_str` sequence blocks suffixed definite articles
+     (Romanian/Norwegian/Bulgarian) *inside* a single placeholder,
+     independently of any cross-placeholder question.
+   - (b) numbered slots + reorder metadata — **rejected, blocked by
+     mechanism**: a runtime permutation has nowhere to apply without replacing
+     `format!()` codegen with a runtime assembler (reversing the ✅ Locked
+     "Compile-time parsing + runtime inflection" decision); inter-placeholder
+     glue words (English `at`) need deletion/insertion, not permutation, which
+     is translation and explicitly out of the phase's scope; and it would have
+     to make the intra-placeholder assembly order data as well. Undisclosed
+     prerequisites it drags in: a sentence-initial-`uc` signal (item 6,
+     extended — `uc` is decided by template position at compile time and
+     cleared after the first emission, so permuted slots break it) and a
+     matching reorder story for `heed!()`/`ask!()`, which compile the same kind
+     of literal template.
+   - (c) `sentence!()` syntax-tree API — **rejected, blocked by identity, not
+     by feasibility**: it demonstrably works (no literal template means no text
+     the crate doesn't own), but abandons the sigil grammar the
+     architecture-decisions table marks ✅ Locked as "the crate's identity",
+     ships a permanent second product surface beside `say!()`, and puts
+     per-language syntax rules back inside the crate. If ever wanted, it
+     belongs in a downstream crate depending on `ranting` for morphology —
+     the `ranting-if` shape — not in Phase 6.
+   - Also rejected: an "(a) now, (c) later" hedge (leaves the boundary open in
+     the docs and invites items 2–9 to be designed against a future that will
+     not arrive), and a point fix adding a second verb position to the
+     placeholder grammar (addresses only German separable prefixes, adds
+     grammar surface for every English user, leaves the rest of the list).
+   - **Recorded for item 10** (which requires this outcome be written in item
+     1's spec and the companion crate's README): German verb-second and
+     clause-final verb placement are *not* reachable through `ranting`'s hooks;
+     the German reference lexicon must carry word order in its own template
+     strings. Stays impossible under (a), by named construction: German V2 with
+     a clause-final separable prefix/participle (one verb, two positions — and
+     `handle_placeholder_impl` asserts a placeholder cannot have both a pre-
+     and a post-verb), Japanese/Korean/Turkish SOV with postpositions, VSO
+     (Irish/Welsh/Classical Arabic), suffixed definite articles, Romance
+     post-nominal adjective position (item 5 gives agreement, i.e. the right
+     *form*, never movement), sentence-final question particles, and any
+     construction where a word is deleted rather than inflected.
+   - Follow-up, non-blocking: where the boundary statement lands
+     (`docs/EXTENSIBILITY.md` in full, one-line pointers from README.md and
+     CLAUDE.md), and whether item 6's orthography hook should expose
+     "sentence-initial" explicitly rather than the implicit `uc: bool`.
 
 2. **Lexical gender / noun-class channel** (10-14 hours) — *the single
    highest-leverage enabling change*
@@ -1381,7 +1436,7 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
 | Consolidate english_shared.rs | ✅ Complete → superseded (v1.2) | Single canonical copy + build.rs copy solved the drift; `ranting_core` extraction (Phase 4, item 1) replaces the copy mechanism outright |
 | Stringly-typed `subject: &str` in public API | ✅ Complete (v1.2) | Phase 4 item 4: `SubjectPronoun` public, typed field in `Noun`, non-panicking `Noun::try_new`; invalid subjects unrepresentable instead of panicking |
 | `ack!()`/`nay!()` expand to hidden `return` | ✅ Complete (v1.2) | Phase 4 item 5: reworked to plain `Ok(say!(...))`/`Err(say!(...))` expression forms, usable anywhere an expression is valid |
-| Word order lives in the literal template, not the placeholders | 🎯 v1.3 (Phase 6 item 1) | No inflection hook can move text it doesn't own, so German V2 / Japanese SOV need per-language templates. Spike decides whether `ranting` closes this at all or documents it as a permanent boundary |
+| Word order lives in the literal template, not the placeholders | ✅ Locked (v1.3, Phase 6 item 1) | **Permanent boundary**: `ranting` inflects within a template and will not reorder across placeholders — nor within one (the pre→`nr`→noun→post assembly is fixed too). Non-English callers supply per-language templates. Numbered slots + reorder metadata rejected (blocked by the compile-time `format!()` seam); `sentence!()` syntax-tree API rejected (works, but abandons the sigil grammar). See `docs/superpowers/specs/2026-08-13-word-order-feasibility.md` |
 | Noun gender / noun class as an entity property | 🎯 v1.3 (Phase 6 item 2) | Open-ended `&'static str` class label, not a closed Masc/Fem/Neut enum — Bantu has a dozen-plus classes, Danish has common/neuter. Threaded like `GrammaticalCase` (commit `11d531ed`) |
 | `SubjectPronoun` is a closed English enum | 🎯 v1.3 (Phase 6 item 3) | Exhaustive-match safety is a deliberate decision (row above); extending it for T-V / clusivity / dual trades that away. Spike scores extend-enum vs. open channel vs. parallel fork-owned pronoun set |
 | Number is `bool` throughout the hook signatures | 🎯 v1.3 (Phase 6 item 4) | Arabic dual / Slavic paucal / CLDR categories don't fit. Replacing it is breaking in all six `_custom` hooks — spike states the cost before it's paid |
