@@ -1799,8 +1799,9 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      plural article, verb and pronoun). Either take the count from item 4's
      recommended count channel or document the break explicitly. See
      `docs/superpowers/specs/2026-08-13-number-categories.md`.
-   - **Landed as `Ranting::inflect_numeral_custom`/`_with_context`** (the ninth
-     `_custom` pair), taking the English rendering, `count: Option<i64>`,
+   - **Landed as `Ranting::inflect_numeral_custom`/`_with_context`** (the sixth
+     and last `_custom` pair — verb, pronoun, article, adjective, elision,
+     numeral; twelve methods with their `_with_context` twins), taking the English rendering, `count: Option<i64>`,
      `NumeralStyle` (`Words` for `#var`, `Digits` for `$var`), `GrammaticalCase`,
      `NounClass` and `as_plural`, returning `Option<String>`. Default `None`
      keeps `rant_convert_numbers` for `#var` and the argument's own `Display`
@@ -1858,7 +1859,7 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
        string replaces the rendering outright, so a `$var` width/fill spec is not
        re-applied to it — documented on the hook.
      - Scope kept narrow, twice. The count is local to the numeral and does
-       **not** discharge item 4's owed count channel on the other eight hooks.
+       **not** discharge item 4's owed count channel on the other five pairs.
        And `heed!()`/`ask!()`'s `{$name}` is the inverse direction (input
        parsing, a deliberately smaller grammar) and is not routed here.
      - Wrappers follow the established rule: `Box` straight through, `Many` only

@@ -15,6 +15,7 @@
 // arrives pre-rendered with its `:fmt` spec applied, and the hook gets that
 // string plus a count parsed back out of it when it is a plain integer.
 use ranting::*;
+use ranting_derive::say_with;
 use std::fmt;
 
 /// A Russian noun: enough of one to show gender agreement on the numeral and a
@@ -174,6 +175,97 @@ fn a_placeholder_without_a_number_does_not_reach_the_hook() {
     let stol = RussianNoun::new("стол", "стола", "masculine");
     assert_eq!(say!("есть {0}", stol), "есть стол");
     assert_eq!(say!("есть {+0}", stol), "есть стола");
+}
+
+/// A noun that overrides *only* the `_with_context` form of the hook, and reads
+/// the story-wide dialect to pick a digit system. This is what pins the call
+/// site: if `handle_placeholder_impl` called `inflect_numeral_custom` directly,
+/// every other test in this file would still pass and this one would not.
+struct LocalizedCount;
+
+impl fmt::Display for LocalizedCount {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("item")
+    }
+}
+
+impl Ranting for LocalizedCount {
+    fn name(&self, uc: bool) -> String {
+        uc_1st_if("item", uc)
+    }
+    fn subjective(&self) -> &str {
+        "it"
+    }
+    fn is_plural(&self) -> bool {
+        false
+    }
+    fn inflect(&self, to_plural: bool, uc: bool) -> String {
+        uc_1st_if(if to_plural { "items" } else { "item" }, uc)
+    }
+    fn skip_article(&self) -> bool {
+        true
+    }
+
+    fn inflect_numeral_custom_with_context(
+        &self,
+        numeral: &str,
+        count: Option<i64>,
+        style: NumeralStyle,
+        _case: GrammaticalCase,
+        _class: NounClass,
+        _as_plural: bool,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        // `dialect` is inert to the crate — a hook is the only thing that reads
+        // it, which is exactly the point of the `_with_context` pair.
+        match ctx.and_then(|c| c.dialect)? {
+            "de" if style == NumeralStyle::Words => Some(match count? {
+                1 => "eins".to_string(),
+                2 => "zwei".to_string(),
+                n => n.to_string(),
+            }),
+            "ar" if style == NumeralStyle::Digits => Some(
+                numeral
+                    .chars()
+                    .map(|c| match c {
+                        '0'..='9' => char::from_u32(c as u32 - '0' as u32 + 0x660).unwrap_or(c),
+                        other => other,
+                    })
+                    .collect(),
+            ),
+            _ => None,
+        }
+    }
+}
+
+#[test]
+fn say_with_reaches_the_with_context_numeral_hook() {
+    let de = NarrationContext::new().dialect("de");
+    assert_eq!(
+        say_with!(de, "ich sehe {#0 1}", 2, LocalizedCount),
+        "ich sehe zwei items"
+    );
+    let ar = NarrationContext::new().dialect("ar");
+    assert_eq!(
+        say_with!(ar, "I see {$0 1}", 2, LocalizedCount),
+        "I see ٢ items"
+    );
+}
+
+#[test]
+fn say_with_without_a_dialect_keeps_the_english_numeral() {
+    // The hook declines, and `say_with!()` reproduces `say!()` exactly — the
+    // same no-override guarantee the rest of the crate makes.
+    let plain = NarrationContext::new();
+    assert_eq!(
+        say_with!(plain, "I see {#0 1}", 2, LocalizedCount),
+        "I see two items"
+    );
+    assert_eq!(
+        say_with!(plain, "I see {$0 1}", 2, LocalizedCount),
+        "I see 2 items"
+    );
+    assert_eq!(say!("I see {#0 1}", 2, LocalizedCount), "I see two items");
 }
 
 // ---------------------------------------------------------------------------

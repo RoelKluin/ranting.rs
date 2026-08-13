@@ -72,11 +72,12 @@ fn main() {
 
 ### 2.0 Story-Wide Context: the `_with_context` Variants (v1.1)
 
-Each of the four hooks below (`inflect_verb_custom`, `inflect_pronoun_custom`,
-`inflect_article_custom`, and `inflect_adjective_custom` since v1.3) has a
-`_with_context` counterpart — `inflect_verb_custom_with_context`,
-`inflect_pronoun_custom_with_context`, `inflect_article_custom_with_context`,
-`inflect_adjective_custom_with_context` — that takes one extra parameter,
+Every `_custom` hook below (`inflect_verb_custom`, `inflect_pronoun_custom` and
+`inflect_article_custom` since v1.1; `inflect_adjective_custom`,
+`elide_article_custom` and `inflect_numeral_custom` since v1.3 — six pairs,
+twelve methods) has a `_with_context` counterpart —
+`inflect_verb_custom_with_context` and so on, and `capitalize_with_context` for
+the orthography hook in §2.6 — that takes one extra parameter,
 `ctx: Option<&NarrationContext>`, and is what every call site in the crate
 actually invokes. The default implementation of each `_with_context` method
 ignores `ctx` and delegates to the plain hook, so everything above still
@@ -654,7 +655,7 @@ so it is `None` for a float, a width-padded or otherwise formatted number, and a
 argument. A digit-transcribing fork wants `numeral` anyway; a spelling fork wants `count`.
 
 **This is not item 4's count channel.** The count here is local to the numeral. It says nothing to
-the other seven hooks, which still receive `as_plural: bool` alone — so Arabic dual, Slavic paucal
+the other five `_custom` pairs, which still receive `as_plural: bool` alone — so Arabic dual, Slavic paucal
 and CLDR-style categories on the *noun, article and verb* remain out of reach. See the
 `as_plural` discussion in CLAUDE.md and ROADMAP.md Phase 6 item 4.
 
@@ -682,7 +683,7 @@ item, as in §2.4/§2.6/§2.7; `Maybe(Some(x))` forwards to `x`, `Maybe(None)` d
 
 ## Partial Customization
 
-You don't need to implement all three custom methods. If you only need verb customization, implement `inflect_verb_custom()` and leave the other two as default (returning `None`). The trait provides default implementations for all three methods:
+You don't need to implement every `_custom` method. If you only need verb customization, implement `inflect_verb_custom()` and leave the rest as default (returning `None`). The trait provides a default for all of them:
 
 ```rust
 impl Ranting for MyNoun {
