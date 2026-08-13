@@ -300,7 +300,8 @@ where
     // pass through unchanged, and the article/noun-name plurality (`as_pl`
     // above) is untouched either way: viewpoint governs which pronoun set
     // and verb agreement render, not how the noun's own name pluralizes.
-    let viewpoint = ctx.and_then(|c| narration::resolve_viewpoint(declared_subjective, c.narration_person));
+    let viewpoint =
+        ctx.and_then(|c| narration::resolve_viewpoint(declared_subjective, c.narration_person));
     let subjective = viewpoint.map_or(declared_subjective, |(rendered, _)| rendered);
     let pronoun_as_pl = viewpoint.map_or(as_pl, |(_, forced_pl)| forced_pl);
     let mut res = String::new();
