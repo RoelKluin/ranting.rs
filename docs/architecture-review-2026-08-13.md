@@ -132,3 +132,49 @@ docs-audit triage rule (code looks like the bug, don't enshrine it in docs) —
 `docs/TUTORIAL.md`'s example was written to avoid "they" for this pattern
 instead. Flagging here so it isn't lost; a fix + regression test (both call
 sites, plus a "they" case) is unclaimed work.
+
+## 6. CLAUDE.md's "Planned restructuring" section was describing finished work as future (fixed)
+
+A second docs-audit pass the same day found `CLAUDE.md`'s "Planned restructuring"
+section (top of file) still described Phase 4 items 2, 3, 5, and 7 as "still
+ahead" — dependency modernization, the typed `caps: [&str; 5]`/`~TENSE~` →
+`PlaceholderSpec` interface, the `inflect_possesive` typo fix, and (unmentioned
+at all) the MIT relicensing — even though `ROADMAP.md` and the live source both
+confirm all of Phase 4's 8 items are done. Renamed the section to "Architecture
+status" and rewrote it to state Phase 4 is complete, per the doc-sync triage
+rule (stale claim in a doc, code is correct → fix the doc where the claim
+lives). Also added `ranting_core::placeholder`/`ranting_core::ph_ext` (Phase 4
+items 3 and 6's new modules — together over 1200 lines, most of `ranting_core`,
+and previously unmentioned in the Architecture section), `ranting_impl.rs`
+(`ranting_derive`'s core codegen entrypoint) and `src/language/auxiliary.rs`
+(auxiliary-verb conjugation for tense markers) to `CLAUDE.md`, none of which
+had been named anywhere in the file despite being live, load-bearing code.
+`ROADMAP.md`'s own "Current State (v1.0.0)" banner was equally stale (predating
+Phases 3-5, all done further down the same file) — updated to "v1.2.1".
+
+**Internal tension in `ROADMAP.md` itself, left unresolved (not a doc/code bug,
+just noted here):** Phase 4 item 4's implementation notes explicitly list five
+`.expect("Not a subject")` calls in `src/language/english.rs`
+(`inflect_adjective`/`inflect_subjective`/`inflect_objective`/
+`inflect_possessive`/`inflect_reflexive`) as a deliberate deferral — "left
+alone, out of this item's explicit scope" — reasoning that they operate on
+already-validated data. But two of those five (`inflect_possessive`,
+`inflect_reflexive`) are public functions taking a raw `subject: &str`, so
+they *are* reachable with unvalidated input from outside `say!()`'s own call
+sites, and a "v1.2 success criteria" bullet elsewhere in `ROADMAP.md` claims
+"no runtime panics reachable from public API with invalid data." The
+deferral's own reasoning and the separate success-criteria bullet aren't
+fully consistent with each other. Not touched here — no doc currently makes
+a claim to a reader that contradicts observed behavior (the deferral note is
+honest about what's deferred), this is `ROADMAP.md` disagreeing with itself
+across two sections. Flagging as unclaimed work: either the success-criteria
+bullet needs a caveat, or `inflect_possessive`/`inflect_reflexive` need the
+same graceful-degradation treatment `inflect()`/`is_subjective_plural` already
+got in that same item.
+
+Three other top-level docs (`ARGUMENT_PARSING_IMPROVEMENTS.md`,
+`DESIGN_REPORT_SUMMARY.md`, `RECOUNTING_INTEGRATION.md`) were reconsidered for
+a superseded banner (matching `PHASE_2_IMPLEMENTATION_PLAN.md`'s precedent) but
+left as-is, per section 4's already-recorded reasoning above: none make an
+active "in progress" claim, so a banner isn't load-bearing the way it was for
+`PHASE_2_IMPLEMENTATION_PLAN.md`'s stale "Status: In Progress" line.
