@@ -2360,13 +2360,67 @@ because it exercises everything before it.*
       trait table and its Narration Context section, and a new CLAUDE.md
       "Non-obvious behaviors" bullet.
 
-17. **Sentence detection beyond Latin punctuation** (8-12 hours)
+17. ✅ **Sentence detection beyond Latin punctuation** (8-12 hours)
     - `PH_START` decides a placeholder is sentence-initial only after an ASCII
       `.`/`?`/`!` *followed by whitespace*, so auto-capitalization silently
       misses after Greek `;` (and Greek has case), Japanese/Chinese `。` (no
       following space), Urdu `۔`, and before Spanish opening `¿`. Item 6 routed
       capitalization through a hook but never touched detection, which is
       upstream of it.
+    - ✅ `PH_START` (`ranting_core/src/grammar.rs`) widened with three separate
+      alternatives, one per script shape rather than one "add more
+      punctuation" pass: ASCII `.`/`?`/`!` plus Greek's question mark (U+037E
+      — a distinct codepoint from an ASCII semicolon despite looking
+      identical) and Urdu's full stop (U+06D4) all keep the existing
+      "terminator, then required `\s+`" shape, since those scripts still
+      space-separate words; the CJK full-width terminators (`。`/`！`/`？`)
+      take no following space at all, so they are their own alternative with
+      no whitespace requirement; Spanish's opening `¿`/`¡` mark
+      sentence-initial from *before* the placeholder and take `\s*+`
+      (optional, not required), since some house styles put a space there.
+    - ✅ `ranting_core::grammar::SENTENCE_TRIGGER_CHARS` is a new `pub const
+      &[char]` — the single list both `PH_START`'s regex and
+      `ranting_derive`'s `at_sentence_start` check (`ranting_derive/src/lib.rs`)
+      read from, so the two ways of asking "is this sentence-initial" cannot
+      independently drift the way a hand-duplicated `['.', '?', '!']` array in
+      each place would have.
+    - ✅ Also closed open question 2 of `docs/superpowers/specs/
+      2026-08-13-word-order-feasibility.md` while here, since it was cheap
+      alongside detection and is upstream of the same hook: `Ranting::
+      capitalize`/`capitalize_with_context` (item 6) gained a `sentence_start:
+      bool` parameter, the compile-time-known raw signal, separate from `uc`
+      (which also folds in the `,`/`^` markers and an uppercase pre-text
+      word). Baked into `ranting_core::placeholder::PlaceholderSpec` as a new
+      field (compile-time-knowable, unlike item 15's `count`, which needed a
+      runtime parameter instead) rather than a new positional argument to
+      `handle_placeholder`/`_with_context`.
+    - ✅ Threading the new parameter touched every fallback capitalization call
+      site in `src/lib.rs` (`get_article_or_so`'s `ArticleRenderCtx`,
+      `conjugate_verb`, `cap_pronoun`, and the noun/tense-verb/degree-adjective
+      sites in `handle_placeholder_impl`), all of `Many`/`Maybe`/`Box`'s
+      `capitalize`/`capitalize_with_context` delegations in
+      `src/collections.rs`, and every test/downstream override of the two
+      methods, including `ranting_i18n/src/noun.rs`'s `GermanNoun` — a
+      signature break on a trait method with a default body still requires
+      updating every impl that overrides it, same as item 15/16's hook
+      additions.
+    - ✅ `uc` and `sentence_start` can disagree in both directions: ``
+      {The 0} `` mid-sentence has `uc == true, sentence_start == false`
+      (forced by the uppercase pre-word, not by position); `` {,noun} ``
+      right after a period has `uc == false, sentence_start == true` (forced
+      lowercase by the marker, despite being genuinely sentence-initial).
+      Pinned by `tests/ranting/orthography.rs`'s
+      `uppercase_pre_word_does_not_imply_sentence_start` and
+      `forced_lowercase_marker_keeps_sentence_start_true`.
+    - ✅ New `tests/ranting/sentence_detection.rs`: Greek, Japanese and Spanish
+      cases for both the trigger and the mid-sentence non-trigger, plus an
+      ASCII byte-identity regression guard. Full existing suite (`cargo test`
+      at the repo root plus `ranting_core`/`ranting_derive`/`ranting_i18n`'s
+      own gates) passes unchanged — English `say!()`/`say_with!()` output is
+      byte-identical.
+    - ✅ Documented in `docs/EXTENSIBILITY.md` §2.6, `docs/API.md`'s
+      `Ranting`/`capitalize` section, and a new CLAUDE.md "Non-obvious
+      behaviors" bullet.
 
 18. **Dative/genitive on `GrammaticalCase`** (doc-only spike, 6-8 hours) —
     *found by item 10, hole 3*

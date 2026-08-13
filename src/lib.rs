@@ -227,6 +227,7 @@ struct ArticleRenderCtx<'a> {
     case: CaseKind,
     as_pl: bool,
     uc: bool,
+    sentence_start: bool,
     ctx: Option<&'a NarrationContext>,
     count: Option<PlaceholderCount>,
 }
@@ -245,6 +246,7 @@ where
         case,
         as_pl,
         uc,
+        sentence_start,
         ctx,
         count,
     } = render;
@@ -267,8 +269,13 @@ where
                 Some(custom + space)
             } else {
                 Some(
-                    noun.capitalize_with_context(article_form, OrthographyRole::Article, uc, ctx)
-                        + space,
+                    noun.capitalize_with_context(
+                        article_form,
+                        OrthographyRole::Article,
+                        uc,
+                        sentence_start,
+                        ctx,
+                    ) + space,
                 )
             }
         }
@@ -297,7 +304,13 @@ where
                 // ran would mean capitalizing a form that gets discarded.
                 let a_or_an = get_a_or_an(&singular);
                 let article = ranting::adapt_article(a_or_an, s, space, as_pl, false);
-                Some(noun.capitalize_with_context(&article, OrthographyRole::Article, uc, ctx))
+                Some(noun.capitalize_with_context(
+                    &article,
+                    OrthographyRole::Article,
+                    uc,
+                    sentence_start,
+                    ctx,
+                ))
             }
         }
         ArticleKind::TheseThose => {
@@ -317,7 +330,13 @@ where
                 Some(custom + space)
             } else {
                 let article = ranting::adapt_article(s, s, space, as_pl, false);
-                Some(noun.capitalize_with_context(&article, OrthographyRole::Article, uc, ctx))
+                Some(noun.capitalize_with_context(
+                    &article,
+                    OrthographyRole::Article,
+                    uc,
+                    sentence_start,
+                    ctx,
+                ))
             }
         }
         ArticleKind::Other => None,
@@ -341,6 +360,7 @@ fn conjugate_verb<R>(
     as_pl: bool,
     count: Option<PlaceholderCount>,
     uc: bool,
+    sentence_start: bool,
     ctx: Option<&NarrationContext>,
 ) -> String
 where
@@ -354,7 +374,7 @@ where
         // Fallback path only: a custom form applies `uc` itself (see the hook's docs), so
         // capitalizing here too would be a second, unasked-for pass over it.
         let conjugated = inflect_verb(subjective, verb, as_pl, false);
-        noun.capitalize_with_context(&conjugated, OrthographyRole::Verb, uc, ctx)
+        noun.capitalize_with_context(&conjugated, OrthographyRole::Verb, uc, sentence_start, ctx)
     }
 }
 
@@ -363,11 +383,17 @@ where
 /// Only the fallback matters here: the five pronoun arms of `handle_placeholder_impl` all render
 /// via `inflect_*(subjective, as_pl, false)` and hand the result to this, while a
 /// `inflect_pronoun_custom` form applies `uc` itself and never passes through.
-fn cap_pronoun<R>(noun: &R, pronoun: String, uc: bool, ctx: Option<&NarrationContext>) -> String
+fn cap_pronoun<R>(
+    noun: &R,
+    pronoun: String,
+    uc: bool,
+    sentence_start: bool,
+    ctx: Option<&NarrationContext>,
+) -> String
 where
     R: Ranting,
 {
-    noun.capitalize_with_context(&pronoun, OrthographyRole::Pronoun, uc, ctx)
+    noun.capitalize_with_context(&pronoun, OrthographyRole::Pronoun, uc, sentence_start, ctx)
 }
 
 /// The say macro parses placeholders and passes the compile-time-baked spec to this
@@ -429,6 +455,7 @@ where
         noun_space,
         case,
         post: post_spec,
+        sentence_start,
     } = spec;
     let mut pre = pre_raw;
     let has_possesive = pre.contains('`');
@@ -511,6 +538,7 @@ where
                 case,
                 as_pl,
                 uc,
+                sentence_start,
                 ctx,
                 count: placeholder_count,
             },
@@ -527,6 +555,7 @@ where
                 &poss_phrase,
                 OrthographyRole::Noun,
                 false,
+                sentence_start,
                 ctx,
             ));
         } else {
@@ -541,6 +570,7 @@ where
                 pronoun_as_pl,
                 placeholder_count,
                 uc,
+                sentence_start,
                 ctx,
             );
             res.push_str(&verb);
@@ -560,6 +590,7 @@ where
                         case,
                         as_pl,
                         uc: false,
+                        sentence_start,
                         ctx,
                         count: placeholder_count,
                     },
@@ -648,6 +679,7 @@ where
                         noun,
                         inflect_subjective(subjective, pronoun_as_pl, false),
                         uc,
+                        sentence_start,
                         ctx,
                     )
                 }
@@ -668,6 +700,7 @@ where
                         noun,
                         inflect_objective(subjective, pronoun_as_pl, false),
                         uc,
+                        sentence_start,
                         ctx,
                     )
                 }
@@ -688,6 +721,7 @@ where
                         noun,
                         inflect_possessive(subjective, pronoun_as_pl, false),
                         uc,
+                        sentence_start,
                         ctx,
                     )
                 }
@@ -708,6 +742,7 @@ where
                         noun,
                         inflect_adjective(subjective, pronoun_as_pl, false),
                         uc,
+                        sentence_start,
                         ctx,
                     )
                 }
@@ -728,6 +763,7 @@ where
                         noun,
                         inflect_reflexive(subjective, pronoun_as_pl, false),
                         uc,
+                        sentence_start,
                         ctx,
                     )
                 }
@@ -740,7 +776,13 @@ where
             // A fork that capitalizes nouns unconditionally (German) ignores the flag anyway.
             CaseKind::Name | CaseKind::Hidden => {
                 let name = noun.inflect(as_pl, uc, case.into());
-                noun.capitalize_with_context(&name, OrthographyRole::Noun, false, ctx)
+                noun.capitalize_with_context(
+                    &name,
+                    OrthographyRole::Noun,
+                    false,
+                    sentence_start,
+                    ctx,
+                )
             }
         };
         res.push_str(&s);
@@ -805,6 +847,7 @@ where
                             !singular_post_verb && pronoun_as_pl,
                             placeholder_count,
                             uc,
+                            sentence_start,
                             ctx,
                         );
                         res.push_str(&verb);
@@ -855,6 +898,7 @@ where
                             !singular_post_verb && pronoun_as_pl,
                             placeholder_count,
                             false,
+                            sentence_start,
                             ctx,
                         )
                     } else {
@@ -876,6 +920,7 @@ where
                 &tense_result,
                 OrthographyRole::Verb,
                 uc,
+                sentence_start,
                 ctx,
             ));
             if !trailing.is_empty() {
@@ -910,6 +955,7 @@ where
                     word,
                     OrthographyRole::Adjective,
                     uc,
+                    sentence_start,
                     ctx,
                 ));
             }
@@ -1991,6 +2037,16 @@ pub trait Ranting: std::fmt::Display {
     /// * `role` - Which part of the placeholder this is (see [`OrthographyRole`]), so a fork can
     ///   capitalize nouns always and everything else only sentence-initially.
     /// * `uc` - What English would do: uppercase the first character.
+    /// * `sentence_start` - Whether `ranting_core::grammar::PH_START` matched this placeholder as
+    ///   sentence-initial (ROADMAP.md Phase 6 item 17), independent of `uc`. `uc` conflates
+    ///   "sentence-initial" with "forced uppercase by a `^`/`,` marker or an uppercase pre-text
+    ///   word", so a placeholder mid-sentence after `` {,noun} `` or `` {The noun} `` can have
+    ///   `uc == true` and `sentence_start == false`. This is the raw signal alone — useful for a
+    ///   caseless-script fork that still wants to know sentence boundaries for its own
+    ///   punctuation, or for a downstream word-reordering layer (see
+    ///   `docs/superpowers/specs/2026-08-13-word-order-feasibility.md`, open question 2, which
+    ///   this parameter closes) — most forks that only care about letter case can ignore it and
+    ///   use `uc` exactly as before.
     ///
     /// One exception to "`word` arrives uncapitalized": at [`OrthographyRole::Noun`] the name has
     /// already been through [`inflect`](Self::inflect), which takes `uc` itself and is
@@ -1998,11 +2054,12 @@ pub trait Ranting: std::fmt::Display {
     /// `false`. (It is also not simply [`uc_1st_if`]: a derive-generated `name()` for
     /// `#[ranting(name = "designer")]` reads `uc == true` as "as written", not "force
     /// uppercase".) An always-capitalize fork ignores `uc` and is unaffected; a fork that needs
-    /// *position-sensitive* noun casing overrides `name`/`inflect` instead.
+    /// *position-sensitive* noun casing overrides `name`/`inflect` instead. `sentence_start` is
+    /// unaffected by this exception — it still reports the placeholder's real sentence position.
     ///
     /// # Examples
     /// ```ignore
-    /// fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
+    /// fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool, sentence_start: bool) -> String {
     ///     // German: nouns are capitalized wherever they stand, everything else only
     ///     // sentence-initially.
     ///     match role {
@@ -2011,7 +2068,13 @@ pub trait Ranting: std::fmt::Display {
     ///     }
     /// }
     /// ```
-    fn capitalize(&self, word: &str, _role: OrthographyRole, uc: bool) -> String {
+    fn capitalize(
+        &self,
+        word: &str,
+        _role: OrthographyRole,
+        uc: bool,
+        _sentence_start: bool,
+    ) -> String {
         uc_1st_if(word, uc)
     }
 
@@ -2027,8 +2090,9 @@ pub trait Ranting: std::fmt::Display {
         word: &str,
         role: OrthographyRole,
         uc: bool,
+        sentence_start: bool,
         _ctx: Option<&NarrationContext>,
     ) -> String {
-        self.capitalize(word, role, uc)
+        self.capitalize(word, role, uc, sentence_start)
     }
 }

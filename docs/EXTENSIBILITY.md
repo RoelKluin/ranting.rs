@@ -455,7 +455,7 @@ uppercase-first-character pass runs only on the fallback path, so a custom form 
 **Wrappers.** `Box<T>` forwards to its inner value; `Many`/`Maybe` forward only when they hold
 exactly one item, and otherwise decline (there is no single entity whose gender could agree).
 
-### 2.6 Orthography: `capitalize()` (v1.3)
+### 2.6 Orthography: `capitalize()` (v1.3, `sentence_start` added in Phase 6 item 17)
 
 ```rust
 fn capitalize(
@@ -463,6 +463,7 @@ fn capitalize(
     word: &str,               // the rendered text, uncapitalized (but see the Noun caveat)
     role: OrthographyRole,    // Article | Verb | Pronoun | Noun | Adjective
     uc: bool,                 // what English would do: uppercase the first character
+    sentence_start: bool,     // was this placeholder actually at the start of a sentence?
 ) -> String
 
 fn capitalize_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) -> String
@@ -484,10 +485,39 @@ resolved by the macro at compile time and arrive here as the bool. Nor is this c
 `apply_case`, which keeps an irregular plural's ALL-CAPS/Title/lowercase pattern, sits behind the
 `self`-less free function `inflect_noun_irregular` and is not routed through any hook.
 
+**`sentence_start`, separate from `uc` (Phase 6 item 17).** `uc` conflates two things: "this
+placeholder is at a sentence start" and "something forces uppercase regardless of position" — a
+`` {The 0} `` pre-text word forces `uc == true` even mid-sentence, and a `` {,noun} `` marker forces
+`uc == false` even right after a period. `sentence_start` is the first signal alone, computed once
+at compile time by the same check that already feeds `uc`
+(`ranting_core::grammar::PH_START`/`SENTENCE_TRIGGER_CHARS`), and threaded through
+`ranting_core::placeholder::PlaceholderSpec` so it costs nothing at runtime. Most forks that only
+care about letter case can keep ignoring it and use `uc` exactly as before — it exists for a
+caseless-script fork that still wants sentence boundaries for its own punctuation, or a downstream
+word-order/reordering layer (see `docs/superpowers/specs/2026-08-13-word-order-feasibility.md`,
+open question 2, which this parameter closes). `tests/ranting/orthography.rs`'s
+`forced_lowercase_marker_keeps_sentence_start_true` and
+`uppercase_pre_word_does_not_imply_sentence_start` pin the two signals disagreeing in both
+directions.
+
+**Sentence detection beyond ASCII (Phase 6 item 17).** `PH_START` used to recognize only an ASCII
+`.`/`?`/`!` followed by whitespace as putting the next placeholder at a sentence start — missing
+Greek's question mark (a distinct Unicode codepoint that looks like an ASCII semicolon), Japanese/
+Chinese full-width terminators (which take no following space at all), Urdu's full stop, and
+Spanish's opening `¿`/`¡` (which mark sentence-initial from *before* the placeholder, not after a
+prior sentence). `PH_START` now recognizes all of these, each with the shape its script actually
+uses: ASCII/Greek/Urdu terminators still require `\s+` after them (those scripts space-separate
+words); the CJK full-width terminators need no following whitespace; Spanish's opening marks are
+optionally followed by whitespace (`\s*+`) since they attach to the sentence they open rather than
+close one. `ranting_core::grammar::SENTENCE_TRIGGER_CHARS` is the single list both `PH_START`'s
+regex and `ranting_derive`'s `at_sentence_start` check read from, so the two can't drift apart. See
+`tests/ranting/sentence_detection.rs` for the Greek/Japanese/Spanish cases and a byte-identical
+ASCII regression guard.
+
 **Worked example: German nouns, capitalized wherever they stand.**
 
 ```rust
-fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
+fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool, _sentence_start: bool) -> String {
     match role {
         OrthographyRole::Noun => uc_1st_if(word, true),  // German: always
         _ => uc_1st_if(word, uc),                        // everything else: as English

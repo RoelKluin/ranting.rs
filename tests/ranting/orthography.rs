@@ -72,7 +72,13 @@ impl Ranting for Hund {
 
     /// The German rule: nouns are capitalized regardless of sentence position.
     /// Every other role keeps English's sentence-initial-only behavior.
-    fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
+    fn capitalize(
+        &self,
+        word: &str,
+        role: OrthographyRole,
+        uc: bool,
+        _sentence_start: bool,
+    ) -> String {
         match role {
             OrthographyRole::Noun => uc_1st_if(word, true),
             _ => uc_1st_if(word, uc),
@@ -161,7 +167,13 @@ impl Ranting for Neko {
         false
     }
 
-    fn capitalize(&self, word: &str, _role: OrthographyRole, _uc: bool) -> String {
+    fn capitalize(
+        &self,
+        word: &str,
+        _role: OrthographyRole,
+        _uc: bool,
+        _sentence_start: bool,
+    ) -> String {
         word.to_string()
     }
 }
@@ -209,7 +221,13 @@ impl Ranting for Probe {
         false
     }
 
-    fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
+    fn capitalize(
+        &self,
+        word: &str,
+        role: OrthographyRole,
+        uc: bool,
+        _sentence_start: bool,
+    ) -> String {
         SEEN.with(|s| s.borrow_mut().push((role, word.to_string(), uc)));
         uc_1st_if(word, uc)
     }
@@ -311,7 +329,13 @@ impl Ranting for ProbeWithCustomArticle {
         Some(uc_1st_if("yon", uc))
     }
 
-    fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool) -> String {
+    fn capitalize(
+        &self,
+        word: &str,
+        role: OrthographyRole,
+        uc: bool,
+        _sentence_start: bool,
+    ) -> String {
         SEEN.with(|s| s.borrow_mut().push((role, word.to_string(), uc)));
         uc_1st_if(word, uc)
     }
@@ -370,6 +394,7 @@ impl Ranting for Kedi {
         word: &str,
         role: OrthographyRole,
         uc: bool,
+        sentence_start: bool,
         ctx: Option<&NarrationContext>,
     ) -> String {
         if uc && ctx.and_then(|c| c.dialect) == Some("tr") {
@@ -378,7 +403,7 @@ impl Ranting for Kedi {
                 return format!("İ{}", chars.as_str());
             }
         }
-        self.capitalize(word, role, uc)
+        self.capitalize(word, role, uc, sentence_start)
     }
 }
 
@@ -437,6 +462,104 @@ fn maybe_and_box_delegate_to_the_inner_value() {
         say!("Heute bellt {the 0}.", Many(vec![Box::new(Hund)])),
         "Heute bellt der Hund."
     );
+}
+
+// ============================================================================
+// `sentence_start`: an explicit signal separate from `uc` (ROADMAP.md Phase 6
+// item 17, closing open question 2 of
+// docs/superpowers/specs/2026-08-13-word-order-feasibility.md)
+// ============================================================================
+//
+// `uc` conflates "this placeholder is sentence-initial" with "forced uppercase
+// by a `^`/`,` marker or an uppercase pre-text word". `sentence_start` is the
+// raw signal alone. The two normally agree, but a `,`/`^` marker or an
+// uppercase pre-text word can force `uc` independently of sentence position —
+// these tests pin the two disagreeing in both directions.
+
+thread_local! {
+    static SENTENCE_SEEN: RefCell<Vec<(bool, bool)>> = const { RefCell::new(Vec::new()) };
+}
+
+#[derive(Clone, Copy)]
+struct SentenceProbe;
+
+impl fmt::Display for SentenceProbe {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "thing")
+    }
+}
+
+impl Ranting for SentenceProbe {
+    fn name(&self, uc: bool) -> String {
+        uc_1st_if("thing", uc)
+    }
+    fn subjective(&self) -> &str {
+        "it"
+    }
+    fn is_plural(&self) -> bool {
+        false
+    }
+    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+        uc_1st_if(if to_plural { "things" } else { "thing" }, uc)
+    }
+    fn skip_article(&self) -> bool {
+        false
+    }
+
+    fn capitalize(
+        &self,
+        word: &str,
+        _role: OrthographyRole,
+        uc: bool,
+        sentence_start: bool,
+    ) -> String {
+        SENTENCE_SEEN.with(|s| s.borrow_mut().push((uc, sentence_start)));
+        uc_1st_if(word, uc)
+    }
+}
+
+fn drain_sentence_seen() -> Vec<(bool, bool)> {
+    SENTENCE_SEEN.with(|s| s.borrow_mut().drain(..).collect())
+}
+
+#[test]
+fn forced_lowercase_marker_keeps_sentence_start_true() {
+    // A `,` marker forces `uc == false` even though the placeholder really is
+    // sentence-initial (right after ". ") -- `sentence_start` still reports
+    // `true`, which `uc` alone could never distinguish from "mid-sentence".
+    let _ = drain_sentence_seen();
+    assert_eq!(
+        say!("Hello. {,=0} is nice.", SentenceProbe),
+        "Hello. it is nice."
+    );
+    let seen = drain_sentence_seen();
+    assert!(seen.contains(&(false, true)), "{seen:?}");
+}
+
+#[test]
+fn uppercase_pre_word_does_not_imply_sentence_start() {
+    // "The" starting with an uppercase letter forces `uc == true` on the
+    // fallback noun-capitalization site regardless of sentence position; the
+    // placeholder here is mid-sentence (no `.`/`?`/`!` before it), so
+    // `sentence_start` reports `false` even though `uc` is `true`.
+    let _ = drain_sentence_seen();
+    assert_eq!(
+        say!("meanwhile {The 0} arrived.", SentenceProbe),
+        "meanwhile The thing arrived."
+    );
+    let seen = drain_sentence_seen();
+    assert!(seen.contains(&(true, false)), "{seen:?}");
+}
+
+#[test]
+fn ordinary_sentence_start_agrees_on_both_signals() {
+    let _ = drain_sentence_seen();
+    assert_eq!(
+        say!("{The 0} arrived.", SentenceProbe),
+        "The thing arrived."
+    );
+    let seen = drain_sentence_seen();
+    assert!(seen.contains(&(true, true)), "{seen:?}");
 }
 
 // ============================================================================

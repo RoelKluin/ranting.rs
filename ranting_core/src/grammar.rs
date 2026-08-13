@@ -14,9 +14,34 @@ use std::str::FromStr;
 use strum_macros::EnumString;
 
 // sentence always captures: to obtain the placeholder offset.
+//
+// ROADMAP.md Phase 6 item 17: widened beyond ASCII `.`/`?`/`!` + trailing whitespace, which
+// silently missed every non-Latin sentence boundary. Three separate widenings, because a single
+// "add more punctuation" pass would still be wrong for two of them:
+//   - Greek question mark (U+037E, visually a semicolon) and Urdu full stop (U+06D4) are
+//     additional *terminators*, but both scripts still space-separate words, so they keep the
+//     existing "punctuation, then required whitespace" shape.
+//   - CJK full-width terminators (U+3002 `。`, U+FF01 `！`, U+FF1F `？`) take no following space at
+//     all, so they get their own alternative with no `\s+` requirement.
+//   - Spanish opening `¿`/`¡` (U+00BF/U+00A1) mark sentence-initial from the *other* side: the
+//     punctuation is the trigger and the placeholder can immediately follow it (`¿{noun}...`), so
+//     it is `\s*+` (optional, not required) rather than `\s+`.
+// `SENTENCE_TRIGGER_CHARS` below is the single source of truth for "does this pre-capture start
+// a sentence" so the regex here and `ranting_derive`'s `at_sentence_start` check can't drift.
 #[allow(dead_code)]
-pub static PH_START: &str =
-    r"(?P<pre>(?:^|[.?!]\s+|\{\{)?+)\{(?:(?P<plain>\w*+)|(?P<ranting>[^{}:]*+))(?P<fmt>:.*?)?\}";
+pub static PH_START: &str = concat!(
+    r"(?P<pre>(?:^|[.?!\u{37E}\u{6D4}]\s+|[\u{3002}\u{FF01}\u{FF1F}]|[\u{BF}\u{A1}]\s*+|\{\{)?+)",
+    r"\{(?:(?P<plain>\w*+)|(?P<ranting>[^{}:]*+))(?P<fmt>:.*?)?\}"
+);
+
+/// The characters that make a `PH_START` `pre` capture count as sentence-initial: ASCII
+/// terminators, Greek's question mark, Urdu's full stop, CJK full-width terminators, and
+/// Spanish's opening `¿`/`¡`. Kept in sync with `PH_START`'s character classes above by
+/// construction — `ranting_derive`'s `at_sentence_start` check matches a captured `pre`'s first
+/// character against this list instead of hand-duplicating the punctuation set.
+pub const SENTENCE_TRIGGER_CHARS: &[char] = &[
+    '.', '?', '!', '\u{37E}', '\u{6D4}', '\u{3002}', '\u{FF01}', '\u{FF1F}', '\u{BF}', '\u{A1}',
+];
 
 // Currently unused in both crates (verified: ranting_derive's article handling
 // works via string literals, not these enums — see docs/architecture-review-2026-08-13.md).

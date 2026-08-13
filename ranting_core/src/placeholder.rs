@@ -383,4 +383,13 @@ pub struct PlaceholderSpec {
     pub noun_space: &'static str,
     pub case: CaseKind,
     pub post: PostSpec,
+    /// Whether `ranting_core::grammar::PH_START`'s `pre` capture put this placeholder at the
+    /// start of a sentence (ROADMAP.md Phase 6 item 17) — computed once, at compile time, from
+    /// the same `at_sentence_start` check that already feeds the `uc` argument
+    /// `handle_placeholder`/`_with_context` are called with. `uc` conflates "sentence-initial"
+    /// with "forced uppercase by a `^`/`,` marker or an uppercase pre-text word"; this field
+    /// is the sentence-position signal alone, so a fork's `Ranting::capitalize`/
+    /// `capitalize_with_context` can tell the two apart (docs/superpowers/specs/
+    /// 2026-08-13-word-order-feasibility.md, open question 2).
+    pub sentence_start: bool,
 }
