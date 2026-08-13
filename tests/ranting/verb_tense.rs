@@ -423,6 +423,21 @@ fn tense_marker_past_perfect_all_pronouns() {
 }
 
 #[test]
+fn tense_marker_with_trailing_words() {
+    // Regression for Phase 4 item 3: the old `~TENSE~MARKER:WORD` string
+    // sentinel, when the tense-marked verb had trailing words, relied on
+    // splitting `post` at its last whitespace to separate the sentinel from
+    // the trailing word — which instead split *inside* the sentinel,
+    // pushing "~TENSE~<:went " verbatim into the output and mis-conjugating
+    // "home" as a verb ("He ~TENSE~<:went homes"). The typed `PostSpec::Tense
+    // { word, trailing, .. }` carries `word` and `trailing` as separate
+    // fields the macro already split apart, so there is nothing to
+    // mis-split at runtime.
+    let person = Noun::new("person", "he");
+    assert_eq!(say!("{=0 <go home}", person), "He went home");
+}
+
+#[test]
 fn tense_marker_perfect_mixed_sentence() {
     let person = Noun::new("Jordan", "she");
     let result = say!("{=0 %finish} {=0 <%start} before dinner.", person);

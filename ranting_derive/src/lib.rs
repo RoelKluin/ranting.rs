@@ -517,93 +517,110 @@ fn handle_param(
 
     let case = caps.name("case").map_or("", |m| m.as_str());
     let noun = caps.name("noun").unwrap();
-    let mut post = caps.name("post").map_or("", |m| m.as_str()).to_string();
+    let post = caps.name("post").map_or("", |m| m.as_str());
 
-    // Handle tense markers in post: <verb (past), =verb (continuous), >verb (future), <=verb (past continuous)
-    // When detected, we encode it as ~TENSE~MARKER:CONJUGATED so handle_placeholder can detect it.
-    // Handle degree markers in post: !word (comparative), !!word (superlative). Since degree
-    // inflection needs no subject/number/tense agreement, it's baked as a plain ~DEGREE~WORD
-    // sentinel that handle_placeholder_impl emits verbatim (see src/lib.rs), unlike the
-    // ~TENSE~ sentinel which still needs subject-verb agreement resolved at output time.
-    if !post.is_empty() {
+    // Classify the post-noun word (if any) into a typed `ranting_core::placeholder::PostSpec`
+    // variant here, at compile time -- see that module's docs for why: this is the part of
+    // Phase 4 item 3 that replaces the old `~TENSE~MARKER:CONJUGATED` / `~DEGREE~WORD[:TRAILING]`
+    // string sentinels (which used to be folded into a single `&str` and re-parsed at runtime
+    // via strip_prefix/split_once) with an enum baked directly into the generated call.
+    let post_span = caps.name("post");
+    let post_expr: TokenStream = if post.is_empty() {
+        quote!(ranting::placeholder::PostSpec::None)
+    } else if post == "'" || post == "'s" {
+        quote!(ranting::placeholder::PostSpec::PossessiveS)
+    } else {
         let post_trimmed = post.trim_start();
-        if !post_trimmed.is_empty() {
-            // Extract marker run: take all leading <, =, >, %, ! characters
-            let marker_end = post_trimmed
-                .chars()
-                .take_while(|c| matches!(c, '<' | '=' | '>' | '%' | '!'))
-                .count();
+        // Extract marker run: take all leading <, =, >, %, ! characters
+        let marker_end = post_trimmed
+            .chars()
+            .take_while(|c| matches!(c, '<' | '=' | '>' | '%' | '!'))
+            .count();
 
-            if marker_end > 0 && marker_end < post_trimmed.len() {
-                let marker = &post_trimmed[..marker_end];
-                let rest = post_trimmed[marker_end..].trim_start();
+        if marker_end == 0 || marker_end >= post_trimmed.len() {
+            // No tense/degree marker: a plain verb, possibly multi-word, exactly as
+            // captured (the runtime still splits off the trailing word to conjugate and
+            // passes leading words through verbatim -- unchanged from before this
+            // refactor, see `PostSpec::Verb`'s doc comment).
+            quote!(ranting::placeholder::PostSpec::Verb(#post))
+        } else {
+            let marker = &post_trimmed[..marker_end];
+            let rest = post_trimmed[marker_end..].trim_start();
+            // Split verb/adjective from any trailing content
+            let (base_word, trailing) = rest.split_once(char::is_whitespace).unwrap_or((rest, ""));
+            let leading_space = &post[..post.len() - post_trimmed.len()];
 
-                // Split verb/adjective from any trailing content
-                let (base_word, trailing) =
-                    rest.split_once(char::is_whitespace).unwrap_or((rest, ""));
-                let leading_space = &post[..post.len() - post_trimmed.len()];
-
-                if marker.chars().all(|c| c == '!') {
-                    let degree_word = match marker.len() {
-                        1 => adjective::to_comparative(base_word),
-                        2 => adjective::to_superlative(base_word),
-                        _ => {
-                            let post_span = caps.name("post").unwrap();
-                            return Err((
-                                post_span.start(),
-                                post_span.end(),
-                                "degree marker must be `!` (comparative) or `!!` (superlative)"
-                                    .to_string(),
-                            ));
-                        }
-                    };
-                    // Encode as ~DEGREE~WORD or ~DEGREE~WORD:TRAILING. A ':' separator
-                    // (not a space) is used because WORD may itself contain a literal
-                    // space for periphrastic forms ("more beautiful"), so handle_placeholder
-                    // can't tell WORD apart from TRAILING by whitespace alone.
-                    post = if trailing.is_empty() {
-                        format!("{}~DEGREE~{}", leading_space, degree_word)
-                    } else {
-                        format!("{}~DEGREE~{}:{}", leading_space, degree_word, trailing)
-                    };
-                } else if marker.contains('!') {
-                    let post_span = caps.name("post").unwrap();
-                    return Err((
-                        post_span.start(),
-                        post_span.end(),
-                        "degree marker `!`/`!!` cannot be combined with tense markers".to_string(),
-                    ));
+            if marker.chars().all(|c| c == '!') {
+                let degree_word = match marker.len() {
+                    1 => adjective::to_comparative(base_word),
+                    2 => adjective::to_superlative(base_word),
+                    _ => {
+                        let post_span = post_span.unwrap();
+                        return Err((
+                            post_span.start(),
+                            post_span.end(),
+                            "degree marker must be `!` (comparative) or `!!` (superlative)"
+                                .to_string(),
+                        ));
+                    }
+                };
+                quote!(ranting::placeholder::PostSpec::Degree {
+                    leading_space: #leading_space,
+                    word: #degree_word,
+                    trailing: #trailing,
+                })
+            } else if marker.contains('!') {
+                let post_span = post_span.unwrap();
+                return Err((
+                    post_span.start(),
+                    post_span.end(),
+                    "degree marker `!`/`!!` cannot be combined with tense markers".to_string(),
+                ));
+            } else {
+                // say!() bakes the fully-conjugated form (as before); say_with!()
+                // bakes the uninflected base verb so it can be re-resolved at
+                // runtime against a NarrationContext (see handle_placeholder_with_context).
+                let conjugated = if runtime_tense {
+                    base_word.to_string()
                 } else {
-                    // say!() bakes the fully-conjugated form (as before); say_with!()
-                    // bakes the uninflected base verb so it can be re-resolved at
-                    // runtime against a NarrationContext (see handle_placeholder_with_context).
-                    let conjugated = if runtime_tense {
-                        base_word.to_string()
-                    } else {
-                        match marker {
-                            "<" => verb_conjugate::to_past(base_word),
-                            "=" => verb_conjugate::to_continuous(base_word),
-                            ">" => verb_conjugate::to_future(base_word),
-                            "<=" => verb_conjugate::to_continuous(base_word),
-                            "%" => verb_conjugate::to_past_participle(base_word),
-                            "<%" => verb_conjugate::to_past_participle(base_word),
-                            _ => base_word.to_string(),
-                        }
-                    };
-
-                    // Encode tense marker info with special prefix ~TENSE~MARKER:CONJUGATED
-                    post = if trailing.is_empty() {
-                        format!("{}~TENSE~{}:{}", leading_space, marker, conjugated)
-                    } else {
-                        format!(
-                            "{}~TENSE~{}:{} {}",
-                            leading_space, marker, conjugated, trailing
-                        )
-                    };
-                }
+                    match marker {
+                        "<" => verb_conjugate::to_past(base_word),
+                        "=" => verb_conjugate::to_continuous(base_word),
+                        ">" => verb_conjugate::to_future(base_word),
+                        "<=" => verb_conjugate::to_continuous(base_word),
+                        "%" => verb_conjugate::to_past_participle(base_word),
+                        "<%" => verb_conjugate::to_past_participle(base_word),
+                        _ => base_word.to_string(),
+                    }
+                };
+                // Guaranteed to match one of TenseMarker::from_marker's arms: `marker` was
+                // extracted from the same `<=>%!` character class PH_EXT's `post` capture
+                // group is built from, minus the all-`!` (degree) case handled above.
+                let tense_variant = match marker {
+                    "<" => quote!(Past),
+                    "=" => quote!(Continuous),
+                    ">" => quote!(Future),
+                    "<=" => quote!(PastContinuous),
+                    "%" => quote!(PresentPerfect),
+                    "<%" => quote!(PastPerfect),
+                    _ => {
+                        let post_span = post_span.unwrap();
+                        return Err((
+                            post_span.start(),
+                            post_span.end(),
+                            format!("unrecognized tense marker `{marker}`"),
+                        ));
+                    }
+                };
+                quote!(ranting::placeholder::PostSpec::Tense {
+                    leading_space: #leading_space,
+                    marker: ranting::placeholder::TenseMarker::#tense_variant,
+                    word: #conjugated,
+                    trailing: #trailing,
+                })
             }
         }
-    }
+    };
 
     let plurality;
     // NB: if None, no alpha found => all are punct; occurs with '+' or '-'.
@@ -700,10 +717,32 @@ fn handle_param(
         let expr = get_opt_num_ph_expr(&p, given).map_err(|s| (pre_s, pre_e, s))?;
         poss = parse_quote!(ranting::inflect_possesive(#expr.subjective(), false, #possesive_uc));
     }
+    // Typed `case` -- see ranting_core::placeholder's module docs for why the pre-noun
+    // subjective `=` and the post-noun continuous-tense `=` (folded into `post_expr` above)
+    // can never be confused now that each has its own typed field.
+    let case_variant = match case {
+        "=" => quote!(Subjective),
+        "@" => quote!(Objective),
+        "`" => quote!(PossessiveDeterminer),
+        "~" => quote!(PossessivePronoun),
+        "%" => quote!(Reflexive),
+        "?" => quote!(Hidden),
+        _ => quote!(Name),
+    };
+    let case_expr = quote!(ranting::placeholder::CaseKind::#case_variant);
+    let spec_expr = quote!(ranting::placeholder::PlaceholderSpec {
+        pre: #pre_string,
+        plurality: #plurality,
+        noun_space: #noun_space,
+        case: #case_expr,
+        post: #post_expr,
+    });
     if runtime_tense {
-        pos.push(parse_quote!(ranting::handle_placeholder_with_context(&#noun, #poss, #nr_expr, #uc, [#pre_string, #plurality, #noun_space, #case, #post], &__ranting_narration_ctx)));
+        pos.push(parse_quote!(ranting::handle_placeholder_with_context(&#noun, #poss, #nr_expr, #uc, #spec_expr, &__ranting_narration_ctx)));
     } else {
-        pos.push(parse_quote!(ranting::handle_placeholder(&#noun, #poss, #nr_expr, #uc, [#pre_string, #plurality, #noun_space, #case, #post])));
+        pos.push(
+            parse_quote!(ranting::handle_placeholder(&#noun, #poss, #nr_expr, #uc, #spec_expr)),
+        );
     }
     Ok(format!("{{{len}{fmt}}}"))
 }

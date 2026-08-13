@@ -56,6 +56,20 @@ fn no_tense_override_falls_back_to_placeholder_marker() {
 }
 
 #[test]
+fn tense_marker_with_trailing_words_runtime_tense() {
+    // say_with!() counterpart of verb_tense::tense_marker_with_trailing_words:
+    // `runtime_tense = true` bakes `PostSpec::Tense { word: base_word, trailing,
+    // .. }` (the uninflected base verb) instead of a compile-time-conjugated
+    // form, but trailing-word handling goes through the same typed fields.
+    let he = Noun::new("person", "he");
+    let ctx = NarrationContext::new();
+    assert_eq!(say_with!(ctx, "{=0 <go home}", he), "He went home");
+
+    let future = NarrationContext::new().tense(Tense::Future);
+    assert_eq!(say_with!(future, "{=0 <go home}", he), "He will go home");
+}
+
+#[test]
 fn context_overrides_plural_subject() {
     let they = Noun::new("friends", "they");
     let past = NarrationContext::new().tense(Tense::Past);

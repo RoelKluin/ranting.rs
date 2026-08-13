@@ -441,17 +441,122 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
    - Payoff realized: `proc-macro-error` and `syn 1` (and its old duplicate
      `unicode-ident`/`quote` sub-tree) are gone from every downstream build.
 
-3. **Typed placeholder spec across the compile-time/runtime seam**
-   - Replace `handle_placeholder(..., caps: [&str; 5])` and the `~TENSE~MARKER:WORD`
-     string sentinel with a typed struct/enum (`PlaceholderSpec { article, pre_verb,
-     case, tense, ... }`) baked by the macro as a const.
-   - Deletes the runtime re-parsing (`strip_prefix("~TENSE~")`, `split_once(':')`,
-     the "fallback if colon/marker parsing fails" branches for states the macro can
-     never produce) and the runtime re-recognition of articles by string-matching
-     `"the" | "a" | "some"` in `get_article_or_so` — work the macro already did.
-   - The `~DEGREE~WORD[:TRAILING]` sentinel added for Phase 3 item 6
-     (comparative/superlative) is the same stringly-typed pattern as `~TENSE~`
-     and should fold into `PlaceholderSpec` alongside it.
+3. ✅ **Typed placeholder spec across the compile-time/runtime seam**
+   - ✅ Added `ranting_core::placeholder` (`ranting_core/src/placeholder.rs`),
+     a new shared module with `PlaceholderSpec { pre, plurality, noun_space,
+     case: CaseKind, post: PostSpec }`, `CaseKind` (`Name`/`Hidden`/
+     `Subjective`/`Objective`/`PossessiveDeterminer`/`PossessivePronoun`/
+     `Reflexive` — one variant per `case` capture-group character), and
+     `PostSpec` (`None`/`PossessiveS`/`Verb(&'static str)`/`Tense { marker:
+     TenseMarker, word, trailing, leading_space }`/`Degree { word, trailing,
+     leading_space }`) with `TenseMarker` (`Past`/`Continuous`/`Future`/
+     `PastContinuous`/`PresentPerfect`/`PastPerfect`). `ranting` re-exports
+     the module (`pub use ranting_core::placeholder;`) so macro-generated
+     code, which only has a `ranting::` path available, can name the types.
+   - ✅ `ranting_derive::handle_param` (`ranting_derive/src/lib.rs`) now
+     classifies the post-noun word into a `PostSpec` variant *at compile
+     time* and emits it as a struct-literal expression (`ranting::placeholder
+     ::PlaceholderSpec { .. }`) baked directly into the generated
+     `handle_placeholder`/`handle_placeholder_with_context` call — an
+     all-const-fields struct literal is itself a compile-time constant
+     expression, so this satisfies "baked by the macro as a const" without
+     needing a separate named `const ITEM: T = ..;` declaration (which would
+     need one uniquely-named item per placeholder in the expanded code for no
+     added benefit). `handle_placeholder`/`handle_placeholder_with_context`
+     (`src/lib.rs`) take `spec: PlaceholderSpec` in place of the old
+     `caps: [&str; 5]`.
+   - ✅ Deleted the `~TENSE~MARKER:WORD` and `~DEGREE~WORD[:TRAILING]` string
+     sentinels entirely, along with every runtime `strip_prefix("~TENSE~")`/
+     `strip_prefix("~DEGREE~")`/`split_once(':')`/`split_once(' ')` call and
+     the two "fallback if marker/colon parsing fails" branches that existed
+     only to handle malformed sentinels the macro could never actually
+     produce — those states are unrepresentable now (`PostSpec::Tense`/
+     `Degree` carry `marker`/`word`/`trailing` as separate typed/string
+     fields the macro already split apart, not a single string to
+     re-parse). Also fixed a latent (untested, so never user-visible)
+     ordering bug this uncovered: the old `~TENSE~` sentinel, when a tense
+     marker had trailing words (e.g. `{who <=go} home`), relied on
+     `split_at_find_end`'s last-whitespace split to separate the sentinel
+     from the trailing word, which — unlike the `~DEGREE~` sentinel, which
+     was deliberately exempted from that split via a `starts_with` check for
+     exactly this reason — would have pushed the raw, still-unparsed
+     `~TENSE~<:word` prefix into the output verbatim; no test exercised a
+     tense marker with trailing content, so this was never observed. The new
+     `PostSpec::Tense { word, trailing, .. }` renders `word` then
+     `" " + trailing` directly, matching the (already-correct)
+     `PostSpec::Degree` handling, with no split involved.
+   - ⚠️ **Deferred**: moving `get_article_or_so`'s article-keyword
+     classification (`"the"` / `"a" | "an" | "some"` / `"these" | "those"`)
+     to compile time was scoped out after closer reading. Unlike the
+     `~TENSE~`/`~DEGREE~` sentinels — pure syntactic encodings the macro
+     fully determines from the template text alone, with zero runtime
+     dependency — the `pre` capture group's grammar is substantially
+     broader (verb keywords, contractions like `haven't`, an embedded
+     backtick possessive substituted at runtime from another noun's
+     declension). The actual blocker is the second, *chained* call to
+     `get_article_or_so(noun, s, ...)` inside the `etc1` sub-parse (`{a set
+     of $ten are}`-style placeholders, `src/lib.rs`'s "if !etc1.is_empty()"
+     branch): the `s` tested there is split out of `etc1`, which is itself
+     derived from `pre` only *after* the runtime backtick-possessive
+     substitution (`pre.replace('`', poss.as_str())`) — so that second
+     classification genuinely isn't known at compile time, unlike the first
+     word tested against `noun.skip_article()`, which gates *whether* an
+     article renders at all but not *which keyword* it is and so isn't
+     itself a blocker. Reclassifying only the always-compile-time-knowable
+     first-word case while leaving the chained one as a runtime string match
+     would split one function's logic across two representations for a
+     partial win; treated as not worth doing half of this without a fuller
+     look at `etc1`'s chained-article feature, so it was left as future work
+     rather than risking a subtle behavior change here. `PlaceholderSpec::pre`
+     stays `&'static str` and `get_article_or_so`'s string matching is
+     otherwise untouched. Flagged this explicitly rather than silently
+     narrowing the item's scope.
+   - **The overloaded `=` marker, disambiguated**: `=` means "subjective
+     pronoun case" before the noun and "continuous tense" after it. Before
+     this item, both were bare `&str`s (`case: "="` vs. `post:
+     "~TENSE~=:running"`), so the two meanings were told apart only by
+     *which array slot the string sat in*, combined with a string prefix on
+     one side. Now `case: CaseKind::Subjective` and `post:
+     PostSpec::Tense(TenseMarker::Continuous, ..)` are different fields of
+     different enum types — the two meanings can't be confused at the type
+     level, and (per the point above) there's no shared string
+     representation left that needs disambiguating. Documented in
+     `ranting_core/src/placeholder.rs`'s module doc comment.
+   - ✅ `say!()`'s output is unchanged (still bakes fully-conjugated
+     literals through the same code path, now via `PostSpec::Tense`/`Verb`
+     instead of the sentinel string); `say_with!()`'s runtime tense
+     resolution (`NarrationContext.tense`) is unaffected — verified via the
+     existing `tests/ranting/runtime_tense.rs` and
+     `tests/ranting/verb_tense.rs` suites, unmodified and still green.
+   - ✅ Added 2 regression tests locking in the trailing-word fix above:
+     `verb_tense::tense_marker_with_trailing_words` (`say!()`) and
+     `runtime_tense::tense_marker_with_trailing_words_runtime_tense`
+     (`say_with!()`, both with and without a `NarrationContext.tense`
+     override). Root `ranting`'s integration count is therefore 254, not
+     252 — a deliberate increase (new coverage for a real, previously-latent
+     bug this refactor fixed), not a regression; confirmed the *old* code
+     actually produced the garbled `"He ~TENSE~<:went homes"` for
+     `say!("{=0 <go home}", person)` via `git stash` before writing the test,
+     so the note above isn't just reasoned but verified.
+   - ✅ Gate green on all three crates standalone. Root `ranting`: 39 lib +
+     254 integration + 11 doctests (4 ignored) — 252 of the integration
+     tests and all lib/doctest counts are identical to before this item
+     (verified against `git show c305cef7`), +2 for the regression tests
+     above; also re-verified under `cargo test --features debug`.
+     `ranting_core`: 11 tests, 0 doctests, unaffected (the new `placeholder`
+     module has no tests of its own beyond what the `ranting`-crate
+     integration suite already exercises end-to-end through
+     `say!()`/`say_with!()`). `ranting_derive` standalone: 9 unit tests
+     green; clippy reproduces the same 7 pre-existing findings documented in
+     `docs/architecture-review-2026-08-13.md` (dead `plurals.rs` code, one
+     `map_or`, two needless-borrow lints) under default features, and the
+     same 9 (7 + 2 `to_string`-in-`eprintln!`) under `--features debug` —
+     confirmed identical via `git stash` before/after for both feature sets,
+     nothing new introduced despite this item editing the exact
+     `handle_param` function those `eprintln!`s are diagnostic siblings of.
+     The one pre-existing doctest failure (`src/lib.rs - derive_ranting`,
+     `unresolved import 'ranting'`, CLAUDE.md's documented
+     proc-macro-crate-can't-self-test limitation) is unchanged.
 
 4. **Type the subject; remove runtime panics**
    - Make `SubjectPronoun` public (with `FromStr`) and store it in `Noun`, so invalid
