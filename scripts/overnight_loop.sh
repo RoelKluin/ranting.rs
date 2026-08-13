@@ -25,6 +25,45 @@ MAX_TASKS="${MAX_TASKS:-0}" # 0 = unlimited
 DRY_RUN=0
 ALLOWED_TOOLS="Read Edit Write Bash(cargo *) Bash(git *)"
 
+# This repo is not a cargo workspace -- ranting, ranting_core, ranting_derive
+# and ranting_i18n each have their own Cargo.toml/Cargo.lock -- so a gate that
+# only ran at the repo root never compiled ranting_i18n at all. Discovered by
+# listing every directory with its own Cargo.toml, so a future sibling crate
+# is picked up automatically without editing this script again.
+gate_dirs() {
+  local f
+  for f in "$REPO_ROOT"/Cargo.toml "$REPO_ROOT"/*/Cargo.toml; do
+    [[ -f "$f" ]] && dirname "$f"
+  done
+}
+
+# Runs fmt/clippy/test in one crate directory, logging which directory failed
+# so a gate failure points straight at the offending crate instead of forcing
+# a manual re-run per directory to find it.
+run_gate_in() {
+  local dir="$1"
+  echo "--- gate: $dir ---" | tee -a "$LOG_FILE"
+  (
+    cd "$dir" &&
+      cargo fmt --check &&
+      cargo clippy -- -D warnings &&
+      cargo test
+  ) >>"$LOG_FILE" 2>&1
+}
+
+# Runs the gate in every sibling crate directory; fails (and reports which
+# directory) on the first failure.
+run_gate() {
+  local dir
+  while IFS= read -r dir; do
+    if ! run_gate_in "$dir"; then
+      echo "Gate failed in $dir" | tee -a "$LOG_FILE" >&2
+      return 1
+    fi
+  done < <(gate_dirs)
+  return 0
+}
+
 usage() {
   cat <<EOF
 Usage: $(basename "$0") [--dry-run] [--max-tasks N]
@@ -73,7 +112,7 @@ fi
 # instead of burning the whole run stashing 12 doomed attempts.
 if [[ "$DRY_RUN" -eq 0 ]]; then
   echo "=== Pre-flight gate check ===" | tee -a "$LOG_FILE"
-  if ! { cargo fmt --check && cargo clippy -- -D warnings && cargo test; } >>"$LOG_FILE" 2>&1; then
+  if ! run_gate; then
     echo "Pre-flight gate failed on the starting commit -- fix that first, then rerun." | tee -a "$LOG_FILE" >&2
     echo "See $LOG_FILE for details." >&2
     exit 1
@@ -149,9 +188,7 @@ while :; do
     echo "claude -p exited $claude_exit" >>"$LOG_FILE"
   fi
 
-  if cargo fmt --check >>"$LOG_FILE" 2>&1 \
-    && cargo clippy -- -D warnings >>"$LOG_FILE" 2>&1 \
-    && cargo test >>"$LOG_FILE" 2>&1; then
+  if run_gate; then
     # Dequeue *before* committing, so the queue update is part of this task's
     # own commit. If it were left uncommitted, a later task's gate failure
     # would 'git stash push -u' it away along with that task's work, and the
