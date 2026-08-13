@@ -165,6 +165,11 @@ fn main() {
   }
   ```
 
+- **Word order is a permanent boundary, not a gap**: `ranting` inflects words within a template; the
+  order of those words is the template's, and the template is the caller's — so a non-English
+  application needs one template per language, and no inflection hook will ever change that. See
+  [`docs/EXTENSIBILITY.md`](docs/EXTENSIBILITY.md) §2.12.
+
 - If a Noun or numeric plurality has a leading question mark, it is hidden but its inferred inflection does apply.
 
 - An 'article' can be one of `a`, `an`, `some`, `the`, `those` or `these`. These and those are converted to
