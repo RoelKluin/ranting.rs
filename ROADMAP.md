@@ -2670,7 +2670,7 @@ because it exercises everything before it.*
       `ranting_core`, in `ranting_derive` and in `ranting_i18n` to confirm the
       working tree was green before and after.
 
-23. **Spanish reference lexicon** (16-24 hours) — *the second acceptance test*
+23. ✅ **Spanish reference lexicon** (16-24 hours) — *the second acceptance test*
     - Item 10 proved German exercises the hooks but **structurally cannot use
       the adjective hook at all** (hole 4a: attributive adjectives are prenominal,
       the `!` slot is post-noun, and predicative adjectives are uninflected — so
@@ -2684,6 +2684,42 @@ because it exercises everything before it.*
       already carries a complete Spanish impl to build from.
     - Same falsification contract as item 10: public API only, every hole
       recorded in the crate's README rather than worked around.
+    - New `ranting_es/` directory (crate `ranting-es`, not a workspace member,
+      own `Cargo.lock`, `ranting_i18n`'s sibling), modeled on `ranting_i18n`'s
+      structure/README/falsification-contract shape: `lexicon.rs` (plain
+      Spanish morphology, no `ranting` types), `noun.rs`/`SpanishNoun` (four
+      nouns: `gato`/`casa`/`problema`/`agua`), `person.rs`/`SpanishPerson`
+      (`yo`/`tú`/`usted`/`nosotros`/`vosotros`/`ustedes`), `tests/spanish.rs`
+      (what works) and `tests/holes.rs` (falsification).
+    - Confirmed the item's own thesis in `tests/spanish.rs`'s
+      `postnominal_adjective_agreement_in_a_real_sentence`: `{the *=0 !negro}`
+      on `SpanishNoun::gato()`/`casa()` renders `"El gato negro"` /
+      `"La casa negra"` / (plural) `"Los gatos negros"` — correct, complete
+      Spanish, not merely a mechanism demonstration the way
+      `ranting_i18n`'s hole 4a stayed for German.
+    - `tú`/`usted` land on the same mechanism German `Sie` uses
+      (`subjective()` as an uninterpreted channel feeding a per-language
+      `Person` enum) but a different slot: `usted` borrows
+      third-person-**singular** agreement (`usted habla`, identical to
+      `el gato habla`), where German `Sie` borrows third-person-**plural**.
+      `el agua` is a real euphonic-article exception (`el`/`un` singular,
+      `las`/`unas` plural, adjectives still agree feminine) reached by an
+      entity-carried `NounEntry::euphonic_el` flag, not a hook parameter —
+      not a hole, since nothing in the hook signature blocks it.
+    - Two of `ranting_i18n`'s eight holes don't reproduce here at all and the
+      README says so explicitly rather than leaving the reader to wonder:
+      hole 2/3 (`GrammaticalCase` has no dative) is moot because Spanish
+      nouns don't decline by case; hole 4b (adjective declension class not
+      reported) is moot because Spanish adjective endings depend only on
+      gender/number, both already passed to the hook directly.
+    - One new hole, cross-referenced to item 7 exactly like `ranting_i18n`'s
+      own hole 7: `de`+`el`→`del` and `a`+`el`→`al` preposition-article
+      fusion is unreachable, because the preposition is template literal
+      text outside the placeholder and `elide_article_custom` never sees it
+      — pinned by `tests/holes.rs`'s `hole_1_*`.
+    - `cargo fmt --check`, `cargo clippy -- -D warnings` and `cargo test` are
+      green in `ranting_es/`, at the repo root, and (re-verified unaffected)
+      in `ranting_core`, `ranting_derive` and `ranting_i18n`.
 
 ### v1.3 Success Criteria
 - A non-English `Ranting` impl can obtain gender/noun class, grammatical case,

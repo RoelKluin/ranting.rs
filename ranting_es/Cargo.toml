@@ -1,0 +1,10 @@
+[package]
+name = "ranting-es"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Spanish reference lexicon for ranting: the second acceptance test for Phase 6's i18n hooks"
+publish = false
+
+[dependencies]
+ranting = { path = ".." }
