@@ -506,13 +506,24 @@ fn nr_one_rep(s: &str, pos: usize) -> Vec<usize> {
     match_nr(s, pos).into_iter().collect()
 }
 
-/// Candidate end-offset for *one repetition* of `case`'s inner pattern
-/// (a single case-marker char) at `pos`.
+/// Candidate end-offsets for *one repetition* of `case`'s inner pattern at `pos`: either the
+/// fused two-character form (ROADMAP.md Phase 6 item 19 -- `*` immediately followed by a real
+/// case marker), tried first so a greedy search prefers it, or a single case-marker char.
 fn case_one_rep(s: &str, pos: usize) -> Vec<usize> {
-    match s[pos..].chars().next() {
-        Some(c) if is_case_char(c) => vec![pos + c.len_utf8()],
-        _ => Vec::new(),
+    let rest = &s[pos..];
+    let mut out = Vec::new();
+    if let Some(after_star) = rest.strip_prefix('*')
+        && let Some(c2) = after_star.chars().next()
+        && is_real_case_char(c2)
+    {
+        out.push(pos + 1 + c2.len_utf8());
     }
+    if let Some(c) = rest.chars().next()
+        && is_case_char(c)
+    {
+        out.push(pos + c.len_utf8());
+    }
+    out
 }
 
 /// Candidate end-offset for *one repetition* of `uc`'s inner pattern
@@ -593,6 +604,13 @@ fn match_nr(s: &str, pos: usize) -> Option<usize> {
 
 fn is_case_char(c: char) -> bool {
     matches!(c, '`' | '=' | '@' | '~' | '*' | '?' | '%')
+}
+
+/// A case marker that names a real grammatical role -- i.e. `is_case_char` minus `*` (which
+/// doesn't switch to a pronoun) and `?` (which already means "hidden"). The only chars valid as
+/// the second half of the fused `*`-prefixed case form (ROADMAP.md Phase 6 item 19).
+fn is_real_case_char(c: char) -> bool {
+    matches!(c, '`' | '=' | '@' | '~' | '%')
 }
 
 /// A single whitespace-delimited token from `post`'s word content is valid
@@ -876,6 +894,17 @@ mod tests {
             "??w",
             ",,,who",
             "^^who",
+            // Fused case-marker forms (ROADMAP.md Phase 6 item 19): `*` immediately followed by a
+            // real case marker is one two-character `case` capture, not two one-character reps.
+            "*=who",
+            "*@who",
+            "*`who",
+            "*~who",
+            "*%who",
+            "*?who", // `?` is not a real case marker, so this stays two one-character reps.
+            "**who", // ditto for a second `*`.
+            "the *=who",
+            "*=who's",
         ];
         for input in inputs {
             assert_parity(&re, input);
@@ -894,8 +923,11 @@ mod tests {
             nr in proptest::option::of(proptest::sample::select(vec![
                 "+", "-", "#5 ", "$n ", "?$n ",
             ])),
+            // Includes the fused two-character forms from ROADMAP.md Phase 6 item 19 alongside
+            // the original single-character markers, so the fuzzer actually exercises them
+            // (a `char` strategy could never produce `"*="`).
             case in proptest::option::of(proptest::sample::select(vec![
-                '`', '=', '@', '~', '*', '?', '%',
+                "`", "=", "@", "~", "*", "?", "%", "*=", "*@", "*`", "*~", "*%",
             ])),
             noun in proptest::sample::select(vec!["noun", "who", "item-thing", "x1"]),
             post in proptest::option::of(proptest::sample::select(vec![
@@ -907,7 +939,7 @@ mod tests {
             if let Some(c) = uc { s.push(c); }
             if let Some(p) = pre_word { s.push_str(p); s.push(' '); }
             if let Some(n) = nr { s.push_str(n); }
-            if let Some(c) = case { s.push(c); }
+            if let Some(c) = case { s.push_str(c); }
             s.push_str(noun);
             if let Some(p) = post { s.push_str(p); }
             let re = ph_ext_re();

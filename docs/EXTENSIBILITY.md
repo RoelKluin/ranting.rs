@@ -767,6 +767,74 @@ for the same reason `inflect_verb_custom` does: `Many`/`Maybe`/`Box` delegate th
 value the same way they delegate `noun_class()`, and it's the caller, not the callee, that decides
 which entity's declared subject is in play. See `tests/ranting/first_person_hook.rs`.
 
+### 2.11 Case-Marking Without Switching to a Pronoun: the Fused `*=`/`*@` Marker (v1.3, ROADMAP.md Phase 6 item 19)
+
+A case marker (`=`/`@`/`` ` ``/`~`/`%`) does two jobs at once: it tells `inflect_article_custom`
+(§2.3) the noun's grammatical role via `GrammaticalCase`, *and* it switches the noun slot itself
+from the name (`Ranting::inflect`) to a pronoun (`inflect_pronoun_custom`, §2.2). For a case-
+declining language that wants `"Der Hund bellt."`, the only way to reach that with the old grammar
+was to override `inflect_pronoun_custom` to return the noun's own name — and then that override
+applied to *every* case-marked placeholder for that entity, so real pronouns (`er`/`ihn`/`ihm`)
+became unreachable for the same noun: `say!("Ich sehe {@0}.", hund)` rendered `"Ich sehe Hund."`
+instead of `"Ich sehe ihn."` (`ranting_i18n`'s README hole 5).
+
+The fix is a fused two-character form of the case marker: `*` immediately followed by a real case
+marker — `*=`, `*@`, `` *` ``, `*~`, `*%` — case-marks the placeholder exactly like the bare
+marker (the article/elision hooks see the identical `GrammaticalCase`) but renders the noun's name
+instead of calling `inflect_pronoun_custom` at all:
+
+```rust
+// Bare marker: real pronoun, case-correct article only if the fork's pronoun hook is
+// also case-aware.
+say!("{the =0} bellt.", hund);     // "Er bellt." (subjective pronoun)
+say!("Ich sehe {@0}.", hund);      // "Ich sehe ihn." (objective pronoun)
+
+// Fused marker: the article is still case-correct, but the name renders instead.
+say!("{the *=0} bellt.", hund);    // "Der Hund bellt."
+say!("Ich sehe {the *@0}.", hund); // "Ich sehe den Hund."
+```
+
+**Why `*` and not a new marker character.** The placeholder marker set is a ✅ Locked
+architecture decision (see the Key Architecture Decisions table). `*` was already a case-marker-
+position character — previously synonymous with no marker at all (`CaseKind::Name`, used only to
+mark which word is the placeholder's Ranting element, e.g. `` {*jane who have} ``) — so fusing it
+with a real case marker reuses an existing character rather than adding one. Two build options
+were scored and rejected before landing on this:
+
+- **`article_present: bool` on `inflect_pronoun_custom`.** Would let the pronoun hook itself
+  decide whether to render a pronoun or fall back — but it conflates "an article was written"
+  with "render the name", which are different things (a bare `` {=noun} `` with no article should
+  still be able to ask for the name), and it is a hook-signature break reaching every existing
+  override, for the same reason item 18 rejected extending `GrammaticalCase` with new variants.
+- **A `render_case_marked_as_name()` trait hook.** Just moves `ranting_i18n`'s pre-item-19
+  `Render` flag (`GermanNoun::as_pronoun`) into the trait itself — still entity-carried state
+  standing in for something the *placeholder* should be able to say per occurrence, which is
+  exactly the gap this item closes. It also can't express "name here, pronoun there" for the same
+  entity in the same sentence, which the fused marker can.
+
+**What actually changed under the hood:**
+- `ranting_core::grammar::PH_EXT`'s `case` capture group tries the fused two-character form first
+  (`` \*[`=@~%] ``), falling back to the original single-character class — and `ranting_core::
+  ph_ext::case_one_rep` mirrors it by hand, with a differential-fuzz test (`ph_ext`'s own test
+  suite) confirming the two agree on every input, fused and bare alike.
+- `ranting_core::placeholder::PlaceholderSpec` gained one field, `display_as_name: bool` — `false`
+  for every placeholder in the existing test suite (nothing wrote the fused form before this
+  item), so `say!()`'s output is unchanged by construction. `CaseKind` itself is untouched: the
+  fused marker reports the *same* `CaseKind`/`GrammaticalCase` as its bare counterpart, so
+  `inflect_article_custom`/`elide_article_custom` cannot tell which form was written and don't
+  need to.
+- `handle_placeholder_impl` checks `display_as_name` once, before the `case`-dispatch match: when
+  set, it renders via `noun.inflect(as_pl, uc, case.into())` — the same call
+  `CaseKind::Name`/`Hidden` already made, except `case.into()` now reports the *real* grammatical
+  role instead of always `GrammaticalCase::Name`, a side effect a fork's own `inflect()` can use
+  too (narrowing, but not closing, `ranting_i18n`'s hole 2 — `GrammaticalCase` still has no dative
+  variant, see §2.4's sibling gap in hole 3).
+
+**Not affected:** a bare `*` with no following case marker is still `CaseKind::Name`, unchanged;
+`?` (hidden) cannot be fused (`*?` isn't accepted — hidden already means nothing renders, so there
+is nothing for "render the name instead" to mean). See `tests/ranting/case_display_split.rs` and,
+worked through a full German example, `ranting_i18n/tests/holes.rs`'s `hole_5_closed_*`.
+
 ## Partial Customization
 
 You don't need to implement every `_custom` method. If you only need verb customization, implement `inflect_verb_custom()` and leave the rest as default (returning `None`). The trait provides a default for all of them:

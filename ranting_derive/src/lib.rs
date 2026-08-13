@@ -884,14 +884,25 @@ fn handle_param(
     // Typed `case` -- see ranting_core::placeholder's module docs for why the pre-noun
     // subjective `=` and the post-noun continuous-tense `=` (folded into `post_expr` above)
     // can never be confused now that each has its own typed field.
-    let case_variant = match case {
-        "=" => quote!(Subjective),
-        "@" => quote!(Objective),
-        "`" => quote!(PossessiveDeterminer),
-        "~" => quote!(PossessivePronoun),
-        "%" => quote!(Reflexive),
-        "?" => quote!(Hidden),
-        _ => quote!(Name),
+    //
+    // ROADMAP.md Phase 6 item 19: the fused `*=`/`*@`/`` *` ``/`*~`/`*%` forms (`*` immediately
+    // followed by a real case marker, see `ph_ext::case_one_rep`) report the same `CaseKind` as
+    // their bare counterpart -- the article/elision hooks must still see the real case -- plus
+    // `display_as_name = true`, so `handle_placeholder_impl` renders the noun's name instead of
+    // switching to a pronoun.
+    let (case_variant, display_as_name) = match case {
+        "*=" => (quote!(Subjective), true),
+        "*@" => (quote!(Objective), true),
+        "*`" => (quote!(PossessiveDeterminer), true),
+        "*~" => (quote!(PossessivePronoun), true),
+        "*%" => (quote!(Reflexive), true),
+        "=" => (quote!(Subjective), false),
+        "@" => (quote!(Objective), false),
+        "`" => (quote!(PossessiveDeterminer), false),
+        "~" => (quote!(PossessivePronoun), false),
+        "%" => (quote!(Reflexive), false),
+        "?" => (quote!(Hidden), false),
+        _ => (quote!(Name), false),
     };
     let case_expr = quote!(ranting::placeholder::CaseKind::#case_variant);
     let spec_expr = quote!(ranting::placeholder::PlaceholderSpec {
@@ -902,6 +913,7 @@ fn handle_param(
         numeral: #numeral_expr,
         noun_space: #noun_space,
         case: #case_expr,
+        display_as_name: #display_as_name,
         post: #post_expr,
         sentence_start: #at_sentence_start,
     });

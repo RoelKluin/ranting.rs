@@ -454,6 +454,7 @@ where
         numeral,
         noun_space,
         case,
+        display_as_name,
         post: post_spec,
         sentence_start,
     } = spec;
@@ -662,127 +663,138 @@ where
 
     if case != CaseKind::Hidden {
         res.push_str(noun_space);
-        let s = match case {
-            CaseKind::Subjective => {
-                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
-                    subjective,
-                    PronounCase::Subjective,
-                    noun_class,
-                    pronoun_as_pl,
-                    placeholder_count,
-                    uc,
-                    ctx,
-                ) {
-                    custom
-                } else {
-                    cap_pronoun(
-                        noun,
-                        inflect_subjective(subjective, pronoun_as_pl, false),
+        // ROADMAP.md Phase 6 item 19: the fused `*=`/`*@`/etc. marker case-marks the placeholder
+        // (the article/elision hooks below still see `case`'s real `GrammaticalCase`, via
+        // `case.into()`) but asks for the noun's own name here, exactly like `CaseKind::Name`,
+        // instead of switching to `inflect_pronoun_custom`. `display_as_name` is only ever `true`
+        // for a real case variant (never `Name`/`Hidden` -- see the field's own docs), so this
+        // check has to run before the `case` match, not as one more arm of it.
+        let s = if display_as_name {
+            let name = noun.inflect(as_pl, uc, case.into());
+            noun.capitalize_with_context(&name, OrthographyRole::Noun, false, sentence_start, ctx)
+        } else {
+            match case {
+                CaseKind::Subjective => {
+                    if let Some(custom) = noun.inflect_pronoun_custom_with_context(
+                        subjective,
+                        PronounCase::Subjective,
+                        noun_class,
+                        pronoun_as_pl,
+                        placeholder_count,
                         uc,
+                        ctx,
+                    ) {
+                        custom
+                    } else {
+                        cap_pronoun(
+                            noun,
+                            inflect_subjective(subjective, pronoun_as_pl, false),
+                            uc,
+                            sentence_start,
+                            ctx,
+                        )
+                    }
+                }
+                CaseKind::Objective => {
+                    if let Some(custom) = noun.inflect_pronoun_custom_with_context(
+                        subjective,
+                        PronounCase::Objective,
+                        noun_class,
+                        pronoun_as_pl,
+                        placeholder_count,
+                        uc,
+                        ctx,
+                    ) {
+                        custom
+                    } else {
+                        cap_pronoun(
+                            noun,
+                            inflect_objective(subjective, pronoun_as_pl, false),
+                            uc,
+                            sentence_start,
+                            ctx,
+                        )
+                    }
+                }
+                CaseKind::PossessiveDeterminer => {
+                    if let Some(custom) = noun.inflect_pronoun_custom_with_context(
+                        subjective,
+                        PronounCase::PossessiveDeterminer,
+                        noun_class,
+                        pronoun_as_pl,
+                        placeholder_count,
+                        uc,
+                        ctx,
+                    ) {
+                        custom
+                    } else {
+                        cap_pronoun(
+                            noun,
+                            inflect_possessive(subjective, pronoun_as_pl, false),
+                            uc,
+                            sentence_start,
+                            ctx,
+                        )
+                    }
+                }
+                CaseKind::PossessivePronoun => {
+                    if let Some(custom) = noun.inflect_pronoun_custom_with_context(
+                        subjective,
+                        PronounCase::PossessivePronoun,
+                        noun_class,
+                        pronoun_as_pl,
+                        placeholder_count,
+                        uc,
+                        ctx,
+                    ) {
+                        custom
+                    } else {
+                        cap_pronoun(
+                            noun,
+                            inflect_adjective(subjective, pronoun_as_pl, false),
+                            uc,
+                            sentence_start,
+                            ctx,
+                        )
+                    }
+                }
+                CaseKind::Reflexive => {
+                    if let Some(custom) = noun.inflect_pronoun_custom_with_context(
+                        subjective,
+                        PronounCase::Reflexive,
+                        noun_class,
+                        pronoun_as_pl,
+                        placeholder_count,
+                        uc,
+                        ctx,
+                    ) {
+                        custom
+                    } else {
+                        cap_pronoun(
+                            noun,
+                            inflect_reflexive(subjective, pronoun_as_pl, false),
+                            uc,
+                            sentence_start,
+                            ctx,
+                        )
+                    }
+                }
+                // The only site that does *not* hand the hook an uncapitalized word: `inflect()`
+                // takes `uc` itself and is user-implementable, so English capitalization is already
+                // resolved here — and it is not the same as `uc_1st_if`, since a derive-generated
+                // `name()` for `#[ranting(name = "designer")]` reads `uc == true` as "as written",
+                // not "force uppercase". Hence `false`: the hook must not apply it a second time.
+                // A fork that capitalizes nouns unconditionally (German) ignores the flag anyway.
+                CaseKind::Name | CaseKind::Hidden => {
+                    let name = noun.inflect(as_pl, uc, case.into());
+                    noun.capitalize_with_context(
+                        &name,
+                        OrthographyRole::Noun,
+                        false,
                         sentence_start,
                         ctx,
                     )
                 }
-            }
-            CaseKind::Objective => {
-                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
-                    subjective,
-                    PronounCase::Objective,
-                    noun_class,
-                    pronoun_as_pl,
-                    placeholder_count,
-                    uc,
-                    ctx,
-                ) {
-                    custom
-                } else {
-                    cap_pronoun(
-                        noun,
-                        inflect_objective(subjective, pronoun_as_pl, false),
-                        uc,
-                        sentence_start,
-                        ctx,
-                    )
-                }
-            }
-            CaseKind::PossessiveDeterminer => {
-                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
-                    subjective,
-                    PronounCase::PossessiveDeterminer,
-                    noun_class,
-                    pronoun_as_pl,
-                    placeholder_count,
-                    uc,
-                    ctx,
-                ) {
-                    custom
-                } else {
-                    cap_pronoun(
-                        noun,
-                        inflect_possessive(subjective, pronoun_as_pl, false),
-                        uc,
-                        sentence_start,
-                        ctx,
-                    )
-                }
-            }
-            CaseKind::PossessivePronoun => {
-                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
-                    subjective,
-                    PronounCase::PossessivePronoun,
-                    noun_class,
-                    pronoun_as_pl,
-                    placeholder_count,
-                    uc,
-                    ctx,
-                ) {
-                    custom
-                } else {
-                    cap_pronoun(
-                        noun,
-                        inflect_adjective(subjective, pronoun_as_pl, false),
-                        uc,
-                        sentence_start,
-                        ctx,
-                    )
-                }
-            }
-            CaseKind::Reflexive => {
-                if let Some(custom) = noun.inflect_pronoun_custom_with_context(
-                    subjective,
-                    PronounCase::Reflexive,
-                    noun_class,
-                    pronoun_as_pl,
-                    placeholder_count,
-                    uc,
-                    ctx,
-                ) {
-                    custom
-                } else {
-                    cap_pronoun(
-                        noun,
-                        inflect_reflexive(subjective, pronoun_as_pl, false),
-                        uc,
-                        sentence_start,
-                        ctx,
-                    )
-                }
-            }
-            // The only site that does *not* hand the hook an uncapitalized word: `inflect()`
-            // takes `uc` itself and is user-implementable, so English capitalization is already
-            // resolved here — and it is not the same as `uc_1st_if`, since a derive-generated
-            // `name()` for `#[ranting(name = "designer")]` reads `uc == true` as "as written",
-            // not "force uppercase". Hence `false`: the hook must not apply it a second time.
-            // A fork that capitalizes nouns unconditionally (German) ignores the flag anyway.
-            CaseKind::Name | CaseKind::Hidden => {
-                let name = noun.inflect(as_pl, uc, case.into());
-                noun.capitalize_with_context(
-                    &name,
-                    OrthographyRole::Noun,
-                    false,
-                    sentence_start,
-                    ctx,
-                )
             }
         };
         res.push_str(&s);

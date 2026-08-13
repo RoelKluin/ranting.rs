@@ -21,8 +21,8 @@
 //! What it does **not** reach is written down in this crate's `README.md` as eight numbered
 //! holes, each cross-referenced from the ROADMAP Phase 6 item it belongs to. Every one of them
 //! is recorded rather than worked around; where the lexicon carries state on the entity instead
-//! (grammatical case, article definiteness, name-vs-pronoun rendering), the README says so and
-//! says which hook would otherwise have carried it.
+//! (grammatical case, article definiteness), the README says so and says which hook would
+//! otherwise have carried it.
 //!
 //! Word order, in particular, is **not** something `ranting` will do — Phase 6 item 1 settled
 //! that as a permanent boundary. German verb-second order lives in this crate's own template
@@ -34,10 +34,10 @@
 //! use ranting_i18n::{Case, GermanNoun};
 //!
 //! let hund = GermanNoun::hund();
-//! assert_eq!(say!("{the =0 bellen}.", hund), "Der Hund bellt.");
-//! assert_eq!(say!("Ich sehe {the @0}.", hund), "Ich sehe den Hund.");
+//! assert_eq!(say!("{the *=0 bellen}.", hund), "Der Hund bellt.");
+//! assert_eq!(say!("Ich sehe {the *@0}.", hund), "Ich sehe den Hund.");
 //! assert_eq!(
-//!     say!("Ich gebe {the =0} etwas.", hund.in_case(Case::Dative)),
+//!     say!("Ich gebe {the *=0} etwas.", hund.in_case(Case::Dative)),
 //!     "Ich gebe dem Hund etwas."
 //! );
 //! ```
@@ -47,5 +47,5 @@ pub mod noun;
 pub mod person;
 
 pub use lexicon::{Case, Definiteness, Person};
-pub use noun::{GermanNoun, Render};
+pub use noun::GermanNoun;
 pub use person::GermanPerson;
