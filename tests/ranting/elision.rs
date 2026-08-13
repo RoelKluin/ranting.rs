@@ -364,14 +364,38 @@ fn probe_records_what_the_hook_is_handed() {
     );
 }
 
-/// A hidden noun (`{?the p}`) renders nothing to elide against, so the hook is
+/// A hidden noun (`{the ?p}`) renders nothing to elide against, so the hook is
 /// not called at all — the same reachability boundary as `de` + `le` → `du`.
+/// (`?` here marks the *noun* hidden; `{?the p}` is the article-position `?`,
+/// a different marker entirely.)
 #[test]
 fn hidden_noun_does_not_reach_the_hook() {
     CALLS.with(|c| c.borrow_mut().clear());
     let p = Probe;
-    let _ = say!("{?the p}");
+    assert_eq!(say!("{the ?p}"), "The".to_string());
     assert!(probe_calls().is_empty());
+}
+
+/// `following` is whatever is actually adjacent to the article, which includes
+/// any words the placeholder's own pre-text carried after it — here the
+/// `"set of"` that makes `{a set of $n p}` a singular phrase around a plural
+/// count. Eliding against the real neighbour is the point of running after
+/// assembly, so this is the behavior, not a leak.
+#[test]
+fn following_includes_pre_text_after_the_article() {
+    CALLS.with(|c| c.borrow_mut().clear());
+    let p = Probe;
+    let n = 2;
+    assert_eq!(say!("{a set of $n p}"), "Some set of 2 chiens".to_string());
+    assert_eq!(
+        probe_calls(),
+        vec![(
+            "Some".to_string(),
+            " ".to_string(),
+            "set of 2 chiens".to_string(),
+            true
+        )]
+    );
 }
 
 // ---------------------------------------------------------------------------

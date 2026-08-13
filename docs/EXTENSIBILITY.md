@@ -525,7 +525,7 @@ fn elide_article_custom(
     &self,
     article: &str,          // the article as rendered, capitalization included
     separator: &str,        // the whitespace between it and what follows (usually " ")
-    following: &str,        // the rendered text after it: the number, then noun or pronoun
+    following: &str,        // the rendered text adjacent to it (see below)
     case: GrammaticalCase,
     class: NounClass,
     as_plural: bool,
@@ -563,6 +563,11 @@ fn elide_article_custom(
 chien."`. Note the elision decision is *lexical*, carried by the entity (mute vs. aspirate h is not
 derivable from spelling), exactly as `NounClass` is in §2.4. `tests/ranting/elision.rs` is the
 runnable version, including an Italian `lo`/`il`/`l'` body.
+
+**What `following` contains.** Whatever is actually adjacent to the article: any words the
+placeholder's own pre-text carried after it (`` {a set of $n chiens} `` gives `"set of 2 chiens"`),
+then the number when there is one, then the noun name or case-selected pronoun. Rendered text, not
+dictionary forms — that is the point of running after assembly.
 
 **No `uc` parameter.** The `article` handed to this hook is already rendered *and* capitalized —
 whether by §2.3's hook or the English fallback — so there is nothing left for `uc` to decide. A
