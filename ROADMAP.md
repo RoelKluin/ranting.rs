@@ -298,10 +298,14 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
      irregular-noun path uses them for real and gains `apply_case`'s
      case-preservation as a side effect (previously lost, since the caller only
      applied `uc_1st_if`'s first-letter rule). The `ranting_derive`-side copy
-     is still deliberately unwired (see CLAUDE.md's Architecture section) —
-     noun pluralization happens at `Ranting::inflect()` runtime, never at
-     `ranting_derive` compile time, so it has no call site to wire into.
-     `ranting_derive/src/language/adjective.rs` (comparative/superlative
+     was deleted the same day (`src/language/plurals.rs`, its
+     `pub mod plurals;` in `mod.rs`, and the `generate_plurals_table`
+     codegen + `IRREGULAR_PLURALS` table in `ranting_derive/build.rs`) rather
+     than left permanently dead — noun pluralization happens at
+     `Ranting::inflect()` runtime, never at `ranting_derive` compile time, so
+     it never had a call site to wire into; this also closed out
+     `ranting_derive`'s standalone `cargo clippy -D warnings` failure (see
+     Phase 4 item 6's follow-up note below). `ranting_derive/src/language/adjective.rs` (comparative/superlative
      tables, Phase 3 item 6) also stayed put — `ranting` has no runtime use
      for it, so it was never one of the three copy mechanisms this item
      targeted; CLAUDE.md's original phrasing already called this out as a
@@ -849,6 +853,15 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
      Item 7 (licensing) remains an explicit human decision, not an agent task — see
      [PROPOSED LICENSE CHANGE](#proposed-license-change-awaiting-decision). Item 8
      (repo hygiene) was already complete.
+   - **Follow-up, 2026-08-13**: the 7 pre-existing `ranting_derive` clippy
+     findings referenced throughout this item's log (dead `plurals.rs` code +
+     `map_or`/needless-borrow lints) are now fixed: `ranting_derive`'s dead
+     `src/language/plurals.rs` module was deleted outright (see the Phase 4
+     item 1 update above) rather than patched with `#[allow(dead_code)]`, and
+     the two `needless_borrows_for_generic_args` findings in `src/lib.rs`
+     (`x.ends_with(&['x', ...])` → `x.ends_with(['x', ...])`) were fixed
+     directly. `cargo clippy --all-targets -- -D warnings` is now clean in
+     all three crates individually and as a workspace.
 
 7. **Licensing decision** (orthogonal, but decides whether the rest gets an audience)
    - GPL-3 on a *library* crate is the single biggest adoption barrier: dependents'
