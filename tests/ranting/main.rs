@@ -10,6 +10,7 @@ mod heed;
 mod inclusive_language;
 mod irregular_plurals;
 mod male_female_and_object;
+mod narration_context_threading;
 mod property_based;
 mod readme_example;
 mod runtime_tense;

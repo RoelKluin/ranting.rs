@@ -48,14 +48,51 @@ pub enum Person {
     Third,
 }
 
+/// A story-wide formality setting, for forks that want to vary word choice
+/// (contractions, honorifics, slang) by register.
+///
+/// Unlike `tense` and `narration_person`, the crate itself has no built-in
+/// English behavior for this — it is inert until a `Ranting` implementation
+/// reads `NarrationContext.register` from one of the `*_with_context` hooks
+/// (see the `Ranting` trait in `src/lib.rs`) and acts on it.
+///
+/// `Register::Neutral` is an explicit middle value, distinct from
+/// `NarrationContext.register: None`: `None` means "no register override in
+/// effect" (a hook should treat it exactly like never having a context, e.g.
+/// falling through to whatever the plain, non-context hook would have done),
+/// while `Some(Register::Neutral)` means a story has actively opted into
+/// "neither formal nor casual" as its register, as opposed to `Formal` or
+/// `Casual`. Implementations that don't need the distinction can freely
+/// treat both the same way.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Register {
+    Formal,
+    Neutral,
+    Casual,
+}
+
 /// Story-wide narration settings, threaded through `say_with!()`.
 ///
-/// Currently carries a tense override and a narration-person (viewpoint)
-/// override.
+/// Carries a tense override and a narration-person (viewpoint) override,
+/// both resolved internally by this crate (see `resolve_viewpoint` and
+/// `marker_and_form_for_tense`/`form_for_marker`), plus a `register` and
+/// `dialect` that the crate never interprets itself — those two exist purely
+/// so a `Ranting` implementation's `inflect_verb_custom_with_context` /
+/// `inflect_pronoun_custom_with_context` / `inflect_article_custom_with_context`
+/// hooks can branch on story-wide settings without the entity itself owning
+/// them (keeping `subject`, an entity property, separate from these, which
+/// are story settings — see CLAUDE.md's Non-obvious behaviors).
+///
+/// `dialect` is a plain `&'static str` (e.g. "en-GB", "pirate") rather than
+/// an enum, since the crate places no constraints on it; it is entirely
+/// fork-defined. Both new fields are `Copy`, like the rest of the struct, so
+/// a single context can still be reused across multiple `say_with!()` calls.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NarrationContext {
     pub tense: Option<Tense>,
     pub narration_person: Option<Person>,
+    pub register: Option<Register>,
+    pub dialect: Option<&'static str>,
 }
 
 impl NarrationContext {
@@ -70,6 +107,16 @@ impl NarrationContext {
 
     pub fn narration_person(mut self, person: Person) -> Self {
         self.narration_person = Some(person);
+        self
+    }
+
+    pub fn register(mut self, register: Register) -> Self {
+        self.register = Some(register);
+        self
+    }
+
+    pub fn dialect(mut self, dialect: &'static str) -> Self {
+        self.dialect = Some(dialect);
         self
     }
 }

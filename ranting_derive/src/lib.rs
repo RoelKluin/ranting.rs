@@ -50,6 +50,9 @@ pub fn say(input: TokenStream1) -> TokenStream1 {
 /// say_with!(context, "fmt", args...) is like say!() but resolves `<`, `=`, `>`,
 /// `<=`, `%`, `<%` tense markers against a runtime `NarrationContext` (falling
 /// back to the marker's own default tense when the context doesn't override it).
+/// The context also carries `narration_person`, `register`, and `dialect` — the
+/// latter two are inert in this crate and only reach `Ranting::inflect_*_custom_with_context`
+/// hooks for implementations that choose to read them (see `ranting::Ranting`).
 #[proc_macro]
 pub fn say_with(input: TokenStream1) -> TokenStream1 {
     let output = parse_macro_input!(input as SayWith);
