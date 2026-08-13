@@ -1,7 +1,9 @@
 // (c) Roel Kluin 2026 MIT
 //
-// ROADMAP.md Phase 6 item 9: heed!()/ask!() are restricted, permanently and by
-// decision, to input whose capture boundaries are marked by whitespace. These
+// ROADMAP.md Phase 6 item 9: heed!(), ask!() and #[derive(Heed)] — all three
+// go through ranting_derive's compile_heed_template — are restricted,
+// permanently and by decision, to input whose capture boundaries are marked by
+// whitespace. These
 // tests pin what that restriction actually is — which is narrower than "no
 // CJK": the compiled regex is byte/script-agnostic (`{name}` is `\S+`), so a
 // non-ASCII script works fine as long as the *input* separates the pieces the
@@ -13,7 +15,7 @@
 // wrong capture. See tests/ranting/heed.rs for the space-delimited behavior in
 // general, and README.md's heed!() section for the user-facing statement.
 
-use ranting::*;
+use ranting::{Answerable, Heed, Noun, Ranting, ask, heed};
 
 // --- Supported: non-ASCII scripts with whitespace-separated input ------------
 
@@ -108,6 +110,30 @@ fn a_trailing_unsegmented_run_is_captured_whole_after_a_spaced_literal() {
     );
 }
 
+// --- The one carve-out: a punctuation-only literal abuts without whitespace --
+
+#[test]
+fn a_capture_may_abut_a_punctuation_only_literal() {
+    // build_heed_pattern exempts punctuation-only literals from the leading
+    // `\s+`, and that exemption is script-agnostic too: the ideographic comma
+    // U+3001 is not alphanumeric, so `{item...}、` needs no space before `、`.
+    // Note what it does *not* buy: only the boundary immediately before the
+    // punctuation is exempt — `取る` after it still needs whitespace.
+    assert_eq!(
+        heed!("{item...}、 取る", "剣、 取る"),
+        Some("剣".to_string())
+    );
+    assert_eq!(heed!("{item}、 取る", "剣、 取る"), Some("剣".to_string()));
+}
+
+#[test]
+fn punctuation_glued_to_a_word_in_the_template_is_not_a_carve_out() {
+    // `、取る` is a single whitespace-delimited template token containing
+    // alphanumeric characters, so it is an ordinary literal and takes the
+    // mandatory `\s+` — the exemption is per-segment, not per-character.
+    assert_eq!(heed!("{item...}、取る", "剣、取る"), None);
+}
+
 // --- ask!() inherits the same restriction (same template compiler) -----------
 
 struct Samurai;
@@ -132,4 +158,33 @@ fn ask_matches_spaced_non_ascii_input() {
 fn ask_returns_none_on_unsegmented_input_without_calling_answer() {
     let player = Noun::new("player", "you");
     assert_eq!(ask!(player, Samurai, "{item}を取る", "剣を取る"), None);
+}
+
+// --- #[derive(Heed)] inherits it too (it calls compile_heed_template) --------
+
+#[derive(Heed, Debug, PartialEq)]
+#[heed(template = "取る {item}")]
+struct Toru {
+    item: String,
+}
+
+#[derive(Heed, Debug, PartialEq)]
+#[heed(template = "{item}を取る")]
+struct ToruUnspaced {
+    item: String,
+}
+
+#[test]
+fn derive_heed_matches_spaced_non_ascii_input() {
+    assert_eq!(
+        Toru::heed("取る 剣"),
+        Some(Toru {
+            item: "剣".to_string()
+        })
+    );
+}
+
+#[test]
+fn derive_heed_returns_none_on_unsegmented_input() {
+    assert_eq!(ToruUnspaced::heed("剣を取る"), None);
 }

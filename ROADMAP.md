@@ -1881,16 +1881,26 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      syntax bullet must state it explicitly rather than leaving it implied.
    - **Chosen: the documented, permanent restriction. Rejected: a pluggable
      tokenizer boundary in `compile_heed_template`.** No code changed in
-     `ranting_derive/src/heed.rs` or `src/heed.rs` beyond a comment recording the
-     decision at the `\s+` join; the deliverable is the stated contract plus
-     `tests/ranting/script_segmentation.rs` (15 tests) pinning it, and the
-     README/CLAUDE.md statements the item required.
+     `ranting_derive/src/heed.rs` or `src/heed.rs` beyond comments recording the
+     decision at the `\s+` join and on the `heed!()` macro doc; the deliverable is
+     the stated contract plus `tests/ranting/script_segmentation.rs` (19 tests)
+     pinning it, and the README/CLAUDE.md statements the item required.
    - **The restriction, stated precisely.** `build_heed_pattern` joins every pair
-     of adjacent segments with a mandatory `\s+` (punctuation-only literals
-     excepted — they attach to the preceding segment), and the capture patterns
-     are `\S+` / `\d+` / `.+?`. So the rule is *whitespace is the only word
-     boundary the macros know*: every literal↔capture boundary in a template must
-     be whitespace in the input.
+     of adjacent segments with a mandatory `\s+`, and the capture patterns are
+     `\S+` / `\d+` / `.+?`. So the rule is *whitespace is the only word boundary
+     the macros know*: every literal↔capture boundary in a template must be
+     whitespace in the input. The one carve-out is a punctuation-only literal,
+     which is exempt from its leading `\s+` — and that too is script-agnostic
+     (`` {item}、 取る `` matches `"剣、 取る"` with U+3001). It is *per-segment*,
+     though: `` {item}、取る `` is a single whitespace-delimited template token
+     containing word characters, so it is an ordinary literal and returns `None`.
+     Both cases are tested, because "every boundary needs a space" is an
+     overstatement the README would otherwise have made.
+   - **It covers `#[derive(Heed)]` too, which the item's title doesn't name.**
+     `heed_derive::derive_heed` calls the same `compile_heed_template`, so the
+     restriction is inherited verbatim rather than merely analogous; documenting
+     only `heed!()`/`ask!()` would have left a first-class v1.3 surface silent on
+     it. Covered in the CLAUDE.md `#[derive(Heed)]` bullet and by two tests.
    - **It is not an ASCII or Latin-script restriction, and the docs say so in
      those terms.** The compiled regex is script-agnostic, which the probe run
      confirmed before any doc was written: `heed!("取る {item}", "取る 剣")` →

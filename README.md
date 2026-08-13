@@ -225,12 +225,19 @@ fn main() {
 
 ### Whitespace is the only word boundary `heed!()`/`ask!()` know
 
-**By design and permanently, `heed!()` and `ask!()` split input on whitespace only.** They ship no
-word segmenter and will not gain one. Concretely:
+**By design and permanently, `heed!()`, `ask!()` and `#[derive(Heed)]` split input on whitespace
+only** — all three share one template compiler. They ship no word segmenter and will not gain one.
+Concretely:
 
 - Every boundary between a template's segments — literal-to-capture, capture-to-literal,
   literal-to-literal — must be whitespace in the input. `{name}` matches a run of non-whitespace,
   `{$name}` a run of digits, and `{name...}` runs up to the next *whitespace-separated* literal.
+  The one exception is a punctuation-only literal, which attaches to whatever precedes it without
+  requiring a space: `"{item}, take"` matches `"sword, take"`, and the same holds for non-ASCII
+  punctuation, so `"{item}、 取る"` matches `"剣、 取る"`. Only the boundary immediately before that
+  punctuation is exempt — write it as its own template token (`"{item}、 取る"`, not
+  `"{item}、取る"`), since a literal that mixes punctuation with word characters is an ordinary
+  literal and takes the mandatory space.
 - This is **not** an ASCII or Latin-script restriction: the matching is script-agnostic, so
   `heed!("取る {item}", "取る 剣")` yields `"剣"` and `heed!("เอา {item}", "เอา ดาบ")` yields `"ดาบ"`
   just as the English examples do. What is unsupported is a template whose pieces abut without
@@ -246,4 +253,5 @@ The reason is honesty about ambiguity, not effort: with no whitespace to anchor 
 split `{a}的{b}` out of `我的剑` finds *a* split rather than the *intended* one, which would trade a
 clear `None` for a silently wrong capture. Correct segmentation needs dictionary- or model-based
 tokenization, which belongs in the caller's choice of crate rather than baked into a proc macro.
-See `tests/ranting/script_segmentation.rs` for the pinned behavior.
+See `tests/ranting/script_segmentation.rs` for the pinned behavior, including the `#[derive(Heed)]`
+and `ask!()` cases.
