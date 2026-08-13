@@ -76,6 +76,17 @@ up, and `GrammaticalCase` in particular is the pattern Phase 6 is built on.
      object placeholder — both produced identical hook calls. See
      `docs/architecture-review-2026-08-13.md` section 7 and
      `tests/ranting/grammatical_case.rs`.
+   - ⚠️ **Phase 6 item 10 follow-up on that `GrammaticalCase` bullet**: the
+     German reference lexicon shows the fix is narrower than "closes the gap".
+     `GrammaticalCase` mirrors English's marker inventory, which has no dative —
+     `@` means accusative-or-dative — so a German fork must carry the case on
+     the entity to reach `dem`/`der` at all, and *once it does, the `case`
+     parameter is ignorable*: `{the =noun}` and `{the @noun}` then render
+     identically. It made two of German's four cases expressible. Separately,
+     the `inflect_pronoun_custom` override this bullet's own test recommends
+     (return the noun's name, so `` {the =noun} `` reads "Der Mann") applies to
+     every case-marked placeholder for that entity, which makes real German
+     pronouns unreachable for it. See `ranting_i18n/README.md` holes 3 and 5.
    - ✅ 9 integration tests verifying full/partial customization and fallback behavior
 
 ✅ **3. Runtime Tense & Viewpoint Selection** (COMPLETE — 16-20 hours) — *Unblocks Recounting M9*
@@ -108,6 +119,18 @@ up, and `GrammaticalCase` in particular is the pattern Phase 6 is built on.
      when no register/dialect override applies.
    - ✅ `say!()` unaffected: its call sites pass `ctx: None` to the same `_with_context` hooks, so
      existing `say!()` output is unchanged (verified by `say_macro_still_passes_none_to_context_hooks`).
+   - ⚠️ **Phase 6 item 10 follow-up**: the whole `_with_context` mechanism —
+     here and in item 3 — is unreachable from a crate depending on `ranting`'s
+     public API alone. `ranting` re-exports `say`/`ack`/`nay`/`heed`/`Heed`/
+     `ask`/`boxed_ranting_trait`/`ref_ranting_trait`, but **not `say_with` and
+     not `derive_ranting`**, so a companion crate can never construct a call
+     that delivers a `NarrationContext`; every `_with_context` hook it overrides
+     receives `None`. `NarrationContext`, `Tense`, `Person` and `Register` are
+     all public, so this is a re-export gap rather than a design one — but it
+     cost the German lexicon `dialect`-selected digits, register-driven wording
+     and runtime tense. Recorded, not worked around (adding `ranting_derive` as
+     a second dependency would contradict item 10's premise, and `ranting_derive`
+     is documented as internal). See `ranting_i18n/README.md` hole 1.
 
 ✅ **5. Reflexive Forms** (COMPLETE — 8-12 hours)
    - ✅ Support myself, yourself, thyself, himself, herself, itself, ourselves,
@@ -1226,6 +1249,14 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      (`docs/EXTENSIBILITY.md` in full, one-line pointers from README.md and
      CLAUDE.md), and whether item 6's orthography hook should expose
      "sentence-initial" explicitly rather than the implicit `uc: bool`.
+   - ✅ **Confirmed by item 10, from the other side**: the German reference
+     lexicon carries word order in its own template strings, exactly as (a)
+     predicts, and `ranting_i18n/README.md` §"Word order" states it plainly as
+     this item requires. Verb-second is reachable only by writing a German
+     template; a verb split across two positions (`Der Hund macht die Tür auf`)
+     is not expressible at all. Pinned by `hole_8_*` in
+     `ranting_i18n/tests/holes.rs`. No change to this spec was needed — the
+     "Recorded for item 10" bullet above already said it.
 
 2. ✅ **Lexical gender / noun-class channel** (10-14 hours) — *the single
    highest-leverage enabling change*
@@ -1310,6 +1341,14 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      the three other places that enumerate the derive attributes: README.md's
      core-attributes list, and the `// ## Derive Attributes` comment block
      above `pub trait Ranting` in `src/lib.rs`.
+   - ⚠️ **Item 10 follow-up**: `NounClass` itself came through the German
+     lexicon intact — one code path, all three genders, gender read off the
+     entity. Two adjacent gaps it does *not* close were recorded there instead:
+     `GrammaticalCase` has no dative, so a German fork ends up ignoring the
+     `case` parameter entirely (README hole 3), and `inflect_pronoun_custom`
+     serves both case marking and pronoun display, so a fork that renders
+     "Der Hund" cannot also render "ihn" for the same entity (hole 5). See
+     `ranting_i18n/README.md`.
 
 3. ✅ **Pronoun-inventory & T-V register design spike** (doc-only, 8-12 hours) —
    *the deepest open question in the phase*
@@ -1542,6 +1581,11 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      unlike `NounClass`, number *is* a verb-agreement axis); and whether `Many`
      should report its `len()` as the count when a placeholder has no numeral,
      the only path to categorial number without a grammar change.
+   - ⚠️ **Item 10 follow-up**: the German lexicon adds a second signal owed at
+     the same signature-break site — `Ranting::inflect` takes `to_plural` but no
+     case, so German's own noun declension (`den Hunden`, `des Hauses`) has to
+     be carried on the entity (`ranting_i18n/README.md` hole 2). Whatever
+     breaks these signatures for the count should settle case on `inflect` too.
 
 5. ✅ **Adjective-agreement runtime hook** (10-14 hours)
    - Degree (`!`/`!!`, Phase 3 item 6) is baked entirely at compile time in
@@ -1630,6 +1674,16 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      prerequisite note). The v1.3 success criterion naming "number" is
      deliberately *not* reworded: nothing here narrows it, and the count
      channel item 4 recommends remains the way to satisfy it.
+   - ⚠️ **Item 10 follow-up**: the German lexicon produces the full weak/mixed/
+     strong ending table through this hook, and then cannot use any of it.
+     German attributive adjectives are prenominal while the `!` slot is
+     post-noun only, and German predicative adjectives are uninflected — so
+     **no German sentence renders this hook's output correctly**
+     (`ranting_i18n/README.md` hole 4a; the position half is item 1's permanent
+     boundary, not a gap here). Separately, the hook is never told which article
+     was rendered, and `self` cannot know, so weak-vs-mixed
+     (`der kleine Hund` / `ein kleiner Hund`) is unreachable and must be carried
+     on the entity (hole 4b) — a third candidate for item 4's signature break.
 
 6. ✅ **Orthography & capitalization hook** (8-12 hours)
    - `uc_1st_if`, the sentence-start-uppercase default, the `,`/`^` markers, and
@@ -1784,6 +1838,17 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      article-position `?` of `` {?the p} ``) and the
      chained-article-after-a-verb path; a byte-identical-English guard for
      `a`/`an`/`the`/`these`/`those`; and all three wrappers plus `Many<Box<T>>`.
+   - ⚠️ **Item 10 follow-up**: German has no use for this hook at all — every
+     German fusion is preposition+article (`in dem` → `im`, `zu dem` → `zum`,
+     `an das` → `ans`), i.e. exactly the case this item already recorded as
+     unreachable. The German lexicon sharpens that record twice. (1) The obvious
+     escape — writing the preposition inside the placeholder so the hook can see
+     it — does not exist: the pre-noun slot accepts an article or a hard-coded
+     English modal word and nothing else, so `say!("{in the =haus}")` is a
+     *compile* error (`ranting_i18n/README.md` hole 7). (2) The splice is
+     skipped when the article renders empty, so the stray separator left by
+     German's absent indefinite plural article cannot be spliced away either
+     (hole 6).
 
 8. ✅ **Locale-aware numeral rendering** (6-10 hours)
    - `#var` spells a number out in English words. Every other language needs its
@@ -1868,6 +1933,14 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
        `две книги` from one template, gender off the entity), a Devanagari-digit
        `$var` override, the count-of-one agreement guard, the hidden and
        no-numeral non-call cases, and the byte-identical-English guards.
+   - ⚠️ **Item 10 follow-up**: the hook itself came through the German lexicon
+     working (German numerals spelled here, `1` agreeing like an article,
+     out-of-range counts falling back to English). But the locale channel this
+     item's docs point at — `NarrationContext::dialect` on
+     `inflect_numeral_custom_with_context`, for a script's own digits — is
+     unreachable from a companion crate: `say_with!()` is not re-exported from
+     `ranting`, so no `_with_context` hook ever receives a context
+     (`ranting_i18n/README.md` hole 1).
 
 9. ✅ **Non-space-delimited script support in `heed!()`/`ask!()`** (10-14 hours)
    - `{name}` is documented as capturing "one whitespace-delimited token" and the
@@ -1948,7 +2021,7 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      hooks and still be unable to parse that script back with `heed!()`. That
      asymmetry is intended — inflection is the crate's job, tokenization isn't.
 
-10. **`ranting-i18n` companion crate — German reference lexicon** (16-24 hours)
+10. ✅ **`ranting-i18n` companion crate — German reference lexicon** (16-24 hours)
     — *the acceptance test for items 1-9*
     - A separate crate (not a `ranting` module, not a `ranting` feature flag),
       depending only on `ranting`'s **public** API, implementing German for a
@@ -1963,6 +2036,106 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
     - Also the proof that `docs/EXTENSIBILITY.md`'s pirate/Scottish/Spanish
       examples generalize past lexicon-level substitution to genuine
       morphological difference.
+    - ✅ **COMPLETE 2026-08-13** — `ranting_i18n/` (crate name `ranting-i18n`),
+      its own directory with its own `Cargo.toml`/`Cargo.lock`, exactly as
+      `ranting_core`/`ranting_derive` are: this repo is not a cargo workspace.
+      Its only dependency is `ranting = { path = ".." }` — no `ranting_core`, no
+      `ranting_derive`, no `pub(crate)` item, no fork of
+      `handle_placeholder_impl`. 31 tests (20 in `tests/german.rs`, 10 in
+      `tests/holes.rs`, 1 doctest); `cargo fmt --check`, `cargo clippy -D
+      warnings` and `cargo test` green there and in the repo root (root suite
+      unchanged at 409 passing, confirming the "zero behavioral change" success
+      criterion from the other side — the lexicon is additive and touched no
+      crate source).
+    - ✅ **What items 1-9 delivered, confirmed working**: `der`/`die`/`das`/
+      `den`/`dem`/`des` and `ein`/`eine`/`einen`/`einem`/`einer`/`eines` from
+      one code path (item 2's `NounClass` read off the entity, never off the
+      display string); present tense across all six persons including `sein`
+      and stem-changing `sehen`/`schlafen`; the complete weak/mixed/strong
+      attributive-adjective ending table (item 5); German numerals with `1`
+      agreeing like an article (item 8); noun capitalization (item 6);
+      `er`/`ihn`/`ihm`/`sich`/`mich`/`euch`. This discharges the item's third
+      bullet: it is genuine morphological difference, not the lexicon-level
+      substitution `docs/EXTENSIBILITY.md`'s pirate/Scottish examples show.
+    - ✅ **Word order — the honest outcome, as item 10 required in writing**:
+      German still needs per-language templates. Verb-second is reachable only
+      because the caller writes a German template string; a verb split across
+      two positions (`Der Hund macht die Tür auf`) is not expressible at all.
+      Restated in `ranting_i18n/README.md` §"Word order"; item 1's spec already
+      recorded it under "Recorded for item 10", so nothing there needed
+      changing. Pinned by `hole_8_*` in `ranting_i18n/tests/holes.rs`.
+    - ⚠️ **Seven holes found and recorded, not worked around.** Each is
+      numbered in `ranting_i18n/README.md`, pinned by a `hole_N_*` test that
+      asserts what the crate *actually* renders, and cross-referenced below to
+      the item it belongs to. Where the lexicon carries state on the entity
+      instead (case, article definiteness, name-vs-pronoun rendering), the
+      README says so and names the hook that should have carried it.
+      1. **`say_with!()` and `#[derive_ranting]` are not re-exported from
+         `ranting`** — only `say`/`ack`/`nay`/`heed`/`Heed`/`ask`/
+         `boxed_ranting_trait`/`ref_ranting_trait` are. So a companion crate on
+         the public API alone can never deliver a `NarrationContext`, and all
+         twelve `_with_context` hooks are unreachable in practice even though
+         they are public: `say!()` always passes `None`. Costs German the
+         `dialect`-selected digit system item 8's own docs advertise, plus
+         register and runtime tense. → Phase 3 items 3 & 4, Phase 6 item 8.
+      2. **`Ranting::inflect` takes number but not case** — German declines the
+         noun itself (`den Hunden`, `des Hauses`), so the form must come off the
+         entity. Same signature-break site as the count channel still owed. →
+         Phase 6 item 4.
+      3. **`GrammaticalCase` has no dative, so a fork ends up ignoring it** —
+         the sharper form of the known "English doesn't distinguish accusative
+         from dative" note: once the entity carries the case (the only route to
+         dative), `{the =noun}` and `{the @noun}` produce *identical* output and
+         the `case` parameter becomes dead. Five English markers collapse onto
+         German's four cases, `@` meaning accusative-or-dative. Rejected
+         workaround: smuggling case through `NarrationContext.dialect` — per-
+         placeholder information in story-wide state, and blocked by hole 1
+         anyway. → Phase 3 item 2's v1.3 `GrammaticalCase` bullet, Phase 6
+         item 2.
+      4. **Attributive adjectives — wrong position, and declension class is not
+         reported.** (4a) The `!` slot is post-noun only, so `{the =hund
+         !klein}` gives "Der Hund kleine"; since German predicative adjectives
+         are uninflected, **there is no German sentence in which this hook's
+         output is correct German** — it proves the agreement mechanism, and
+         German cannot use it without putting the adjective in literal template
+         text. Rejected workaround: adjective-in-pre-noun-slot via
+         `inflect_verb_custom`, which fails twice (hole 7, plus the "verb before
+         and after?" assert). (4b) Weak vs. mixed vs. strong depends on which
+         article was rendered; the hook is not told and `self` cannot know, so
+         `with_article` carries it. → Phase 6 item 5 (position half owned by
+         item 1).
+      5. **One hook serves both case marking and pronoun display** — to render
+         "Der Hund bellt" a fork must make `inflect_pronoun_custom` return the
+         name (as `tests/ranting/grammatical_case.rs` itself does), after which
+         real pronouns are unreachable *for that entity*: `{@hund}` gives "Hund",
+         not "ihn". → Phase 3 item 2, Phase 6 item 2.
+      6. **An article that renders as nothing still emits its separator** —
+         German has no indefinite plural article, `inflect_article_custom` can
+         only say so by returning `""`, and the result is a stray leading space.
+         `elide_article_custom` cannot repair it: the post-assembly splice is
+         skipped for a zero-length article span, so the hook is never called
+         (proved with a probe that would fire if it were). `skip_article` is
+         per-entity and unconditional, so it is not the answer either. → Phase 6
+         item 7, item 2.
+      7. **The pre-noun slot is a closed English word list** — an article or one
+         of the hard-coded modal words (`can`/`may`/`shall`/`will`/`are`/`were`/
+         `had`/`have`/…); `say!("{in the =haus}")` is a *compile* error. This
+         sharpens item 7's already-recorded "`de` + `le` → `du` is not
+         reachable": the obvious escape of writing the preposition inside the
+         placeholder does not exist, so no hook ever sees a German preposition
+         and every German fusion (`im`, `zum`, `ans`) is out of reach. → Phase 6
+         item 7, item 1.
+    - ✅ **Also observed** (not holes): a partial lexicon degrades honestly —
+      unknown verbs, adjectives and out-of-range numerals fall back to English
+      rather than being invented. But an unrecognized `subjective()` degrades
+      *silently*: `"er"` is not an English pronoun, so a declined verb takes the
+      catch-all arm of `english::inflect_verb` and renders the bare form
+      ("Der Hund walk."). That is the cost the "`SubjectPronoun` is a closed
+      English enum" decision already names, now confirmed and bounded — it is
+      visible only for words the fork's own hook declined. Item 6's `capitalize`
+      turns out to have nothing to do for German (nouns are capitalized by
+      `name`/`inflect` already); its real customers remain Turkish and the
+      caseless scripts, as its docs say.
 
 ### v1.3 Success Criteria
 - A non-English `Ranting` impl can obtain gender/noun class, grammatical case,
