@@ -64,10 +64,12 @@ passes `Some(ctx)` — so overriding only the `_with_context` form is enough):
 | `inflect_article_custom` / `_with_context` | article form (a/an/the/some, demonstratives), keyed by `GrammaticalCase` and `NounClass` |
 | `inflect_adjective_custom` / `_with_context` | the post-noun `!`/`!!` adjective, keyed by [`AdjectiveDegree`](#adjectivedegree), `GrammaticalCase` and `NounClass` |
 | `elide_article_custom` / `_with_context` | elision/contraction of a rendered article with the word after it — see [Elision](#elision-elide_article_custom) |
+| `inflect_numeral_custom` / `_with_context` | how a placeholder's `#var`/`$var` number is written, keyed by [`NumeralStyle`](#numeralstyle), `GrammaticalCase` and `NounClass` — see [Numerals](#numerals-inflect_numeral_custom) |
 
-The pronoun, article, adjective and elision hooks also receive the noun's own
-[`NounClass`](#nounclass) as a `class` parameter, and the article, adjective and
-elision hooks their `GrammaticalCase`; the verb hook receives neither.
+The pronoun, article, adjective, elision and numeral hooks also receive the
+noun's own [`NounClass`](#nounclass) as a `class` parameter, and the article,
+adjective, elision and numeral hooks their `GrammaticalCase`; the verb hook
+receives neither.
 
 **Orthography hook** (defaults to today's English behavior rather than to
 `None` — see [`OrthographyRole`](#orthographyrole)):
@@ -174,6 +176,19 @@ adjectives merely agree writes `!` and ignores `degree`. See
 [`docs/EXTENSIBILITY.md` §2.5](EXTENSIBILITY.md) and
 `tests/ranting/adjective_agreement.rs`.
 
+## `NumeralStyle`
+
+Which numeral notation a placeholder asked for, handed to the numeral hook:
+
+```rust
+pub enum NumeralStyle { Words, Digits }   // `{#n boots}` and `{$n boots}`
+```
+
+Like `AdjectiveDegree` and `GrammaticalCase` (and unlike `NounClass` and
+`OrthographyRole`) this mirrors a compile-time type the macro bakes, because
+the `#`/`$` marker is written in the placeholder. See
+[Numerals](#numerals-inflect_numeral_custom).
+
 ## `OrthographyRole`
 
 Which part of a rendered placeholder a word is, handed to the capitalization
@@ -244,6 +259,41 @@ outside the placeholder; and hidden nouns (`` {?the noun} ``), which render
 nothing to elide against. See
 [`docs/EXTENSIBILITY.md` §2.7](EXTENSIBILITY.md) and
 `tests/ranting/elision.rs`.
+
+## Numerals (`inflect_numeral_custom`)
+
+```rust
+fn inflect_numeral_custom(
+    &self,
+    numeral: &str,      // the number as English renders it — the fallback if this declines:
+                        // the spelled-out word for Words, the formatted digits for Digits
+    count: Option<i64>, // the number itself; always Some for Words, parsed back out of
+                        // `numeral` for Digits (None for a float, padded or non-numeric arg)
+    style: NumeralStyle,
+    case: GrammaticalCase,
+    class: NounClass,
+    as_plural: bool,
+) -> Option<String>     // Some(numeral) replaces the rendering; None (default) keeps English's
+fn inflect_numeral_custom_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) -> Option<String>
+```
+
+A placeholder writes its number two ways and both were hard-coded English:
+`` {#n boots} `` spelled it out via the `english-numbers` crate, `` {$n boots} ``
+printed the argument's own `Display`, i.e. ASCII digits. Other languages need
+their own speller, several agree the numeral with the noun's gender (Russian
+`два стола` / `две книги`), and several scripts have their own digits. `#var` is
+therefore spelled at runtime now, from a count the macro bakes, with the same
+English speller as the fallback — so the hook can replace it wholesale.
+
+There is no `uc` parameter: the numeral is never capitalized (a sentence-initial
+placeholder spends its `uc` on the article, verb or noun). A returned string
+replaces the rendering outright, so a `:fmt` width/fill spec on `$var` is not
+re-applied to it. Not called when nothing numeric renders — no `#var`/`$var`
+marker, or a hidden one (`` {?$n boots} ``); `heed!()`/`ask!()`'s `{$name}` is
+input parsing and does not route here either. The `count` is local to the
+numeral and does not discharge the count channel still owed on the `as_plural`
+hooks. See [`docs/EXTENSIBILITY.md` §2.8](EXTENSIBILITY.md) and
+`tests/ranting/numeral.rs`.
 
 ## Wrapper types
 

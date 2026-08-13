@@ -1516,13 +1516,18 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      (`Many`/`Maybe`/`Box` delegate hooks where `self` is the *inner* value —
      item 2's exact wrapper argument). Also rejected: passing the rendered
      `nr: &str` (the fork would parse back a string its own item-8 numeral hook
-     wrote), a `{2noun}` dual marker (grammar surface for every English user to
+     wrote — and note item 8, as landed, does exactly that for `$var`'s own
+     count, which is affordable only because that hook *is* the numeral), a `{2noun}` dual marker (grammar surface for every English user to
      serve one construction — item 1's point-fix objection), and deferring past
      item 5 (costs the phase a second signature break).
-   - **Prerequisite recorded for item 8, regardless of option**: `src/lib.rs:376`
-     compares against the literal English word `"one"`, so the moment a fork's
-     numeral hook spells `#var` in its own language the placeholder silently
-     takes plural agreement for a count of one.
+   - **Prerequisite recorded for item 8, regardless of option** — *since closed
+     by item 8 itself, see its notes*: `src/lib.rs`'s `#var` arm compared
+     against the literal English word `"one"`, so the moment a fork's numeral
+     hook spelled `#var` in its own language the placeholder silently took
+     plural agreement for a count of one. Item 8 made `#var` bake a count and
+     that arm test `count != Some(1)`, evaluated before the numeral hook runs.
+     Note this does *not* discharge the count channel (b) recommends: item 8's
+     count reaches the numeral hook only.
    - **Stays impossible under the recommendation**: categorial number with no
      numeral in the placeholder (bare `{+noun}` dual), numeral-governed case
      (Russian *два дома* — `GrammaticalCase` comes from the placeholder's
@@ -1780,7 +1785,7 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      chained-article-after-a-verb path; a byte-identical-English guard for
      `a`/`an`/`the`/`these`/`those`; and all three wrappers plus `Many<Box<T>>`.
 
-8. **Locale-aware numeral rendering** (6-10 hours)
+8. ✅ **Locale-aware numeral rendering** (6-10 hours)
    - `#var` spells a number out in English words. Every other language needs its
      own, and several have gender/case agreement on the numeral itself
      (Russian `два`/`две`), plus non-ASCII digit systems for `$var`.
@@ -1794,6 +1799,74 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      plural article, verb and pronoun). Either take the count from item 4's
      recommended count channel or document the break explicitly. See
      `docs/superpowers/specs/2026-08-13-number-categories.md`.
+   - **Landed as `Ranting::inflect_numeral_custom`/`_with_context`** (the ninth
+     `_custom` pair), taking the English rendering, `count: Option<i64>`,
+     `NumeralStyle` (`Words` for `#var`, `Digits` for `$var`), `GrammaticalCase`,
+     `NounClass` and `as_plural`, returning `Option<String>`. Default `None`
+     keeps `rant_convert_numbers` for `#var` and the argument's own `Display`
+     for `$var`. English output verified byte-identical by running 18 numeral
+     placeholder shapes against the pre-change sources and diffing.
+   - **Chosen: a hook on `Ranting`. Rejected: a separate `Numeral` trait a
+     language module implements.** The deciding argument is the same one item 2
+     used for `NounClass` and item 5 for adjective agreement: the data the hook
+     needs is carried *by the entity*. Russian `два`/`две` is gender agreement
+     with the counted noun, so a `Numeral` implementor would have to be handed
+     the noun's `noun_class()`, `is_plural()` and case anyway — i.e. exactly this
+     signature, minus `self`, plus a second registration mechanism (a trait
+     object or type parameter to select the language module, which nothing else
+     in the crate has). It would also fragment `Many`/`Maybe`/`Box`: those
+     delegate hooks by inner value, and a language module sitting outside the
+     entity has no equivalent notion. A free-standing trait pays for itself only
+     if numerals are noun-independent — they are not in the languages the item
+     names.
+   - **Implementation notes.**
+     - `#var` moved from compile time to runtime. The macro used to bake
+       `ranting::rant_convert_numbers(n as i64)` — a finished English word —
+       into the `format!()` argument; it bakes the count instead now, and
+       `handle_placeholder_impl` calls the same speller as the hook's fallback.
+       Without this a fork could only post-process English words, which is not
+       "its own speller". `handle_placeholder`/`_with_context` therefore take a
+       `count: Option<i64>` parameter: a runtime value, so it cannot live in the
+       `Copy` `PlaceholderSpec` alongside the rest.
+     - `$var` was deliberately *not* moved. Its argument need only be `Display`
+       (a float, a `{:>4}` width), so baking `as i64` for it would fail to
+       compile code that works today. It is still rendered by the macro with its
+       `:fmt` spec applied, and its count is recovered at runtime by parsing that
+       string — `None` when it isn't a plain integer, which is honest and is what
+       a digit-transcribing fork (the actual `$var` use case) doesn't need.
+     - The number's leading space moved out of the baked string into the new
+       `placeholder::NumeralSpec { kind, leading_space }`, so the hook is handed
+       the numeral alone. Keeping it in the string was not viable: with `{$n:>5}`
+       there is no way to tell template space from format padding. `NumeralSpec`
+       being `Option` on the spec makes "space with no numeral" unrepresentable,
+       and covers the hidden case (`` {?$n noun} ``) as absence — nothing renders,
+       so the hook is not called, matching item 7's hidden-noun rule.
+     - `NumeralKind` is mirrored into the public `NumeralStyle` via `From`,
+       following `CaseKind`→`GrammaticalCase` and `DegreeKind`→`AdjectiveDegree`
+       rather than item 2's `NounClass`: the `#`/`$` marker is written in the
+       placeholder, so there is something at the macro↔runtime seam to mirror.
+     - The prerequisite above is **closed, not documented around**: the `#var`
+       arm of the `as_pl` match tests `count != Some(1)` now. Equivalent for
+       English (`rant_convert_numbers` spells only 1 as exactly `"one"`; `-1` is
+       `"negativeone"`), and it puts the decision *before* the hook, so a custom
+       numeral cannot reach it. `$var`'s arm was left byte-for-byte alone on
+       purpose — its `s != "1" && s.split('.').next() != Some("1")` also catches
+       `"1.0"`, which a parsed `i64` would not.
+     - No `uc` parameter, as for item 7's elision hook: the crate never
+       capitalizes a numeral (a sentence-initial placeholder spends `uc` on the
+       article, verb or noun), so there would be nothing to decide. A returned
+       string replaces the rendering outright, so a `$var` width/fill spec is not
+       re-applied to it — documented on the hook.
+     - Scope kept narrow, twice. The count is local to the numeral and does
+       **not** discharge item 4's owed count channel on the other eight hooks.
+       And `heed!()`/`ask!()`'s `{$name}` is the inverse direction (input
+       parsing, a deliberately smaller grammar) and is not routed here.
+     - Wrappers follow the established rule: `Box` straight through, `Many` only
+       at `len() == 1`, `Maybe(Some)` through and `Maybe(None)` unreachable.
+     - `tests/ranting/numeral.rs` has the worked Russian example (`два стола` vs
+       `две книги` from one template, gender off the entity), a Devanagari-digit
+       `$var` override, the count-of-one agreement guard, the hidden and
+       no-numeral non-call cases, and the byte-identical-English guards.
 
 9. **Non-space-delimited script support in `heed!()`/`ask!()`** (10-14 hours)
    - `{name}` is documented as capturing "one whitespace-delimited token" and the
