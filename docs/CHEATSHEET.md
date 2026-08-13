@@ -128,7 +128,7 @@ compile time — no `NarrationContext`/subject agreement needed.
 | `ack!()` | `ack!(fmt, args...)` | Expands to `Ok(say!(fmt, args...))` — a plain expression, not a hidden `return`. |
 | `nay!()` | `nay!(fmt, args...)` | Expands to `Err(say!(fmt, args...))` — same, a plain expression. |
 | `heed!()` | `heed!(template, input)` | Inverse direction: matches `input` text against `template`, returns captures. |
-| `ask!()` | `ask!(audience, fmt, args...)` | Expands to `audience.answer(speaker, format!(...))` — requires your own `.answer()` method; sparsely used/documented in this repo. |
+| `ask!()` | `ask!(speaker, audience, template, input)` | Parses `input` against `template` like `heed!()`, forwards captures to `audience`'s `Answerable::answer`. Returns `Option<String>`. |
 
 ```rust
 let result: Result<String, String> = ack!("{=p are} welcome.");
@@ -149,6 +149,25 @@ heed!("take {item}", "drop sword")                    // None
 input. `{$name}` — digits, parsed as `u64`. Two adjacent captures with no
 literal text between them is a **compile-time** error (ambiguous).
 
+### `ask!()`
+
+```rust
+struct Dog;
+impl Answerable for Dog {
+    type Captures = ();
+    fn answer(&self, _speaker: &dyn Ranting, _: ()) -> String {
+        "Woof!".to_string()
+    }
+}
+let player = Noun::new("Jo", "she");
+ask!(player, Dog, "pet dog", "pet dog") // Some("Woof!".to_string())
+ask!(player, Dog, "pet dog", "kick dog") // None
+```
+Same template grammar as `heed!()`, but captures are forwarded to
+`audience`'s [`Answerable::answer`](API.md#the-answerable-trait-asks-audience)
+instead of returned directly — see API.md for the full shape and a
+capture-driven example.
+
 ## Core types
 
 | Type | Purpose |
@@ -158,6 +177,7 @@ literal text between them is a **compile-time** error (ambiguous).
 | `Maybe<T: Ranting>` | Wraps `Option<T>` — `Some(x)` delegates to `x`; `None` renders as nothing, singular, subject `"it"`. |
 | `Box<T: Ranting>` | Delegates every `Ranting` method straight through to the boxed value. |
 | `NarrationContext` | Builder: `.tense(Tense)`, `.narration_person(Person)`, `.register(Register)`, `.dialect(&'static str)`. |
+| `Answerable` | `ask!()`'s audience contract: `fn answer(&self, speaker: &dyn Ranting, captures: Self::Captures) -> String`. |
 
 See [API.md](API.md) for the full surface, or [docs.rs](https://docs.rs/ranting)
 for generated reference docs.

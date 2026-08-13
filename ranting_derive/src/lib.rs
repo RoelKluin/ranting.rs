@@ -60,7 +60,10 @@ pub fn say_with(input: TokenStream1) -> TokenStream1 {
     tokens.into()
 }
 
-/// ask!() is a macro that takes an audience and a question string.
+/// ask!(speaker, audience, template, input) parses `input` against `template`
+/// exactly like `heed!()`, then forwards the captures to `audience`'s
+/// `Answerable::answer(&speaker, captures)`. Returns `Option<String>` —
+/// `None` if `input` doesn't match `template`.
 #[proc_macro]
 pub fn ask(input: TokenStream1) -> TokenStream1 {
     let output = parse_macro_input!(input as Ask);
@@ -237,17 +240,22 @@ pub fn ref_ranting_trait(input: TokenStream1) -> TokenStream1 {
     ref_expr_ranting_trait(parse_quote!(Box<dyn #trait_name>)).into()
 }
 
+/// `ask!(speaker, audience, template, input)`. Reuses `heed!()`'s template
+/// compiler (Phase 5, ROADMAP.md): `template`/`input` follow exactly
+/// `heed!()`'s own grammar and matching semantics, but the resulting
+/// captures are forwarded into `audience`'s `Answerable::answer` instead of
+/// being returned directly.
 struct Ask {
     speaker: Expr,
     audience: Expr,
-    question: String,
-    params: Vec<Expr>,
+    template: StrLit,
+    input: Expr,
 }
 
 impl syn::parse::Parse for Ask {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         if input.is_empty() {
-            return Err(Error::new(Span::mixed_site(), "missing format string"));
+            return Err(Error::new(Span::mixed_site(), "missing speaker expression"));
         }
         let speaker = input.parse::<Expr>()?;
         input.parse::<Token![,]>()?;
@@ -255,44 +263,78 @@ impl syn::parse::Parse for Ask {
         let audience = input.parse::<Expr>()?;
         input.parse::<Token![,]>()?;
 
-        let lit = input.parse::<StrLit>()?;
-        let params_in = parse_params(input)?;
-        let (question, params) = parse_str_params(lit, params_in, false)?;
+        let template = input.parse::<StrLit>()?;
+        input.parse::<Token![,]>()?;
+
+        let input_expr = input.parse::<Expr>()?;
         Ok(Ask {
             speaker,
             audience,
-            question,
-            params,
+            template,
+            input: input_expr,
         })
     }
 }
 
-/// Construct the format!() macro call. Print result with `--features debug`
+/// Parses `input` against `template` exactly like `heed!()`, then forwards
+/// the captures to `audience.answer(&speaker, captures)` (`Answerable::answer`).
+/// Print result with `--features debug`
 impl ToTokens for Ask {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let lit = self.question.as_str();
-        let lit: TokenStream = parse_quote!(#lit);
+        let (pattern, captures) = match heed::compile_heed_template(&self.template) {
+            Ok(result) => result,
+            Err(e) => {
+                *tokens = e.to_compile_error();
+                return;
+            }
+        };
 
-        let mut macro_tokens = vec![lit.into_token_stream()];
-
-        // Iterate over parameters and separate them with commas.
-        for param in self.params.iter() {
-            macro_tokens.push(Punct::new(',', Spacing::Alone).into_token_stream());
-            macro_tokens.push(param.into_token_stream());
+        // Defensive, mirrors heed!()'s own check: turn a template-compiler
+        // bug into a compile error here rather than a runtime panic at
+        // every ask!() call site.
+        if let Err(e) = Regex::new(&pattern) {
+            let msg = format!(
+                "ask!() generated an invalid regex ({e}) — this is a bug in \
+                 ask!()'s template compiler (shared with heed!()), please report it"
+            );
+            *tokens = Error::new_spanned(&self.template.span_provider, msg).to_compile_error();
+            return;
         }
 
-        let final_macro_tokens: TokenStream = macro_tokens
-            .iter()
-            .map(|t| {
-                quote! {
-                    #t
-                }
-            })
-            .collect();
+        let names: Vec<&str> = captures.iter().map(|c| c.name.as_str()).collect();
+        let names_tokens = quote! { &[#(#names),*] };
+        let input_expr = &self.input;
         let speaker = &self.speaker;
         let audience = &self.audience;
 
-        *tokens = parse_quote!(#audience.answer(#speaker, format!(#final_macro_tokens)));
+        // Unlike heed!(), captures stay plain `String`s here regardless of
+        // capture kind (no `{$name}` -> u64 conversion): `Answerable::answer`
+        // needs one fixed signature per implementor, so a caller that wants
+        // a typed value parses the `String` itself inside `answer()`.
+        let captures_expr = match captures.len() {
+            0 => quote! { __ranting_ask_caps.map(|_| ()) },
+            1 => quote! {
+                __ranting_ask_caps.map(|mut __v| __v.pop().expect("ask!() matched capture count mismatch"))
+            },
+            n => {
+                let element_exprs = (0..n).map(|_| {
+                    quote! { __it.next().expect("ask!() matched capture count mismatch") }
+                });
+                quote! {
+                    __ranting_ask_caps.map(|__v| {
+                        let mut __it = __v.into_iter();
+                        ( #(#element_exprs),* )
+                    })
+                }
+            }
+        };
+
+        *tokens = quote! {{
+            static __RANTING_ASK_MATCHER: ranting::HeedMatcher =
+                ranting::HeedMatcher::new(#pattern, #names_tokens);
+            let __ranting_ask_caps = __RANTING_ASK_MATCHER.match_input(#input_expr);
+            #captures_expr.map(|__caps| ranting::Answerable::answer(&#audience, &#speaker, __caps))
+        }};
         #[cfg(feature = "debug")]
         eprintln!("{}", tokens.to_string());
     }

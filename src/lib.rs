@@ -29,6 +29,7 @@
 
 extern crate self as ranting;
 
+mod answerable;
 mod collections;
 mod heed;
 mod language;
@@ -36,6 +37,7 @@ mod narration;
 use regex::Regex;
 use std::sync::LazyLock;
 
+pub use answerable::Answerable;
 pub use collections::{Many, Maybe};
 pub use narration::{NarrationContext, Person, Register, Tense};
 
@@ -170,6 +172,11 @@ pub use ranting_derive::say;
 
 /// heed!(template, input) — scanf-like input parsing; see `ranting_derive::heed`.
 pub use ranting_derive::heed;
+
+/// ask!(speaker, audience, template, input) — parses `input` against `template`
+/// like `heed!()`, then forwards the captures to `audience`'s [`Answerable::answer`],
+/// returning `Option<String>` (`None` on no match). See `ranting_derive::ask`.
+pub use ranting_derive::ask;
 
 /// If you want to implement Ranting on a `Box<&dyn Trait>` where Trait has Ranting
 pub use ranting_derive::boxed_ranting_trait;

@@ -102,3 +102,33 @@ snapshots whose recommendations/concerns are now reflected as done in
 claim the way `PHASE_2_IMPLEMENTATION_PLAN.md` did, and nothing in
 `CLAUDE.md`/`ROADMAP.md` points to them, so they were left as-is —
 orphaned historical artifacts rather than actively misleading ones.
+
+## 5. `{`who title are}`-style placeholders mishandle "they" (unfixed bug, code-side)
+
+While verifying `docs/TUTORIAL.md`'s Section 1 example (the `say_this(who,
+title)` pattern from README.md), found that the three-token possessive
+placeholder pattern `` {`who title are} `` produces the wrong possessive
+determiner specifically when `who` is declared `subject = "they"`:
+
+```rust
+fn say_this(who: Noun, title: &Noun) -> String {
+    say!("{=who do} say {`who title are} {who}.")
+}
+let title = Noun::new("name", "it");
+say_this(Noun::new("Jordan", "I"),  &title)  // "I do say my name is Jordan."     ✓
+say_this(Noun::new("Jordan", "he"), &title)  // "He does say his name is Jordan." ✓
+say_this(Noun::new("Jordan", "she"),&title)  // "She does say her name is Jordan."✓
+say_this(Noun::new("Jordan", "they"),&title) // "They do say its name is Jordan." ✗ expected "their"
+```
+
+Reproduced directly (not inferred from docs). Neither `tests/ranting/tutorial.rs`
+nor `tests/ranting/readme_example.rs` exercises `who = "they"` for this
+pattern — both only cover `"I"` and `"he"` — so this gap has no test coverage
+either way. This looks like a real bug in whatever resolves the possessive
+determiner for the `` `noun other_noun verb `` three-token form, not a doc
+problem: I/he/she all correctly use `who`'s own possessive, but "they"
+falls back to `title`'s subject ("it" → "its") instead. Left unfixed per the
+docs-audit triage rule (code looks like the bug, don't enshrine it in docs) —
+`docs/TUTORIAL.md`'s example was written to avoid "they" for this pattern
+instead. Flagging here so it isn't lost; a fix + regression test (both call
+sites, plus a "they" case) is unclaimed work.

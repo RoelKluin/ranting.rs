@@ -133,3 +133,42 @@ decision, not an agent task — see ROADMAP.md's "Proposed License Change" secti
 - ✅ Placeholder syntax errors report precise spans
 - 🔄 License decision — pending
 
+---
+
+## Phase 5: v1.2.1 — `ask!()` Stabilization ✅
+
+*Goal: give `ask!()` a real, typed contract and test coverage, closing the gap
+flagged in the 2026-08-13 docs audit (zero usage anywhere in the repo, no trait,
+an untyped `.answer()` call the macro simply trusted existed).*
+
+**Status**: Complete.
+
+- ✅ New `Answerable` trait (`src/answerable.rs`): `fn answer(&self, speaker:
+  &dyn Ranting, captures: Self::Captures) -> String`, with `type Captures`
+  declared per implementor — mirrors `heed!()`'s 0/1-vs-2+ convention (`()`,
+  bare `String`, or a tuple of `String`s), without the `{$name}` → `u64`
+  auto-conversion, since a trait method needs one fixed signature.
+- ✅ `ask!()` reworked from `ask!(speaker, audience, "fmt", args...)`
+  (rendered a question via `say!()`-style formatting, called
+  `audience.answer(speaker, String)` as untyped duck-typing) to
+  `ask!(speaker, audience, "template", input)` — reuses `heed!()`'s template
+  compiler (`ranting_derive/src/heed.rs::compile_heed_template`) to parse
+  `input` against `template`, then forwards the captures to
+  `audience.answer(&speaker, captures)`. Returns `Option<String>` (`None` on
+  no match), joining `heed!()` in the Option-returning macro family.
+  Breaking change to `ask!()`'s public signature — accepted deliberately
+  (0.2.1, no adopters yet), same rationale as Phase 4.
+- ✅ `ask!` now re-exported from `ranting` (`pub use ranting_derive::ask;`) —
+  previously the only one of the five core macros not re-exported.
+  Known, accepted limitation: `Captures` being an associated type means one
+  type supports exactly one template capture-arity everywhere it's used as
+  an `ask!()` audience.
+- ✅ First test coverage `ask!()` has ever had: `tests/ranting/ask.rs`, 5
+  tests (0/1/2-capture arities, capture-driven response, no-match `None`).
+- ✅ `docs/API.md`/`docs/CHEATSHEET.md`/`CLAUDE.md` updated to the new shape.
+
+**Out of scope, proposed for a separate crate**: Inform7-style object
+disambiguation (resolving *which* candidate object free-text input refers to,
+weighted by likelihood rules) — see ROADMAP.md's `v1.3.0: Ecosystem Expansion`
+section.
+
