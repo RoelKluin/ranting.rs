@@ -81,15 +81,23 @@ reference and the ROADMAP) but now asserts the fix: `say!()` still always passes
 same way; `dialect`-selected digit systems (named in `inflect_numeral_custom_with_context`'s own
 docs as the intended home for a locale) are unaffected by this item and remain future work.
 
-### 2. `Ranting::inflect` takes number but not case
-*Belongs to: Phase 6 item 4 (the owed hook-signature break) — same signature-break site.*
+### 2. `Ranting::inflect` takes number but not a *reachable* case
+*Belongs to: Phase 6 item 4 (the owed hook-signature break), closed partway by item 14's own
+`Ranting::inflect` signature break — same signature-break site.*
 
 German declines the *noun*, not only its article: dative plural `den Hunden`, genitive singular
-`des Hauses`. `inflect(to_plural, uc)` has no case parameter and no `NarrationContext`, so the
-form has to come off the entity. `GermanNoun::in_case` is that carrier. The visible consequence:
-a placeholder's own case marker reaches the article hook but not the noun form, so
+`des Hauses`. Item 14 gave `inflect` a fourth parameter, `case: GrammaticalCase`, so the signature
+gap this hole originally named is gone — but the hole itself is not: the only call site that
+reaches `inflect()` is bare-placeholder rendering (`` {the 0} ``/`` {?the 0} ``), which is always
+`GrammaticalCase::Name`/`Hidden`. Every marker that carries a real case (`=`, `@`, `` ` ``, `~`)
+switches the noun slot to a *pronoun* and calls `inflect_pronoun_custom` instead (see hole 5) —
+never `inflect()`. So the parameter exists, but a placeholder can never hand it anything but
+`Name`/`Hidden`, and `case_for` treats both as nominative. The form still has to come off the
+entity: `GermanNoun::in_case` is that carrier, and remains the only way to reach dative or
+genitive on the noun's own form. The visible consequence is unchanged from before item 14:
 `say!("Ich gebe {the @0} etwas.", hund_plural)` renders `"die Hunde"` where German wants
-`"den Hunden"` — the article is even wrong here, because `@` is read as accusative (hole 3).
+`"den Hunden"` — the article is even wrong here, because `@` is read as accusative (hole 3), and
+that marker never reaches the noun form at all, whichever case it named.
 
 ### 3. `GrammaticalCase` has no dative, so a fork ends up ignoring it
 *Belongs to: Phase 3 item 2's v1.3 `GrammaticalCase` bullet, and Phase 6 item 2.*

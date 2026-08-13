@@ -94,7 +94,9 @@ impl Ranting for GermanPerson {
         self.plural
     }
 
-    fn inflect(&self, _to_plural: bool, uc: bool) -> String {
+    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+        // Personal pronouns (ich/du/wir/...) don't decline by case here — `subjective()`,
+        // `objective()` etc. already cover case via the pronoun hook.
         uc_1st_if(self.subject, uc)
     }
 
@@ -108,6 +110,7 @@ impl Ranting for GermanPerson {
         case: PronounCase,
         _class: NounClass,
         _as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         let word = match case {
@@ -124,6 +127,7 @@ impl Ranting for GermanPerson {
         subject: &str,
         verb: &str,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         let person = Person::from_subject(subject, as_plural);

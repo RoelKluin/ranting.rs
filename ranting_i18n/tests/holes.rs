@@ -38,8 +38,8 @@ fn hole_1_the_with_context_hooks_are_now_reachable_so_dialect_arrives() {
         fn is_plural(&self) -> bool {
             self.0.is_plural()
         }
-        fn inflect(&self, to_plural: bool, uc: bool) -> String {
-            self.0.inflect(to_plural, uc)
+        fn inflect(&self, to_plural: bool, uc: bool, case: ranting::GrammaticalCase) -> String {
+            self.0.inflect(to_plural, uc, case)
         }
         fn skip_article(&self) -> bool {
             self.0.skip_article()
@@ -50,10 +50,11 @@ fn hole_1_the_with_context_hooks_are_now_reachable_so_dialect_arrives() {
             case: ranting::PronounCase,
             class: ranting::NounClass,
             as_plural: bool,
+            count: Option<ranting::PlaceholderCount>,
             uc: bool,
         ) -> Option<String> {
             self.0
-                .inflect_pronoun_custom(subject, case, class, as_plural, uc)
+                .inflect_pronoun_custom(subject, case, class, as_plural, count, uc)
         }
         fn inflect_article_custom_with_context(
             &self,
@@ -62,6 +63,7 @@ fn hole_1_the_with_context_hooks_are_now_reachable_so_dialect_arrives() {
             _case: ranting::GrammaticalCase,
             _class: ranting::NounClass,
             _as_plural: bool,
+            _count: Option<ranting::PlaceholderCount>,
             _uc: bool,
             ctx: Option<&ranting::NarrationContext>,
         ) -> Option<String> {
@@ -89,14 +91,17 @@ fn hole_1_the_with_context_hooks_are_now_reachable_so_dialect_arrives() {
     );
 }
 
-// -------------------------------------------- hole 2: inflect() has no case --
+// ------------------------------- hole 2: inflect()'s case is unreachable --
 
 #[test]
 fn hole_2_the_noun_form_cannot_follow_the_placeholders_case_marker() {
-    // `Ranting::inflect(to_plural, uc)` takes number but not case, so the *noun's own* declension
-    // has to be carried on the entity. Here the same entity is rendered under two different case
-    // markers and produces the same dative-plural form both ways — the marker does not reach
-    // `inflect`, only the article hook.
+    // Phase 6 item 14 gave `Ranting::inflect` a fourth parameter, `case: GrammaticalCase` —
+    // but a placeholder can never hand it anything but `Name`/`Hidden`: any marker that names a
+    // real case (`=`/`@`/`` ` ``/`~`) switches the noun slot to a pronoun and calls
+    // `inflect_pronoun_custom` instead (hole 5), never `inflect()`. So the *noun's own*
+    // declension still has to be carried on the entity. Here the same entity is rendered under
+    // two different case markers and produces the same dative-plural form both ways — the
+    // marker still does not reach `inflect`, only the article hook.
     let dative = GermanNoun::hund().in_case(Case::Dative).plural();
     assert_eq!(say!("{the 0}", dative), "Den Hunden");
     let nominative = GermanNoun::hund().plural();
@@ -204,8 +209,8 @@ fn hole_6_a_missing_article_leaves_a_separator_no_hook_can_remove() {
         fn is_plural(&self) -> bool {
             self.0.is_plural()
         }
-        fn inflect(&self, to_plural: bool, uc: bool) -> String {
-            self.0.inflect(to_plural, uc)
+        fn inflect(&self, to_plural: bool, uc: bool, case: ranting::GrammaticalCase) -> String {
+            self.0.inflect(to_plural, uc, case)
         }
         fn skip_article(&self) -> bool {
             self.0.skip_article()
@@ -220,10 +225,11 @@ fn hole_6_a_missing_article_leaves_a_separator_no_hook_can_remove() {
             case: ranting::GrammaticalCase,
             class: ranting::NounClass,
             as_plural: bool,
+            count: Option<ranting::PlaceholderCount>,
             uc: bool,
         ) -> Option<String> {
             self.0
-                .inflect_article_custom(article, noun_singular, case, class, as_plural, uc)
+                .inflect_article_custom(article, noun_singular, case, class, as_plural, count, uc)
         }
         fn inflect_pronoun_custom(
             &self,
@@ -231,10 +237,11 @@ fn hole_6_a_missing_article_leaves_a_separator_no_hook_can_remove() {
             case: ranting::PronounCase,
             class: ranting::NounClass,
             as_plural: bool,
+            count: Option<ranting::PlaceholderCount>,
             uc: bool,
         ) -> Option<String> {
             self.0
-                .inflect_pronoun_custom(subject, case, class, as_plural, uc)
+                .inflect_pronoun_custom(subject, case, class, as_plural, count, uc)
         }
         fn elide_article_custom(
             &self,
@@ -244,6 +251,7 @@ fn hole_6_a_missing_article_leaves_a_separator_no_hook_can_remove() {
             _case: ranting::GrammaticalCase,
             _class: ranting::NounClass,
             _as_plural: bool,
+            _count: Option<ranting::PlaceholderCount>,
         ) -> Option<String> {
             // Would drop the stray separator — if it ran.
             Some(following.to_string())
