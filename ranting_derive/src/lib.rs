@@ -681,11 +681,11 @@ fn handle_param(
                 match s {
                     "#x" | "-" | "+" | "x?" | "X?" => false,
                     x if x.starts_with('#')
-                        && x.ends_with(&['x', 'X', 'o', 'p', 'b', 'e', 'E']) =>
+                        && x.ends_with(['x', 'X', 'o', 'p', 'b', 'e', 'E']) =>
                     {
                         false
                     }
-                    x if x.ends_with(&['$', '*']) => true,
+                    x if x.ends_with(['$', '*']) => true,
                     x if x.starts_with('.') => false,
                     x if x.ends_with('?') => true,
                     x if x.ends_with(|c: char| c.is_ascii_digit()) => !x.starts_with('0'), // width or fill
