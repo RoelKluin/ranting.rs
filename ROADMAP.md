@@ -148,10 +148,60 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
      trailing words after the degree word).
    - ✅ Rounds out morphology for richer text generation.
 
-7. **Recursive Type Inflection** (12-16 hours)
-   - Support collections and nested Ranting types
-   - `Vec<Item>` where Item: Ranting, `Option<Person>`, `Box<Noun>`, etc.
-   - Use `#[derive(Ranting)]` to generate recursive implementations
+7. ✅ **Recursive Type Inflection** (12-16 hours)
+   - ✅ Support collections and nested Ranting types: `Vec<Item>`/`Option<Person>`/
+     `Box<Noun>` (and any `T: Ranting`) as `say!()` placeholder subjects/arguments.
+   - ✅ `Box<T>` gets a direct blanket `impl<T: Ranting> Ranting for Box<T>`, in
+     `src/collections.rs` — `Ranting` is local to this crate so implementing it
+     for foreign `Box<T>` is allowed by the orphan rules, and `std` already
+     provides `impl<T: Display> Display for Box<T>` so the `Ranting: Display`
+     supertrait bound is satisfied for free.
+   - ⚠️ `Vec<T>` and `Option<T>` could **not** get the same direct blanket-impl
+     treatment as originally scoped: `Ranting: Display` requires `Vec<T>`/
+     `Option<T>` to implement `Display`, but `Display` is a foreign trait and
+     neither `Vec` nor `Option` is `#[fundamental]` (unlike `Box`/`&`), so
+     `impl Display for Vec<T>`/`Option<T>` is rejected by the orphan rules
+     (E0117) no matter what `T` is — not a case-by-case gap, a hard compiler
+     rule. Relaxing the `Display` supertrait to work around it would be a
+     breaking public-API change, out of scope here (Phase 4 owns public-API
+     cleanup). Resolved with two local newtype wrappers instead — `Many<T>(pub
+     Vec<T>)` and `Maybe<T>(pub Option<T>)` in `src/collections.rs` — which
+     *are* local types and so can freely implement both `Display` and
+     `Ranting`; users wrap their `Vec`/`Option` before passing it to `say!()`.
+     This is the same "local wrapper sidesteps the orphan rule" shape already
+     used by `boxed_ranting_trait!`/`ref_ranting_trait!` in
+     `ranting_derive/src/lib.rs` for `Box<dyn Trait>`/`&dyn Trait`, except
+     those work because `Box`/`&` are themselves `#[fundamental]`, which `Vec`/
+     `Option` are not — so a macro-generated downstream impl couldn't have
+     closed this gap either.
+   - ✅ `Many<T>` is a collective noun phrase: rendered name joins items' own
+     `name()`s as `"a, b and c"`; plural (`"they"`/`"are"`) whenever the `Vec`
+     doesn't hold exactly one item (zero included — "there are no items"),
+     delegating plurality/pronoun/custom-hook behavior straight through to the
+     single item when there is exactly one, and falling back to built-in
+     English rules for custom hooks when there are zero or several items
+     (there's no single item to delegate a per-item override to).
+     `skip_article()` is `true` when empty, so `{a items}` doesn't leave a
+     dangling article.
+   - ✅ `Maybe<T>`: `Maybe(Some(x))` delegates every method straight through to
+     `x`; `Maybe(None)` renders as empty, singular, subject `"it"`, and also
+     `skip_article() == true`.
+   - ✅ Not implemented via `#[derive(Ranting)]` as the roadmap entry
+     illustrated — `Vec`/`Option`/`Box` are foreign `std` types, not structs
+     the crate's own derive macro is invoked on, so there is nothing for
+     `#[derive(Ranting)]` to attach to here; the derive macro is unrelated to
+     this item's implementation.
+   - ✅ All six `inflect_*_custom`/`inflect_*_custom_with_context` hooks (not
+     just the five required trait methods) are forwarded by `Box`/`Many`
+     (single-item case)/`Maybe`, so a wrapped type's custom overrides (e.g. a
+     `ranting-pirate`-style fork) survive wrapping instead of silently
+     reverting to English defaults.
+   - ✅ 13 integration tests in `tests/ranting/recursive_inflection.rs` (empty/
+     single/multi-item `Many`, `Maybe(None)`/`Maybe(Some)`, `Box<Noun>`,
+     `Box<Many<Noun>>`/`Many<Box<Noun>>` nesting/composition, uppercase-first-
+     char-only join, and custom-hook forwarding through all three wrapper
+     types plus the multi-item English-fallback case), plus 2 doctests in
+     `src/collections.rs`.
 
 8. **Input Parsing (`heed!()`)** (v1 scope, see
    `docs/superpowers/specs/2026-08-12-input-parsing-feasibility.md`)

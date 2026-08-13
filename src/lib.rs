@@ -29,12 +29,14 @@
 
 extern crate self as ranting;
 
+mod collections;
 mod heed;
 mod language;
 mod narration;
 use lazy_static::lazy_static;
 use regex::Regex;
 
+pub use collections::{Many, Maybe};
 pub use narration::{NarrationContext, Person, Register, Tense};
 
 #[doc(hidden)]
