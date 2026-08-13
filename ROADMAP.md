@@ -41,10 +41,11 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
    - ✅ Support 100+ common irregular plurals: child→children, person→people, mouse→mice, goose→geese, etc.
    - ✅ Codegen from data/irregular_plurals.txt (single source of truth, like verbs)
    - ✅ Integrated with existing `#[ranting(plural_end="...")]` attribute system
-   - ⚠️ Lookup functions (`get_plural`/`get_singular`) exist and are unit-tested in
-     `src/language/plurals.rs`, but are **not yet called from any inflection call
-     site** (`Noun::inflect()` doesn't invoke them) — see
-     `docs/architecture-review-2026-08-13.md`. Wiring this up is unclaimed work.
+   - ✅ **Wired 2026-08-13**: `english::inflect_noun_irregular` (backing
+     `Ranting::inflect()`'s irregular-noun path) now delegates to
+     `get_plural`/`get_singular` in `src/language/plurals.rs` instead of a
+     separate duplicate table scan — see `docs/architecture-review-2026-08-13.md`
+     for the pre-fix history.
    - ✅ 9 new integration tests + unit tests (217 total tests passing)
    - ✅ Case-preserving lookups (child→Children when capitalized)
 
@@ -1064,7 +1065,7 @@ itself. See [v1.3.0](#v130-ecosystem-expansion) below for where a
 
 | Decision | Status | Notes |
 |----------|--------|-------|
-| Two-crate split (ranting + ranting_derive) | 🔄 Revisit (v1.2) | Design review 2026-08-12: extract shared `ranting_core` rlib both depend on (serde/serde_derive pattern); deletes all build.rs copy/symlink sharing |
+| Two-crate split (ranting + ranting_derive) | ✅ Complete (v1.2) | `ranting_core` shared rlib extracted (Phase 4 item 1, serde/serde_derive pattern); all build.rs copy/symlink sharing deleted |
 | Verb table codegen via build.rs | ✅ Complete | Single source of truth: data/irregular_verbs.txt; codegen moves into `ranting_core` in v1.2 |
 | Pronoun/article/verb tables → exhaustive match | ✅ Complete | Exhaustive `match` dispatch with `#[deny(...)]` guards; no wildcards; permanent regression tests for string values |
 | Derive macro attributes (4 core + 3 cosmetic) | ✅ Complete | subject, name, singular_end, plural_end (core) |
@@ -1077,8 +1078,8 @@ itself. See [v1.3.0](#v130-ecosystem-expansion) below for where a
 | Context-aware runtime viewpoint | ✅ Complete | `NarrationContext.narration_person` + `Person`; scoped to first-person-declared (`I`/`we`) nouns only; unblocks Recounting M9 (viewpoint portion) |
 | Narration context threading (register/dialect) | ✅ Complete | `NarrationContext.register`/`.dialect` are inert in-crate; reachable via 3 new `Ranting::*_with_context` hooks (`ctx` as parameter, never entity-owned), defaulting to the pre-existing hooks |
 | Consolidate english_shared.rs | ✅ Complete → superseded (v1.2) | Single canonical copy + build.rs copy solved the drift; `ranting_core` extraction (Phase 4, item 1) replaces the copy mechanism outright |
-| Stringly-typed `subject: &str` in public API | 🔄 Revisit (v1.2) | Design review 2026-08-12: make `SubjectPronoun` public, store enum in `Noun`; invalid subjects become unrepresentable instead of panicking |
-| `ack!()`/`nay!()` expand to hidden `return` | 🔄 Revisit (v1.2) | Not usable as expressions; surprising control flow. Prefer `Ok(say!(...))`/`Err(say!(...))` expression forms |
+| Stringly-typed `subject: &str` in public API | ✅ Complete (v1.2) | Phase 4 item 4: `SubjectPronoun` public, typed field in `Noun`, non-panicking `Noun::try_new`; invalid subjects unrepresentable instead of panicking |
+| `ack!()`/`nay!()` expand to hidden `return` | ✅ Complete (v1.2) | Phase 4 item 5: reworked to plain `Ok(say!(...))`/`Err(say!(...))` expression forms, usable anywhere an expression is valid |
 | GPL-3 via `license-file` | ✅ Complete (v1.2) | Relicensed to plain `license = "MIT"` 2026-08-13 (copyright holder's choice, differs from the dual-license recommendation in [PROPOSED LICENSE CHANGE](#proposed-license-change-awaiting-decision)); already-published 0.2.1 on crates.io remains GPL-3 |
 
 ---
