@@ -12,8 +12,8 @@
 include!(concat!(env!("OUT_DIR"), "/irregular_verbs_generated.rs"));
 
 fn regular_past_form(verb_lower: &str) -> String {
-    let base = if verb_lower.ends_with('e') {
-        verb_lower[..verb_lower.len() - 1].to_string()
+    let base = if let Some(stripped) = verb_lower.strip_suffix('e') {
+        stripped.to_string()
     } else if verb_lower.ends_with('y') && verb_lower.len() > 1 {
         let prev = verb_lower.chars().rev().nth(1).unwrap();
         if !matches!(prev, 'a' | 'e' | 'i' | 'o' | 'u') {
