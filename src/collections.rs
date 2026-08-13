@@ -78,6 +78,21 @@ impl<T: Ranting> Many<T> {
             }
         }
     }
+
+    /// ROADMAP.md Phase 6 item 15: a bare placeholder (`{many_items}`, no `#`/`$` numeral) hands
+    /// every hook `count: None` — but a one-item `Many` genuinely knows its own count is 1, so it
+    /// substitutes that in place of reporting no-numeral-here. Only ever reached from the
+    /// `len() == 1` delegation arm below, so `value` is always `1`; it exists as a named step
+    /// (rather than an inline `Some(PlaceholderCount { .. })`) so that invariant is stated once.
+    /// Does not extend to the 0-or-2+ arm: that arm has no single item to delegate the hook call
+    /// to at all (see `many_with_two_items_does_not_elide` in `tests/ranting/elision.rs`), so
+    /// there is no hook call for a count to ride along with.
+    fn own_count(&self) -> Option<PlaceholderCount> {
+        Some(PlaceholderCount {
+            value: self.0.len() as i64,
+            fraction_digits: 0,
+        })
+    }
 }
 
 impl<T: Ranting> fmt::Display for Many<T> {
@@ -163,7 +178,10 @@ impl<T: Ranting> Ranting for Many<T> {
         uc: bool,
     ) -> Option<String> {
         match self.0.len() {
-            1 => self.0[0].inflect_verb_custom(subject, verb, as_plural, count, uc),
+            1 => {
+                let count = count.or_else(|| self.own_count());
+                self.0[0].inflect_verb_custom(subject, verb, as_plural, count, uc)
+            }
             _ => None,
         }
     }
@@ -179,6 +197,7 @@ impl<T: Ranting> Ranting for Many<T> {
     ) -> Option<String> {
         match self.0.len() {
             1 => {
+                let count = count.or_else(|| self.own_count());
                 self.0[0].inflect_verb_custom_with_context(subject, verb, as_plural, count, uc, ctx)
             }
             _ => None,
@@ -195,7 +214,10 @@ impl<T: Ranting> Ranting for Many<T> {
         uc: bool,
     ) -> Option<String> {
         match self.0.len() {
-            1 => self.0[0].inflect_pronoun_custom(subject, case, class, as_plural, count, uc),
+            1 => {
+                let count = count.or_else(|| self.own_count());
+                self.0[0].inflect_pronoun_custom(subject, case, class, as_plural, count, uc)
+            }
             _ => None,
         }
     }
@@ -211,9 +233,12 @@ impl<T: Ranting> Ranting for Many<T> {
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         match self.0.len() {
-            1 => self.0[0].inflect_pronoun_custom_with_context(
-                subject, case, class, as_plural, count, uc, ctx,
-            ),
+            1 => {
+                let count = count.or_else(|| self.own_count());
+                self.0[0].inflect_pronoun_custom_with_context(
+                    subject, case, class, as_plural, count, uc, ctx,
+                )
+            }
             _ => None,
         }
     }
@@ -229,15 +254,18 @@ impl<T: Ranting> Ranting for Many<T> {
         uc: bool,
     ) -> Option<String> {
         match self.0.len() {
-            1 => self.0[0].inflect_article_custom(
-                article,
-                noun_singular,
-                case,
-                class,
-                as_plural,
-                count,
-                uc,
-            ),
+            1 => {
+                let count = count.or_else(|| self.own_count());
+                self.0[0].inflect_article_custom(
+                    article,
+                    noun_singular,
+                    case,
+                    class,
+                    as_plural,
+                    count,
+                    uc,
+                )
+            }
             _ => None,
         }
     }
@@ -254,16 +282,19 @@ impl<T: Ranting> Ranting for Many<T> {
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         match self.0.len() {
-            1 => self.0[0].inflect_article_custom_with_context(
-                article,
-                noun_singular,
-                case,
-                class,
-                as_plural,
-                count,
-                uc,
-                ctx,
-            ),
+            1 => {
+                let count = count.or_else(|| self.own_count());
+                self.0[0].inflect_article_custom_with_context(
+                    article,
+                    noun_singular,
+                    case,
+                    class,
+                    as_plural,
+                    count,
+                    uc,
+                    ctx,
+                )
+            }
             _ => None,
         }
     }
@@ -281,8 +312,12 @@ impl<T: Ranting> Ranting for Many<T> {
         // Same one-item rule as `noun_class`/`capitalize`: for 2+ items `following` is the joined
         // phrase ("Alice, Bob and Carol"), whose members may elide differently.
         match self.0.len() {
-            1 => self.0[0]
-                .elide_article_custom(article, separator, following, case, class, as_plural, count),
+            1 => {
+                let count = count.or_else(|| self.own_count());
+                self.0[0].elide_article_custom(
+                    article, separator, following, case, class, as_plural, count,
+                )
+            }
             _ => None,
         }
     }
@@ -299,9 +334,12 @@ impl<T: Ranting> Ranting for Many<T> {
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         match self.0.len() {
-            1 => self.0[0].elide_article_custom_with_context(
-                article, separator, following, case, class, as_plural, count, ctx,
-            ),
+            1 => {
+                let count = count.or_else(|| self.own_count());
+                self.0[0].elide_article_custom_with_context(
+                    article, separator, following, case, class, as_plural, count, ctx,
+                )
+            }
             _ => None,
         }
     }
@@ -317,8 +355,11 @@ impl<T: Ranting> Ranting for Many<T> {
         uc: bool,
     ) -> Option<String> {
         match self.0.len() {
-            1 => self.0[0]
-                .inflect_adjective_custom(adjective, degree, case, class, as_plural, count, uc),
+            1 => {
+                let count = count.or_else(|| self.own_count());
+                self.0[0]
+                    .inflect_adjective_custom(adjective, degree, case, class, as_plural, count, uc)
+            }
             _ => None,
         }
     }
@@ -336,9 +377,12 @@ impl<T: Ranting> Ranting for Many<T> {
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         match self.0.len() {
-            1 => self.0[0].inflect_adjective_custom_with_context(
-                adjective, degree, case, class, as_plural, count, uc, ctx,
-            ),
+            1 => {
+                let count = count.or_else(|| self.own_count());
+                self.0[0].inflect_adjective_custom_with_context(
+                    adjective, degree, case, class, as_plural, count, uc, ctx,
+                )
+            }
             _ => None,
         }
     }

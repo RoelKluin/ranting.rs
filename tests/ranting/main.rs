@@ -18,6 +18,7 @@ mod heed_derive;
 mod inclusive_language;
 mod irregular_plurals;
 mod male_female_and_object;
+mod many_count;
 mod narration_context_threading;
 mod noun_class;
 mod numeral;
