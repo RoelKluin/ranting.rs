@@ -1,4 +1,4 @@
-// (c) RoelKluin 2022 GPL v3
+// (c) RoelKluin 2022 MIT
 
 mod heed;
 mod language;

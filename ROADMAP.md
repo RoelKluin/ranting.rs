@@ -846,10 +846,15 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
      Decide deliberately; MIT/Apache-2.0 dual is the ecosystem norm.
    - Either way, prefer `license = "..."` over `license-file` in Cargo.toml so
      tooling (lib.rs, cargo-deny, license scanners) can classify it.
-   - **- [ ] Decision pending** — analysis and a recommendation are written up below
-     in [PROPOSED LICENSE CHANGE](#proposed-license-change-awaiting-decision).
-     Nothing in the tree has been relicensed; both crates still carry GPL-3 via
-     `license-file`. This box is for the copyright holder to check, not an agent.
+   - ✅ **Decided 2026-08-13**: relicensed to plain `MIT` (not the dual
+     `MIT OR Apache-2.0` this section recommended below — the copyright holder's
+     explicit choice). `license = "MIT"` in `Cargo.toml`, `ranting_core/Cargo.toml`,
+     `ranting_derive/Cargo.toml`; `LICENSE.txt` replaced with the MIT text; all
+     `// (c) Roel Kluin <year> GPL v3` source headers updated to `MIT`. Sole
+     copyright holder (verified via `git shortlog -sne --all`), so no consent round
+     was needed. Note: the already-published 0.2.1 on crates.io remains available
+     under GPL-3 — crates.io releases are immutable, so MIT applies from the next
+     published version onward.
 
 ✅ **8. Repo hygiene** (COMPLETE)
    - ✅ Untracked (`git rm --cached`, files kept on disk) and added to `.gitignore`:
@@ -867,11 +872,11 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
 
 ## PROPOSED LICENSE CHANGE (awaiting decision)
 
-> **Status: PROPOSAL ONLY — nothing has been relicensed.** Both crates still ship
-> GPL-3 (`license-file = "LICENSE.txt"`), and the source headers still read
-> `// (c) Roel Kluin 2022 GPL v3`. This section exists so Phase 4 item 7 can be
-> decided on evidence; the checkbox there stays unchecked until the copyright
-> holder decides. Written 2026-08-13.
+> **Status: DECIDED 2026-08-13 — relicensed to plain MIT.** The analysis below
+> recommended dual `MIT OR Apache-2.0`; the copyright holder chose plain `MIT`
+> instead. All crates now carry `license = "MIT"`, `LICENSE.txt` holds the MIT
+> text, and source headers read `// (c) Roel Kluin <year> MIT`. Kept here for the
+> historical tradeoff analysis.
 
 ### Current state
 
@@ -1065,7 +1070,7 @@ itself. See [v1.3.0](#v130-ecosystem-expansion) below for where a
 | Consolidate english_shared.rs | ✅ Complete → superseded (v1.2) | Single canonical copy + build.rs copy solved the drift; `ranting_core` extraction (Phase 4, item 1) replaces the copy mechanism outright |
 | Stringly-typed `subject: &str` in public API | 🔄 Revisit (v1.2) | Design review 2026-08-12: make `SubjectPronoun` public, store enum in `Noun`; invalid subjects become unrepresentable instead of panicking |
 | `ack!()`/`nay!()` expand to hidden `return` | 🔄 Revisit (v1.2) | Not usable as expressions; surprising control flow. Prefer `Ok(say!(...))`/`Err(say!(...))` expression forms |
-| GPL-3 via `license-file` | 🔄 Decide (v1.2) | Major adoption barrier for a library crate; ecosystem norm is MIT/Apache-2.0 dual. Use `license = "..."` key either way. Written up in [PROPOSED LICENSE CHANGE](#proposed-license-change-awaiting-decision) — recommendation: `MIT OR Apache-2.0`; awaiting the copyright holder's decision, nothing relicensed yet |
+| GPL-3 via `license-file` | ✅ Complete (v1.2) | Relicensed to plain `license = "MIT"` 2026-08-13 (copyright holder's choice, differs from the dual-license recommendation in [PROPOSED LICENSE CHANGE](#proposed-license-change-awaiting-decision)); already-published 0.2.1 on crates.io remains GPL-3 |
 
 ---
 

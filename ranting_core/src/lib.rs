@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2026 GPL v3
+// (c) Roel Kluin 2026 MIT
 //! `ranting_core`: internal shared grammar engine for the `ranting` /
 //! `ranting_derive` crate pair.
 //!

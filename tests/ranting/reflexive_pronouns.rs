@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2022 GPL v3
+// (c) Roel Kluin 2022 MIT
 //! Integration tests for reflexive pronouns (ROADMAP Phase 3 item 5).
 //!
 //! The `%` case marker (see README.md's placeholder grammar list) selects the

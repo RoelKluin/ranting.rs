@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2022 GPL v3
+// (c) Roel Kluin 2022 MIT
 
 use ranting::*;
 use ranting_derive::*;

@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2022 GPL v3
+// (c) Roel Kluin 2022 MIT
 //!
 //! Functions to handle [Ranting](https://docs.rs/ranting_derive/0.2.1/ranting_derive/) trait placeholders.
 //!

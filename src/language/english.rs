@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2022 GPL v3
+// (c) Roel Kluin 2022 MIT
 //!
 //! Functions used by [Ranting](../ranting_derive/index.html) trait placeholders.
 use crate::is_subjective_plural;

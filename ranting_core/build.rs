@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2026 GPL v3
+// (c) Roel Kluin 2026 MIT
 //! Build script for ranting_core: generates the irregular verb conjugation
 //! tables (`IRREGULAR_PAST`, `IRREGULAR_PAST_PARTICIPLE`) from the shared
 //! `data/irregular_verbs.txt` file. This is now the *only* place these

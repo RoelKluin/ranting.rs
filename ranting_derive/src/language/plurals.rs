@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2024 GPL v3
+// (c) Roel Kluin 2024 MIT
 //! Irregular noun pluralization support (derive-crate copy).
 //! Generated table from data/irregular_plurals.txt via build.rs.
 //!

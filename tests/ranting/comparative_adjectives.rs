@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2026 GPL v3
+// (c) Roel Kluin 2026 MIT
 //! Integration tests for comparative & superlative adjectives (ROADMAP Phase 3 item 6).
 //!
 //! `!` and `!!` are post-noun degree markers (see README.md's placeholder grammar

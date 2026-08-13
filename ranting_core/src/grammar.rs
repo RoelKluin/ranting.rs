@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2022 GPL v3
+// (c) Roel Kluin 2022 MIT
 //! Placeholder grammar (the `{...}` sigil syntax `say!()` parses) and
 //! subject-pronoun logic, shared between `ranting` (runtime) and
 //! `ranting_derive` (compile-time `say!()`/`say_with!()` parsing).

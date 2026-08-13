@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2024 GPL v3
+// (c) Roel Kluin 2024 MIT
 //! Build script for ranting: generates the irregular noun plurals table
 //! from the shared data/irregular_plurals.txt file.
 //!

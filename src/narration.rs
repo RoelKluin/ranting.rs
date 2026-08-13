@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2026 GPL v3
+// (c) Roel Kluin 2026 MIT
 //! Runtime narration context: lets `say_with!()` pick a tense at runtime,
 //! from e.g. a `StoryState`, instead of the tense being fixed at compile
 //! time by the `<`, `=`, `>`, `<=`, `%`, `<%` placeholder markers.

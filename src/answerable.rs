@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2026 GPL v3
+// (c) Roel Kluin 2026 MIT
 //! Backs `ask!()`: lets an object respond differently depending on what it's
 //! asked, with captures parsed out of free-form input the same way
 //! `heed!()` parses them — see the `ask!()` macro docs for the full picture.

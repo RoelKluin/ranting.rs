@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2022 GPL v3
+// (c) Roel Kluin 2022 MIT
 //
 // Phase 4 item 5: ack!()/nay!() no longer expand to a hidden `return` --
 // they expand to plain `Ok(say!(...))` / `Err(say!(...))` expressions, so

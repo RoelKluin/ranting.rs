@@ -1,4 +1,4 @@
-// (c) RoelKluin 2022 GPL v3
+// (c) RoelKluin 2022 MIT
 
 use darling::FromDeriveInput;
 use proc_macro2::TokenStream;

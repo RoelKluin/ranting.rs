@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2026 GPL v3
+// (c) Roel Kluin 2026 MIT
 //! Comparative/superlative adjective degree support (derive-crate only).
 //!
 //! Unlike `verb.rs`/`english_shared.rs`, this has no repo-root canonical copy

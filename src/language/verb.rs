@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2024 GPL v3
+// (c) Roel Kluin 2024 MIT
 //! Verb tense classification and detection.
 //! Supports detection of past, continuous, and present tenses.
 //! Built-in for Phase 2 grammar depth — to avoid introducing new trait methods,

@@ -1,4 +1,4 @@
-// (c) Roel Kluin 2024 GPL v3
+// (c) Roel Kluin 2024 MIT
 //! Verb conjugation helpers, used both at compile time (`say!()` literal
 //! baking in `ranting_derive`) and at runtime (`say_with!()` runtime tense
 //! resolution and `detect_tense` in `ranting`). Converts base verbs to
