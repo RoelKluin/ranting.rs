@@ -84,7 +84,10 @@ pub fn ask(input: TokenStream1) -> TokenStream1 {
 /// captures `"剣"` — but continuous-script input written without spaces
 /// (`"剣を取る"`) simply returns `None` rather than being split by guesswork.
 /// Capture such a run whole (`heed!("{clause}", "剣を取る")`) and segment it
-/// with a real tokenizer. See README.md and ROADMAP.md Phase 6 item 9.
+/// with a real tokenizer. A punctuation-only literal is the one exemption: it
+/// abuts what precedes it, in any script (`"{item}、 取る"` matches `"剣、 取る"`).
+/// `ask!()` and `#[derive(Heed)]` share this compiler and behave identically.
+/// See README.md and ROADMAP.md Phase 6 item 9.
 #[proc_macro]
 pub fn heed(input: TokenStream1) -> TokenStream1 {
     let output = parse_macro_input!(input as heed::Heed);
