@@ -1,5 +1,4 @@
 use ranting::*;
-use ranting_derive::*;
 
 fn say_this(who: Noun, title: &Noun) -> String {
     say!("{=who do} say {`who title are} {who}.")

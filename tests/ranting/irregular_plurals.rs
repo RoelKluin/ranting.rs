@@ -1,5 +1,4 @@
 use ranting::*;
-use ranting_derive::*;
 
 #[test]
 fn test_irregular_plural_with_noun() {

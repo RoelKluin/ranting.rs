@@ -119,18 +119,18 @@ up, and `GrammaticalCase` in particular is the pattern Phase 6 is built on.
      when no register/dialect override applies.
    - ✅ `say!()` unaffected: its call sites pass `ctx: None` to the same `_with_context` hooks, so
      existing `say!()` output is unchanged (verified by `say_macro_still_passes_none_to_context_hooks`).
-   - ⚠️ **Phase 6 item 10 follow-up**: the whole `_with_context` mechanism —
-     here and in item 3 — is unreachable from a crate depending on `ranting`'s
-     public API alone. `ranting` re-exports `say`/`ack`/`nay`/`heed`/`Heed`/
-     `ask`/`boxed_ranting_trait`/`ref_ranting_trait`, but **not `say_with` and
-     not `derive_ranting`**, so a companion crate can never construct a call
-     that delivers a `NarrationContext`; every `_with_context` hook it overrides
-     receives `None`. `NarrationContext`, `Tense`, `Person` and `Register` are
-     all public, so this is a re-export gap rather than a design one — but it
-     cost the German lexicon `dialect`-selected digits, register-driven wording
-     and runtime tense. Recorded, not worked around (adding `ranting_derive` as
-     a second dependency would contradict item 10's premise, and `ranting_derive`
-     is documented as internal). See `ranting_i18n/README.md` hole 1.
+   - ✅ **Phase 6 item 10 follow-up, closed by item 12**: the whole `_with_context`
+     mechanism — here and in item 3 — was unreachable from a crate depending on
+     `ranting`'s public API alone. `ranting` re-exported `say`/`ack`/`nay`/`heed`/
+     `Heed`/`ask`/`boxed_ranting_trait`/`ref_ranting_trait`, but **not `say_with`
+     and not `derive_ranting`**, so a companion crate could never construct a
+     call that delivers a `NarrationContext`; every `_with_context` hook it
+     overrode received `None`. `NarrationContext`, `Tense`, `Person` and
+     `Register` were already public, so this was a re-export gap rather than a
+     design one — but it cost the German lexicon `dialect`-selected digits,
+     register-driven wording and runtime tense. Item 12 added the two missing
+     re-exports; see `ranting_i18n/README.md` hole 1 (now closed) for the
+     re-verification from the companion crate's side.
 
 ✅ **5. Reflexive Forms** (COMPLETE — 8-12 hours)
    - ✅ Support myself, yourself, thyself, himself, herself, itself, ourselves,
@@ -1933,14 +1933,16 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
        `две книги` from one template, gender off the entity), a Devanagari-digit
        `$var` override, the count-of-one agreement guard, the hidden and
        no-numeral non-call cases, and the byte-identical-English guards.
-   - ⚠️ **Item 10 follow-up**: the hook itself came through the German lexicon
-     working (German numerals spelled here, `1` agreeing like an article,
-     out-of-range counts falling back to English). But the locale channel this
-     item's docs point at — `NarrationContext::dialect` on
-     `inflect_numeral_custom_with_context`, for a script's own digits — is
-     unreachable from a companion crate: `say_with!()` is not re-exported from
-     `ranting`, so no `_with_context` hook ever receives a context
-     (`ranting_i18n/README.md` hole 1).
+   - ⚠️ **Item 10 follow-up, partially closed by item 12**: the hook itself
+     came through the German lexicon working (German numerals spelled here,
+     `1` agreeing like an article, out-of-range counts falling back to
+     English). The locale channel this item's docs point at —
+     `NarrationContext::dialect` on `inflect_numeral_custom_with_context`, for
+     a script's own digits — was unreachable from a companion crate because
+     `say_with!()` wasn't re-exported from `ranting`; item 12 fixed the
+     re-export (`ranting_i18n/README.md` hole 1, now closed), so the channel is
+     reachable. No fork has yet implemented a script's own digit system through
+     it — that part remains future work, just no longer blocked.
 
 9. ✅ **Non-space-delimited script support in `heed!()`/`ask!()`** (10-14 hours)
    - `{name}` is documented as capturing "one whitespace-delimited token" and the
@@ -2089,9 +2091,9 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
          the `case` parameter becomes dead. Five English markers collapse onto
          German's four cases, `@` meaning accusative-or-dative. Rejected
          workaround: smuggling case through `NarrationContext.dialect` — per-
-         placeholder information in story-wide state, and blocked by hole 1
-         anyway. → Phase 3 item 2's v1.3 `GrammaticalCase` bullet, Phase 6
-         item 2.
+         placeholder information in story-wide state; reachable since item 12
+         closed hole 1, but still the wrong shape for per-placeholder data.
+         → Phase 3 item 2's v1.3 `GrammaticalCase` bullet, Phase 6 item 2.
       4. **Attributive adjectives — wrong position, and declension class is not
          reported.** (4a) The `!` slot is post-noun only, so `{the =hund
          !klein}` gives "Der Hund kleine"; since German predicative adjectives
@@ -2159,7 +2161,7 @@ because it exercises everything before it.*
       plural only" and would swallow `der`/`die`/`das` too.
     - Cheapest, highest-value item in this batch.
 
-12. **Re-export `say_with!` and `derive_ranting` from `ranting`** (2-4 hours) —
+✅ 12. **Re-export `say_with!` and `derive_ranting` from `ranting`** (2-4 hours) —
     *found by item 10, hole 1*
     - `ranting` re-exports `say`, `ack`, `nay`, `heed`, `Heed`, `ask`,
       `boxed_ranting_trait` and `ref_ranting_trait` — but not `say_with` and not
@@ -2170,6 +2172,56 @@ because it exercises everything before it.*
     - Almost certainly an oversight rather than a decision — every other macro
       is re-exported, and `ask!` was itself found unexported and fixed in
       Phase 5 for the same reason.
+    - ✅ Added `pub use ranting_derive::say_with;` and
+      `pub use ranting_derive::derive_ranting;` to `src/lib.rs`, alongside the
+      existing re-exports. Pure addition — no signature or behavior change, so
+      `say!()`'s output stays byte-identical; confirmed by the full existing
+      test suite passing unchanged.
+    - ✅ `src/lib.rs`'s `say_with!` re-export carries its own doctest
+      (`{=jordan <arrive}` under a `Tense::Past` `NarrationContext`), matching
+      the doc-comment style already used for `say!`/`ack`/`nay`.
+    - ✅ New `tests/ranting/reexports.rs` integration test, deliberately using
+      only `use ranting::*;` — no `use ranting_derive::*;`, unlike every other
+      file under `tests/ranting/` — to prove both macros resolve through
+      `ranting` alone: one test calls `say_with!()` with a tense override, the
+      other applies `#[derive_ranting]` to a local struct.
+    - ✅ Verified from `ranting_i18n` (which depends on `ranting` alone, per
+      item 10's falsification contract): `hole_1_*` in
+      `ranting_i18n/tests/holes.rs` now additionally calls `say_with!()` with a
+      `NarrationContext { dialect: Some("de-AT"), .. }` and asserts the dialect
+      arrives at `inflect_article_custom_with_context` — kept under its
+      original test name (findable from the README/ROADMAP cross-references)
+      rather than renamed, with the pre-existing `say!()`-always-passes-`None`
+      assertion left in place alongside it. `ranting_i18n/Cargo.toml` still has
+      no `ranting_derive` dependency.
+    - ✅ `ranting_i18n/README.md` hole 1 struck (marked closed, kept numbered
+      for the cross-references) with a note on what closed it and what's still
+      future work (nothing implements a `dialect`-selected digit system yet —
+      that's item 8's follow-up, no longer blocked but not done either); its
+      cross-reference from hole 3's rejected-workaround paragraph updated to
+      say reachability is no longer the blocker, shape-mismatch still is. Item
+      3/4's ⚠️ follow-up bullet above, and item 8's ⚠️ follow-up bullet, both
+      updated to ✅/closed-with-caveat accordingly.
+    - ✅ `docs/API.md`'s macro table already listed `say_with!`/`derive_ranting`
+      under "Macros (from `ranting_derive`, re-exported by `ranting`)" — it
+      described the intended end state rather than the pre-item-12 reality, so
+      no edit was needed there; it's accurate now. `CLAUDE.md`'s "Non-obvious
+      behaviors" bullet on this topic *did* need updating — it explicitly
+      documented the gap as still-open (item 10's finding) — flipped to
+      describe the closed state and the tests that pin it.
+    - ✅ Side effect caught by `cargo clippy --all-targets -- -D warnings`:
+      seven files under `tests/ranting/` (`readme_example.rs`, `noun_class.rs`,
+      `argument_parsing.rs`, `adjective_agreement.rs`,
+      `male_female_and_object.rs`, `irregular_plurals.rs`,
+      `inclusive_language.rs`) wrote `use ranting_derive::*;` alongside
+      `use ranting::*;` purely to reach `derive_ranting`/`say_with` — once
+      `ranting` re-exports both, that glob import has nothing left to
+      contribute and clippy flags it `unused_imports`. Removed the redundant
+      line from each; files that name specific items instead of a glob
+      (`orthography.rs`, `runtime_viewpoint.rs`, `runtime_tense.rs`,
+      `narration_context_threading.rs`, `numeral.rs`) are unaffected — an
+      explicit `use path::name;` isn't flagged as unused merely because the
+      name is also reachable through a glob elsewhere.
 
 13. **The gate must cover sibling crates** (4-6 hours)
     - This repo is not a workspace, so `cargo test` at the root never compiles

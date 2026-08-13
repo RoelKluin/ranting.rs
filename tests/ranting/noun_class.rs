@@ -11,7 +11,6 @@
 // `die Katze` and `das Haus` selected from a single `inflect_article_custom`
 // body, differing only in the class each noun declares.
 use ranting::*;
-use ranting_derive::*;
 use std::fmt;
 
 /// One German noun type for all three genders — deliberately one struct, so the

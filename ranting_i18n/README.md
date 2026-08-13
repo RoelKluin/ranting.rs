@@ -62,22 +62,24 @@ Both are pinned by `hole_8_*` in `tests/holes.rs`.
 
 Numbered as referenced from `src/`, `tests/holes.rs` and the ROADMAP.
 
-### 1. `say_with!()` and `#[derive_ranting]` are not reachable from `ranting` alone
+### 1. ✅ Closed — `say_with!()` and `#[derive_ranting]` are now reachable from `ranting` alone
 *Belongs to: Phase 3 items 3 & 4 (the `_with_context` mechanism), Phase 6 item 8 (locale via
-`NarrationContext::dialect`).*
+`NarrationContext::dialect`); closed by Phase 6 item 12.*
 
-`ranting` re-exports `say`, `ack`, `nay`, `heed`, `Heed`, `ask`, `boxed_ranting_trait` and
-`ref_ranting_trait` — but not `say_with` and not `derive_ranting`. A crate depending only on
-`ranting`'s public API therefore cannot construct a call that carries a `NarrationContext`, even
-though `NarrationContext`, `Tense`, `Person`, `Register` and all twelve `_with_context` hooks are
-public. Overriding a `_with_context` hook here is dead weight: `say!()` always passes `None`
-(`hole_1_*` asserts exactly that, with a probe that reports what arrived).
+Previously, `ranting` re-exported `say`, `ack`, `nay`, `heed`, `Heed`, `ask`,
+`boxed_ranting_trait` and `ref_ranting_trait` — but not `say_with` and not `derive_ranting`. A
+crate depending only on `ranting`'s public API could therefore construct a `NarrationContext` but
+never deliver one, so overriding a `_with_context` hook was dead weight: `say!()` always passes
+`None`. Phase 6 item 12 added the two missing re-exports to `ranting/src/lib.rs`, closing the gap
+as a pure addition — no signature or behavior changed, `say!()` is still byte-identical.
 
-Consequences for German specifically: `dialect`-selected digit systems (named in
-`inflect_numeral_custom_with_context`'s own docs as the intended home for a locale), register-
-driven wording, and runtime tense are all unreachable from a companion crate. Adding
-`ranting_derive` as a second dependency would work around it, which item 10 forbids — and would
-also contradict the crate's premise, since `ranting_derive` is documented as internal.
+`hole_1_*` in `tests/holes.rs` is kept under its original name (findable from this cross-
+reference and the ROADMAP) but now asserts the fix: `say!()` still always passes `None` to a
+`_with_context` hook, and `say_with!()` — written here with only `use ranting::*;`, no
+`ranting_derive` dependency in `Cargo.toml` — now delivers `NarrationContext::dialect` to
+`inflect_article_custom_with_context`. Register-driven wording and runtime tense are reachable the
+same way; `dialect`-selected digit systems (named in `inflect_numeral_custom_with_context`'s own
+docs as the intended home for a locale) are unaffected by this item and remain future work.
 
 ### 2. `Ranting::inflect` takes number but not case
 *Belongs to: Phase 6 item 4 (the owed hook-signature break) — same signature-break site.*
@@ -104,8 +106,9 @@ identical output (`hole_3_*`). That is the precise sense in which `GrammaticalCa
 its own, close the German article gap: it made two of German's four cases expressible, and a
 lexicon that needs all four routes around it entirely.
 
-Rejected workaround: smuggling the case through `NarrationContext.dialect`. It is story-wide
-state being used for per-placeholder information, it needs `say_with!()` (hole 1), and it is
+Rejected workaround: smuggling the case through `NarrationContext.dialect`. Reaching it now needs
+only `say_with!()` (hole 1, closed), but `dialect` is still story-wide state standing in for
+per-placeholder information — that mismatch, not reachability, is why this is rejected, and it is
 exactly the kind of papering-over item 10 asks not to do.
 
 ### 4. Attributive adjectives: wrong position, and declension class is not reported

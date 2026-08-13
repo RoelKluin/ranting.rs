@@ -1,6 +1,5 @@
 // Tests for argument parsing in say!(), ack!(), nay!(), and ask!() macros
 use ranting::*;
-use ranting_derive::*;
 
 #[test]
 fn test_positional_single_argument() {

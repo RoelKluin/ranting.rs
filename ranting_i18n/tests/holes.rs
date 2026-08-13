@@ -5,23 +5,23 @@
 //! after the numbered hole in this crate's README.md. They are pins: if a later change closes one
 //! of these, the test fails and the hole gets struck from the README rather than quietly rotting.
 
-use ranting::{Ranting, say};
+use ranting::{NarrationContext, Ranting, say, say_with};
 use ranting_i18n::{Case, Definiteness, GermanNoun, GermanPerson};
 
-// ------------------------------------------------------- hole 1: say_with! --
+// ---------------------------------------------- hole 1: say_with! (closed) --
 
-// `say_with!()` and `#[derive_ranting]` are not re-exported from `ranting` (only `say`, `ack`,
-// `nay`, `heed`, `Heed`, `ask`, `boxed_ranting_trait` and `ref_ranting_trait` are), so a crate
-// depending on `ranting` alone cannot write either. There is no test to write for a macro that
-// does not resolve: the evidence is that this crate's Cargo.toml has no `ranting_derive`
-// dependency and every hook it overrides is the non-`_with_context` one. The consequence is
-// asserted below instead.
+// ROADMAP.md Phase 6 item 12 re-exported `say_with!` and `derive_ranting` from `ranting`, so a
+// crate depending on `ranting` alone can now deliver a `NarrationContext` and reach the
+// `_with_context` hooks. This crate's `Cargo.toml` still has no `ranting_derive` dependency —
+// `say_with!` resolves through `ranting` itself. Kept as `hole_1_*` (not renamed) so it stays
+// findable from the README/ROADMAP cross-references; the assertions below now show the dialect
+// arriving instead of the previous `<no-context>` probe result.
 
 #[test]
-fn hole_1_the_with_context_hooks_are_unreachable_so_dialect_never_arrives() {
+fn hole_1_the_with_context_hooks_are_now_reachable_so_dialect_arrives() {
     // `NarrationContext` is public and its `dialect`/`register` fields are the documented home
-    // for a locale, but the only macro that can deliver one is `say_with!()`. Overriding a
-    // `_with_context` hook is therefore pointless in this crate: `say!()` always passes `None`.
+    // for a locale; `say_with!()` is now reachable from `ranting` alone, so overriding a
+    // `_with_context` hook is no longer pointless in a companion crate.
     struct DialectProbe(GermanNoun);
     impl std::fmt::Display for DialectProbe {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -65,7 +65,7 @@ fn hole_1_the_with_context_hooks_are_unreachable_so_dialect_never_arrives() {
             _uc: bool,
             ctx: Option<&ranting::NarrationContext>,
         ) -> Option<String> {
-            // Records what arrived; there is no way from this crate to make it anything else.
+            // Records what arrived.
             Some(match ctx.and_then(|c| c.dialect) {
                 Some(d) => format!("<dialect={d}>"),
                 None => "<no-context>".to_string(),
@@ -73,9 +73,19 @@ fn hole_1_the_with_context_hooks_are_unreachable_so_dialect_never_arrives() {
         }
     }
 
+    // `say!()` still always passes `None` — unchanged, and still asserted here.
     assert_eq!(
         say!("{the =0}", DialectProbe(GermanNoun::hund())),
         "<no-context> Hund"
+    );
+    // `say_with!()`, now reachable via `ranting` alone, delivers the dialect.
+    let ctx = NarrationContext {
+        dialect: Some("de-AT"),
+        ..Default::default()
+    };
+    assert_eq!(
+        say_with!(ctx, "{the =0}", DialectProbe(GermanNoun::hund())),
+        "<dialect=de-AT> Hund"
     );
 }
 
