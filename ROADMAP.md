@@ -2255,7 +2255,7 @@ because it exercises everything before it.*
       section, so `cargo test` at the root is no longer read as sufficient on
       its own.
 
-14. **Numeral count channel, plus case on `Ranting::inflect`** (12-16 hours) —
+✅ 14. **Numeral count channel, plus case on `Ranting::inflect`** (12-16 hours) —
     *the owed signature break, done once*
     - `docs/superpowers/specs/2026-08-13-number-categories.md` recommends a
       count channel and says to land it inside item 5's signature change; item 5
@@ -2263,6 +2263,36 @@ because it exercises everything before it.*
       parameter on `Ranting::inflect` at the same site (German declines the noun
       itself: dative plural `den Hunden`, genitive `des Hauses`). Both are
       breaking changes to hook signatures — do them together, not twice.
+    - ✅ Added `count: Option<PlaceholderCount>` to `inflect_verb_custom`,
+      `inflect_pronoun_custom`, `inflect_article_custom`, `elide_article_custom`
+      and `inflect_adjective_custom`, and their five `_with_context` twins
+      (ten methods total), plus a fourth parameter, `case: GrammaticalCase`, on
+      `Ranting::inflect` — landed together in `src/lib.rs`/`src/collections.rs`
+      as the one breaking hook-signature change this covers.
+    - ✅ This commit (`6819ef02`) updated every call site and impl under
+      `tests/ranting/` and `ranting_derive/`, but — because this repo is not a
+      workspace (item 13's own subject) — did **not** touch `ranting_i18n`,
+      which implements the same hooks in `src/noun.rs`/`src/person.rs`. That
+      broke `ranting_i18n`'s build (8× `E0050`) despite the root gate reporting
+      green, and item 13's `run_gate`/`gate_dirs` fix was not exercised by
+      *this* commit's own `claude -p` invocation — repaired as a follow-up,
+      queue entry "repair ranting_i18n, broken by item 14's signature break".
+    - ✅ The repair found item 14's `case` parameter on `inflect` does **not**
+      close hole 2 the way it looks like it should: `handle_placeholder_impl`
+      only ever calls `noun.inflect(as_pl, uc, case.into())` from the
+      `CaseKind::Name | CaseKind::Hidden` match arm — every marker that names a
+      real case (`=`/`@`/`` ` ``/`~`) switches the noun slot to a pronoun and
+      calls `inflect_pronoun_custom` instead, never `inflect()`. So a
+      placeholder can never hand `inflect()` anything but `Name`/`Hidden`, and
+      `ranting_i18n`'s `case_for` treats both as nominative — the parameter is
+      real but inert for every reachable call. `ranting_i18n/README.md` hole 2
+      rewritten to record this precisely instead of leaving it read as closed.
+    - ✅ `count` *is* usable for German in `inflect_numeral_custom` (item 8,
+      unaffected by this item) but not for the five hooks that gained it here —
+      German has no dual/paucal agreement beyond singular/plural, which
+      `as_plural` already carries, so `ranting_i18n`'s new `_count` parameters
+      are genuinely unused rather than under-used; documented per-hook rather
+      than left silent.
 
 ✅ 15. **`Many` exposes its length as the placeholder count** (4-6 hours) —
     open question 3 of the number-categories spec; depends on item 14.

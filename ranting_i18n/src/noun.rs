@@ -180,9 +180,16 @@ impl Ranting for GermanNoun {
         self.plural
     }
 
-    fn inflect(&self, to_plural: bool, _uc: bool) -> String {
-        // No case parameter here — see README hole 2. The entity's own case is used instead.
-        self.form(to_plural).to_string()
+    fn inflect(&self, to_plural: bool, _uc: bool, case: GrammaticalCase) -> String {
+        // Hole 2 is still open, just narrower now (item 14). `inflect` gained a `case`
+        // parameter, but the only call site that reaches it is bare-placeholder rendering
+        // (`{the 0}`/`{?the 0}`), which is always `GrammaticalCase::Name`/`Hidden` — any
+        // marker that would carry a real case (`=`/`@`/`` ` ``/`~`) routes to
+        // `inflect_pronoun_custom` instead, never here. `case_for` treats `Name`/`Hidden`
+        // as nominative, so this is identical to the pre-item-14 behavior in practice; only
+        // the entity's own `case` override (`GermanNoun::in_case`) can still reach dative or
+        // genitive on the noun form itself.
+        self.entry.form(self.case_for(case), to_plural).to_string()
     }
 
     fn skip_article(&self) -> bool {
@@ -204,6 +211,7 @@ impl Ranting for GermanNoun {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         let case = self.case_for(case);
@@ -223,8 +231,11 @@ impl Ranting for GermanNoun {
         case: PronounCase,
         _class: NounClass,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
+        // German has no dual/paucal pronoun forms, so `count` adds nothing beyond
+        // `as_plural` here.
         // Every case marker lands here, including the ones written purely to get a case-correct
         // article. `Render::Name` is the choice that makes `{the =hund}` say "Der Hund".
         if self.render == Render::Name {
@@ -254,6 +265,7 @@ impl Ranting for GermanNoun {
         case: GrammaticalCase,
         class: NounClass,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         // Outside the closed vocabulary, decline rather than guess — the same contract as the
@@ -296,6 +308,7 @@ impl Ranting for GermanNoun {
         subject: &str,
         verb: &str,
         as_plural: bool,
+        _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
         let person = Person::from_subject(subject, as_plural);
