@@ -185,11 +185,17 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
      Nothing in the tree has been relicensed; both crates still carry GPL-3 via
      `license-file`. This box is for the copyright holder to check, not an agent.
 
-8. **Repo hygiene**
-   - Untrack scratch/log files before the next publish: `ranting.log`, `src.txt`,
-     `git_diff.txt`, `git_status.txt`, `code_analysis.txt`, `review.jsonl`, `dodev`,
-     `ideas`, `ranting_derive/ranting_derive.log`, `ranting_derive/src.txt` — these
-     currently ship in the published package.
+✅ **8. Repo hygiene** (COMPLETE)
+   - ✅ Untracked (`git rm --cached`, files kept on disk) and added to `.gitignore`:
+     `ranting.log`, `src.txt`, `git_diff.txt`, `git_status.txt`, `code_analysis.txt`,
+     `review.jsonl`, `dodev`, `ideas`, `ranting_derive/ranting_derive.log`,
+     `ranting_derive/src.txt` — these previously shipped in the published package.
+   - ✅ Also ignored `.cargo-home/` (the container-local `CARGO_HOME` from CLAUDE.md),
+     which was untracked but still being swept into `cargo package`.
+   - Still shipping, deliberately unreviewed here: `git_log_oneline.txt`, `tasks.txt`,
+     `mksrc.sh`, `ranting_derive/mksrc.sh`, `scripts/overnight_loop.sh`,
+     `.superpowers/sdd/**`, and the top-level design/report `.md` files. Decide per
+     file whether they belong in the crate or behind a Cargo `exclude` list.
 
 ---
 
