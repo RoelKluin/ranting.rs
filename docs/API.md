@@ -216,7 +216,9 @@ fn elide_article_custom(
     &self,
     article: &str,      // as rendered, capitalization included
     separator: &str,    // whitespace between it and what follows, usually " "
-    following: &str,    // rendered text after it: the number, then noun or pronoun
+    following: &str,    // rendered text adjacent to it: any pre-text words the
+                        // placeholder carried after the article, then the number,
+                        // then the noun name or case-selected pronoun
     case: GrammaticalCase,
     class: NounClass,
     as_plural: bool,

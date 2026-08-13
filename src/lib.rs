@@ -1489,9 +1489,11 @@ pub trait Ranting: std::fmt::Display {
     /// * `separator` - The whitespace rendered between article and following text (usually `" "`).
     ///   French `l'homme` returns a form that drops it; `le chien` returns `None` and keeps it.
     /// * `following` - Everything the placeholder rendered between that separator and the
-    ///   post-noun slot: the number when there is one (`` {the $n chiens} `` gives `"2 chiens"`),
-    ///   then the noun name or the case-selected pronoun. It is the rendered text, not the
-    ///   dictionary form — that is the point of running after assembly.
+    ///   post-noun slot, i.e. whatever is actually adjacent to the article: any words the
+    ///   placeholder's own pre-text carried after it (`` {a set of $n chiens} `` gives
+    ///   `"set of 2 chiens"`), then the number when there is one, then the noun name or the
+    ///   case-selected pronoun. It is the rendered text, not the dictionary form — that is the
+    ///   point of running after assembly.
     /// * `case` / `class` / `as_plural` - As for
     ///   [`inflect_article_custom`](Self::inflect_article_custom).
     ///

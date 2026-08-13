@@ -1721,7 +1721,7 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      and the rendered `following` text, plus `case`/`class`/`as_plural`, and
      returning `Option<String>`: `Some` replaces all three with one fused
      string, `None` (the default) keeps them exactly as rendered. All 311
-     pre-existing tests, 13 new ones and every doctest pass; `cargo clippy
+     pre-existing tests, 14 new ones and every doctest pass; `cargo clippy
      --all-targets` is clean and `cargo fmt` applied.
    - **Chosen: a new post-assembly hook. Rejected: a `following: &str`
      parameter on `inflect_article_custom`.** The rejection is structural, not
@@ -1766,14 +1766,18 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
      `following` is the joined phrase, whose members may elide differently),
      `Maybe(Some(x))` delegates to `x`, `Box<T>` forwards — the same rule as
      `noun_class()` and `capitalize()`.
-   - **Tests** (`tests/ranting/elision.rs`, 13 tests): the `l'homme` vs
+   - **Tests** (`tests/ranting/elision.rs`, 14 tests): the `l'homme` vs
      `le chien` worked example; both genders (`l'école`/`la voiture`); aspirate
      h declining per-noun (`le héros`), which also shows elision is a *lexical*
      property carried by the entity, not derivable from spelling; plural `les`;
      sentence-initial `L'homme`; Italian `lo`/`il`/`l'` from one hook body; a
      recording probe pinning what `separator` and `following` contain, including
-     `"2 chiens"` when a number renders between; the hidden-noun and
-     chained-article-after-a-verb boundaries; a byte-identical-English guard for
+     `"2 chiens"` when a number renders between and `"set of 2 chiens"` for
+     `` {a set of $n p} `` — `following` is whatever is *adjacent*, so the
+     placeholder's own pre-text words after the article are part of it; the
+     hidden-noun boundary (`` {the ?p} ``, the noun-position `?`, not the
+     article-position `?` of `` {?the p} ``) and the
+     chained-article-after-a-verb path; a byte-identical-English guard for
      `a`/`an`/`the`/`these`/`those`; and all three wrappers plus `Many<Box<T>>`.
 
 8. **Locale-aware numeral rendering** (6-10 hours)
