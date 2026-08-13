@@ -180,12 +180,130 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
      Decide deliberately; MIT/Apache-2.0 dual is the ecosystem norm.
    - Either way, prefer `license = "..."` over `license-file` in Cargo.toml so
      tooling (lib.rs, cargo-deny, license scanners) can classify it.
+   - **- [ ] Decision pending** — analysis and a recommendation are written up below
+     in [PROPOSED LICENSE CHANGE](#proposed-license-change-awaiting-decision).
+     Nothing in the tree has been relicensed; both crates still carry GPL-3 via
+     `license-file`. This box is for the copyright holder to check, not an agent.
 
 8. **Repo hygiene**
    - Untrack scratch/log files before the next publish: `ranting.log`, `src.txt`,
      `git_diff.txt`, `git_status.txt`, `code_analysis.txt`, `review.jsonl`, `dodev`,
      `ideas`, `ranting_derive/ranting_derive.log`, `ranting_derive/src.txt` — these
      currently ship in the published package.
+
+---
+
+## PROPOSED LICENSE CHANGE (awaiting decision)
+
+> **Status: PROPOSAL ONLY — nothing has been relicensed.** Both crates still ship
+> GPL-3 (`license-file = "LICENSE.txt"`), and the source headers still read
+> `// (c) Roel Kluin 2022 GPL v3`. This section exists so Phase 4 item 7 can be
+> decided on evidence; the checkbox there stays unchecked until the copyright
+> holder decides. Written 2026-08-13.
+
+### Current state
+
+| Where | Value |
+|-------|-------|
+| `Cargo.toml` (ranting) | `license-file = "LICENSE.txt"` |
+| `ranting_derive/Cargo.toml` | `license-file = "../LICENSE.txt"` |
+| `LICENSE.txt` | verbatim GNU GPL v3 text (no "or later" wording added) |
+| `src/lib.rs`, `ranting_derive/src/lib.rs` | `// (c) Roel Kluin 2022 GPL v3` |
+| Published | `ranting` / `ranting_derive` 0.2.1 on crates.io, under these terms |
+
+Two facts that shape the decision, both verified in this repo:
+
+- **Sole copyright holder.** `git shortlog -sne --all` shows every commit authored
+  by Roel Kluin (four spellings of the same address). There are no third-party
+  contributions to re-license, so no CLA round or consent-gathering is needed —
+  the decision is unilateral today. That stops being true the first time an
+  outside PR is merged.
+- **No inbound copyleft.** The grammar data (`data/irregular_verbs.txt`,
+  `data/irregular_plurals.txt`) is hand-maintained in-repo, not imported from a
+  copyleft or share-alike corpus, so nothing forces GPL from the dependency side.
+  *To confirm before acting:* run `cargo deny check licenses` (or `cargo license`)
+  over both crates — the direct dependency set is the usual permissive
+  MIT/Apache-2.0 proc-macro stack, but it has not been machine-verified here.
+
+### The tradeoff
+
+GPL-3 on a library is not "GPL for this repo" — it is a constraint on every
+dependent. Because `ranting` is consumed *only* as a dependency, the license
+choice is effectively a choice about who is allowed to use the crate at all.
+
+The proc-macro angle sharpens this. `say!()` does not just get linked; it expands
+into the dependent crate's own source at compile time. Whether macro-expanded
+output is a derived work of the macro is exactly the kind of question a corporate
+legal review will not want to answer — and the safe answer they will give is "use
+something else". A GPL proc-macro is a harder sell than a GPL rlib, not an easier
+one.
+
+That collides with two commitments already in this roadmap:
+
+- **Vision** targets "game engines, interactive fiction, chatbots" — overwhelmingly
+  proprietary or mixed-license codebases.
+- **v1.1 success criteria** call for "2-3 ecosystem forks", and Phase 3 item 2
+  shipped trait extensibility explicitly to enable `ranting-spanish`,
+  `ranting-pirate`, etc. GPL-3 discourages precisely the downstream ecosystem the
+  extensibility work was built to attract.
+
+| | GPL-3.0-only (status quo) | MIT OR Apache-2.0 (dual) |
+|---|---|---|
+| Adoption | Blocks proprietary and most permissive-licensed dependents | Ecosystem default; no review friction |
+| Ecosystem forks (v1.1 goal) | Forks must stay GPL; most won't start | Forks unconstrained |
+| Improvements flow back | Copyleft obligation on derivatives | Voluntary only |
+| Patent grant | Yes (GPL-3 §11) | Yes, via the Apache-2.0 arm |
+| Compatibility | Incompatible with Apache-2.0-only dependents | Compatible with essentially everything |
+| Reversibility | Can relax to permissive later (sole holder) | Cannot tighten later for released versions |
+
+Two middle options, both weaker than they look:
+
+- **LGPL-3**: designed around dynamic relinking, which Rust's static linking,
+  generics, and macro expansion make ill-defined. It buys legal ambiguity rather
+  than a real middle ground.
+- **GPL-3 + linking exception**: workable, but it is a bespoke license. Scanners
+  and `cargo-deny` policies classify it as GPL, so most of the adoption cost
+  remains while the copyleft benefit mostly disappears.
+
+### Recommendation
+
+**Adopt `license = "MIT OR Apache-2.0"` for both crates**, matching the Rust
+ecosystem norm.
+
+The copyleft protection GPL-3 provides is worth little here — this is a text
+formatting library, not a product with a business model to defend — while its cost
+is the entire audience the roadmap is written for. Dual MIT/Apache-2.0 also keeps
+the Apache-2.0 patent grant, which MIT alone would not.
+
+Timing matters: this belongs in v1.2 alongside the other pre-adoption breaks
+(see *Premature API Lock-in* below). Relicensing is free while the author is the
+only copyright holder and there is no userbase; each new contributor and dependent
+raises the cost permanently.
+
+**If the decision is instead to keep GPL-3**, the Cargo.toml change should still
+happen: replace `license-file` with `license = "GPL-3.0-only"` so lib.rs,
+cargo-deny, and license scanners can classify the crate. (`GPL-3.0-only` matches
+the current wording — `LICENSE.txt` is the plain GPLv3 text and the source headers
+say "GPL v3" with no "or later". If "or later" was the intent, record
+`GPL-3.0-or-later` instead and say so in the headers.) Choosing this consciously
+is a valid outcome; the roadmap only asks that it stop being an accident.
+
+### If approved — implementation checklist
+
+1. Verify dependency licenses: `cargo deny check licenses` over both crates.
+2. Replace `license-file` with `license = "MIT OR Apache-2.0"` in `Cargo.toml` and
+   `ranting_derive/Cargo.toml`.
+3. Add `LICENSE-MIT` and `LICENSE-APACHE`; delete `LICENSE.txt` (or keep it only if
+   some component genuinely stays GPL — currently none does).
+4. Update the `// (c) Roel Kluin 2022 GPL v3` headers in `src/lib.rs` and
+   `ranting_derive/src/lib.rs`; add a License section to `README.md`.
+5. Note in `CHANGELOG`/release notes that the already-published 0.2.1 remains
+   available under GPL-3 — crates.io releases are immutable, so the new terms
+   apply from the next published version onward.
+6. Check the box in Phase 4 item 7 and flip the *Key Architecture Decisions* row
+   from 🔄 to ✅ with the chosen SPDX expression.
+
+---
 
 ### v1.2 Success Criteria
 - One shared `ranting_core` crate; zero build.rs copy/symlink mechanisms remain
@@ -232,7 +350,7 @@ Prioritized (1-2 together delete most of CLAUDE.md's "key constraints"):
 | Consolidate english_shared.rs | ✅ Complete → superseded (v1.2) | Single canonical copy + build.rs copy solved the drift; `ranting_core` extraction (Phase 4, item 1) replaces the copy mechanism outright |
 | Stringly-typed `subject: &str` in public API | 🔄 Revisit (v1.2) | Design review 2026-08-12: make `SubjectPronoun` public, store enum in `Noun`; invalid subjects become unrepresentable instead of panicking |
 | `ack!()`/`nay!()` expand to hidden `return` | 🔄 Revisit (v1.2) | Not usable as expressions; surprising control flow. Prefer `Ok(say!(...))`/`Err(say!(...))` expression forms |
-| GPL-3 via `license-file` | 🔄 Decide (v1.2) | Major adoption barrier for a library crate; ecosystem norm is MIT/Apache-2.0 dual. Use `license = "..."` key either way |
+| GPL-3 via `license-file` | 🔄 Decide (v1.2) | Major adoption barrier for a library crate; ecosystem norm is MIT/Apache-2.0 dual. Use `license = "..."` key either way. Written up in [PROPOSED LICENSE CHANGE](#proposed-license-change-awaiting-decision) — recommendation: `MIT OR Apache-2.0`; awaiting the copyright holder's decision, nothing relicensed yet |
 
 ---
 
