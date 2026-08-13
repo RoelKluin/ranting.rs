@@ -2932,6 +2932,305 @@ because it exercises everything before it.*
 
 ---
 
+## Phase 7 — v1.4.0 — Falsification, Round Two: Beyond Indo-European
+
+*Goal: German and Spanish are both Indo-European and, more specifically, both
+fusional languages that decline/conjugate by affixing a closed set of endings
+onto a stable stem — exactly the shape `NounClass`, `GrammaticalCase`,
+`AdjectiveDegree` and the `_custom` hooks were designed against. Nothing in
+Phase 6 has yet been tried against a language that breaks that shape: a
+grammatical number system with a third value (dual), noun-class marking
+that isn't gender at all (numeral classifiers), a politeness system that
+isn't a pronoun swap (register-driven honorifics), or a morphology that
+isn't affixal (Semitic root-and-pattern). This phase does not add a tenth
+`_custom` hook on spec; it spends two cheap spikes finding out whether Phase
+6's hook surface needs one before writing any lexicon code, following the
+spike-before-signature-break discipline items 1/3/4 established in Phase 6.*
+
+**What this phase explicitly is not**: a re-opening of `ranting_i18n`'s holes
+2/3/4 or of `docs/superpowers/specs/2026-08-13-adjective-declension-class.md`.
+Three independent design spikes (items 3, 18, and the declension-class spike)
+each separately concluded "the entity carries its own case/declension state,
+not the placeholder" — a converged, deliberate answer, not unfinished work.
+Nothing below revisits that conclusion; a Phase 7 lexicon that happens to be
+case-declining (Arabic is) is expected to reach the same conclusion a third
+time and cite it, not re-litigate it.
+
+**Ordering rationale**: both language spikes (items 1 and 2) are cheap,
+independent of each other, and produce documents, not code — exactly item
+1/3/4's Phase 6 shape, for the exact reason Phase 6 gave: a lexicon crate is
+16-24 hours, so deciding on paper which gaps are real and worth 16-24 hours
+of falsification is what keeps that spend from being guessed at. Item 3 (the
+unused-hook audit) is cheaper than either spike and its finding — which
+hooks in the existing eight-hook-pair surface have *never* been exercised by
+a real fork — is direct input to items 1 and 2: a candidate language earns
+priority partly by which unused hooks it would finally exercise, not only by
+which new gaps it would find. Item 3 has no dependency on 1/2 and can run
+first or in parallel. Items 4 and 5 (the builds) are contingent on what 1 and
+2 conclude and are scoped provisionally below; if a spike recommends against
+building, its build item is dropped rather than executed anyway.
+
+1. **Unused-hook audit** (doc-only, 3-5 hours) — *cheap, informs items 2 and
+   3; no dependency on either*
+   - Phase 6 shipped eight `_custom` hook pairs (verb, pronoun, article,
+     adjective, elision, numeral, preposition, plus `is_first_person_subject`
+     as a ninth non-paired hook) and twelve `_with_context` twins. An unused
+     hook is a design risk, not a feature: nothing has verified its shape
+     matches a real need, only that it compiles and defaults correctly.
+   - Verified already, ahead of scoping this item, by reading both existing
+     forks' source: **`elide_article_custom`/`_with_context` is overridden by
+     neither `ranting_i18n` nor `ranting_es`** — German's real fusions are
+     all preposition+article (routed through item 26's
+     `inflect_preposition_custom` instead) and Spanish's two contractions are
+     the same; the hook item 7 built for `le`+`homme`→`l'homme` has never
+     been exercised by a language that actually needs it. Neither fork
+     overrides **any** of the twelve `_with_context` methods either — the
+     `hole_1_*` dialect test in `ranting_i18n/tests/holes.rs` proves the
+     *plumbing* (item 12) delivers `NarrationContext` to the default body,
+     not that a fork's own logic ever branches on `ctx.dialect`/
+     `ctx.register`. `is_first_person_subject_custom` (item 16) is
+     overridden by neither. `inflect_numeral_custom`'s `NumeralStyle::Digits`
+     arm (a script's own digit system for `$var`) is exercised only by a
+     main-crate test (`tests/ranting/numeral.rs`'s Devanagari case), never by
+     a fork's own lexicon — item 8's own follow-up note already says so.
+   - Deliverable: a short doc (`docs/superpowers/specs/` or a
+     `docs/EXTENSIBILITY.md` addendum) listing every hook pair and whether it
+     has ever been overridden outside `src/`/`tests/ranting/` — the audit
+     above, made complete and re-runnable (grep for `fn <hook_name>` under
+     `ranting_i18n/src/` and `ranting_es/src/`, excluding `_with_context`
+     twins found by name) rather than asserted from memory. No code changes.
+   - What it proves: whether "ships with an English-preserving default" has
+     quietly become a way to defer ever finding out if a hook's *shape* is
+     right, for four-plus hooks running two-for-two on real forks never
+     needing them.
+
+2. **Arabic falsification spike** (doc-only, 6-10 hours)
+   - Score, without writing a lexicon, what a `ranting-ar` crate would
+     falsify that German/Spanish structurally cannot:
+     - **Dual number, with a numeral present.** `docs/superpowers/specs/
+       2026-08-13-number-categories.md` scored option (b) — a `count`
+       channel, dual/paucal/CLDR reachable "when a numeral is present" — as
+       its recommendation, and item 14 landed exactly that shape:
+       `PlaceholderCount { value: i64, .. }` on five hook pairs plus the
+       pre-existing `count: Option<i64>` on `inflect_numeral_custom`. That
+       *should* mean `say!("{$n kitab}", 2, book)` can render Arabic dual
+       (`kitābān`, not the plural `kutub`) by branching on `count.value == 2`
+       in a fork's own hook — but no fork has ever tried it. The spec's own
+       "unreachable" verdict was written before item 14 shipped and needs
+       correcting to "reachable in principle, unverified"; an Arabic spike
+       is the cheapest way to find out whether the raw `i64` is actually
+       sufficient or whether something else (a paucal-range check, agreement
+       with a counted noun's own gender) is still missing.
+     - **Dual with no numeral.** Arabic marks dual on the noun itself
+       (`kitābāni` "two books" spoken with no digit written), which is
+       exactly the case the number-categories spec says stays impossible
+       under item 14: `match_nr` accepts only `[+-]|(#|\??\$)\w+`, so there
+       is no placeholder marker a bare dual could use, and this is a
+       *grammar* change item 14 deliberately didn't make. An Arabic spike
+       would be the first language to hit this gap for real rather than
+       hypothetically, and should state plainly whether that makes a
+       `ranting-ar` crate materially less useful than `ranting_i18n`/
+       `ranting_es` (which never needed a bare-marker number distinction) or
+       merely narrows its scope to "dual is spelled out with a written
+       numeral or not modeled."
+     - **Definite-article assimilation ("sun letters").** Arabic's definite
+       article `al-` assimilates to the following consonant for a closed set
+       of fourteen "sun letters" (`al-shams` → spoken/written `ash-shams`)
+       and stays `al-` for the rest ("moon letters"). This is elision in
+       exactly the sense item 7 built `elide_article_custom` for — article
+       plus following word, inside one placeholder — and per item 1 above,
+       no existing fork has ever called that hook. An Arabic lexicon would
+       be its first real user, which is a sharper test of the hook's design
+       than a French toy example: is `elide_article_custom`'s two-string
+       signature (article, following) sufficient to look up which of
+       fourteen consonant classes triggers assimilation, or does it need the
+       consonant itself surfaced more directly than string-inspecting
+       `following.chars().next()`?
+     - **Non-concatenative (root-and-pattern) morphology.** Arabic verb and
+       noun forms are built from a triliteral root mapped onto a template
+       (`k-t-b` → `kataba`/`yaktubu`/`kitāb`/`maktaba`), not a stem plus
+       affix. Every `_custom` hook returns an opaque `String`, so mechanically
+       nothing blocks this — but it is worth stating explicitly, because it
+       is the first candidate language where "the base form" (the concept
+       item 5's `PostSpec::Degree.base` and `say_with!()`'s baked
+       uninflected base verb both rely on baking at compile time) may not be
+       a well-formed notion the way an English/German/Spanish stem is. The
+       spike should say plainly whether root-and-pattern morphology is
+       simply the fork's own lookup-table problem (most likely) or whether
+       it exposes an assumption baked into what "base form" means at the
+       macro↔runtime seam.
+     - **Right-to-left rendering.** Score this explicitly and expect to
+       reject it as in-scope: `ranting` assembles plain `String`s via
+       `format!()` and never inserts direction-control characters or
+       layout markup, so Arabic script in the output renders
+       right-to-left the same way any RTL text does in its consumer's own
+       renderer — this is a property of the text's Unicode script, not
+       something `ranting` does or needs to do. The one real question worth
+       recording is Arabic-Indic digit direction inside RTL text (`$var`
+       rendering `١٢` vs `12`, an `inflect_numeral_custom` question already
+       covered by item 8's digit-system channel, not a new one) — likely to
+       conclude "not a `ranting` gap," in the same register as item 9's
+       "tokenization isn't `ranting`'s job" conclusion for `heed!()`.
+   - What it proves: whether the count channel item 14 shipped without a
+     live consumer actually closes the number-categories spec's central
+     gap, and whether `elide_article_custom` — currently a hook two-for-two
+     unused — has the right shape for the one real elision case Phase 6's
+     two lexicons never had.
+
+3. **Japanese falsification spike** (doc-only, 6-10 hours)
+   - Score, without writing a lexicon, what a `ranting-ja` crate would
+     falsify that German/Spanish structurally cannot:
+     - **Numeral classifiers (josuushi).** Japanese counting requires a
+       classifier selected by the *kind* of noun being counted — `一匹`
+       (hiki, small animals) vs `一人` (nin, people) vs `一本` (hon,
+       long thin objects) — not by the noun's own inflection. `NounClass`
+       (item 2) was scoped as an open `&'static str` label specifically so
+       a non-gender axis could reuse it ("Bantu has a dozen-plus classes and
+       Danish has common/neuter" was the stated justification for staying
+       open-ended) — but every existing consumer of `class` is
+       `inflect_article_custom`/`inflect_pronoun_custom`/
+       `inflect_adjective_custom`, article/pronoun/adjective agreement, and
+       Japanese needs none of those three for this purpose. The real
+       question is whether `inflect_numeral_custom`, which already receives
+       `class: NounClass`, can carry a classifier string in that same
+       parameter and render `一匹の猫` from it, or whether "read the
+       counter off `class`" is a misuse of a parameter documented as a
+       gender/lexical-class label. This is a sharper genericity test of
+       item 2's design than anything German or Spanish (both classifier-free
+       languages) could pose.
+     - **Register/politeness (keigo) as `NarrationContext.register`'s first
+       real consumer.** Item 3's pronoun-inventory spike concluded T-V
+       (`du`/`Sie`, `tú`/`usted`) rides the addressee's own declared subject
+       label, not `NarrationContext.register` — because German/Spanish
+       politeness *is* a pronoun slot. Japanese politeness is not: `-desu`/
+       `-masu` (teineigo), plain form, and the sonkeigo/kenjougo
+       honorific-verb-substitution system operate on the *verb*, largely
+       independent of whether a pronoun is even present (Japanese is
+       pervasively pro-drop, closer to Spanish than German on that axis but
+       for a different reason — politeness, not person-recoverability). This
+       is the first candidate where `register`'s story-wide, addressee-
+       independent design might actually be the *right* shape rather than a
+       mismatch — or might reveal that keigo also varies per-addressee
+       (formal to a stranger, plain to a friend, in the same scene) the same
+       way T-V does, in which case `register` is the wrong axis for it too,
+       for the same reason item 3 rejected it for T-V. Either finding
+       falsifies something Phase 6 asserted without a non-Indo-European
+       language to check it against.
+     - **Whitespace-only word boundary, exercised for real.** Item 9 declared
+       `heed!()`/`ask!()`/`#[derive(Heed)]`'s space-only tokenization a
+       permanent boundary and proved it script-agnostic
+       (`heed!("取る {item}", "取る 剣")` already works) — but every
+       existing worked example is a *constructed* template with deliberate
+       spaces, not real Japanese input, which is written with no spaces at
+       all except between clauses at furigana/textbook boundaries. A
+       Japanese spike should attempt `heed!()`/`ask!()` against genuinely
+       natural Japanese sentences (not gloss-style spaced examples) and
+       report whether the "capture the whole unsegmented clause, segment it
+       yourself" escape hatch item 9 documents is actually usable for a real
+       `ask!()` audience, or whether it pushes so much work onto the caller
+       that `ask!()`'s value proposition (parse input, call `answer()`)
+       doesn't survive contact with the language most likely to need it.
+     - **Design load for a language with almost no inflection.** Japanese
+       nouns don't decline for number, gender, or case at all; adjectives
+       (`i`-adjectives) conjugate for tense/negation/politeness but not
+       agreement. A `ranting-ja` implementation would leave `NounClass`
+       largely at `UNSET` (modulo the classifier question above),
+       `GrammaticalCase` unused (Japanese case is marked by postpositional
+       particles — `が`/`を`/`に` — which are template literal text under
+       item 1's word-order boundary, not a hook), and most of
+       `inflect_adjective_custom`/`inflect_pronoun_custom` close to
+       pass-through. The spike should state plainly whether that is a
+       *fine* outcome (a hook surface sized for maximally inflected
+       languages naturally degrades to near-nothing for a low-inflection
+       one, at zero cost) or a *design smell* (eight hook pairs is a lot of
+       API surface for a fork that uses two of them).
+   - What it proves: whether `NounClass` generalizes past gender to a
+     genuinely different noun-classification axis (classifiers), whether
+     `NarrationContext.register` — inert and unused by both existing forks —
+     has a real consumer or is the wrong shape entirely, and whether the
+     `heed!()` whitespace boundary is livable in practice for the language
+     it was most explicitly written with in mind (item 9 names Japanese by
+     name three times).
+
+4. **Build decision** (no dedicated hours — a synthesis step, not a spike) —
+   *depends on items 1-3*
+   - Read items 1-3 together and decide, in writing (a short addendum to
+     whichever spike doc(s) are richer, not a new document), whether to build
+     `ranting_ar`, `ranting_ja`, both, or neither, using the same bar item 10
+     and item 23 implicitly used: build a language only when its spike found
+     *falsification value existing forks cannot supply* — not "another
+     working example." Given the findings items 2 and 3 are scoped to
+     surface (dual-with-numeral as item 14's first live consumer and
+     `elide_article_custom`'s first real user for Arabic; classifier reuse
+     of `NounClass` and `register`'s first real consumer for Japanese), the
+     working expectation is that **both** clear that bar on different axes —
+     but this item exists precisely so that expectation is checked against
+     the spikes' actual conclusions rather than assumed here.
+   - If a spike recommends against building (for example, if Arabic's dual
+     turns out to need a grammar change no one wants to make, mirroring how
+     item 4's spike separated "cheap and worth doing" from "correct but too
+     expensive"), record that as a legitimate outcome exactly as Phase 6's
+     own spikes did, and drop the corresponding build item below rather than
+     building it anyway.
+
+5. **`ranting-ar` — Arabic reference lexicon** (16-24 hours, *provisional,
+   scope set by item 2 and confirmed by item 4*) — third acceptance test
+   - Same falsification contract as items 10 and 23: own directory
+     (`ranting_ar/`), own `Cargo.toml`/`Cargo.lock`, depends on `ranting`
+     alone (no `ranting_core`, no `ranting_derive`, no `pub(crate)` item, no
+     fork of `handle_placeholder_impl`), a `tests/holes.rs` pinning every
+     gap it finds by name rather than working around it, a README following
+     `ranting_i18n`'s/`ranting_es`'s shape including an explicit "holes that
+     do not reproduce here" section for whichever of the seven German/one
+     Spanish holes turn out not to apply to Arabic's grammar.
+   - Scope (provisional — item 2 sets the final vocabulary): a small closed
+     set of nouns exercising sound and broken plurals, the dual with a
+     written numeral, the sun-letter/moon-letter article split, and verb
+     agreement across person/number/gender, sized the same way German's
+     three-noun/four-verb vocabulary was.
+   - Not scoped, per item 2's expected finding: VSO word order (already a
+     named-unreachable case in item 1's spec — Arabic would only reconfirm
+     it, not discover it) and bare-marker dual with no numeral (a grammar
+     change, out of scope per the number-categories spec's own boundary).
+   - What it proves: whether item 14's count channel and item 7's elision
+     hook, both real Phase 6 surface with zero real-fork mileage before
+     this, hold up against the first language actually built to need them.
+
+6. **`ranting-ja` — Japanese reference lexicon** (16-24 hours, *provisional,
+   scope set by item 3 and confirmed by item 4*) — fourth acceptance test
+   - Same falsification contract as items 10, 23 and 5 above.
+   - Scope (provisional — item 3 sets the final vocabulary): a small closed
+     set of nouns spanning at least two classifier categories, `i`-adjective
+     and verb conjugation across teineigo/plain register, and — if item 3's
+     spike concludes it is worth attempting rather than declining up front —
+     one `heed!()`/`ask!()` example against real, unspaced Japanese input,
+     with a `None` result and a documented workaround treated as a
+     legitimate finding, the same way item 9 treated an honest `None` as
+     success rather than failure.
+   - Not scoped, per item 1's already-locked boundary: SOV word order with
+     postpositional particles (named unreachable in item 1's spec already;
+     Japanese would only reconfirm it).
+   - What it proves: whether `NounClass` survives being asked to carry a
+     genuinely different kind of noun classification than gender, and
+     whether `NarrationContext.register` — designed in Phase 3, still inert
+     after Phase 6 — turns out to have a real consumer at all.
+
+### v1.4 Success Criteria (provisional — finalized by item 4)
+- Items 1-3 answer, in writing, whether Arabic and/or Japanese would falsify
+  something German/Spanish could not, before any lexicon code is written
+- The unused-hook list from item 1 either gains a real consumer through
+  items 5/6, or Phase 7 states explicitly why it remains legitimately unused
+  (a hook whose only job is an English-preserving default for a construction
+  no scoped fork needs is not automatically a defect)
+- Zero behavioral change to existing `say!()`/`say_with!()` output, exactly
+  as every Phase 6 item required — additive, English-preserving, verified by
+  the existing suite passing unchanged
+- Any new gap a built lexicon finds is recorded in that crate's README as a
+  numbered hole, not worked around — the same falsification contract items
+  10 and 23 used
+
+---
+
 ## Post-v1.2: Future Directions
 
 ### v1.3.0+: Beyond Phase 6
