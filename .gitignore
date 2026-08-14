@@ -29,3 +29,8 @@ docs/Ranting_Cheatsheet.pdf
 # Scratch harness for testing scripts/overnight_loop.sh; contains a nested git
 # repo, so it was committed as a stray gitlink until it was ignored here.
 .overnight_test_harness/
+
+# Stray local files unrelated to this crate's purpose (a design asset export
+# and an unrelated Inform 7 extensions library) — not part of the project.
+/docs/Ranting Cheatsheet Design.zip
+/examples/
