@@ -31,9 +31,11 @@ done
 `scripts/overnight_loop.sh`'s `gate_dirs`/`run_gate` helpers do this by globbing for `Cargo.toml`,
 so a future sibling crate is gated automatically without editing the script.
 
-Green gates are necessary, not sufficient: they have missed real defects three times in this repo,
-each found by review instead. See `docs/architecture-review-2026-08-14.md` §4.7 for the known
-structural blind spot — narrowed 2026-08-14, still open for derive-generated `inflect()`.
+Green gates are necessary, not sufficient: they have missed real defects four times in this repo —
+three found by review (§1.5, §4.7, and the 2026-08-15 splice defect), one found only when a *new*
+crate's first `cargo test` reached a line six existing gates could not (§1.7). See
+`docs/architecture-review-2026-08-14.md` §4.7 for the known structural blind spot — narrowed
+2026-08-14, still open for derive-generated `inflect()`.
 
 ## Where the record lives
 
@@ -41,7 +43,7 @@ structural blind spot — narrowed 2026-08-14, still open for derive-generated `
 |---|---|
 | What is already done, and why it was done that way | `DONE.md` (Phases 1-6, item by item) |
 | What is next | `ROADMAP.md` (Phase 7 onward; also a redirect stub for older citations) |
-| Known defects and open maintainer decisions | `docs/architecture-review-2026-08-14.md` |
+| Known defects and open maintainer decisions | `docs/architecture-review-2026-08-15.md` (newest), `-08-14.md`, `-08-13.md` — companions, not supersessions |
 | What a non-English fork can and can't do | `docs/EXTENSIBILITY.md` §2.x |
 | Design spikes, including rejected options | `docs/superpowers/specs/` |
 

@@ -88,7 +88,7 @@ the orthography hook in §2.6 — that takes one extra parameter,
 `ctx: Option<&NarrationContext>`, and is what every call site in the crate
 actually invokes. The default implementation of each `_with_context` method
 ignores `ctx` and delegates to the plain hook, so everything above still
-works unchanged — override the plain hook if you don't need story-wide
+works unchanged — override the plain hook if you don't need per-call
 context, and only reach for the `_with_context` variant when you do.
 
 `say!()` calls the `_with_context` hooks with `ctx: None`. `say_with!(context, ...)`
@@ -117,7 +117,7 @@ fn inflect_verb_custom_with_context(
 
 `ctx` always arrives as a parameter, never read off `self` — an entity's own `subject`
 stays a property of the entity, while `register`/`dialect`/`narration_person` are
-story-wide settings that can differ per `say_with!()` call for the same noun.
+settings of the telling, which can differ per `say_with!()` call for the same noun.
 
 ### 2.1 Verb Inflection: `inflect_verb_custom()`
 

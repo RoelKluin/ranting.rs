@@ -31,8 +31,9 @@ pub enum Tense {
     PastPerfect,
 }
 
-/// The grammatical person a story is narrated from — a story-wide setting,
-/// distinct from an entity's own declared `subject`.
+/// The grammatical person a story is narrated from — a setting of the telling,
+/// distinct from an entity's own declared `subject`. Like the rest of
+/// [`NarrationContext`], it is per call rather than fixed for a whole story.
 ///
 /// Only applies to nouns declared first-person (`I`/`we`): the narrator or
 /// narrator-group. Nouns declared second- or third-person are never in

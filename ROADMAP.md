@@ -19,12 +19,11 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 ✅ **Phases 1-6 complete** — the full record for every one of them, item by item, now
 lives in [DONE.md](DONE.md). This file is the forward-looking roadmap only.
 
-🎯 **Phase 7 (v1.4.0, Falsification, Round Two: Beyond Indo-European)** is the next
-phase — see its section below. **In progress**: its three spikes (items 1-3), the
-build decision they fed (item 4), four unrelated items (7-10), the signature
-change the decision blocked on (item 11), **both** reference lexicons (items 5
-and 6) and the two items they scheduled (12 and 13) are done. **Phase 7 is
-complete.**
+✅ **Phase 7 (v1.4.0, Falsification, Round Two: Beyond Indo-European) is complete**
+— see its section below. Its three spikes (items 1-3), the build decision they fed
+(item 4), four unrelated items (7-10), the signature change the decision blocked on
+(item 11), **both** reference lexicons (items 5 and 6) and the two items they
+scheduled (12 and 13) all landed on 2026-08-14.
 
 **Shipping today**:
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
@@ -34,10 +33,11 @@ complete.**
   `capitalize`/`capitalize_with_context` pair and one unpaired
   `is_first_person_subject_custom` — 25 `Ranting` trait methods in all, carrying
   grammatical case, noun class, count, and orthography role
-- Three library crates — `ranting`, `ranting_core`, `ranting_derive` — plus four
-  downstream falsifiers: `ranting_i18n` (German), `ranting_es` (Spanish),
-  `ranting_ar` (Arabic) and `ranting_ja` (Japanese), and the `ranting_gaps` dev tool
-- 526 compiled tests across all five crates, plus 15 runnable doctests; zero critical issues
+- Eight independent Cargo manifests, no workspace: three library crates
+  (`ranting`, `ranting_core`, `ranting_derive`), four downstream falsifiers
+  (`ranting_i18n` German, `ranting_es` Spanish, `ranting_ar` Arabic,
+  `ranting_ja` Japanese) and the `ranting_gaps` dev tool
+- A green gate in every one of the eight manifest directories; see CLAUDE.md for the loop
 
 ---
 

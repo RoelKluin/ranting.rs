@@ -117,13 +117,19 @@ checks for at its `skip_article()` early return (`!s.starts_with('!')`) — does
 grammar rejects it with "expected a noun or variable name, found `!the 0`", so that branch may be
 unreachable from `say!()` altogether.
 
-### 1.6 `{?$n noun}` leaves a double space (added 2026-08-14)
+### 1.6 `{?$n noun}` leaves a double space — ✅ **FIXED 2026-08-14**
 
-A hidden numeral renders nothing, but its separator survives: `say!("I see {?$0 boot}", 2)` →
-`"I see  boots"`. This is currently **pinned** by `tests/ranting/numeral.rs:305-306` and
-`:169-170` rather than flagged, so it reads as intended behavior in the one place it is written
-down. Cosmetic in English; on the critical path for Japanese, where hiding the numeral is the only
-workaround for the numeral-noun separator gap (Japanese spike §1).
+A hidden numeral rendered nothing, but its separator survived: `say!("I see {?$0 boot}", 2)` →
+`"I see  boots"`. It was **pinned** by `tests/ranting/numeral.rs` rather than flagged, so it read
+as intended behavior in the one place it was written down — for two phases. Cosmetic in English;
+on the critical path for Japanese, where hiding the numeral was the only candidate workaround for
+the numeral-noun separator gap (Japanese spike §1).
+
+**Fixed** as ROADMAP.md Phase 7 item 13. A hidden numeral sits between two separators — its own
+leading one and the noun's — and the pair now collapses to one, the same way a zero-length
+article's does; `NumeralSpec` gained a `hidden: bool` so the slot is representable at all. Which
+separator survives matters: keeping the leading one is what leaves `{The ?$n noun}` rendering
+`"The raven"`. Both pins now assert the corrected output.
 
 ### 1.7 Elision panicked on a multibyte article — ✅ **FIXED 2026-08-14**
 
@@ -177,7 +183,9 @@ All of these were corrected in the same session that produced this review.
 - **`PH_EXT` really is test-oracle-only**; `Article`/`DemonstrativePronoun` really are dead.
 - **The `?` vs `?+` regex fix** (Phase 6 item 26) is in place with a regression test at
   `grammar.rs:255-263`.
-- **`gate_dirs` covers all five crates.** `scripts/overnight_loop.sh:73` globs
+- **`gate_dirs` covers every manifest directory** (five when this was written, eight since
+  `ranting_ar`/`ranting_ja` landed 2026-08-14 — the glob needed no edit, which was the point).
+  `scripts/overnight_loop.sh:73` globs
   `"$REPO_ROOT"/Cargo.toml "$REPO_ROOT"/*/Cargo.toml` — the root manifest is listed
   explicitly, so the subdirectory-only glob concern does not apply.
 - **All eleven `docs/EXTENSIBILITY.md` section numbers cited by `CLAUDE.md` exist** with

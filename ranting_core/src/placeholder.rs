@@ -408,7 +408,9 @@ pub struct PlaceholderSpec {
     pub pre_chained_kind: ArticleKind,
     pub plurality: &'static str,
     /// The numeral slot, or `None` when nothing numeric renders here (no
-    /// `#var`/`$var` marker, or a hidden one). See [`NumeralSpec`].
+    /// `#var`/`$var` marker). A *hidden* one (`` {?$n noun} ``) is `Some` with
+    /// [`NumeralSpec::hidden`] set -- the slot exists, the count is used for
+    /// agreement, and nothing is rendered. See [`NumeralSpec`].
     pub numeral: Option<NumeralSpec>,
     pub noun_space: &'static str,
     pub case: CaseKind,

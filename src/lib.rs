@@ -1864,7 +1864,7 @@ pub trait Ranting: std::fmt::Display {
     }
 
     /// Like [`inflect_verb_custom`](Self::inflect_verb_custom), but also receives the
-    /// story-wide [`NarrationContext`] in effect for this call, when there is one.
+    /// [`NarrationContext`] in effect for this call, when there is one.
     ///
     /// Every call site that conjugates a verb calls this instead of `inflect_verb_custom`
     /// directly (`say!()` calls it with `ctx: None`, `say_with!()` with `ctx: Some(_)`), so
@@ -1873,7 +1873,8 @@ pub trait Ranting: std::fmt::Display {
     /// only override the non-context hook keep working unchanged.
     ///
     /// `ctx` is a parameter, not something read off `self` — an entity's own `subject` stays a
-    /// property of the entity, while tense/viewpoint/register/dialect are story-wide settings
+    /// property of the entity, while tense/viewpoint/register/dialect are settings of the
+    /// telling, which may differ per `say_with!()` call
     /// that vary per `say_with!()` call, not per noun.
     ///
     /// # Examples
@@ -1946,7 +1947,7 @@ pub trait Ranting: std::fmt::Display {
     }
 
     /// Like [`inflect_pronoun_custom`](Self::inflect_pronoun_custom), but also receives the
-    /// story-wide [`NarrationContext`] in effect for this call, when there is one. See
+    /// [`NarrationContext`] in effect for this call, when there is one. See
     /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
     /// general shape: every pronoun call site calls this one, and the default delegates to
     /// `inflect_pronoun_custom` with `ctx` ignored.
@@ -2018,7 +2019,7 @@ pub trait Ranting: std::fmt::Display {
     }
 
     /// Like [`inflect_article_custom`](Self::inflect_article_custom), but also receives the
-    /// story-wide [`NarrationContext`] in effect for this call, when there is one. See
+    /// [`NarrationContext`] in effect for this call, when there is one. See
     /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
     /// general shape: every article call site calls this one, and the default delegates to
     /// `inflect_article_custom` with `ctx` ignored.
@@ -2105,7 +2106,7 @@ pub trait Ranting: std::fmt::Display {
     }
 
     /// Like [`elide_article_custom`](Self::elide_article_custom), but also receives the
-    /// story-wide [`NarrationContext`] in effect for this call, when there is one. See
+    /// [`NarrationContext`] in effect for this call, when there is one. See
     /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
     /// general shape: the elision call site calls this one, and the default delegates to
     /// `elide_article_custom` with `ctx` ignored.
@@ -2248,7 +2249,7 @@ pub trait Ranting: std::fmt::Display {
     }
 
     /// Like [`inflect_preposition_custom`](Self::inflect_preposition_custom), but also receives
-    /// the story-wide [`NarrationContext`] in effect for this call, when there is one. See
+    /// the [`NarrationContext`] in effect for this call, when there is one. See
     /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
     /// general shape: the preposition-fusion call site calls this one, and the default delegates
     /// to `inflect_preposition_custom` with `ctx` ignored.
@@ -2334,7 +2335,7 @@ pub trait Ranting: std::fmt::Display {
     }
 
     /// Like [`inflect_adjective_custom`](Self::inflect_adjective_custom), but also receives the
-    /// story-wide [`NarrationContext`] in effect for this call, when there is one. See
+    /// [`NarrationContext`] in effect for this call, when there is one. See
     /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
     /// general shape: the adjective call site calls this one, and the default delegates to
     /// `inflect_adjective_custom` with `ctx` ignored.
@@ -2438,7 +2439,7 @@ pub trait Ranting: std::fmt::Display {
     }
 
     /// Like [`inflect_numeral_custom`](Self::inflect_numeral_custom), but also receives the
-    /// story-wide [`NarrationContext`] in effect for this call, when there is one — which is
+    /// [`NarrationContext`] in effect for this call, when there is one — which is
     /// where a locale (`NarrationContext::dialect`) selecting a digit system would live. See
     /// [`inflect_verb_custom_with_context`](Self::inflect_verb_custom_with_context) for the
     /// general shape: the numeral call site calls this one, and the default delegates to
@@ -2527,7 +2528,7 @@ pub trait Ranting: std::fmt::Display {
         uc_1st_if(word, uc)
     }
 
-    /// Like [`capitalize`](Self::capitalize), but also receives the story-wide
+    /// Like [`capitalize`](Self::capitalize), but also receives the
     /// [`NarrationContext`] in effect for this call, when there is one — which is where a
     /// locale (`NarrationContext::dialect`, e.g. `"tr"`) would live for a fork that needs
     /// Turkish dotted/dotless `i`. See
