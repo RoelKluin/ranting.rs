@@ -22,18 +22,21 @@ lives in [DONE.md](DONE.md). This file is the forward-looking roadmap only.
 🎯 **Phase 7 (v1.4.0, Falsification, Round Two: Beyond Indo-European)** is the next
 phase — see its section below. **In progress**: its three spikes (items 1-3), the
 build decision they fed (item 4), four unrelated items (7-10), the signature
-change the decision blocked on (item 11) and **both** reference lexicons
-(items 5 and 6) are done; what remains is items 12 and 13.
+change the decision blocked on (item 11), **both** reference lexicons (items 5
+and 6) and the two items they scheduled (12 and 13) are done. **Phase 7 is
+complete.**
 
 **Shipping today**:
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
 - `say!()`/`say_with!()`/`ack!()`/`nay!()`/`heed!()`/`ask!()`/`#[derive(Heed)]`
-- Seven `_custom`/`_with_context` inflection hook pairs (verb, pronoun, article,
-  adjective, elision, numeral, preposition), plus the `capitalize`/`capitalize_with_context`
-  pair and one unpaired `is_first_person_subject_custom` — 23 `Ranting` trait methods in
-  all, carrying grammatical case, noun class, count, and orthography role
-- Five crates: `ranting`, `ranting_core`, `ranting_derive`, and the two downstream
-  falsifiers `ranting_i18n` (German) and `ranting_es` (Spanish)
+- Eight `_custom`/`_with_context` inflection hook pairs (verb, pronoun, article,
+  adjective, article elision, numeral, numeral elision, preposition), plus the
+  `capitalize`/`capitalize_with_context` pair and one unpaired
+  `is_first_person_subject_custom` — 25 `Ranting` trait methods in all, carrying
+  grammatical case, noun class, count, and orthography role
+- Three library crates — `ranting`, `ranting_core`, `ranting_derive` — plus four
+  downstream falsifiers: `ranting_i18n` (German), `ranting_es` (Spanish),
+  `ranting_ar` (Arabic) and `ranting_ja` (Japanese), and the `ranting_gaps` dev tool
 - 526 compiled tests across all five crates, plus 15 runnable doctests; zero critical issues
 
 ---
@@ -794,8 +797,28 @@ building, its build item is dropped rather than executed anyway.
       hands a fork the raw count, exactly as item 14 did elsewhere.
     </details>
 
-12. **The numeral-noun separator** (3-5 hours) — scheduled by item 4, **does not
-    block item 6**. `handle_placeholder_impl` pushes a hard-coded space between
+12. **The numeral-noun separator** — ✅ **DONE 2026-08-14**. `Ranting` gained an
+    eighth `_custom` pair, `elide_numeral_custom`/`_with_context`: the
+    numeral-side twin of item 7's article hook, same post-assembly splice, same
+    replace-all-three contract. `ranting_ja` overrides it in the same commit, so
+    it never spends a day on item 1's never-overridden list, and 「一匹の猫」
+    renders correctly — that crate's hole 1 is struck.
+    - **Ordering was the one real design question.** Rendered order is
+      `[article][numeral][noun]`, and the numeral splice runs **first** because
+      it is the inner boundary: every byte it rewrites is at or after
+      `article_span`'s end, so that span stays valid, while the reverse order
+      would move the numeral out from under this splice's own span. Getting it
+      wrong misplaces text silently rather than panicking — §1.7's lesson — so
+      `ranting_ar/tests/arabic.rs` asserts it, that crate being the only place
+      in the repo where both splices can fire.
+    - Not called for a hidden numeral, the same gate a hidden noun gives the
+      article hook. English output is unchanged: the default returns `None`.
+    - The chosen shape is the second of the two candidates below. The first —
+      passing the separator to `inflect_numeral_custom` — would have re-signed a
+      hook four crates already implement, to no benefit.
+
+    <details><summary>Original scope (kept for the record)</summary>
+    `handle_placeholder_impl` pushes a hard-coded space between
     the rendered numeral and the noun, and no hook is offered it — so Japanese's
     「一匹の猫」 is unreachable and 「一匹の 猫」 is what renders. Exactly parallel
     to Arabic's article-bound-to-noun case, except that one got item 7's
@@ -810,9 +833,29 @@ building, its build item is dropped rather than executed anyway.
       leading space (item 13), writing the numeral as template literal text
       makes item 8 dead for that fork, and squeezing spaces after `say!()`
       returns would corrupt Latin text in the same template.
+    </details>
 
-13. **Two residues both spikes left** (1-2 hours, doc + one decision) —
-    scheduled by item 4 so they are not lost.
+13. **Two residues both spikes left** — ✅ **DONE 2026-08-14**.
+    - **`{?$n noun}`'s stray space is fixed**, not documented as intended.
+      `say!("I see {?$0 boot}", 2)` renders `"I see boots"`. A hidden numeral
+      sits between two separators — its own leading one and the noun's — and
+      with nothing rendered between them the pair has to collapse to one, the
+      same way a zero-length article's does. **Which one survives matters**:
+      keeping the leading space and swallowing the noun's is what leaves
+      `{The ?$n noun}` rendering `"The raven"`, since there the leading space is
+      the article's only separator; the first cut swallowed the wrong one and
+      produced `"Theraven"`. `NumeralSpec` grew a `hidden: bool` so the slot is
+      representable at all — it used to be simply absent from the spec, which is
+      what made the space unreachable. The two `tests/ranting/numeral.rs` pins
+      that asserted the defect are re-pinned to the correct output.
+    - **"Story-wide" is gone** from `src/narration.rs` and
+      `.claude/rules/extension-hooks.md`, replaced with the point it was
+      obscuring: `NarrationContext` is **per call**, and a different context per
+      utterance is ordinary usage. `ranting_ja`'s
+      `register_can_vary_per_utterance_within_one_scene` is the runnable
+      version.
+
+    <details><summary>Original scope (kept for the record)</summary>
     - **`{?$n noun}` renders a double space** (`"I see  boots"`, `"есть  стол"`).
       It is currently *pinned* by `tests/ranting/numeral.rs`, so it reads as
       intended behavior rather than as a defect; filed as
@@ -827,6 +870,7 @@ building, its build item is dropped rather than executed anyway.
       constructing a different context per utterance. The current wording
       invites a fork to conclude such variation is out of scope, which this
       ROADMAP itself nearly did in item 3.
+    </details>
 
 ### v1.4 Success Criteria (finalized by item 4, 2026-08-14)
 - Items 1-3 answer, in writing, whether Arabic and/or Japanese would falsify

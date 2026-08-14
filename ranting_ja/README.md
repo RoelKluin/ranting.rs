@@ -41,11 +41,13 @@ than merely unexercised, and an audit from inside the repo structurally cannot s
 never-read parameter is the right one. Only a fork that had to read it can. Building nothing here
 would not leave `register` unjudged; it would freeze it unjudged.
 
-**A defect no other language reaches**: the numeral and its noun are joined by a hard-coded space
-no hook can remove, so 「一匹の猫」 is unreachable and 「一匹の 猫」 is what renders. That is hole 1,
-scheduled as Phase 7 item 12. Unlike Arabic's dual it has **no** workaround to encode, which is
-precisely why the item 4 decision did not block this crate on the fix: the honest recording is a
-hole test, so the crate could be built first.
+**A defect no other language reaches**: the numeral and its noun were joined by a hard-coded space
+no hook could remove, so 「一匹の猫」 was unreachable and 「一匹の 猫」 was what rendered. Unlike
+Arabic's dual it had **no** workaround to encode, which is precisely why the item 4 decision did
+not block this crate on a fix: the honest recording is a hole test, so the crate was built first
+and shipped the wrong output. **Phase 7 item 12 then closed it** — `ranting` gained
+`elide_numeral_custom`, the numeral-side twin of the article elision hook, and this crate is its
+first and only user. Hole 1 is struck.
 
 ## What works through the hooks alone
 
@@ -55,8 +57,9 @@ hole test, so the crate could be built first.
 | Sonkeigo *substitution* — 食べる → 召し上がる, 行く → いらっしゃる — for an honored referent | the same hook: it is a lookup keyed by verb, register and `&self`, all three already present |
 | Numeral classifiers — 一匹の / 三人の / 二本の — including the sound changes (*ippiki* / *sanbiki*) that make them a table rather than a suffix | `inflect_numeral_custom`, reading the counter off the entity |
 | `heed!()` / `ask!()` over spaced, command-style input (`取る 剣`) | the existing whitespace boundary, which is script-agnostic |
+| 「一匹の猫」 — the counter phrase bound to its noun with no space | `elide_numeral_custom` (see hole 1, closed) |
 
-## Two of eight hook pairs are live, and that is the finding
+## Three of eight hook pairs are live, and that is the finding
 
 A `ranting_ja` leaves `GrammaticalCase` unused (case is postpositional particles, which are
 template text), `NounClass` at `UNSET` (see below), `inflect_pronoun_custom` unused (pro-drop, and
@@ -65,6 +68,8 @@ for tense, negation and politeness, which the `!` slot's *degree* axis does not 
 are prenominal besides), `inflect_article_custom`/`elide_article_custom` unused (no articles),
 `inflect_preposition_custom` unused (postpositions, not prepositions), `capitalize` unused
 (caseless scripts) and `Ranting::inflect` an identity function (nouns do not inflect for number).
+What is live is the verb hook, the numeral hook, and `elide_numeral_custom` — the third only
+because this crate's own hole 1 caused it to exist.
 
 **That is a fine outcome, not a design smell.** Every hook defaults to English behavior and
 generates no code when not overridden — an unclassed, unhooked impl is byte-identical to pre-v1.3
@@ -72,7 +77,7 @@ codegen. The cost of an unused hook to a fork is one line of documentation read 
 A surface sized for maximally-inflected languages degrading to near-nothing for a low-inflection
 one is the *intended* shape, and this crate is the evidence that it degrades cleanly rather than
 forcing a fork to fight it. The one genuine cost is discoverability — eight `_custom` pairs is a
-lot to read to discover you need two — and that is `docs/EXTENSIBILITY.md`'s problem rather than
+lot to read to discover you need three — and that is `docs/EXTENSIBILITY.md`'s problem rather than
 the API's.
 
 Note especially that **Phase 7 item 11's `count` on `Ranting::inflect`, which Arabic needed, is
@@ -99,22 +104,36 @@ Japanese, would be it.
 
 ## The holes
 
-Five, numbered 1-5. Hole 1 has a sub-case (1b) with its own pinned test, since the escape hatch
-that would work around it fails for a related reason; every other hole is one entry, one test.
+Five, numbered 1-5. **Hole 1 is closed** (with its sub-case 1b) and kept at its number rather than
+renumbered, so README, tests and ROADMAP cross-references still resolve — the same convention
+`ranting_i18n` and `ranting_es` use for their closed holes. Every other hole is one entry, one
+test.
 
-### 1. The numeral cannot be bound to its noun
+### 1. ✅ Closed — the numeral binds to its noun
 
-Japanese writes 「一匹の猫」 with no spaces. `handle_placeholder_impl` pushes a separator between
-the rendered numeral and the noun and offers it to no hook, unlike the article separator, which
-`elide_article_custom` receives explicitly and may drop. Returning the particle の from the hook
-gets the particle in; the space still lands after it. There is nothing the hook can return that
-removes it.
+Japanese writes 「一匹の猫」 with no spaces. `handle_placeholder_impl` pushed a separator between the
+rendered numeral and the noun and offered it to no hook, unlike the article separator, which
+`elide_article_custom` had received since Phase 6 item 7. Returning the particle の from the numeral
+hook got the particle in; the space still landed after it.
 
-Every escape hatch is worse than the gap: `{?$n neko}` hides the numeral and leaves a **leading**
-space (hole 1b); writing the numeral as template literal text makes `inflect_numeral_custom` dead
-for that fork entirely; and squeezing spaces after `say!()` returns would corrupt any Latin text
-in the same template. Scheduled as ROADMAP.md Phase 7 item 12. Pinned by
-`hole_1_the_numeral_is_separated_from_its_noun_by_a_space` and `hole_1b_*`.
+Every escape hatch was worse than the gap: hiding the numeral left a **leading** space (1b, below);
+writing the numeral as template literal text makes `inflect_numeral_custom` dead for that fork
+entirely; and squeezing spaces after `say!()` returns would corrupt any Latin text in the same
+template. So this crate shipped 「一匹の 猫」 — the wrong output, recorded rather than worked around,
+which is what the falsification contract asks for.
+
+**ROADMAP.md Phase 7 item 12 closed it.** `Ranting::elide_numeral_custom` is the numeral-side twin
+of the article hook: same post-assembly splice, same replace-all-three contract. `JapaneseNoun`
+answers it in three lines, and this crate is its first and only user. Kept as hole 1 rather than
+renumbered; the pinned tests now assert the bound forms.
+
+### 1b. ✅ Closed — a hidden numeral leaves no space behind
+
+`{?$n noun}` used to leave a stray leading space (`" 猫"`), which was hole 1's only candidate
+workaround and so on its critical path. Filed as `docs/architecture-review-2026-08-14.md` §1.6,
+where it was *pinned* by `tests/ranting/numeral.rs` rather than flagged — reading as intended
+behavior for two phases. Fixed by Phase 7 item 13, which is why both halves of hole 1 are struck at
+once.
 
 ### 2. Unspaced prose cannot be parsed
 
@@ -177,8 +196,8 @@ a fork wanting five levels would use instead. What is unavailable is expressing 
   ROADMAP nearly concluded from it that per-addressee variation is out of scope for `register`,
   which would have made keigo the wrong fit. It is not: the context is **per-call**, so a
   different one per utterance is ordinary usage, and
-  `register_can_vary_per_utterance_within_one_scene` shows two in one scene. Scheduled as
-  ROADMAP.md Phase 7 item 13.
+  `register_can_vary_per_utterance_within_one_scene` shows two in one scene. **Fixed** by
+  ROADMAP.md Phase 7 item 13; the docs now say per-call.
 - **Only the `_with_context` twin is overridden** for the verb hook, which is the documented
   sufficient shape — the non-context hook defaults to delegating to it. This crate is the first
   fork to rely on that, since the other three override the plain hooks instead.

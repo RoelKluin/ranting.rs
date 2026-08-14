@@ -371,6 +371,50 @@ impl<T: Ranting> Ranting for Many<T> {
         }
     }
 
+    fn elide_numeral_custom(
+        &self,
+        numeral: &str,
+        separator: &str,
+        following: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        count: Option<PlaceholderCount>,
+    ) -> Option<String> {
+        // Same one-item rule as `elide_article_custom` above, for the same reason.
+        match self.0.len() {
+            1 => {
+                let count = count.or_else(|| self.own_count());
+                self.0[0].elide_numeral_custom(
+                    numeral, separator, following, case, class, as_plural, count,
+                )
+            }
+            _ => None,
+        }
+    }
+
+    fn elide_numeral_custom_with_context(
+        &self,
+        numeral: &str,
+        separator: &str,
+        following: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        count: Option<PlaceholderCount>,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        match self.0.len() {
+            1 => {
+                let count = count.or_else(|| self.own_count());
+                self.0[0].elide_numeral_custom_with_context(
+                    numeral, separator, following, case, class, as_plural, count, ctx,
+                )
+            }
+            _ => None,
+        }
+    }
+
     fn inflect_preposition_custom(
         &self,
         preposition: &str,
@@ -758,6 +802,39 @@ impl<T: Ranting> Ranting for Maybe<T> {
         })
     }
 
+    fn elide_numeral_custom(
+        &self,
+        numeral: &str,
+        separator: &str,
+        following: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        count: Option<PlaceholderCount>,
+    ) -> Option<String> {
+        self.0.as_ref().and_then(|item| {
+            item.elide_numeral_custom(numeral, separator, following, case, class, as_plural, count)
+        })
+    }
+
+    fn elide_numeral_custom_with_context(
+        &self,
+        numeral: &str,
+        separator: &str,
+        following: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        count: Option<PlaceholderCount>,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        self.0.as_ref().and_then(|item| {
+            item.elide_numeral_custom_with_context(
+                numeral, separator, following, case, class, as_plural, count, ctx,
+            )
+        })
+    }
+
     fn inflect_preposition_custom(
         &self,
         preposition: &str,
@@ -1034,6 +1111,37 @@ impl<T: Ranting> Ranting for Box<T> {
     ) -> Option<String> {
         (**self).elide_article_custom_with_context(
             article, separator, following, case, class, as_plural, count, ctx,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn elide_numeral_custom(
+        &self,
+        numeral: &str,
+        separator: &str,
+        following: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        count: Option<PlaceholderCount>,
+    ) -> Option<String> {
+        (**self).elide_numeral_custom(numeral, separator, following, case, class, as_plural, count)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn elide_numeral_custom_with_context(
+        &self,
+        numeral: &str,
+        separator: &str,
+        following: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        count: Option<PlaceholderCount>,
+        ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        (**self).elide_numeral_custom_with_context(
+            numeral, separator, following, case, class, as_plural, count, ctx,
         )
     }
 

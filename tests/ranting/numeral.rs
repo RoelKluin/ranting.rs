@@ -170,10 +170,11 @@ fn digits_numeral_hook_sees_the_fmt_spec_applied() {
 #[test]
 fn hidden_numbers_do_not_reach_the_hook() {
     // `{?$n noun}` renders no number at all, so there is nothing to customize —
-    // but the count still governs agreement.
+    // but the count still governs agreement. Nor does it leave a space behind
+    // (ROADMAP.md Phase 7 item 13).
     let stol = RussianNoun::new("стол", "стола", "masculine");
-    assert_eq!(say!("есть {?$0 1}", 1, stol), "есть  стол");
-    assert_eq!(say!("есть {?$0 1}", 2, stol), "есть  стола");
+    assert_eq!(say!("есть {?$0 1}", 1, stol), "есть стол");
+    assert_eq!(say!("есть {?$0 1}", 2, stol), "есть стола");
 }
 
 #[test]
@@ -310,12 +311,14 @@ fn english_digit_numerals_are_unchanged() {
     assert_eq!(say!("I see {$0 boot}", 1.0), "I see 1 boot");
     assert_eq!(say!("I see {$0 boot:>4}", 2), "I see    2 boots");
     assert_eq!(say!("{$0 boot's} laces", 2), "2 Boots' laces");
-    // A hidden number renders nothing — but note it leaves the noun's own
-    // leading space, exactly as before (the `?` drops the *number's* space,
-    // which is why `leading_space` living in `NumeralSpec` is unobservable
-    // here): "I see " + " boots".
-    assert_eq!(say!("I see {?$0 boot}", 2), "I see  boots");
-    assert_eq!(say!("I see {?$0 boot}", 1), "I see  boot");
+    // A hidden number renders nothing, and leaves no space behind either.
+    // Until ROADMAP.md Phase 7 item 13 it left the noun's own leading space
+    // next to the literal's — "I see " + " boots" — which this file *pinned*
+    // rather than flagged, so it read as intended behavior for two phases.
+    // Cosmetic in English; on the critical path for `ranting_ja`, where hiding
+    // the numeral was hole 1's only candidate workaround.
+    assert_eq!(say!("I see {?$0 boot}", 2), "I see boots");
+    assert_eq!(say!("I see {?$0 boot}", 1), "I see boot");
 }
 
 #[test]

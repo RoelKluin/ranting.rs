@@ -668,12 +668,37 @@ where
     // `tests/ranting/zero_length_article.rs`.
     let mut swallow_separator = article_span.is_some_and(|(start, end)| start == end);
 
-    // The numeral slot. `numeral` is `None` both when the placeholder has no `#var`/`$var`
-    // marker and when it has a hidden one (`{?$n noun}`) — in either case nothing numeric is
-    // rendered and the hook is not called. See ROADMAP.md Phase 6 item 8.
+    // The span of the rendered numeral in `res`, for the post-assembly splice below. `None` when
+    // no numeral was rendered, exactly like `article_span`.
+    let mut numeral_span: Option<(usize, usize)> = None;
+
+    // The numeral slot. `numeral` is `None` when the placeholder has no `#var`/`$var` marker at
+    // all; a hidden one (`{?$n noun}`) is `Some` with `hidden` set, and renders nothing. See
+    // ROADMAP.md Phase 6 item 8 and Phase 7 item 13.
+    // A hidden numeral renders nothing between two separators — the one before it and the noun's
+    // own — so the pair has to collapse to one, the same way a zero-length article's does. Before
+    // ROADMAP.md Phase 7 item 13 the slot was simply absent from the spec and both separators
+    // rendered: `say!("I see {?$0 boot}", 2)` gave "I see  boots".
+    //
+    // Which one survives matters. Keeping the *leading* one and swallowing the noun's is what
+    // leaves `{The ?$n noun}` rendering "The raven" — there the leading space is the article's
+    // only separator, and the noun's is the spare. With nothing rendered before the numeral the
+    // leading space is empty anyway, so the noun's is dropped and no stray space is left.
+    if let Some(NumeralSpec {
+        leading_space,
+        hidden: true,
+        ..
+    }) = numeral
+    {
+        if !swallow_separator {
+            res.push_str(leading_space);
+        }
+        swallow_separator = true;
+    }
     if let Some(NumeralSpec {
         kind,
         leading_space,
+        hidden: false,
     }) = numeral
     {
         // `#var` is spelled here rather than by the macro, so the hook can replace the
@@ -705,7 +730,9 @@ where
         } else {
             res.push_str(leading_space);
         }
+        let start = res.len();
         res.push_str(&rendered);
+        numeral_span = Some((start, res.len()));
     }
 
     // The leading whitespace preceding whatever comes after the noun. For
@@ -899,6 +926,38 @@ where
                     res.push_str(&tail);
                     prep_fused = true;
                 }
+            }
+        }
+        // The numeral-noun boundary, spliced the same post-assembly way the article-noun boundary
+        // is below (ROADMAP.md Phase 7 item 12). It runs **first**, because it is the inner of
+        // the two boundaries: `[article][numeral][noun]`. Editing it leaves `article_span`
+        // untouched — every byte it rewrites is at or after `article_span`'s end — while the
+        // reverse order would move the numeral out from under this splice's own span.
+        //
+        // Japanese needs it: 「一匹の猫」 is written with no space anywhere, and until this
+        // existed the separator was pushed by this function and offered to no hook, so
+        // `一匹の 猫` was the best a fork could do. See `Ranting::elide_numeral_custom`.
+        if let Some((start, end)) = numeral_span.filter(|(start, end)| start != end) {
+            let (numeral_text, num_ws) =
+                split_at_find_end(&res[start..end], |c: char| !c.is_whitespace())
+                    .unwrap_or((&res[start..end], ""));
+            let (noun_ws, following) =
+                split_at_find_start(&res[end..], |c: char| !c.is_whitespace())
+                    .unwrap_or(("", &res[end..]));
+            let separator = format!("{num_ws}{noun_ws}");
+            let fused = noun.elide_numeral_custom_with_context(
+                numeral_text,
+                &separator,
+                following,
+                case.into(),
+                noun_class,
+                as_pl,
+                placeholder_count,
+                ctx,
+            );
+            if let Some(fused) = fused {
+                res.truncate(start);
+                res.push_str(&fused);
             }
         }
         // Post-assembly elision: the article and everything the placeholder renders after it are
@@ -2063,6 +2122,67 @@ pub trait Ranting: std::fmt::Display {
         _ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         self.elide_article_custom(article, separator, following, case, class, as_plural, count)
+    }
+
+    /// Fuse a rendered numeral with the noun that follows it — the numeral-side twin of
+    /// [`elide_article_custom`](Self::elide_article_custom).
+    ///
+    /// `numeral` is what the numeral slot rendered (a fork's own
+    /// [`inflect_numeral_custom`](Self::inflect_numeral_custom) output, or English's), `separator`
+    /// the whitespace between it and the noun, and `following` the rest of the placeholder's own
+    /// output. Returning `Some` replaces **all three**; returning `None` — the default, and every
+    /// case English needs — leaves them exactly as rendered.
+    ///
+    /// ROADMAP.md Phase 7 item 12, and it exists because a fork found the asymmetry: `ranting_ja`
+    /// writes 「一匹の猫」 with no space anywhere, and the numeral-noun separator was pushed by
+    /// `handle_placeholder` and offered to no hook, while the article-noun separator had had a
+    /// hook since Phase 6 item 7. `一匹の 猫` was the best a fork could do, with **no** workaround
+    /// — unlike a missing distinction, a wrong character is simply in the output.
+    ///
+    /// Called *before* `elide_article_custom`, because `[article][numeral][noun]` makes this the
+    /// inner boundary of the two. It is **not** called for a hidden numeral (`` {?$n noun} ``),
+    /// which renders nothing to fuse — the same gate a hidden noun gives the article hook.
+    ///
+    /// ```ignore
+    /// // Japanese: the counter phrase and its noun are written as one run.
+    /// fn elide_numeral_custom(
+    ///     &self, numeral: &str, _separator: &str, following: &str,
+    ///     _case: GrammaticalCase, _class: NounClass, _as_plural: bool,
+    ///     _count: Option<PlaceholderCount>,
+    /// ) -> Option<String> {
+    ///     Some(format!("{numeral}{following}"))   // 一匹の + 猫 -> 一匹の猫
+    /// }
+    /// ```
+    #[allow(clippy::too_many_arguments)]
+    fn elide_numeral_custom(
+        &self,
+        _numeral: &str,
+        _separator: &str,
+        _following: &str,
+        _case: GrammaticalCase,
+        _class: NounClass,
+        _as_plural: bool,
+        _count: Option<PlaceholderCount>,
+    ) -> Option<String> {
+        None
+    }
+
+    /// Like [`elide_numeral_custom`](Self::elide_numeral_custom), but also receives the
+    /// [`NarrationContext`] when the call came from `say_with!()`. Defaults to delegating, so
+    /// overriding either one alone is enough.
+    #[allow(clippy::too_many_arguments)]
+    fn elide_numeral_custom_with_context(
+        &self,
+        numeral: &str,
+        separator: &str,
+        following: &str,
+        case: GrammaticalCase,
+        class: NounClass,
+        as_plural: bool,
+        count: Option<PlaceholderCount>,
+        _ctx: Option<&NarrationContext>,
+    ) -> Option<String> {
+        self.elide_numeral_custom(numeral, separator, following, case, class, as_plural, count)
     }
 
     /// Fuse a literal preposition, written in the template immediately before a placeholder, with

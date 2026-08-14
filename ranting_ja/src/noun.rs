@@ -149,6 +149,27 @@ impl Ranting for JapaneseNoun {
         }
     }
 
+    fn elide_numeral_custom(
+        &self,
+        numeral: &str,
+        _separator: &str,
+        following: &str,
+        _case: GrammaticalCase,
+        _class: NounClass,
+        _as_plural: bool,
+        _count: Option<PlaceholderCount>,
+    ) -> Option<String> {
+        // 「一匹の猫」 is written as one run with no space anywhere. Dropping the separator needs a
+        // post-assembly hook — the numeral does not know what follows it at
+        // `inflect_numeral_custom` time, exactly as an article does not at
+        // `inflect_article_custom` time.
+        //
+        // This crate is why ROADMAP.md Phase 7 item 12 exists: it was built first, shipped
+        // 「一匹の 猫」 as hole 1 because there was no workaround to encode, and the hook landed
+        // afterwards. The hole is closed and its test now pins the correct output.
+        Some(format!("{numeral}{following}"))
+    }
+
     // Not overridden, deliberately, and recorded in the README as a finding rather than as holes:
     //
     // - `inflect_article_custom` / `elide_article_custom` — Japanese has no articles.

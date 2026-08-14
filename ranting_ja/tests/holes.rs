@@ -8,38 +8,39 @@
 use ranting::{NarrationContext, Register, ask, heed, say, say_with};
 use ranting_ja::{JapaneseNoun, Shopkeeper};
 
-// ------------------------------- hole 1: the numeral cannot be bound to its noun --
+// ------------------------------- hole 1: ✅ closed — the numeral binds to its noun --
+
+// ROADMAP.md Phase 7 item 12 added `Ranting::elide_numeral_custom`, the numeral-side twin of
+// `elide_article_custom`: same post-assembly splice, same may-replace-all-three contract.
+// `JapaneseNoun` answers it, and 「一匹の猫」 renders correctly. Kept as `hole_1_*` (not renamed,
+// not renumbered) so it stays findable from the README and ROADMAP cross-references; the
+// assertions below now show the bound forms instead of the previous `一匹の 猫`.
+//
+// This crate is why the item exists. It was built first and shipped the wrong output, because
+// unlike Arabic's dual the gap had no workaround to encode — which is exactly why the item 4
+// build decision did not block it on a fix.
 
 #[test]
-fn hole_1_the_numeral_is_separated_from_its_noun_by_a_space() {
-    // Japanese writes 「一匹の猫」 with no spaces anywhere. `handle_placeholder_impl` pushes a
-    // separator between the rendered numeral and the noun and offers it to **no hook** — unlike
-    // the article separator, which `elide_article_custom` receives explicitly and may drop
-    // (`docs/EXTENSIBILITY.md` §2.7). So the output below is wrong by one character, and this
-    // crate ships it wrong rather than working around it.
-    //
-    // Scheduled as ROADMAP.md Phase 7 item 12. Unlike Arabic's dual, this gap has **no**
-    // workaround to encode, which is exactly why the item 4 build decision did not block this
-    // crate on the fix: the honest recording is this test.
+fn hole_1_the_numeral_now_binds_to_its_noun() {
     let neko = JapaneseNoun::neko();
-    assert_eq!(say!("{#0 1}", 1, neko), "一匹の 猫"); // Japanese needs 一匹の猫
-    assert_eq!(say!("{$0 1}", 3, neko), "三匹の 猫");
+    assert_eq!(say!("{#0 1}", 1, neko), "一匹の猫");
+    assert_eq!(say!("{$0 1}", 3, neko), "三匹の猫");
+    assert_eq!(say!("{#0 1}", 2, JapaneseNoun::hon()), "二本の本");
 
-    // Returning the particle の from the hook gets the particle in; the space still lands after
-    // it. There is nothing the hook can return that removes it.
-    assert_eq!(say!("{#0 1}", 2, JapaneseNoun::hon()), "二本の 本");
+    // The hook is not called when there is no numeral to bind, so a bare noun is untouched.
+    assert_eq!(say!("{0}", neko), "猫");
 }
 
 #[test]
-fn hole_1b_hiding_the_numeral_leaves_its_space_behind() {
-    // The obvious escape hatch — hide the numeral with `?` and write the counter phrase in the
-    // template — does not work either: the separator survives the hidden numeral, so a leading
-    // space appears instead. Filed against `ranting` as
-    // `docs/architecture-review-2026-08-14.md` §1.6, where it is *pinned* by
-    // `tests/ranting/numeral.rs` rather than flagged; for English it is cosmetic, and here it is
-    // on the critical path of hole 1's only workaround.
+fn hole_1b_a_hidden_numeral_now_leaves_no_space_behind() {
+    // The escape hatch this crate would have needed if item 12 had not landed: hide the numeral
+    // and write the counter phrase in the template. It used to leave a stray leading space —
+    // `docs/architecture-review-2026-08-14.md` §1.6, *pinned* by `tests/ranting/numeral.rs`
+    // rather than flagged, so it read as intended for two phases. Fixed by ROADMAP.md Phase 7
+    // item 13, which is why both halves of hole 1 are struck at once.
     let neko = JapaneseNoun::neko();
-    assert_eq!(say!("{?$0 1}", 1, neko), " 猫");
+    assert_eq!(say!("{?$0 1}", 1, neko), "猫");
+    assert_eq!(say!("一匹の{?$0 1}", 1, neko), "一匹の猫");
 }
 
 // ------------------------------- hole 2: unspaced prose cannot be parsed or segmented --

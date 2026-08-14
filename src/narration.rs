@@ -47,7 +47,7 @@ pub enum Person {
     Third,
 }
 
-/// A story-wide formality setting, for forks that want to vary word choice
+/// A formality setting, for forks that want to vary word choice
 /// (contractions, honorifics, slang) by register.
 ///
 /// Unlike `tense` and `narration_person`, the crate itself has no built-in
@@ -70,7 +70,17 @@ pub enum Register {
     Casual,
 }
 
-/// Story-wide narration settings, threaded through `say_with!()`.
+/// Narration settings, threaded through `say_with!()`.
+///
+/// **Per call, not per story.** These are usually set once for a story, and
+/// the docs used to say "story-wide" — which read as a constraint the type
+/// imposes rather than a description of the common case, and cost something
+/// real: ROADMAP.md Phase 7 item 3 nearly concluded that Japanese keigo was
+/// the wrong fit for `register`, because politeness varies per *addressee*
+/// within one scene. It varies freely: construct a different context per
+/// utterance. `ranting_ja/tests/japanese.rs`'s
+/// `register_can_vary_per_utterance_within_one_scene` is two contexts in one
+/// scene. (ROADMAP.md Phase 7 item 13.)
 ///
 /// Carries a tense override and a narration-person (viewpoint) override,
 /// both resolved internally by this crate (see `resolve_viewpoint` and
@@ -78,9 +88,9 @@ pub enum Register {
 /// `dialect` that the crate never interprets itself — those two exist purely
 /// so a `Ranting` implementation's `inflect_verb_custom_with_context` /
 /// `inflect_pronoun_custom_with_context` / `inflect_article_custom_with_context`
-/// hooks can branch on story-wide settings without the entity itself owning
+/// hooks can branch on narration settings without the entity itself owning
 /// them (keeping `subject`, an entity property, separate from these, which
-/// are story settings — see `.claude/rules/extension-hooks.md`).
+/// are properties of the telling — see `.claude/rules/extension-hooks.md`).
 ///
 /// `dialect` is a plain `&'static str` (e.g. "en-GB", "pirate") rather than
 /// an enum, since the crate places no constraints on it; it is entirely

@@ -833,25 +833,26 @@ fn handle_param(
         let nr_space;
         (pre, nr_space) = split_at_find_end(pre, |c: char| !c.is_whitespace()).unwrap_or((pre, ""));
         (nr, noun_space) = split_at_find_end(nr, |c: char| !c.is_whitespace()).unwrap_or((nr, ""));
-        // A hidden number (`{?$n noun}`) renders nothing, so it gets no NumeralSpec and the
-        // numeral hook is not called for it -- same "nothing rendered, nothing to customize"
-        // gate as `elide_article_custom`'s hidden-noun case.
+        // A hidden number (`{?$n noun}`) renders nothing, and neither numeral hook is called for
+        // it -- same "nothing rendered, nothing to customize" gate as `elide_article_custom`'s
+        // hidden-noun case. It still gets a `NumeralSpec`, with `hidden` set, because the
+        // separator that would have followed it has to be suppressed too: ROADMAP.md Phase 7
+        // item 13, where leaving the slot unrepresented is what produced the stray space.
         let hidden = plurality.contains('?');
         let nr_ph_expr = match get_opt_num_ph_expr(nr, given, span) {
             Ok(n) => n,
             Err(s) => return Err((nr_s, nr_e, s)),
         };
-        if !hidden {
-            let kind = if plurality.contains('#') {
-                quote!(Words)
-            } else {
-                quote!(Digits)
-            };
-            numeral_expr = parse_quote!(Some(ranting::placeholder::NumeralSpec {
-                kind: ranting::placeholder::NumeralKind::#kind,
-                leading_space: #nr_space,
-            }));
-        }
+        let kind = if plurality.contains('#') {
+            quote!(Words)
+        } else {
+            quote!(Digits)
+        };
+        numeral_expr = parse_quote!(Some(ranting::placeholder::NumeralSpec {
+            kind: ranting::placeholder::NumeralKind::#kind,
+            leading_space: #nr_space,
+            hidden: #hidden,
+        }));
         if plurality == "#" {
             if !nr_fmt.is_empty() {
                 return Err((
