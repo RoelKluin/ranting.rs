@@ -70,6 +70,44 @@ documents only the permissive direction (punctuation may abut). Untested.
 `$` is stripped before `...` is examined (`heed.rs:86-92`). Neither is documented; neither
 is likely to matter, since capture names are the template author's own choice.
 
+### 1.5 `{?article noun}` renders literal garbage unless the entity skips articles (added 2026-08-14)
+
+Found while probing for `docs/superpowers/specs/2026-08-14-japanese-falsification-spike.md`.
+`README.md` documents a leading `?` on an article as "its display depends (see `no_article`)",
+with the example `say!("{?the 0} was great!", activity)`. That works for an entity whose
+`skip_article()` is `true`:
+
+```rust
+say!("{?the 0} was great!", Breakfast {})   // no_article = true  -> "breakfast was great!"
+```
+
+For any ordinary noun it does not hide-or-show the article — it produces literal nonsense, with
+no error at either compile time or run time:
+
+```rust
+let dog = Noun::new("dog", "it");
+say!("{?the dog}")   // -> "?thes dog"
+say!("{?a dog}")     // -> "?as dog"
+```
+
+`?the` is being taken as the noun word rather than as a marked article, pluralized to `thes`, and
+emitted with the `?` still attached, leaving the real noun to render as a post-noun word. Every
+test and doc example of this syntax uses a `no_article = true` entity, which is why it has never
+surfaced. The documented behavior is the `false` case; the implemented behavior is only the `true`
+case.
+
+Not fixed here: the fix is in the placeholder grammar's marker handling, and the failing shape
+needs a decision first — whether `{?the noun}` on a non-skipping entity should render `the noun`
+(the documented reading) or be a compile error.
+
+### 1.6 `{?$n noun}` leaves a double space (added 2026-08-14)
+
+A hidden numeral renders nothing, but its separator survives: `say!("I see {?$0 boot}", 2)` →
+`"I see  boots"`. This is currently **pinned** by `tests/ranting/numeral.rs:305-306` and
+`:169-170` rather than flagged, so it reads as intended behavior in the one place it is written
+down. Cosmetic in English; on the critical path for Japanese, where hiding the numeral is the only
+workaround for the numeral-noun separator gap (Japanese spike §1).
+
 ## 2. Documentation defects found and fixed on 2026-08-14
 
 All of these were corrected in the same session that produced this review.
