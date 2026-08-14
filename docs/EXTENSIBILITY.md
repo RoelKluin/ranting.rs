@@ -1316,6 +1316,53 @@ item, substituting its own length as `count` when the placeholder had no numeral
 rule every other `_custom` hook pair with a `count` parameter follows. `Maybe(Some(x))` forwards to
 `x`; `Maybe(None)` declines.
 
+### 2.15 Noun Plural Spelling: `inflect()` and the `plural_end` Contract (ROADMAP.md Phase 7 item 10)
+
+This is the one cross-language signal on this list that is **not** a `_custom` hook, and the one
+most easily missed: it is a default your `inflect()` inherits rather than a call you can answer.
+
+`#[derive_ranting]` generates an `inflect()` whose plural path first consults
+`data/irregular_plurals.txt`, and then — **if you wrote neither `singular_end` nor `plural_end`** —
+applies English's regular orthographic rules: consonant + `y` → `ies`, `-es` after
+`s`/`x`/`z`/`ch`/`sh`, the `-f`/`-fe` → `-ves` stems, and head pluralization for hyphenated
+compounds. So a German struct that never thinks about the attribute renders `Party` → `Parties`,
+not `Partys`.
+
+**Writing either attribute is the opt-out**, and what counts is that you wrote it, not what value
+you gave it:
+
+```rust
+#[derive_ranting]
+#[ranting(name = "Party", subject = "it", plural_end = "s")]   // Partys
+struct Loanword {}
+
+#[derive_ranting]
+#[ranting(name = "Fuchs", subject = "it", plural_end = "e")]   // Fuchse
+struct Fox {}
+```
+
+`plural_end = "s"` is a real declaration and is *not* the same as leaving it off: it appends a bare
+`s` and applies no English spelling at all, which is what a German, Dutch or Danish loanword plural
+wants. Names ending in a consonant + `y` are the class where the two paths actually differ.
+
+`ranting::Noun` has no attributes to write, so it carries the same switch at runtime:
+
+```rust
+Noun::new("Party", "it")                       // Parties
+Noun::new("Party", "it").with_plural_end("s")  // Partys
+```
+
+Under the hood `= "$"` reads the struct's own field through the `DeclaredEnding` trait: a
+`String` field always means "declared", while an `Option<String>` one can also say "unset" and
+fall back to the rules. That is only relevant if you want a `Noun`-shaped runtime switch of your
+own.
+
+**The real escape hatch, though, is `inflect()` itself.** Suffix arithmetic will not get you
+`Fuchs` → `Füchse` or Spanish `voz` → `voces`, and it is not meant to: `singular_end`/`plural_end`
+exist so English orthography does not leak into your output, not as a pluralization engine.
+Override `inflect()` and consult your own lexicon — which is what both reference lexicons do
+(`ranting_i18n/src/noun.rs`, `ranting_es/src/noun.rs`).
+
 ## Partial Customization
 
 You don't need to implement every `_custom` method. If you only need verb customization, implement `inflect_verb_custom()` and leave the rest as default (returning `None`). The trait provides a default for all of them:

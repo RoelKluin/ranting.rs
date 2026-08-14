@@ -107,6 +107,14 @@ fn declaring_the_default_suffix_still_opts_out_of_the_rules() {
     struct English {}
 
     assert_eq!(say!("{,+0}", English {}), "Parties");
+
+    // Either attribute alone is enough -- the gate is "neither was written", not "plural_end
+    // was not written". This arm is the one a later simplification would drop.
+    #[derive_ranting]
+    #[ranting(name = "Party", subject = "it", singular_end = "")]
+    struct SingularEndOnly {}
+
+    assert_eq!(say!("{,+0}", SingularEndOnly {}), "Partys");
 }
 
 /// `Noun` has no attributes to declare, so the same opt-out is a constructor -- otherwise the
