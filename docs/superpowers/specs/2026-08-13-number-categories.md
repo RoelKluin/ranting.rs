@@ -433,6 +433,33 @@ singular-reference plurals.
 | Passing `nr: &str` (the rendered numeral) to the hooks as-is | Cheapest possible change, and rejected: the fork would have to parse back a string its own item-8 numeral hook may have written, in its own language, possibly with `{:...}` formatting applied. Sniffing strings is the bug this spike found, not the fix. |
 | Deferring the decision until after item 5 | Costs Phase 6 a second hook-signature break, and item 5's hook would ship with a number type this spike would immediately change. |
 
+## Correction, 2026-08-14: the counted noun itself was missed
+
+> This section was added after `2026-08-14-arabic-falsification-spike.md` ran the recommendation
+> below against real Arabic. Everything above is the design as scored on 2026-08-13; this is what
+> shipping it and then testing it revealed.
+
+The recommendation landed as ROADMAP.md Phase 6 item 14: `count: Option<PlaceholderCount>` on five
+hook pairs, plus `inflect_numeral_custom`'s pre-existing `count: Option<i64>`, plus item 15's
+`Many` length. **It does not make Arabic dual reachable, and this document's inventory is why it
+was missed.**
+
+The inventory above enumerated every place number is a `bool` and then scored the *hooks*.
+`Ranting::inflect` is in that inventory — it takes `to_plural: bool` — but it is not a `_custom`
+hook, so the recommendation's "add the count to the hooks" did not cover it. It was widened in item
+14's own commit, with `case: GrammaticalCase`, not with a count.
+
+The consequence is that Arabic dual is *half* reachable: verbs, pronouns, articles and adjectives
+can all agree in the dual by branching on `count.value == 2`, and **the counted noun itself renders
+plural**, because `inflect` still sees only a bool. Verified, not predicted — see the Arabic spike
+§1, including why the obvious `Cell` side-channel is not a workaround (it contaminates every later
+placeholder in the same template).
+
+So the correct verdict for dual-with-a-numeral is neither "unreachable" (this document, before
+item 14) nor "reachable" (item 14, assumed): it is **agreement reachable, head noun not**. Closing
+it needs `count: Option<PlaceholderCount>` on `Ranting::inflect` — the same type, the same source,
+one more signature. That change is owed and unscheduled.
+
 ## What stays impossible under this recommendation
 
 - **Categorial number with no numeral in the placeholder** — Arabic dual on a

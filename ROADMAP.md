@@ -131,7 +131,49 @@ building, its build item is dropped rather than executed anyway.
      right, for four-plus hooks running two-for-two on real forks never
      needing them.
 
-2. **Arabic falsification spike** (doc-only, 6-10 hours)
+2. **Arabic falsification spike** — ✅ **DONE 2026-08-14**;
+   `docs/superpowers/specs/2026-08-14-arabic-falsification-spike.md`. Verdict:
+   **build `ranting-ar`, but only after the signature change below.** Unlike
+   the Phase 6 spikes this one ran the code — a throwaway path-dependency
+   crate, not committed — so every finding is observed output rather than
+   reasoning from signatures, and two of the five questions resolved opposite
+   to this item's stated expectation.
+   - **The count channel does *not* close the dual, and this item's prediction
+     was wrong.** `Ranting::inflect` — the call that renders the counted noun —
+     takes `to_plural: bool`, not a count. Item 14 widened it in the same
+     commit, with `case: GrammaticalCase`. So `{$n kitab}` with `n = 2` renders
+     `kutub`, never `kitābān`, while the *verb* hook does see
+     `PlaceholderCount { value: 2, .. }` and can agree in the dual. Arabic dual
+     is therefore **half** expressible — everything that agrees with the noun,
+     but not the noun — which is a worse failure than either extreme, since the
+     output is grammatical-looking and wrong in one word. The `Cell`
+     side-channel that smuggles the count from `inflect_numeral_custom` into
+     `inflect` was tried and works, and is not an answer: it contaminates later
+     placeholders in the same template (`"{$n kitab} and {+kitab}"` renders the
+     dual twice), depends on undocumented hook call order, and makes a `&self`
+     trait stateful. **Owed, unscheduled**: `count: Option<PlaceholderCount>`
+     on `Ranting::inflect`, same type and source as item 14's.
+     `2026-08-13-number-categories.md` now carries a correction section saying
+     so; its inventory missed `inflect` because `inflect` is not a `_custom`
+     hook.
+   - **`elide_article_custom` passes its first real test.** Sun-letter
+     assimilation works: `following` is the noun alone, so the trigger
+     consonant is `following.chars().next()`, and the post-assembly design that
+     lets a fork drop the separator is exactly what `al-` bound to its noun
+     needs. One trap worth documenting in §2.7: the article arrives
+     **capitalized** sentence-initially, so `match article { "the" => .. }`
+     silently falls through to `None`.
+   - Dual with no numeral stays unreachable and **should stay that way** — it
+     is a grammar change, and with the `inflect` fix a fork can carry a bare
+     dual as entity state the way `ranting_i18n` carries definiteness.
+   - Root-and-pattern morphology has no seam consequence: "the base form" is
+     whatever the template wrote, and the seam passes it through uninterpreted.
+     RTL is out of scope as predicted; Arabic-Indic digits already work through
+     `inflect_numeral_custom`.
+   - Two unrelated defects found while probing, filed as
+     `docs/architecture-review-2026-08-14.md` §1.5 and §1.6.
+
+   <details><summary>Original scope (kept for the record)</summary>
    - Score, without writing a lexicon, what a `ranting-ar` crate would
      falsify that German/Spanish structurally cannot:
      - **Dual number, with a numeral present.** `docs/superpowers/specs/
@@ -203,8 +245,47 @@ building, its build item is dropped rather than executed anyway.
      gap, and whether `elide_article_custom` — currently a hook two-for-two
      unused — has the right shape for the one real elision case Phase 6's
      two lexicons never had.
+   </details>
 
-3. **Japanese falsification spike** (doc-only, 6-10 hours)
+3. **Japanese falsification spike** — ✅ **DONE 2026-08-14**;
+   `docs/superpowers/specs/2026-08-14-japanese-falsification-spike.md`.
+   Verdict: **build `ranting-ja`, at lower priority than `ranting-ar`.** Same
+   method (probes against real output). The decisive finding is not one of the
+   four this item scoped.
+   - **`NarrationContext.register` is the right shape for keigo, and this is
+     its first real consumer** — teineigo renders off `register` alone with no
+     pronoun in the template and no entity state (`猫 です` / `猫 だ`). The
+     per-addressee variation this item worried about is a non-issue:
+     `NarrationContext` is per-*call*, not per-story, so two politeness levels
+     in one scene are two contexts. The docs' "story-wide" wording is what
+     misleads, and should be softened. This is the only evidence that
+     `register` is not dead weight; item 1's audit could not settle it from
+     inside the repo.
+   - **The `NounClass`-as-classifier question dissolves.** A fork reads
+     `self.classifier` — which counter a noun takes is a property of that noun,
+     so `class` is never consulted. Item 2's open-ended design is not falsified
+     by Japanese, merely unexercised; Bantu, not Japanese, is the genericity
+     test.
+   - **What replaced it is a real gap**: the numeral and the noun are joined by
+     a hard-coded space no hook can remove, so 「一匹の猫」 is unreachable and
+     「一匹の 猫」 renders. Exactly parallel to Arabic's article-bound-to-noun
+     case, except item 7 gave the article a hook and the numeral never got one.
+     Every escape hatch is worse (`{?$n noun}` leaves its own stray space —
+     §1.6; writing the numeral in the template kills item 8's channel).
+     **Owed, unscheduled**: pass the separator to `inflect_numeral_custom` and
+     honor an empty return, or add a numeral-side splice matching
+     `elide_article_custom`'s.
+   - `heed!()`'s whitespace boundary holds against genuinely unspaced input and
+     fails honestly (`None`, never an invented split). The escape hatch is fine
+     for `heed!()`; for `ask!()` it thins the value proposition to "call
+     `answer()` with the input string", so `ask!()` is useful for Japanese
+     *command* input and not for *prose* input. Item 9's decision stands.
+   - Two of eight hook pairs would be live in a `ranting-ja`. That is the
+     intended degradation, not a design smell — unoverridden hooks generate no
+     code. The cost is discoverability, which is `docs/EXTENSIBILITY.md`'s
+     problem.
+
+   <details><summary>Original scope (kept for the record)</summary>
    - Score, without writing a lexicon, what a `ranting-ja` crate would
      falsify that German/Spanish structurally cannot:
      - **Numeral classifiers (josuushi).** Japanese counting requires a
@@ -278,9 +359,15 @@ building, its build item is dropped rather than executed anyway.
      `heed!()` whitespace boundary is livable in practice for the language
      it was most explicitly written with in mind (item 9 names Japanese by
      name three times).
+   </details>
 
 4. **Build decision** (no dedicated hours — a synthesis step, not a spike) —
-   *depends on items 1-3*
+   *depends on items 1-3*, **all three of which are now done**, so this is
+   unblocked. Both spikes recommend building, on different axes and with an
+   ordering constraint: `ranting-ar` should follow the `Ranting::inflect` count
+   change item 2 found owed, or its `tests/holes.rs` records a workaround
+   instead of the gap. Neither spike's recommendation is the decision — that is
+   this item's job.
    - Read items 1-3 together and decide, in writing (a short addendum to
      whichever spike doc(s) are richer, not a new document), whether to build
      `ranting_ar`, `ranting_ja`, both, or neither, using the same bar item 10
