@@ -46,6 +46,7 @@ crate's first `cargo test` reached a line six existing gates could not (§1.7). 
 | Known defects and open maintainer decisions | `docs/architecture-review-2026-08-15.md` (newest), `-08-14.md`, `-08-13.md` — companions, not supersessions |
 | What a non-English fork can and can't do | `docs/EXTENSIBILITY.md` §2.x |
 | Design spikes, including rejected options | `docs/superpowers/specs/` |
+| Superseded planning docs, kept only for history | `ARGUMENT_PARSING_IMPROVEMENTS.md`, `DESIGN_REPORT_SUMMARY.md`, `PHASE_2_IMPLEMENTATION_PLAN.md`, `RECOUNTING_INTEGRATION.md` — each carries its own superseded-banner explaining what changed since |
 
 Citations of the form "ROADMAP.md Phase N item M" for N ≤ 6 point through the redirect stub to
 `DONE.md` under the same phase and item number.
