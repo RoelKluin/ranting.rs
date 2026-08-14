@@ -1,0 +1,10 @@
+[package]
+name = "ranting-ar"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Arabic reference lexicon for ranting: the third acceptance test, for the count channel and the elision hook"
+publish = false
+
+[dependencies]
+ranting = { path = ".." }

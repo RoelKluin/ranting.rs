@@ -61,6 +61,25 @@ whose override would signal if it were reached, used to assert that the hook is
   style            declared=2   ignored=0   used=2
 ```
 
+> **Re-run 2026-08-14, after `ranting_ar` (Phase 7 item 5) landed: the list is
+> nine, not ten.** `elide_article_custom` is off it — this audit's headline
+> example of "built for `l'homme`, never used by a language that needs it" now
+> has a real consumer, and the hook's design came through intact (the sun-letter
+> trigger is `following.chars().next()`, and dropping the separator is what the
+> replace-all-three contract already allowed). That is item 4's stated
+> justification for building at all, measured rather than predicted. The nine
+> that remain are the eight `_with_context` twins as a class and
+> `is_first_person_subject_custom`; ROADMAP.md item 4 says in advance why both
+> are expected to stay unused, so the audit's question is now answered rather
+> than open.
+>
+> The hook also turned out to be **unreachable in practice for a non-ASCII
+> article** until the same day: it panicked. See
+> `docs/architecture-review-2026-08-14.md` §1.7. A hook with no user is not
+> merely unvalidated in its *shape* — it can be outright broken on a path no
+> gate reaches, which is a stronger version of this audit's own thesis than it
+> made.
+
 > **Re-run 2026-08-14, after Phase 7 item 11** widened `Ranting::inflect` with a
 > `count`: `count` reads `declared=20 ignored=18 used=2`, `case`
 > `declared=19 ignored=8 used=11`, `uc` `declared=19 ignored=1 used=18`. The four

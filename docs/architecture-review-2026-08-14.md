@@ -125,6 +125,25 @@ A hidden numeral renders nothing, but its separator survives: `say!("I see {?$0 
 down. Cosmetic in English; on the critical path for Japanese, where hiding the numeral is the only
 workaround for the numeral-noun separator gap (Japanese spike §1).
 
+### 1.7 Elision panicked on a multibyte article — ✅ **FIXED 2026-08-14**
+
+`split_at_find_end` (`src/lib.rs`) advanced one **byte** past the byte index `rfind` returned, so
+the post-assembly elision splice sliced mid-codepoint whenever the rendered article's last
+character was multibyte: *"end byte index 3 is not a char boundary; it is inside 'ل'"*. Any fork
+whose `inflect_article_custom` returns a non-ASCII article and which overrides
+`elide_article_custom` panicked — Arabic `ال`, Cyrillic `этот`, Greek `τό` alike.
+
+Nothing about it was language-specific; it was byte arithmetic. What kept it alive is worth
+recording, because it is the same shape as §4.7: `elide_article_custom` had **no real user at
+all** until `ranting_ar` (the Phase 7 item 1 audit says exactly that), and both existing reference
+lexicons' articles are ASCII, so no gate in six directories could reach the line. It surfaced on
+`ranting_ar`'s very first `cargo test`.
+
+Fixed by advancing `char::len_utf8()` instead of `1`. Pinned by
+`tests/ranting/property_based.rs::elision_does_not_panic_on_a_multibyte_article`, which was
+verified to fail against the old code rather than merely pass against the new — the whole class of
+"regression test that pins nothing" is what §4.7 is about.
+
 ## 2. Documentation defects found and fixed on 2026-08-14
 
 All of these were corrected in the same session that produced this review.

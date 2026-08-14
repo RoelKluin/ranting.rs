@@ -23,6 +23,17 @@
 
 ### Fixed
 
+- **Elision panicked on a non-ASCII article.** `split_at_find_end` advanced one
+  *byte* past the byte index `rfind` returned, so the post-assembly elision
+  splice sliced mid-codepoint whenever the rendered article's last character was
+  multibyte: `say!("{the 0}", ..)` on an entity whose `inflect_article_custom`
+  returns `ال`, `этот` or `τό` and which overrides `elide_article_custom` panicked
+  with *"end byte index N is not a char boundary"*. Nothing about it was
+  language-specific — it was byte arithmetic — and it survived because
+  `elide_article_custom` had no real-world user until `ranting_ar`, both existing
+  reference lexicons' articles being ASCII. Pinned by
+  `tests/ranting/property_based.rs::elision_does_not_panic_on_a_multibyte_article`.
+
 - **`{?article noun}` rendered literal garbage** unless the entity's
   `skip_article()` was `true`. The `?` marker (README's "display depends on
   `no_article`", e.g. `say!("{?the 0} was great!", activity)`) was not stripped

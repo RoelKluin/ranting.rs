@@ -12,7 +12,7 @@
 use proptest::prelude::*;
 use ranting::{
     GrammaticalCase, Noun, Ranting, inflect_possessive, inflect_reflexive, is_subject,
-    is_subjective_plural,
+    is_subjective_plural, say,
 };
 
 // Known valid subject pronouns (strum serialization is uppercase for all except you/ye/they)
@@ -74,6 +74,84 @@ proptest! {
         let noun = Noun::new(&name, "it");
         let _ = noun.inflect(to_plural, uc, GrammaticalCase::Name, None);
     }
+}
+
+/// A fork whose article is written in its own script, and which elides — the shape that panicked.
+struct NonAsciiArticle(&'static str, &'static str);
+
+impl std::fmt::Display for NonAsciiArticle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.1)
+    }
+}
+
+impl Ranting for NonAsciiArticle {
+    fn name(&self, _uc: bool) -> String {
+        self.1.to_string()
+    }
+    fn subjective(&self) -> &str {
+        "it"
+    }
+    fn is_plural(&self) -> bool {
+        false
+    }
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        _uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<ranting::PlaceholderCount>,
+    ) -> String {
+        self.1.to_string()
+    }
+    fn skip_article(&self) -> bool {
+        false
+    }
+    fn inflect_article_custom(
+        &self,
+        _article: &str,
+        _noun_singular: &str,
+        _case: GrammaticalCase,
+        _class: ranting::NounClass,
+        _as_plural: bool,
+        _count: Option<ranting::PlaceholderCount>,
+        _uc: bool,
+    ) -> Option<String> {
+        Some(self.0.to_string())
+    }
+    fn elide_article_custom(
+        &self,
+        article: &str,
+        _separator: &str,
+        following: &str,
+        _case: GrammaticalCase,
+        _class: ranting::NounClass,
+        _as_plural: bool,
+        _count: Option<ranting::PlaceholderCount>,
+    ) -> Option<String> {
+        Some(format!("{article}{following}"))
+    }
+}
+
+#[test]
+fn elision_does_not_panic_on_a_multibyte_article() {
+    // The elision splice locates the rendered article by byte span and then splits off the
+    // whitespace after its last non-whitespace character. `split_at_find_end` advanced one *byte*
+    // past the index `rfind` returned, so an article whose final character is multibyte sliced
+    // mid-codepoint and **panicked** — "end byte index 3 is not a char boundary".
+    //
+    // Nothing about it is Arabic-specific: it is byte arithmetic, and every fork reaching this
+    // hook with a non-ASCII article hit it. It survived because `elide_article_custom` had no
+    // real user at all until `ranting_ar` (the Phase 7 item 1 audit says so), and both existing
+    // forks' articles are ASCII. Found on `ranting_ar`'s first run.
+    let kitab = NonAsciiArticle("ال", "كتاب");
+    assert_eq!(say!("{the 0}", kitab), "الكتاب");
+
+    // Same shape, other scripts — the defect was in the byte arithmetic, not the language.
+    let stol = NonAsciiArticle("этот", "стол");
+    assert_eq!(say!("{the 0}", stol), "этотстол");
+    let biblio = NonAsciiArticle("τό", "βιβλίο");
+    assert_eq!(say!("{the 0}", biblio), "τόβιβλίο");
 }
 
 #[test]
