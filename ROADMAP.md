@@ -642,11 +642,13 @@ building, its build item is dropped rather than executed anyway.
      fixed by item 10.
    - Resolved rather than merely reported: the `{can can}` case. `{The can can}`
      renders "Can can hold water." — the article vanishes — but
-     `{The *can can}` is correct, so `*` already fixes it. The gap is
-     documentation: README.md's only `*` example is `"A {*can can} contain
-     water."`, which puts the article *outside* the placeholder, and that shape
-     renders correctly *without* `*` — the example demonstrates the marker in
-     the one position where it changes nothing.
+     `{The *can can}` is correct, so `*` already fixes it. The gap was
+     documentation: README.md's only `*` example used to be `"A {*can can}
+     contain water."`, which puts the article *outside* the placeholder, and
+     that shape renders correctly *without* `*` — the example demonstrated the
+     marker in the one position where it changed nothing. **Fixed 2026-08-16**:
+     README.md's `*` bullet now shows the actual `{The can can}` vs.
+     `{The *can can}` contrast, with both rendered outputs.
    - Distinguishes `gap` from `boundary`, so the permanent word-order boundary
      (item 20 / §2.12) is *counted* but never listed as work. That count —
      1223 occurrences against this repo's own prose, the largest number in the
