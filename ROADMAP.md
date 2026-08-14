@@ -461,12 +461,31 @@ building, its build item is dropped rather than executed anyway.
       exact-match lookup misses: `bookshelf` → `bookshelves`, `housewife` →
       `housewives`. Not redundant with the table.
     - **The compatibility contract is the `singular_end`/`plural_end`
-      attributes.** At their defaults the rules apply; a struct that *sets*
+      attributes.** Write neither and the rules apply; a struct that *writes*
       either one has stated a rule of its own and keeps the literal
       strip-and-append it always got. That is what stops a non-English impl
       using `plural_end` as an escape hatch from silently acquiring English
       orthography — `tests/ranting/regular_plurals.rs` pins it with a German
       `plural_end = "e"` struct whose name (`Fuchs`) would otherwise take `-es`.
+    - **The switch is whether the attribute was written, not its value** — a
+      third defect, found by asking what this change does to a non-English
+      *caller* rather than to a non-English `Ranting` impl. The first cut tested
+      `singular_end.is_empty() && plural_end == "s"`, which made
+      `#[ranting(plural_end = "s")]` — literal append-`s`, no orthography —
+      indistinguishable from the default, so the one opt-out a German, Dutch or
+      Danish **loanword** plural actually needs (`Partys`, `Babys`, where the
+      rules say `Parties`) silently got the English rules. `ranting::Noun`, with
+      no attributes to write at all, had no opt-out whatsoever. Consonant + `y`
+      is the class where the paths diverge, and the only class where these rules
+      made previously-*correct* output wrong: bare append-`s` was right for it by
+      accident. Fixed structurally — `RantingOptions`'s two fields are
+      `Option<String>`, `inflect_noun_regular` takes `Option<&str>` and defaults
+      to `""`/`"s"` only inside the literal path, and `= "$"` reads the field
+      through a new public `ranting::DeclaredEnding` trait so that a `String`
+      field still means "declared" while an `Option<String>` one can say "unset"
+      at runtime. That is what `Noun::with_plural_end`/`with_singular_end` use.
+      English output is unchanged (the both-absent arm is untouched); both
+      falsifiers hand-write `inflect`, so neither was affected either way.
     - **Singularization was deliberately left alone**, and this is the item's
       one open asymmetry. Every inverse rule has a counterexample class spelling
       cannot separate from its positive class: `-ies` → `-y` fixes `cities` but

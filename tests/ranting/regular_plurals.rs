@@ -84,6 +84,49 @@ fn a_declared_plural_end_still_wins_over_the_rules() {
     assert_eq!(say!("{,+0}", as_english), "Fuchses");
 }
 
+/// Declaring `plural_end = "s"` is not the same as leaving it alone, and this is the whole
+/// reason the mode is chosen by *whether the attribute was written* rather than by its value.
+///
+/// A language whose loanword plurals are a bare `-s` -- German `Partys`/`Babys`, Dutch, Danish
+/// -- needs exactly this: append `s`, apply no English orthography. Testing the value instead
+/// made that request indistinguishable from the default, so it silently got the English rules
+/// and there was no opt-out at all short of a decoy `singular_end`. Consonant + `y` is the class
+/// where the two paths actually diverge; those names were right by accident before the rules
+/// landed, so this is the one place the rules made previously-correct output wrong.
+#[test]
+fn declaring_the_default_suffix_still_opts_out_of_the_rules() {
+    #[derive_ranting]
+    #[ranting(name = "Party", subject = "it", plural_end = "s")]
+    struct Loanword {}
+
+    assert_eq!(say!("{,+0}", Loanword {}), "Partys");
+
+    // Same word without the attribute: English orthography, and wrong for German.
+    #[derive_ranting]
+    #[ranting(name = "Party", subject = "it")]
+    struct English {}
+
+    assert_eq!(say!("{,+0}", English {}), "Parties");
+}
+
+/// `Noun` has no attributes to declare, so the same opt-out is a constructor -- otherwise the
+/// crate's own convenience type would be the one `Ranting` impl with no way out of English
+/// spelling.
+#[test]
+fn a_noun_can_declare_its_own_suffix_at_runtime() {
+    let english = Noun::new("Party", "it");
+    assert_eq!(say!("{,+0}", english), "Parties");
+
+    let german = Noun::new("Party", "it").with_plural_end("s");
+    assert_eq!(say!("{,+0}", german), "Partys");
+
+    // Stripping works the same way, and either half alone is enough to leave the rules behind.
+    let fuchs = Noun::new("Fuchs", "it")
+        .with_singular_end("s")
+        .with_plural_end("se");
+    assert_eq!(say!("{,+0}", fuchs), "Fuchse");
+}
+
 /// The rules run on the name as written, so a capitalized noun stays capitalized across a stem
 /// rewrite -- `City` must not become `Cityies` or `cities`.
 #[test]

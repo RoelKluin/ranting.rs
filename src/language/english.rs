@@ -357,18 +357,25 @@ pub fn inflect_noun_irregular(noun_form: &str, to_plural: bool) -> Option<String
 /// Called by derive-generated `Ranting::inflect()` impls after
 /// [`inflect_noun_irregular`] returns `None`. `singular_end`/`plural_end` are the
 /// `#[ranting(..)]` attributes as the struct declared them — literals, or the struct's own
-/// fields when the attribute is `"$"`, which is why they arrive as runtime `&str` rather than
+/// fields when the attribute is `"$"`, which is why they arrive as runtime values rather than
 /// being resolved in the macro.
 ///
-/// **Which path runs is decided by those two attributes, and that is the compatibility
-/// contract.** At their defaults (`singular_end = ""`, `plural_end = "s"`) the noun goes through
-/// English's regular orthographic rules — see [`plurals::regular_plural`](super::plurals) — so
-/// `{+fly}` renders `"flies"` where it used to render `"flys"`. A struct that *sets* either
-/// attribute has stated a rule of its own, and that statement wins: it still gets the literal
-/// strip-and-append it always got, unchanged. That is what keeps a non-English impl relying on
+/// **Which path runs is decided by whether those attributes were *written*, and that is the
+/// compatibility contract.** Both absent (`None`): the noun goes through English's regular
+/// orthographic rules — see [`plurals::regular_plural`](super::plurals) — so `{+fly}` renders
+/// `"flies"` where it used to render `"flys"`. Either one written: the struct has stated a rule
+/// of its own, and that statement wins — it gets the literal strip-and-append, with the
+/// unwritten half defaulting to `""`/`"s"`. That is what keeps a non-English impl relying on
 /// `plural_end` from silently acquiring English spelling rules.
 ///
-/// Singularization is the pre-existing strip-`plural_end` behavior in both cases, deliberately —
+/// The parameters are `Option` rather than plain `&str` for one reason: `#[ranting(plural_end =
+/// "s")]` must be able to mean *literal append-`s`, no English orthography*. That is the opt-out
+/// a language whose loanword plurals are bare `-s` needs — German `Partys`/`Babys`, Dutch,
+/// Danish — and it was unreachable while the mode was inferred from the value, since `"s"` is
+/// also the historical default. Names ending in a consonant + `y` are the class that actually
+/// diverges: they were right by accident before the rules landed.
+///
+/// Singularization is the pre-existing strip-`plural_end` behavior in every case, deliberately —
 /// the module docs on `plurals` give the counterexample classes that rule it out.
 ///
 /// A form that doesn't end in the suffix it would have to strip is returned unchanged rather
@@ -376,14 +383,16 @@ pub fn inflect_noun_irregular(noun_form: &str, to_plural: bool) -> Option<String
 pub fn inflect_noun_regular(
     noun_form: &str,
     to_plural: bool,
-    singular_end: &str,
-    plural_end: &str,
+    singular_end: Option<&str>,
+    plural_end: Option<&str>,
 ) -> String {
+    if to_plural && singular_end.is_none() && plural_end.is_none() {
+        return super::plurals::compound_plural(noun_form)
+            .unwrap_or_else(|| super::plurals::regular_plural(noun_form));
+    }
+    let singular_end = singular_end.unwrap_or("");
+    let plural_end = plural_end.unwrap_or("s");
     if to_plural {
-        if singular_end.is_empty() && plural_end == "s" {
-            return super::plurals::compound_plural(noun_form)
-                .unwrap_or_else(|| super::plurals::regular_plural(noun_form));
-        }
         match noun_form.strip_suffix(singular_end) {
             Some(stem) => stem.to_string() + plural_end,
             None => noun_form.to_string(),

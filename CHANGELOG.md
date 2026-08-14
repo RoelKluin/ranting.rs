@@ -16,7 +16,13 @@
   - **This changes rendered output.** A struct that declares `singular_end` or
     `plural_end` is unaffected: declaring either states a rule of its own and
     still gets the literal strip-and-append, which is what keeps a non-English
-    impl from acquiring English orthography by accident.
+    impl from acquiring English orthography by accident. What counts is that the
+    attribute was *written*, not what value it was given — `plural_end = "s"` is
+    a genuine opt-out (bare append, no orthography), which is what a German,
+    Dutch or Danish loanword plural needs: `Party` → `Partys`, where the rules
+    say `Parties`. Names ending in a consonant + `y` are the class where the two
+    paths differ, and the only class the rules made *previously-correct* output
+    wrong for.
   - Singularization is deliberately unchanged — no spelling rule separates
     `cities` → `city` from `movies` → `movie`, so `{-cities}` still renders
     `"citie"`.
@@ -26,7 +32,16 @@
 ### Added
 
 - `ranting::inflect_noun_regular`, the public entry point derive-generated
-  `inflect()` impls use once the irregular table misses.
+  `inflect()` impls use once the irregular table misses. Its `singular_end`/
+  `plural_end` parameters are `Option<&str>`, `None` meaning "no rule declared".
+- `Noun::with_plural_end` / `Noun::with_singular_end`, chaining off
+  `new`/`try_new` like `with_noun_class`. `Noun` has no `#[ranting(..)]`
+  attributes to write, so these are its opt-out from the regular rules.
+- `ranting::DeclaredEnding`, the trait `#[ranting(singular_end = "$")]` /
+  `#[ranting(plural_end = "$")]` read their field through. A `String` field
+  (the documented shape) always counts as declared; an `Option<String>` one can
+  additionally say "unset" at runtime, which is how `Noun` keeps the English
+  rules for every noun that never calls `with_plural_end`.
 
 ## v1.3.0 — Internationalization Foundations
 

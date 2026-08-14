@@ -123,6 +123,34 @@ Both constructors leave the class [`UNSET`](#nounclass); `with_noun_class`
 consumes and returns the `Noun`, so it chains:
 `Noun::new("Katze", "she").with_noun_class(NounClass::new("feminine"))`.
 
+```rust
+Noun::with_plural_end(self, plural_end: &str) -> Noun     // chains, like with_noun_class
+Noun::with_singular_end(self, singular_end: &str) -> Noun
+```
+
+`Noun` has no `#[ranting(..)]` attributes to write, so these are how it opts out
+of English's regular plural rules — the runtime equivalent of
+`#[ranting(plural_end = "...")]`, with the same contract (see [Deriving
+`Ranting`](#deriving-ranting)). Either one alone is enough; the suffix is then
+appended/stripped literally with no English orthography. Declaring `"s"` is
+meaningful and differs from leaving it unset:
+`Noun::new("Party", "it").with_plural_end("s")` pluralizes to `Partys`, while a
+plain `Noun::new("Party", "it")` gets `Parties`.
+
+## `DeclaredEnding`
+
+The trait `#[ranting(singular_end = "$")]` / `#[ranting(plural_end = "$")]` read
+their field through, so both field shapes work:
+
+| Field type | `declared()` | Meaning |
+|---|---|---|
+| `String` / `&str` | always `Some` | The struct declared a rule — literal strip-and-append. This is the documented shape. |
+| `Option<String>` / `Option<&str>` | `None` when empty | Can additionally say "no rule declared" at runtime, i.e. use the language's own rules. |
+
+Implement it yourself only for a third field shape. [`Noun`](#noun) uses the
+`Option` case, which is what lets `with_plural_end` exist without every `Noun`
+losing the English rules.
+
 ## `NounClass`
 
 An open-ended lexical-gender / noun-class label carried by the entity and
@@ -534,8 +562,8 @@ struct Wizard {}
 |---|---|---|
 | `subject` | `"it"` | The subject pronoun; `"$"` means read a `subject: String` field on the struct instead. |
 | `name` | struct/enum name | Display name; `"$"` means read a `name: String` field instead. |
-| `singular_end` | `""` | Suffix stripped when singularizing (for `inflect()`). |
-| `plural_end` | `"s"` | Suffix added when pluralizing. **Leaving both at their defaults selects English's regular rules** (`fly`→`flies`, `box`→`boxes`, `bookshelf`→`bookshelves`, `mother-in-law`→`mothers-in-law`), applied after the `data/irregular_plurals.txt` lookup. Setting either declares your own rule, and the suffix is then stripped/appended literally with no English orthography: `plural_end = "e"` on a noun named `Fuchs` gives `Fuchse`, not `Fuchses`. Singularization always strips literally — the inverse rules are deliberately not implemented, since no spelling rule separates `cities`→`city` from `movies`→`movie`. |
+| `singular_end` | unset (`""`) | Suffix stripped when singularizing (for `inflect()`). `"$"` means read a `singular_end: String` field instead — or an `Option<String>` one, which can additionally say "unset" at runtime (see [`DeclaredEnding`](#declaredending)). |
+| `plural_end` | unset (`"s"`) | Suffix added when pluralizing. **Writing neither attribute selects English's regular rules** (`fly`→`flies`, `box`→`boxes`, `bookshelf`→`bookshelves`, `mother-in-law`→`mothers-in-law`), applied after the `data/irregular_plurals.txt` lookup. Writing either declares your own rule, and the suffix is then stripped/appended literally with no English orthography: `plural_end = "e"` on a noun named `Fuchs` gives `Fuchse`, not `Fuchses`. **The switch is whether you wrote the attribute, not its value** — `plural_end = "s"` is a genuine opt-out (bare append, no orthography: `Party`→`Partys`, where the rules say `Parties`), which is what a German/Dutch/Danish loanword plural needs. Singularization always strips literally — the inverse rules are deliberately not implemented, since no spelling rule separates `cities`→`city` from `movies`→`movie`. |
 | `gender` | `""` (unset) | Lexical gender / noun class label, e.g. `"masculine"`; any label a fork wants. `"$"` means read a `gender: ranting::NounClass` field instead. Surfaces as [`noun_class()`](#nounclass); omitting it generates no `noun_class` override at all. |
 
 **Cosmetic attributes** — formatting/display only:

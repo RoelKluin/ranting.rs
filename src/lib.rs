@@ -1159,7 +1159,13 @@ fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
 /// of the trait functions.
 #[derive(ranting_derive::Ranting)]
 // By setting name and subject to "$", these must come from the struct.
-#[ranting(name = "$", subject = "$", gender = "$")]
+#[ranting(
+    name = "$",
+    subject = "$",
+    gender = "$",
+    singular_end = "$",
+    plural_end = "$"
+)]
 pub struct Noun {
     pub(crate) name: String,
     // Typed, not `String`: an invalid subject pronoun is now unrepresentable
@@ -1176,6 +1182,54 @@ pub struct Noun {
     // same attribute-name-is-field-name rule as `name`/`subject`; the accessor is the
     // `Ranting::noun_class` trait method, since that is what the inflection hooks are given.
     pub(crate) gender: NounClass,
+    // The `singular_end`/`plural_end` attributes, as runtime values. `Option`, and typed as
+    // such rather than as the `String` a user struct declares for `= "$"`, because for `Noun`
+    // "unset" has to be expressible at *runtime*: a bare `Noun` must keep getting English's
+    // regular plural rules, while `with_plural_end("s")` must be able to ask for literal
+    // append-`s` and get no English orthography at all. `DeclaredEnding` is what lets one
+    // attribute accept both field shapes.
+    pub(crate) singular_end: Option<String>,
+    pub(crate) plural_end: Option<String>,
+}
+
+/// How the derive macro reads a `#[ranting(singular_end = "$")]` / `#[ranting(plural_end =
+/// "$")]` field, so that both field shapes work.
+///
+/// A `String` field (what [the attribute docs](crate#attributes) describe, and what user structs
+/// declare) always counts as *declared* — the struct stated a rule, so [`inflect_noun_regular`]
+/// takes the literal strip-and-append path. An `Option<String>` field can additionally say
+/// "unset" at runtime, i.e. fall back to English's regular rules; [`Noun`] uses that to offer
+/// [`Noun::with_plural_end`] without giving up the rules for every noun that doesn't call it.
+///
+/// You only implement this if you want a third field shape; the blanket cases below cover the
+/// documented ones.
+pub trait DeclaredEnding {
+    /// The declared suffix, or `None` for "no rule declared — use the language's own".
+    fn declared(&self) -> Option<&str>;
+}
+
+impl DeclaredEnding for String {
+    fn declared(&self) -> Option<&str> {
+        Some(self.as_str())
+    }
+}
+
+impl DeclaredEnding for &str {
+    fn declared(&self) -> Option<&str> {
+        Some(self)
+    }
+}
+
+impl DeclaredEnding for Option<String> {
+    fn declared(&self) -> Option<&str> {
+        self.as_deref()
+    }
+}
+
+impl DeclaredEnding for Option<&str> {
+    fn declared(&self) -> Option<&str> {
+        *self
+    }
 }
 
 /// Error returned by [`Noun::try_new`] when `subject` isn't one of the
@@ -1211,6 +1265,8 @@ impl Noun {
             name: name.to_string(),
             subject,
             gender: NounClass::UNSET,
+            singular_end: None,
+            plural_end: None,
         })
     }
 
@@ -1231,6 +1287,49 @@ impl Noun {
     /// ```
     pub fn with_noun_class(mut self, class: NounClass) -> Self {
         self.gender = class;
+        self
+    }
+
+    /// Declare this noun's own plural suffix, opting out of English's regular spelling rules.
+    ///
+    /// The suffix is appended literally, with no orthography applied — the same contract
+    /// `#[ranting(plural_end = "...")]` gives a derived struct. Both constructors leave it
+    /// undeclared, which is what keeps `{+fly}` rendering `"flies"`.
+    ///
+    /// Declaring `"s"` is meaningful and is not the same as leaving it alone: it asks for a bare
+    /// append, which is what a German or Dutch loanword plural wants. Consonant + `y` is the
+    /// class where the two actually differ.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use ranting::*;
+    /// # use ranting_derive::say;
+    /// let party = Noun::new("Party", "it");
+    /// assert_eq!(say!("{+party}"), "Parties".to_string());
+    ///
+    /// let party = Noun::new("Party", "it").with_plural_end("s");
+    /// assert_eq!(say!("{+party}"), "Partys".to_string());
+    /// ```
+    pub fn with_plural_end(mut self, plural_end: &str) -> Self {
+        self.plural_end = Some(plural_end.to_string());
+        self
+    }
+
+    /// Declare the suffix stripped before [`with_plural_end`](Self::with_plural_end)'s is
+    /// appended, and appended when singularizing. Opts out of English's regular rules on its
+    /// own, exactly as `#[ranting(singular_end = "...")]` does.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use ranting::*;
+    /// # use ranting_derive::say;
+    /// let fuchs = Noun::new("Fuchs", "it")
+    ///     .with_singular_end("s")
+    ///     .with_plural_end("se");
+    /// assert_eq!(say!("{+fuchs}"), "Fuchse".to_string());
+    /// ```
+    pub fn with_singular_end(mut self, singular_end: &str) -> Self {
+        self.singular_end = Some(singular_end.to_string());
         self
     }
 }
