@@ -8,9 +8,6 @@ use syn::{Ident, parse_quote};
 fn string_it() -> String {
     String::from("it")
 }
-fn string_s() -> String {
-    String::from("s")
-}
 
 #[derive(FromDeriveInput, Default)]
 #[darling(default, attributes(ranting))]
@@ -29,13 +26,18 @@ pub(crate) struct RantingOptions {
 
     // Suffix to strip when singularizing. Empty string means no singularization.
     // Used in the `inflect()` method to convert plural names to singular form.
-    pub(crate) singular_end: String,
+    //
+    // `Option`, not `String`: whether the attribute was *written* is what selects between
+    // English's orthographic rules and a literal strip-and-append, so "absent" and "written
+    // as the value that happens to be the default" must stay distinguishable. Testing the
+    // value instead made `#[ranting(plural_end = "s")]` — the exact opt-out a German or Dutch
+    // loanword plural needs — indistinguishable from the default, i.e. no opt-out at all.
+    pub(crate) singular_end: Option<String>,
 
-    // Suffix to append when pluralizing.
-    // Used in the `inflect()` method to convert singular names to plural form.
-    // Default: "s"
-    #[darling(default = "string_s")]
-    pub(crate) plural_end: String,
+    // Suffix to append when pluralizing. Absent means English's regular rules; see
+    // `singular_end` above for why this is an `Option`. Defaulted to "s" only where the
+    // literal path actually needs a value, in `ranting::inflect_noun_regular`.
+    pub(crate) plural_end: Option<String>,
 
     // The lexical gender / noun class label, e.g. "masculine", "feminine", "neuter", "common",
     // or any label a non-English fork wants (Bantu class numbers, etc.) — `ranting` never
@@ -115,15 +117,26 @@ fn get_namefn_for(mut opt: RantingOptions, is_enum: bool) -> TokenStream {
     }
 }
 
+/// The `Option<&str>` a `singular_end`/`plural_end` attribute becomes in the generated
+/// `inflect()` call: `None` if unwritten, the struct's field via [`ranting::DeclaredEnding`]
+/// for `"$"`, and `Some(literal)` otherwise.
+fn declared_ending(attr: Option<&str>, field: TokenStream) -> TokenStream {
+    match attr {
+        None => parse_quote!(None),
+        Some("$") => parse_quote!(ranting::DeclaredEnding::declared(&self.#field)),
+        Some(n) => parse_quote!(Some(#n)),
+    }
+}
+
 fn get_plurality_fns(opt: &RantingOptions) -> TokenStream {
-    let singular_end: TokenStream = match opt.singular_end.as_str() {
-        "$" => parse_quote!(self.singular_end.as_str()),
-        n => parse_quote!(#n),
-    };
-    let plural_end: TokenStream = match opt.plural_end.as_str() {
-        "$" => parse_quote!(self.plural_end.as_str()),
-        n => parse_quote!(#n),
-    };
+    // `None` when the attribute is absent, which is what selects English's regular rules —
+    // an attribute written as `"s"` is a declaration and takes the literal path, exactly as
+    // `"e"` or `"en"` would. `"$"` reads the struct's own field and goes through
+    // `ranting::DeclaredEnding`, so a field typed `Option<String>` can say "unset" at runtime
+    // too (that is how `ranting::Noun` offers `with_plural_end`), while the documented
+    // `String` field keeps meaning "declared".
+    let singular_end = declared_ending(opt.singular_end.as_deref(), quote::quote!(singular_end));
+    let plural_end = declared_ending(opt.plural_end.as_deref(), quote::quote!(plural_end));
     let subject_str = opt.subject.as_str();
     if subject_str == "$" {
         parse_quote! {

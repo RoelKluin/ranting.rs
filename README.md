@@ -195,13 +195,18 @@ fn main() {
 - A struct can receive via attributes. **Core attributes** determine how the noun functions grammatically:
   * **subject** ["it"] - the subject pronoun; if "$", the struct must contain a `subject: String` field
   * **name** [Struct or Enum name] - the display name; if "$", the struct must contain a `name: String` field
-  * **singular_end** [""] - suffix to strip when singularizing (for inflect() method)
-  * **plural_end** ["s"] - suffix to add when pluralizing (for inflect() method).
-    Leaving both at their defaults gets English's regular rules — `fly`→`flies`, `box`→`boxes`,
+  * **singular_end** [unset, behaves as ""] - suffix to strip when singularizing (for inflect() method)
+  * **plural_end** [unset, behaves as "s"] - suffix to add when pluralizing (for inflect() method).
+    Writing *neither* attribute gets English's regular rules — `fly`→`flies`, `box`→`boxes`,
     `bookshelf`→`bookshelves`, `mother-in-law`→`mothers-in-law` — after the irregular table in
-    `data/irregular_plurals.txt` is consulted. Setting either one instead declares your own rule,
+    `data/irregular_plurals.txt` is consulted. Writing either one instead declares your own rule,
     and that suffix is then stripped/appended literally, with no English orthography applied:
     `#[ranting(plural_end = "e")]` on a noun named `Fuchs` gives `Fuchse`, not `Fuchses`.
+    What counts is that you *wrote* the attribute, not what you wrote in it — so
+    `#[ranting(plural_end = "s")]` is a real opt-out and is not the same as leaving it off: it
+    appends a bare `s` and applies no English spelling, which is what a German or Dutch loanword
+    plural wants (`Party`→`Partys`, where the rules would say `Parties`). `ranting::Noun`, having
+    no attributes to write, has `Noun::with_plural_end`/`Noun::with_singular_end` instead.
     Singularization always strips `plural_end` literally — the inverse rules are not implemented,
     because no spelling rule separates `cities`→`city` from `movies`→`movie`.
   * **gender** [""] - the lexical gender / noun class label, e.g. `"masculine"` — any label a

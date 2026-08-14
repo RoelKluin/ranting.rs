@@ -335,10 +335,10 @@ mod tests {
     fn singularization_is_deliberately_unchanged() {
         use crate::inflect_noun_regular;
         for (plural, singular) in [("cities", "citie"), ("boxes", "boxe")] {
-            assert_eq!(inflect_noun_regular(plural, false, "", "s"), singular);
+            assert_eq!(inflect_noun_regular(plural, false, None, None), singular);
         }
         for (plural, singular) in [("movies", "movie"), ("olives", "olive")] {
-            assert_eq!(inflect_noun_regular(plural, false, "", "s"), singular);
+            assert_eq!(inflect_noun_regular(plural, false, None, None), singular);
         }
     }
 }
