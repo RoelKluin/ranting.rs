@@ -94,17 +94,26 @@ fn hole_4_case_particles_are_template_text_not_grammatical_case() {
     // `case` parameter entirely.
     //
     // A boundary rather than a gap: this is the word-order boundary (`docs/EXTENSIBILITY.md`
-    // §2.12), which SOV-with-postpositions reconfirms from outside Indo-European. The template
-    // simply writes the particles, and everything still inflects.
+    // §2.12), which SOV-with-postpositions reconfirms from outside Indo-European.
     let neko = JapaneseNoun::neko();
     let hon = JapaneseNoun::hon();
     let formal = NarrationContext::new().register(Register::Formal);
+
+    // And the boundary costs less than it looks like it should. A verb has to hang off *some*
+    // placeholder, which suggests a verb-final clause needs a noun repeated at the end — but the
+    // hidden marker `?` solves it exactly: the noun renders nothing and the verb still conjugates,
+    // giving idiomatic SOV with correct politeness and no duplication.
     assert_eq!(
-        say_with!(formal, "{0}が{1}を{0 see}", neko, hon),
-        "猫が本を猫 見ます"
+        say_with!(formal, "{0}が{1}を{?0 see}", neko, hon),
+        "猫が本を見ます"
     );
-    // Note the artifact in that line: the verb has to hang off a placeholder, so the subject is
-    // written twice. Nothing in `ranting` puts a verb at the end of a clause on its own.
+
+    // Hanging the verb off the object placeholder works too, and is what you would write if the
+    // particle were not needed:
+    assert_eq!(
+        say_with!(formal, "{0}が{1 see}", neko, hon),
+        "猫が本 見ます"
+    );
 }
 
 // ------------------------------- hole 5: Register cannot express finer gradation --

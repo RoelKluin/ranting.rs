@@ -99,6 +99,9 @@ Japanese, would be it.
 
 ## The holes
 
+Five, numbered 1-5. Hole 1 has a sub-case (1b) with its own pinned test, since the escape hatch
+that would work around it fails for a related reason; every other hole is one entry, one test.
+
 ### 1. The numeral cannot be bound to its noun
 
 Japanese writes 「一匹の猫」 with no spaces. `handle_placeholder_impl` pushes a separator between
@@ -142,8 +145,18 @@ Japanese marks case with postpositional particles — が, を, に — separate
 so they live in the template's literal text and `GrammaticalCase` never comes into it. This is the
 word-order boundary (`docs/EXTENSIBILITY.md` §2.12) reconfirmed from outside Indo-European by an
 SOV language with postpositions. Recorded the way `ranting_i18n`'s hole 8 and `ranting_ar`'s hole 5
-are. One artifact worth seeing in the pinned test: a verb has to hang off a placeholder, so a
-verb-final clause needs its subject written twice. Pinned by
+are.
+
+It costs less than it looks like it should, which is worth recording because the first version of
+this entry got it wrong. A verb has to hang off *some* placeholder, so a verb-final clause looks
+like it needs a noun repeated at the end — but the hidden marker `?` solves it exactly:
+
+```rust
+say_with!(formal, "{0}が{1}を{?0 see}", neko, hon)   // 猫が本を見ます
+```
+
+The noun renders nothing and the verb still conjugates, giving idiomatic SOV with correct
+politeness and no duplication. Pinned by
 `hole_4_case_particles_are_template_text_not_grammatical_case`.
 
 ### 5. `Register` has three values; keigo has more levels
