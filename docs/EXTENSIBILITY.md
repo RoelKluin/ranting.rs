@@ -775,6 +775,14 @@ first and re-case your fused form by inspecting the first character or calling `
 Found the hard way by the Arabic spike, whose `al-` matching hit it
 (`docs/superpowers/specs/2026-08-14-arabic-falsification-spike.md`).
 
+**Non-ASCII articles work, and did not before 2026-08-14.** This hook was overridden by no fork at
+all until `ranting_ar` (ROADMAP.md Phase 7 items 1 and 5), and the elision splice **panicked** on
+any article whose last character is multibyte — Arabic `ال`, Cyrillic `этот`, Greek `τό` alike —
+because it advanced one byte rather than one character past a byte index. Fixed and pinned
+(`docs/architecture-review-2026-08-14.md` §1.7). Worth knowing if you are reading this because
+you are about to be the *second* fork to override it: the path is now exercised, but it was
+exercised for the first time very recently.
+
 **What is not reachable from here.** Preposition-article fusion *across a placeholder boundary* —
 French `de` + `le` → `du`, Italian `di` + `il` → `del` — is out of scope for *this* hook: the
 preposition lives in the template's literal text, outside the placeholder, and this hook's span

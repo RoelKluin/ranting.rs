@@ -58,9 +58,29 @@ fn hole_3_bound_pronouns_cannot_attach_to_their_host() {
     //
     // Not a signature gap: it is the word-order boundary in a different costume. The suffix's
     // *position* is inside another word, and no inflection hook will ever change position.
+    // All three markers that could carry a bound morpheme render it as a free-standing word.
+    // (`@` is `PronounCase::Objective`, `` ` `` is `PossessiveDeterminer`, `~` is
+    // `PossessivePronoun` — verified against the trait rather than assumed.)
     let muallim = ArabicNoun::muallim();
     assert_eq!(say!("{@0}", muallim), "ه"); // a bare suffix standing alone
     assert_eq!(say!("{`0}", muallim), "ه"); // possessive determiner, same problem
+    assert_eq!(say!("{~0}", muallim), "ه"); // and the independent possessive
+
+    // The gender distinction survives — it is only the *position* that is unreachable, which is
+    // what makes this the word-order boundary rather than a missing signal.
+    assert_eq!(say!("{@0}", ArabicNoun::taliba()), "ها");
+
+    // A template *can* abut two placeholders, and for a host whose ending does not change that is
+    // enough — `كتاب` + `ه` really is `كتابه`:
+    let kitab = ArabicNoun::kitab();
+    assert_eq!(say!("{0}{`1}", kitab, muallim), "كتابه");
+
+    // So the hole is narrower than "bound morphemes are unreachable", and sharper: **the suffix
+    // changes its host**. A feminine noun's `ة` becomes `ت` before it — `طالبة` + `ه` is
+    // `طالبته`, not `طالبةه` — and no hook can rewrite the *preceding* placeholder's output.
+    // `elide_article_custom` is precisely that power for an article and there is no equivalent
+    // here, which is why this is filed as a hole rather than as the word-order boundary.
+    assert_eq!(say!("{0}{`1}", ArabicNoun::taliba(), muallim), "طالبةه");
 }
 
 // ------------------------------------------------------- hole 4: construct state (الإضافة) --

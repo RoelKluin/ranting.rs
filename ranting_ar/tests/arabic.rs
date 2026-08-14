@@ -36,6 +36,29 @@ fn the_dual_works_for_sound_and_broken_plurals_alike() {
 }
 
 #[test]
+fn the_seam_cannot_tell_a_sound_plural_from_a_broken_one() {
+    // The claim the README makes about root-and-pattern morphology, asserted rather than stated:
+    // the lexicon knows which nouns take a suffixed (sound) plural and which take an internal
+    // vowel change (broken), and *nothing at the seam consults it*. Both kinds are table rows
+    // returned through the same `String`.
+    use ranting_ar::lexicon::{KITAB, MUALLIM, NounEntry, QAMAR, SHAMS, TALIBA};
+    let vocabulary: [(&NounEntry, bool); 5] = [
+        (&KITAB, false),
+        (&SHAMS, false),
+        (&QAMAR, false),
+        (&MUALLIM, true),
+        (&TALIBA, true),
+    ];
+    for (entry, sound) in vocabulary {
+        assert_eq!(entry.sound_plural, sound, "{}", entry.singular);
+    }
+
+    // Same call, same shape, both classes — which is the finding.
+    assert_eq!(say!("{+0}", ArabicNoun::kitab()), "كتب"); // broken
+    assert_eq!(say!("{+0}", ArabicNoun::muallim()), "معلمون"); // sound
+}
+
+#[test]
 fn the_spelled_out_numeral_channel_reaches_the_dual_too() {
     // Both numeral channels carry the count, so a template may write either.
     let kitab = ArabicNoun::kitab();
