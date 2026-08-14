@@ -255,7 +255,11 @@ where
     if noun.skip_article() && !s.starts_with('!') && !matches!(kind, ArticleKind::TheseThose) {
         return Some("".to_string());
     }
-    let article_form = s.trim_start_matches('!');
+    // `!` is the "render the article even though this entity skips articles" marker, checked
+    // against the raw `s` just above; `?` is the "display depends on the entity" marker. Neither
+    // is ever part of the word rendered, and both have to come off before the word reaches a
+    // hook or `adapt_article` — see docs/architecture-review-2026-08-14.md §1.5.
+    let article_form = s.trim_start_matches(['!', '?']);
     let case: GrammaticalCase = case.into();
     // Read off the noun rather than plumbed through `ArticleRenderCtx`: the class is a property
     // of the entity, and every article hook call in this function already has `noun` in hand.
@@ -305,7 +309,7 @@ where
                 // may pick either its own form or the a/an passed in, so capitalizing before it
                 // ran would mean capitalizing a form that gets discarded.
                 let a_or_an = get_a_or_an(&singular);
-                let article = ranting::adapt_article(a_or_an, s, space, as_pl, false);
+                let article = ranting::adapt_article(a_or_an, article_form, space, as_pl, false);
                 Some(noun.capitalize_with_context(
                     &article,
                     OrthographyRole::Article,
@@ -331,7 +335,8 @@ where
             ) {
                 Some(custom + space)
             } else {
-                let article = ranting::adapt_article(s, s, space, as_pl, false);
+                let article =
+                    ranting::adapt_article(article_form, article_form, space, as_pl, false);
                 Some(noun.capitalize_with_context(
                     &article,
                     OrthographyRole::Article,

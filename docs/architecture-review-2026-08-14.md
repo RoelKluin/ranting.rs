@@ -70,7 +70,7 @@ documents only the permissive direction (punctuation may abut). Untested.
 `$` is stripped before `...` is examined (`heed.rs:86-92`). Neither is documented; neither
 is likely to matter, since capture names are the template author's own choice.
 
-### 1.5 `{?article noun}` renders literal garbage unless the entity skips articles (added 2026-08-14)
+### 1.5 `{?article noun}` renders literal garbage unless the entity skips articles — ✅ **FIXED 2026-08-14**
 
 Found while probing for `docs/superpowers/specs/2026-08-14-japanese-falsification-spike.md`.
 `README.md` documents a leading `?` on an article as "its display depends (see `no_article`)",
@@ -96,9 +96,26 @@ test and doc example of this syntax uses a `no_article = true` entity, which is 
 surfaced. The documented behavior is the `false` case; the implemented behavior is only the `true`
 case.
 
-Not fixed here: the fix is in the placeholder grammar's marker handling, and the failing shape
-needs a decision first — whether `{?the noun}` on a non-skipping entity should render `the noun`
-(the documented reading) or be a compile error.
+**Cause**: `ArticleKind::classify` (and the macro's hand-kept copy in
+`ranting_derive/src/lib.rs::article_kind_tokens`) trimmed a leading `!` and nothing else, so
+`?the` classified as `ArticleKind::Other`. `Other` is the *pre-noun verb* path — the word is
+offered to `inflect_article_custom` (English returns `None`) and then conjugated as a verb, which
+is where the `s` came from. The `no_article = true` case looked fine only because
+`get_article_or_so`'s `skip_article()` early return fires *before* the classification match, so
+the broken branch was never reached by any test or example.
+
+**Fixed**: both classification sites now trim `['!', '?']`, and `get_article_or_so` strips both
+from the word before it reaches a hook or `adapt_article`. `?the` is now exactly `the`, which is
+the documented reading — the entity is consulted for every article kind anyway, so `?` asks for
+behavior that was already the default. Pinned by
+`tests/ranting/article_classification.rs::question_marked_article_is_still_an_article` (plus the
+`no_article` half, which is what every pre-existing test exercised) and
+`ranting_core`'s `strips_leading_question_mark_before_classifying`.
+
+**Noted while fixing, not addressed**: `{!the 0}` — the emphasis marker `get_article_or_so`
+checks for at its `skip_article()` early return (`!s.starts_with('!')`) — does not parse. The
+grammar rejects it with "expected a noun or variable name, found `!the 0`", so that branch may be
+unreachable from `say!()` altogether.
 
 ### 1.6 `{?$n noun}` leaves a double space (added 2026-08-14)
 
