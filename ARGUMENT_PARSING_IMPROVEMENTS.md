@@ -1,5 +1,19 @@
 # Argument Parsing Improvements
 
+> **Partially superseded (2026-08-15).** Kept as a historical record of this change;
+> do not read the "Named Argument Missing" example as current behavior. The
+> positional-argument error message in §1/§"Error Message Improvements" still matches
+> `ranting_derive/src/lib.rs::get_opt_num_ph_expr` verbatim. But the named-argument
+> case does not: a name absent from `given` is never reported as
+> `"named argument 'missing_name' not found in provided arguments"` — it falls
+> through to `check_ident_path`/`path_from` and is treated as a variable from the
+> local scope instead (the same fallback §2 of this doc itself describes), so it
+> either resolves there or surfaces as rustc's own "cannot find value" error, not a
+> `ranting_derive`-authored message. `tests/ranting/error_messages.rs`'s "Expected
+> error" comments describe this same superseded named-argument message; per
+> `CLAUDE.md`'s testing conventions, this repo has no compile-fail harness, so
+> nothing ever executed that comment to catch the drift.
+
 ## Summary
 
 Improved error messages for argument parsing in macros (`say!()`, `ask!()`, `ack!()`, `nay!()`) and fixed implicit variable name lookup to work correctly with the local scope.

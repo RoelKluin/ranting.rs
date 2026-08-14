@@ -9,10 +9,13 @@
 > **Superseded (2026-08-14).** Kept as a historical record of the v1.0 review;
 > do not read it as current architecture. At least one of its locked-in answers
 > has since been deliberately reversed: Q1 records a unanimous 5/5 "KEEP current
-> (ranting + ranting_derive)", called non-negotiable, but the repo now has five
-> crates — `ranting_core` was extracted in Phase 4 item 1, and the two downstream
-> falsifiers `ranting_i18n`/`ranting_es` were added in Phase 6. See `DONE.md` and
-> `CLAUDE.md`'s Architecture section for the current structure.
+> (ranting + ranting_derive)", called non-negotiable, but the repo now has eight
+> crates — `ranting_core` was extracted in Phase 4 item 1; the four downstream
+> falsifiers `ranting_i18n`/`ranting_es`/`ranting_ar`/`ranting_ja` were added across
+> Phases 6-7; and `ranting_gaps`, a non-falsifier dev tool, was added in Phase 7.
+> See `DONE.md` and `CLAUDE.md`'s "Where the record lives" section for the current
+> structure. (This banner itself drifted once already — updated 2026-08-15 when it
+> still said "five crates.")
 
 ---
 
