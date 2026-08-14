@@ -11,7 +11,7 @@ This library provides [`Ranting`](https://docs.rs/ranting/1.3.1/ranting/trait.Ra
 
 ```toml
 [dependencies]
-ranting = "0.2"
+ranting = "1.3"
 ```
 
 <br>
