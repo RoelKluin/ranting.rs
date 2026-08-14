@@ -164,3 +164,28 @@ generating `Self {}` for the braced-and-empty case. Pinned by
   existing open items rather than new findings.
 - **Trivia skipped**: test counts, line counts, a duplicate `goose|geese` row (harmless — first
   match wins), and `plurals.rs`'s "63-line table" comment against 51 data rows.
+
+### 4.1 Nine hooks have never been exercised by a real fork (added 2026-08-16)
+
+`scripts/hook_audit.sh`, re-run against all four falsifiers plus `ranting_gaps` (contributes zero
+to every column — see §3): the never-overridden list is exactly the eight `_with_context` twins
+of the eight `_custom` hook pairs, plus `is_first_person_subject_custom` — the one hook with no
+`_with_context` twin at all. Every plain `_custom` hook and `inflect`/`capitalize` have at least
+one real override somewhere; these nine have zero, across every fork, including `ranting_ar` and
+`ranting_ja`, the two that added the furthest-reaching new mechanics (a third morphological
+number, `elide_numeral_custom`).
+
+This is the same shape of blind spot `-08-14.md` §4.7 describes for derive-generated `inflect()`:
+the surface compiles, is reachable (every `_with_context` hook fires from `say_with!()`, and
+`is_first_person_subject_custom` fires from ordinary `say!()`), and is covered only by this
+repo's own tests asserting the *default* — "an unoverridden `_with_context` hook reproduces the
+plain hook's output," "an unoverridden first-person check still recognizes `I`/`we`" — never by a
+fork that needed different behavior and got it. No non-English fork has yet hit a case where
+`NarrationContext.register`/`.dialect` need to change what a hook does mid-story rather than
+which pronoun set it points at, and none has hit a first-person label other than `I`/`we` that the
+hard-coded check would miss.
+
+Not scheduled as a fix — there is no defect to correct and no test to write yet, since nothing has
+ever exercised the path that would expose one. Left as an open item, in the same spirit as §4.7:
+the falsifier contract is designed to surface exactly this kind of gap, and after four forks it
+still hasn't fired on this corner of the hook surface.
