@@ -222,6 +222,11 @@ longer asserting the unfused form.
 See [Word order](#word-order) above. Not a hole in the sense of an unclosed item — a boundary,
 already decided by item 1 and restated here because item 10 requires it in writing.
 
+Two tests pin it, and the second needs naming here so the hole↔test parity is complete in both
+directions: `hole_8_*` covers the general case, and **`hole_8b_a_verb_split_across_two_positions_is_not_expressible_at_all`** covers German's separable-prefix verbs
+(`ruft … an`), where the two halves of one verb sit at opposite ends of the clause — the sharpest
+form of the boundary, since no single placeholder can render a word that is in two places.
+
 ## Also observed, not holes
 
 - **A partial lexicon degrades honestly.** Unknown verbs, adjectives and out-of-range numerals all

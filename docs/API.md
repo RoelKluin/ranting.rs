@@ -93,7 +93,7 @@ wrapper-delegation entries for the full history (ROADMAP.md Phase 6 items
 
 `ctx: Option<&NarrationContext>` is always a plain parameter on these hooks,
 never read from `self` — an entity's own `subject` stays entity-owned, while
-tense/viewpoint/register/dialect are story-wide settings that vary per call.
+tense/viewpoint/register/dialect are settings of the telling, which vary per call.
 This is the mechanism [`docs/EXTENSIBILITY.md`](EXTENSIBILITY.md) uses to
 build ecosystem forks (Spanish, pirate, Scottish, etc. dialects) without
 forking the crate itself.

@@ -3,8 +3,10 @@
 // template pattern and extracts the ordered set of named captures as raw
 // strings. Per-capture typing ({name} -> String, {$name} -> u64, etc.) is
 // resolved by the generated call-site code in ranting_derive, not here —
-// this type only knows about strings and regex, so ranting_derive's own
-// (older) regex dependency never needs to match this crate's.
+// this type only knows about strings and regex, so ranting_derive's regex
+// dependency never needs to match this crate's. (Both declare 1.11 today, so
+// the decoupling is unobservable in the manifests; it is a property of the
+// generated code, which names only `ranting::HeedMatcher`.)
 
 use regex::Regex;
 use std::sync::OnceLock;
