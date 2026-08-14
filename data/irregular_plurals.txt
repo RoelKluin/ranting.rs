@@ -58,6 +58,24 @@ phenomenon|phenomena
 soprano|sopranos
 virtuoso|virtuosi
 
+# -ch pronounced /k/, so it takes a bare -s rather than the -es the spelling
+# suggests. These are here because the regular rules (src/language/plurals.rs)
+# work from spelling alone and cannot hear the difference between `church` and
+# `stomach` — without a row each, the sibilant rule would give "stomaches".
+stomach|stomachs
+epoch|epochs
+monarch|monarchs
+patriarch|patriarchs
+matriarch|matriarchs
+eunuch|eunuchs
+loch|lochs
+tech|techs
+
+# Orthographically ambiguous singular: `buses` would otherwise singularize to
+# "buse" (stripping only the -s), since `bus` is one of the few nouns whose
+# stem itself ends in a single -s.
+bus|buses
+
 # Other irregular
 person|people
 goose|geese

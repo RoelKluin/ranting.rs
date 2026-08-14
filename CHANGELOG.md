@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Regular English pluralization** (ROADMAP.md Phase 7 item 10). `{+noun}` on a
+  noun absent from `data/irregular_plurals.txt` used to append the `plural_end`
+  attribute (default `"s"`) verbatim — there were no rules at all — so
+  `{+entity}` rendered `"entitys"`, `{+box}` rendered `"boxs"` and
+  `{+mother-in-law}` rendered `"mother-in-laws"`. English's regular orthographic
+  rules now apply: consonant + `y` → `ies`, `-es` after `s`/`x`/`z`/`ch`/`sh`,
+  the `-f`/`-fe` → `-ves` stems (which fire for compounds like `bookshelf`, the
+  bare words being table rows already), and head pluralization for hyphenated
+  compounds.
+  - **This changes rendered output.** A struct that declares `singular_end` or
+    `plural_end` is unaffected: declaring either states a rule of its own and
+    still gets the literal strip-and-append, which is what keeps a non-English
+    impl from acquiring English orthography by accident.
+  - Singularization is deliberately unchanged — no spelling rule separates
+    `cities` → `city` from `movies` → `movie`, so `{-cities}` still renders
+    `"citie"`.
+  - `data/irregular_plurals.txt` gained the `-ch`-as-/k/ words (`stomach`,
+    `epoch`, `monarch`, …) the spelling-only rules cannot recognize, plus `bus`.
+
+### Added
+
+- `ranting::inflect_noun_regular`, the public entry point derive-generated
+  `inflect()` impls use once the irregular table misses.
+
 ## v1.3.0 — Internationalization Foundations
 
 Phase 6's goal was narrow: make a non-English `Ranting` implementation

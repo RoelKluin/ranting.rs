@@ -56,42 +56,56 @@ const F_VES_STEMS: &[&str] = &[
 /// stated its own rule, and that statement wins.
 pub(crate) fn regular_plural(singular: &str) -> String {
     let lower = singular.to_lowercase();
+    let plural = regular_plural_lowercase(&lower);
 
+    // Restore the caller's case. A rule that only *appends* keeps the name exactly as written,
+    // so `iPhone` → `iPhones` rather than the `iphones` that `apply_case`'s lowercase arm would
+    // give; anything that rewrote the stem (`city` → `cities`) has no original text left to
+    // preserve and goes through `apply_case`, the same function — and therefore the same
+    // all-caps/title-case behavior — as the irregular table's own path.
+    if !is_all_caps(singular)
+        && let Some(added) = plural.strip_prefix(lower.as_str())
+    {
+        return singular.to_string() + added;
+    }
+    apply_case(singular, &plural)
+}
+
+/// The rules themselves, applied to an already-lowercased noun.
+///
+/// Working on the lowercased form throughout is what makes the slicing sound: every index below
+/// comes from a match against *this* string, so it always lands on a character boundary. Matching
+/// on the lowercase form and then slicing the original is not equivalent — lowercasing can change
+/// a string's byte length (`\u{212A}nife` is 7 bytes and lowercases to the 5-byte `knife`), so
+/// that arrangement panics at formatting time on real data.
+fn regular_plural_lowercase(lower: &str) -> String {
     for stem in FE_VES_STEMS {
-        if lower.ends_with(stem) {
-            return replace_tail(
-                singular,
-                stem.len(),
-                &format!("{}ves", &stem[..stem.len() - 2]),
-            );
+        if let Some(head) = lower.strip_suffix(stem) {
+            return format!("{head}{}ves", &stem[..stem.len() - 2]);
         }
     }
     for stem in F_VES_STEMS {
-        if lower.ends_with(stem) {
-            return replace_tail(
-                singular,
-                stem.len(),
-                &format!("{}ves", &stem[..stem.len() - 1]),
-            );
+        if let Some(head) = lower.strip_suffix(stem) {
+            return format!("{head}{}ves", &stem[..stem.len() - 1]);
         }
     }
 
     // consonant + y -> -ies. A vowel before the y keeps it (`day`/`days`, `boy`/`boys`).
-    if let Some(before) = lower.strip_suffix('y')
-        && before.chars().next_back().is_some_and(|c| !is_vowel(c))
+    if let Some(head) = lower.strip_suffix('y')
+        && head.chars().next_back().is_some_and(|c| !is_vowel(c))
     {
-        return replace_tail(singular, 1, "ies");
+        return format!("{head}ies");
     }
 
     // Sibilants -> -es. `-ch` is only a sibilant when it sounds like /tʃ/; `stomach` and `epoch`
     // are /k/ and take a bare -s. Spelling cannot tell them apart, so those stay table entries.
     for suffix in ["s", "x", "z", "ch", "sh", "ss"] {
         if lower.ends_with(suffix) {
-            return format!("{singular}es");
+            return format!("{lower}es");
         }
     }
 
-    format!("{singular}s")
+    format!("{lower}s")
 }
 
 /// The plural of a hyphenated compound, which pluralizes its **head** rather than its last
@@ -125,29 +139,6 @@ pub(crate) fn compound_plural(word: &str) -> Option<String> {
     Some(out)
 }
 
-/// Replace the last `tail_len` **bytes** of `word` with `replacement`, preserving the case of the
-/// text that stays.
-///
-/// Byte indexing is sound here rather than merely convenient: `tail_len` is always the length of
-/// an entry in [`FE_VES_STEMS`]/[`F_VES_STEMS`] that `word` was just found to end with, or `1`
-/// for a `y` that `strip_suffix('y')` just matched. Every one of those is ASCII, so the split
-/// always lands on a character boundary — a non-ASCII noun (`café`) simply never reaches here.
-fn replace_tail(word: &str, tail_len: usize, replacement: &str) -> String {
-    let keep = word.len().saturating_sub(tail_len);
-    let mut out = word[..keep].to_string();
-    // Match the case of the character that was replaced, so `Knife` → `Knives`, not `Knifeves`.
-    if word[keep..].chars().next().is_some_and(char::is_uppercase) {
-        let mut chars = replacement.chars();
-        if let Some(first) = chars.next() {
-            out.extend(first.to_uppercase());
-            out.push_str(chars.as_str());
-        }
-    } else {
-        out.push_str(replacement);
-    }
-    out
-}
-
 fn is_vowel(c: char) -> bool {
     matches!(
         c.to_ascii_lowercase(),
@@ -178,15 +169,17 @@ pub(crate) fn get_singular(plural: &str) -> Option<String> {
         .map(|(s, _)| apply_case(plural, s))
 }
 
+/// Whether `s` carries no lowercase letter — all-caps, or no letters at all.
+fn is_all_caps(s: &str) -> bool {
+    s.chars().all(|c| !c.is_alphabetic() || c.is_uppercase())
+}
+
 /// Apply the case pattern from original to target string.
 /// If original is all uppercase, return target uppercase.
 /// If original starts with uppercase, return target with first char uppercase.
 /// Otherwise return target lowercase.
 fn apply_case(original: &str, target: &str) -> String {
-    if original
-        .chars()
-        .all(|c| !c.is_alphabetic() || c.is_uppercase())
-    {
+    if is_all_caps(original) {
         // All uppercase or no letters
         target.to_uppercase()
     } else if original.chars().next().is_some_and(|c| c.is_uppercase()) {
@@ -288,10 +281,33 @@ mod tests {
         }
     }
 
+    /// The regular path must preserve case exactly as the irregular one does — the crate already
+    /// promises all-caps preservation for table words (`test_case_preservation_uppercase`), so a
+    /// rule word must not come out as `"CITIes"`.
     #[test]
-    fn case_is_preserved_across_a_stem_rewrite() {
+    fn case_is_preserved_the_same_way_the_irregular_table_does_it() {
         assert_eq!(regular_plural("Bookshelf"), "Bookshelves");
         assert_eq!(regular_plural("City"), "Cities");
+        assert_eq!(regular_plural("CITY"), "CITIES");
+        assert_eq!(regular_plural("BOX"), "BOXES");
+        // A rule that only appends leaves the name exactly as written, so interior capitals
+        // survive; `apply_case` would have lowercased them.
+        assert_eq!(regular_plural("iPhone"), "iPhones");
+    }
+
+    /// This runs at formatting time, on data, so it may not panic on any input. The Kelvin sign
+    /// is the sharp case: it is 3 bytes, lowercases to a 1-byte `k`, and so makes the lowercased
+    /// form shorter than the original — an index taken from one and applied to the other lands
+    /// mid-codepoint.
+    #[test]
+    fn a_stem_match_that_changes_byte_length_when_lowercased_does_not_panic() {
+        assert_eq!(regular_plural("\u{212A}nife"), "Knives");
+        assert_eq!(regular_plural("café"), "cafés");
+        assert_eq!(regular_plural("café-shelf"), "café-shelves");
+        for word in ["Ärzte", "日本", "", "-", "İ", "ß"] {
+            let _ = regular_plural(word);
+            let _ = compound_plural(word);
+        }
     }
 
     #[test]
