@@ -40,7 +40,7 @@ common surprise, see the first row.
 | `=` | Subject | `say!("{=person walk}")` (same noun) | `"He walks"` |
 | `@` | Object | `say!("{@0}", noun)` | `"her"` |
 | `` ` `` | Possessive determiner | ``say!("{`jane}")`` with `Noun::new("Jane","I")` | `"My"` |
-| `~` | Adjective (same as possessive) | ``say!("{~tarzan}")`` | `"His"` |
+| `~` | Possessive pronoun | ``say!("{~tarzan}")`` | `"His"` |
 | `%` | Reflexive | `say!("Only {^%alex} can decide that.")` with `alex = Noun::new("Alex","she")` | `"Only Herself can decide that."` |
 | `*` | Display name, verb still agrees | `say!("{*tarzan who have} book")` | `"Tarzan who has book"` |
 | `*=`, `*@`, `` *` ``, `*~`, `*%` | Fused: case-marks the placeholder like the bare marker (so `inflect_article_custom` sees the real `GrammaticalCase`), but still displays the noun's **name** rather than switching to a pronoun | `say!("{the *=noun}")` | renders the article case-correctly, name shown |

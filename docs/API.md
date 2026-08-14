@@ -240,9 +240,10 @@ pub struct PlaceholderCount {
 }
 ```
 
-Carried as `count: Option<PlaceholderCount>` on six of the seven
-`_custom`/`_with_context` hook pairs (verb, pronoun, article, elision,
-preposition-fusion, adjective — ROADMAP.md Phase 6 item 14), `None` for a
+Carried as `count: Option<PlaceholderCount>` on seven of the eight
+`_custom`/`_with_context` hook pairs (verb, pronoun, article, both elision
+hooks, preposition-fusion, adjective — ROADMAP.md Phase 6 item 14, extended
+to `elide_numeral_custom` by Phase 7 item 12), `None` for a
 placeholder with no `#var`/`$var` marker. `inflect_numeral_custom` is the
 exception: it takes its own, differently-typed `count: Option<i64>` instead
 — see [Numerals](#numerals-inflect_numeral_custom) for why that hook's
@@ -340,9 +341,10 @@ against. See [`docs/EXTENSIBILITY.md` §2.7](EXTENSIBILITY.md) and
 `elide_numeral_custom` / `_with_context` is the numeral-side twin, with the
 identical signature bar its first parameter (`numeral` rather than `article`)
 and the identical contract. It fuses a rendered numeral with the noun that
-follows it — Japanese 「一匹の猫」 is written as one run — and runs *before* the
-article hook, `[article][numeral][noun]` making it the inner boundary of the
-two. Not called for a hidden numeral. ROADMAP.md Phase 7 item 12; see
+follows it — Japanese 「一匹の猫」 is written as one run — and runs first of the three post-assembly splices — ahead of preposition
+fusion and article elision — since `[preposition][article][numeral][noun]`
+makes the numeral-noun boundary the innermost. Not called for a hidden
+numeral. ROADMAP.md Phase 7 item 12; see
 [`docs/EXTENSIBILITY.md` §2.17](EXTENSIBILITY.md) and `ranting_ja`, its first
 and only user.
 
@@ -527,7 +529,7 @@ references `ranting::HeedMatcher`, never `regex::` types directly.
 ```rust
 use ranting::Heed;
 
-#[derive(Heed)]
+#[derive(Heed, Debug, PartialEq)]
 #[heed(template = "give {item} to {target}")]
 struct Give {
     item: String,
@@ -551,8 +553,10 @@ Option<Self>` on the struct. Rules:
   partial. A stale field or a renamed/unmapped capture is a compile error.
 - Field types are checked against their capture kind: `{name}`/`{name...}`
   require a `String` field; `{$name}` requires a `u64` field.
-- Only structs are supported (named fields, or a unit struct for a
-  zero-capture template) — no enums.
+- Only structs are supported — no enums. A zero-capture template works with
+  either a true unit struct (`struct Foo;`) or an empty braced struct
+  (`struct Foo {}`); the derive constructs `Self` or `Self {}` respectively,
+  matching whichever form was declared.
 - Field declaration order is independent of the template's capture-appearance
   order; the derive maps by name, not position.
 

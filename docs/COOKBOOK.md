@@ -295,7 +295,7 @@ Make sure you're using the base form. Ranting handles conjugation:
 
 ```rust
 say!("{=person go}");      // ✓ "He goes" (base verb)
-say!("{=person goes}");    // ✗ "He goess" (already conjugated—don't do this)
+say!("{=person goes}");    // ✗ "He goeses" (already conjugated—don't do this)
 say!("{=person <go}");     // ✓ "He went" (base + past marker)
 ```
 

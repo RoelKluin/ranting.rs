@@ -75,9 +75,9 @@ Placeholders in `say!()` use **case markers** to control what form of the pronou
 | Marker | Name | Example | Output |
 |--------|------|---------|--------|
 | `=` | Subject | `{=jane}` | `I` |
-| `@` | Object | `{@jane}` | `me` |
-| `` ` `` | Possessive determiner | `{`jane}` | `my` |
-| `~` | Adjective | `{~jane}` | `my` (same as possessive) |
+| `@` | Object | `{@jane}` | `Me` |
+| `` ` `` | Possessive determiner | `{`jane}` | `My` |
+| `~` | Possessive pronoun | `{~jane}` | `Mine` |
 | `*` | Display name | `{*jane who have}` | `Jane who have` |
 | `*=`, `*@`, `` *` ``, `*~`, `*%` | Fused: case-marks like the bare marker (a custom `inflect_article_custom` sees the real `GrammaticalCase`), but still displays the noun's name instead of switching to a pronoun | `{the *=noun}` | article rendered case-correctly, noun's name shown |
 
@@ -184,7 +184,7 @@ A complete placeholder can include articles, plurality markers, and case markers
 - **Case modifiers** (optional): `,` (enforce lowercase) or `^` (enforce uppercase).
 - **Article** (optional): `a`, `an`, `some`, `the`, `these`, `those`.
 - **Plurality** (optional): `+` (force plural), `-` (force singular), `$var`/`#var` (numeric-driven).
-- **Case marker** (optional): `` ` `` (possessive), `=` (subject), `@` (object), `~` (adjective), `*` (display name), `?` (hidden); the fused two-character forms `*=`/`*@`/`` *` ``/`*~`/`*%` case-mark the placeholder like the bare marker while still displaying the noun's name.
+- **Case marker** (optional): `` ` `` (possessive determiner), `=` (subject), `@` (object), `~` (possessive pronoun), `*` (display name), `?` (hidden); the fused two-character forms `*=`/`*@`/`` *` ``/`*~`/`*%` case-mark the placeholder like the bare marker while still displaying the noun's name.
 - **Noun**: A variable name or positional index.
 - **Verb** (optional): A base verb, optionally prefixed with a tense marker (`<`, `=`, `>`, etc.).
 
@@ -251,7 +251,7 @@ Now that you understand the basics, explore the **Cookbook** for 10 practical re
 
 - **Pronouns**: I, you, he, she, it, we, ye, they
 - **Tense markers**: `<` (past), `=` (continuous), `>` (future), `%` (perfect), `<=` (past continuous), `<%` (past perfect)
-- **Case markers**: `=` (subject), `@` (object), `` ` `` (possessive), `~` (adjective)
+- **Case markers**: `=` (subject), `@` (object), `` ` `` (possessive determiner), `~` (possessive pronoun)
 - **Plurality**: `+` (plural), `-` (singular), `$var`/`#var` (numeric-driven)
 
 ### Resources
