@@ -339,7 +339,31 @@ where
                 ))
             }
         }
-        ArticleKind::Other => None,
+        // Not one of English's article keywords -- a possessive-substitution sentinel, a
+        // pre-noun verb, or (since the language-modularity change) a word in some other
+        // language entirely. Offer it to the entity before giving up: a fork's hook is the
+        // only thing that can know `el`/`la`/`der` are articles, and without this call the
+        // word would render as inert literal text with no agreement -- `{el +*=gato}` would
+        // give "el gatos" rather than "los gatos". Returning `None` (every English impl's
+        // default) leaves the word exactly as written, which is what makes English output
+        // byte-identical. See docs/superpowers/specs/2026-08-14-language-modularity.md.
+        ArticleKind::Other => {
+            // `name`, not `inflect()`: this arm reaches words that are not articles at all,
+            // and the "the" arm's reasoning applies a fortiori -- singularizing here would
+            // panic for plural nouns whose name cannot be singularized.
+            let singular = noun.name(false);
+            noun.inflect_article_custom_with_context(
+                article_form,
+                &singular,
+                case,
+                class,
+                as_pl,
+                count,
+                uc,
+                ctx,
+            )
+            .map(|custom| custom + space)
+        }
     }
 }
 

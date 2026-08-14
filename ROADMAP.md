@@ -342,6 +342,35 @@ building, its build item is dropped rather than executed anyway.
      whether `NarrationContext.register` — designed in Phase 3, still inert
      after Phase 6 — turns out to have a real consumer at all.
 
+7. **Native-language article keywords** — ✅ **DONE 2026-08-14**; design,
+   rejected alternatives and implementation notes in
+   `docs/superpowers/specs/2026-08-14-language-modularity.md`
+   - Added out of order, from a maintainer question about writing templates in
+     the author's own language rather than with English keywords. Not a
+     falsification item: it removes the last structural English assumption in
+     the *authoring* surface, where items 2/3 probe the *inflection* surface.
+   - A template may now write its own article (`` {el *=gato} ``); the word is
+     handed to `inflect_article_custom`, so the module still picks the form and
+     agreement holds (`` {el +*=gato} `` → `los gatos`). `ranting` learns no
+     non-English vocabulary — it lives in the fork's hook.
+   - Two changes, which must ship together: `ranting_core::ph_ext::parse` runs
+     an open-pre-word pass only for input the English pass rejects (so existing
+     templates are byte-identical, and `` {w is} `` keeps its noun+post
+     reading), and `get_article_or_so`'s `ArticleKind::Other` arm calls the hook
+     instead of returning `None` (without which the native word renders as inert
+     literal text and gets no agreement).
+   - Accepted cost, decided by the maintainer: a misspelled article
+     (`` {teh gato} ``) now renders instead of failing to compile. `ranting` is
+     not a spelling corrector; the post-noun slot already rendered *and
+     conjugated* invented words, so this makes the two slots consistent.
+   - Known limitation, pinned by test: the noun needs a case marker.
+     `` {el gato} `` is unchanged and still errors, because the open pass runs
+     only when the English pass fails and an unmarked two-word placeholder
+     parses as noun + post-noun verb.
+   - Also verified here, and previously unchecked: `ranting_i18n` and
+     `ranting_es` compose in one binary through the public API alone, neither
+     needing `ranting_core`/`ranting_derive`.
+
 ### v1.4 Success Criteria (provisional — finalized by item 4)
 - Items 1-3 answer, in writing, whether Arabic and/or Japanese would falsify
   something German/Spanish could not, before any lexicon code is written

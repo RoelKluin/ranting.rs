@@ -173,6 +173,15 @@ fn leading_ws_len(s: &str) -> usize {
         .sum()
 }
 
+/// One word for the open pre-word slot: word characters plus the `'`/`-` an
+/// English contraction or hyphenated article already uses (`haven't`, `l'`).
+fn leading_word_or_apostrophe_len(s: &str) -> usize {
+    s.chars()
+        .take_while(|&c| is_word_or_hyphen(c) || c == '\'')
+        .map(char::len_utf8)
+        .sum()
+}
+
 fn leading_word_or_hyphen_len(s: &str) -> usize {
     s.chars()
         .take_while(|&c| is_word_or_hyphen(c))
@@ -479,9 +488,21 @@ fn finish_pre_candidates(s: &str, after_first: usize) -> Vec<usize> {
 /// include the "no match" fallback -- that's [`star_candidates`]'s job,
 /// since `pre` (like `uc`/`nr`/`case`) is a repeated group, not a simple
 /// optional (see the module doc).
-fn pre_one_rep(s: &str, pos: usize) -> Vec<usize> {
+fn pre_one_rep(s: &str, pos: usize, pre_words: PreWords) -> Vec<usize> {
     let rest = &s[pos..];
     let mut out = Vec::new();
+    if pre_words == PreWords::Open {
+        // The open pass replaces the closed vocabulary rather than extending it:
+        // any single word, with the same trailing-whitespace requirement every
+        // English branch below already imposes via `finish_pre_candidates`. It is
+        // only ever reached for input the English pass rejected outright, so it
+        // cannot change how an existing template parses.
+        let word_len = leading_word_or_apostrophe_len(rest);
+        if word_len > 0 {
+            out.extend(finish_pre_candidates(s, pos + word_len));
+        }
+        return out;
+    }
     for matcher in [match_a1, match_a2, match_a3, match_a4, match_backtick] {
         if let Some(len) = matcher(rest) {
             out.extend(finish_pre_candidates(s, pos + len));
@@ -687,6 +708,29 @@ fn describe(tail: &str) -> String {
 /// old blanket "Error in placeholder" message that used to fire whenever
 /// `PH_EXT.is_match(s)` returned `false`.
 pub fn parse(s: &str) -> Result<PhExtMatch<'_>, PhExtError> {
+    // Two passes (ROADMAP.md Phase 7 item 1's follow-on, the language-modularity
+    // spike's option 1). The first uses the closed English pre-word vocabulary,
+    // so every template that parsed before this change still takes it and is
+    // byte-identical. Only a template the strict pass *rejects* is retried with
+    // the open pre-word slot, which is what lets a non-English template write
+    // its own article (`{el *=gato}`) without the open slot ever competing with
+    // the post-noun verb slot for an English one -- `{w is}` would otherwise
+    // start parsing as pre=`w `, noun=`is`. See
+    // docs/superpowers/specs/2026-08-14-language-modularity.md, "non-obvious 2".
+    parse_pass(s, PreWords::English)
+        .or_else(|strict_err| parse_pass(s, PreWords::Open).map_err(|_| strict_err))
+}
+
+/// Which vocabulary `pre`'s first atom may match. See [`parse`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PreWords {
+    /// The closed English article/modal/auxiliary set the grammar has always had.
+    English,
+    /// Any single word, for templates the English pass rejected.
+    Open,
+}
+
+fn parse_pass(s: &str, pre_words: PreWords) -> Result<PhExtMatch<'_>, PhExtError> {
     // Backtracking search over four repeated (star) groups -- uc, pre, nr,
     // case -- in priority order (more repetitions first, per group), until
     // one combination lets the mandatory noun and optional post both parse.
@@ -694,7 +738,7 @@ pub fn parse(s: &str) -> Result<PhExtMatch<'_>, PhExtError> {
     // support rather than simple optional-presence checks despite being
     // written with `?+` in the source grammar.
     for (uc_span, pos0) in star_candidates(s, 0, uc_one_rep) {
-        for (pre_span, pos1) in star_candidates(s, pos0, pre_one_rep) {
+        for (pre_span, pos1) in star_candidates(s, pos0, |s, p| pre_one_rep(s, p, pre_words)) {
             for (nr_span, pos2) in star_candidates(s, pos1, nr_one_rep) {
                 for (case_span, pos3) in star_candidates(s, pos2, case_one_rep) {
                     let noun_len = leading_word_or_hyphen_len(&s[pos3..]);
@@ -769,9 +813,18 @@ mod tests {
     /// text. This is the parity check backing this module's design claims
     /// (especially the "extra words never fire" argument in the module
     /// doc) -- not just a spot-check of a few examples.
+    ///
+    /// Compares [`PH_EXT`] against the **English pass** specifically, not
+    /// against [`parse`]. Since the language-modularity change `parse` runs a
+    /// second, open-pre-word pass for input the English pass rejects, and that
+    /// pass has no `PH_EXT` counterpart by construction: a single regex has one
+    /// preference order and so cannot express "prefer the English reading, fall
+    /// back to the open one". `PH_EXT` remains the exact reference grammar for
+    /// the English pass, which is what this differential check was protecting;
+    /// the open pass is pinned separately by [`open_pass_only_for_input_english_rejects`].
     fn assert_parity(re: &Regex, input: &str) {
         let regex_caps = re.captures(input);
-        let hand = parse(input);
+        let hand = parse_pass(input, PreWords::English);
         match (regex_caps, hand) {
             (None, Err(_)) => {}
             (Some(caps), Ok(m)) => {
@@ -791,6 +844,58 @@ mod tests {
                 panic!("PH_EXT accepted {input:?} as {caps:?} but hand parser rejects it: {e:?}")
             }
         }
+    }
+
+    /// The open pre-word pass must be strictly additive: it may only accept
+    /// input the English pass rejects, and must never change how an accepted
+    /// English template parses. `{w is}` is the case that motivated the
+    /// two-pass design -- an open slot competing at the same priority makes it
+    /// parse as pre=`w `, noun=`is`, breaking real templates.
+    #[test]
+    fn open_pass_only_for_input_english_rejects() {
+        // Unchanged by the open pass: the English reading still wins.
+        for input in ["w is", "=w are", "the item", "haven't =who", "a item"] {
+            let strict = parse_pass(input, PreWords::English)
+                .unwrap_or_else(|e| panic!("english pass rejected {input:?}: {e:?}"));
+            let both = parse(input).expect("parse accepts what the english pass accepts");
+            for name in ["uc", "pre", "nr", "case", "noun", "post"] {
+                assert_eq!(
+                    strict.name(name).map(|x| x.as_str()),
+                    both.name(name).map(|x| x.as_str()),
+                    "group {name:?} changed for {input:?} -- open pass must not preempt English"
+                );
+            }
+        }
+        // Newly accepted: a non-English article keyword *in front of a marked noun*.
+        // The marker is what makes the English pass reject it -- `*=`/`*@` cannot be a
+        // post-noun word, so there is no noun+post reading to prefer.
+        for input in ["el *=gato", "der *@hund", "la +*=casa"] {
+            assert!(
+                parse_pass(input, PreWords::English).is_err(),
+                "{input:?} was expected to be rejected by the English pass"
+            );
+            let m =
+                parse(input).unwrap_or_else(|e| panic!("open pass should accept {input:?}: {e:?}"));
+            assert_eq!(
+                m.name("pre").map(|x| x.as_str().trim()),
+                Some(input.split(' ').next().unwrap()),
+                "{input:?} should capture its first word as `pre`"
+            );
+        }
+        // NOT newly accepted, and deliberately so: an *unmarked* two-word placeholder
+        // still takes the English noun+post-verb reading, so `{la casa}` parses as
+        // noun=`la`, post=` casa` exactly as before. The open pass never runs, because
+        // the English pass did not fail. A non-English template therefore needs a case
+        // marker on the noun to get its own article read as an article -- see
+        // docs/superpowers/specs/2026-08-14-language-modularity.md.
+        let unmarked = parse_pass("la casa", PreWords::English)
+            .expect("unmarked two-word input still parses as noun + post");
+        assert_eq!(unmarked.name("noun").map(|x| x.as_str()), Some("la"));
+        assert_eq!(unmarked.name("pre"), None);
+
+        // Still rejected by both: no pre word can rescue a missing noun.
+        assert!(parse("").is_err());
+        assert!(parse("el ").is_err());
     }
 
     #[test]

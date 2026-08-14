@@ -22,6 +22,7 @@ mod irregular_plurals;
 mod male_female_and_object;
 mod many_count;
 mod narration_context_threading;
+mod native_article_keyword;
 mod noun_class;
 mod numeral;
 mod orthography;
