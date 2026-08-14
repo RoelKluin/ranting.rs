@@ -48,8 +48,8 @@ Documentation, not code -- checked by compiling, not assumed. `say!("{The *can c
 ### `would`
 
 - README.md:135 — case-marks the placeholder exactly as the bare marker would (an inflect article custom
-- README.md:247 — - Two placeholders directly adjacent, with no text at all between them ( {a}{b} ), is a compile-time error — there would be no way to kno...
-- README.md:277 — split {a}的{b} out of 我的剑 finds a split rather than the intended one, which would trade a
+- README.md:254 — - Two placeholders directly adjacent, with no text at all between them ( {a}{b} ), is a compile-time error — there would be no way to kno...
+- README.md:284 — split {a}的{b} out of 我的剑 finds a split rather than the intended one, which would trade a
 
 ### `have`
 
@@ -66,7 +66,7 @@ Documentation, not code -- checked by compiling, not assumed. `say!("{The *can c
 ### `should`
 
 - README.md:193 — Not for error handling, because true errors should be easy to search in code.
-- README.md:208 — uc false - whether the name should always start with uppercase (advanced)
+- README.md:215 — uc false - whether the name should always start with uppercase (advanced)
 - docs/COOKBOOK.md:91 — User bios should respect the person's pronouns and be grammatically correct in one pass.
 
 ### `can't`
@@ -90,6 +90,6 @@ Documentation, not code -- checked by compiling, not assumed. `say!("{The *can c
 ### `will`
 
 - README.md:170 — application needs one template per language, and no inflection hook will ever change that.
-- README.md:253 — They ship no word segmenter and will not gain one.
-- README.md:271 — way it is normally written, heed!() will simply not match.
+- README.md:260 — They ship no word segmenter and will not gain one.
+- README.md:278 — way it is normally written, heed!() will simply not match.
 

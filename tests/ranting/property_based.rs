@@ -10,7 +10,10 @@
 //   unrecognized pronoun instead of panicking; see ROADMAP.md Phase 4 item 4)
 
 use proptest::prelude::*;
-use ranting::{Noun, inflect_possessive, inflect_reflexive, is_subject, is_subjective_plural};
+use ranting::{
+    GrammaticalCase, Noun, Ranting, inflect_possessive, inflect_reflexive, is_subject,
+    is_subjective_plural,
+};
 
 // Known valid subject pronouns (strum serialization is uppercase for all except you/ye/they)
 const VALID_PRONOUNS: &[&str] = &["I", "you", "thou", "he", "she", "it", "we", "ye", "they"];
@@ -57,6 +60,19 @@ proptest! {
         // Noun::try_new must never panic, regardless of input: it either
         // returns a valid Noun or an InvalidSubjectError.
         let _ = Noun::try_new(&name, &subject);
+    }
+
+    #[test]
+    fn prop_inflect_no_panic(name in any::<String>(), to_plural: bool, uc: bool) {
+        // `inflect` runs at formatting time, on data, so any name must yield a
+        // String rather than panic. The regular pluralization rules (ROADMAP.md
+        // Phase 7 item 10) matched on a *lowercased* copy of the name, and
+        // lowercasing can change a string's byte length (`\u{212A}` → `k`), so
+        // an index taken from the copy and applied to the original sliced
+        // mid-codepoint. That is pinned by name in `src/language/plurals.rs`;
+        // this is the general guard.
+        let noun = Noun::new(&name, "it");
+        let _ = noun.inflect(to_plural, uc, GrammaticalCase::Name);
     }
 }
 

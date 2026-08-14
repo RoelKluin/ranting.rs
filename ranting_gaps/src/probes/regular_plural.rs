@@ -64,15 +64,18 @@ pub fn probe(
         if already_plural(word, corpus) {
             continue;
         }
-        let rendered = ranting_plural(word);
-        // A rendered form that is not bare append-`s` means `IRREGULAR_PLURALS` covered this word,
-        // so the table -- not the missing rule -- decided it. Reporting those would be a false
-        // positive: `child` renders "children" while the *regular* rule would say "childs", and
-        // the regular rule is the one that is wrong there. This probe is only about words that
-        // fell through to the fallback.
-        if rendered != format!("{word}s") {
+        // Words the table covers are not this probe's business: `child` renders "children" while
+        // the *regular* rule says "childs", and there the rule is the one that is wrong.
+        //
+        // This asks the table directly. It used to test `rendered != format!("{word}s")` instead,
+        // as a proxy for "the table decided this" -- valid only while the fallback was always
+        // bare append-`s`. Once `ranting` grew the rules, that proxy skipped every word the rules
+        // touch (`fly` renders "flies", so it never reached the comparison), which silently made
+        // the differential check inert for exactly the words it now exists to guard.
+        if ranting::inflect_noun_irregular(word, true).is_some() {
             continue;
         }
+        let rendered = ranting_plural(word);
         let expected = regular_plural(word);
         if rendered == expected {
             continue;
@@ -178,10 +181,15 @@ mod tests {
     #[test]
     fn words_the_table_or_the_bare_s_already_gets_right_are_skipped() {
         let corpus = crate::corpus::Corpus::default();
-        for word in ["dog", "cat", "day", "child", "person", "mouse", "sheep"] {
-            let rendered = ranting_plural(word);
-            let reached_fallback = rendered == format!("{word}s");
-            let reported = reached_fallback && rendered != regular_plural(word);
+        for word in [
+            "dog", "cat", "day", "child", "person", "mouse", "sheep", "stomach",
+        ] {
+            // Mirrors the probe's own skip: ask the table, then compare. `stomach` is the case
+            // that makes this worth pinning -- the reference rule says "stomaches" (spelling
+            // cannot hear that its `-ch` is /k/), `ranting` says "stomachs" and is right, so only
+            // the attestation gate keeps it out of the report.
+            let in_table = ranting::inflect_noun_irregular(word, true).is_some();
+            let reported = !in_table && ranting_plural(word) != regular_plural(word);
             assert!(
                 !reported,
                 "{word} would be reported as a failure but is not one"

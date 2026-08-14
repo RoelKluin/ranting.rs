@@ -91,3 +91,20 @@ fn case_is_preserved_across_a_stem_rewrite() {
     let city = Noun::new("City", "it");
     assert_eq!(say!("{,+0}", city), "Cities");
 }
+
+/// An all-caps name must come out all-caps, exactly as the irregular table's path already
+/// guarantees — the first cut of these rules rendered `"CITIes"`.
+#[test]
+fn an_all_caps_name_stays_all_caps() {
+    let city = Noun::new("CITY", "it");
+    assert_eq!(say!("{,+0}", city), "CITIES");
+    let boxes = Noun::new("BOX", "it");
+    assert_eq!(say!("{,+0}", boxes), "BOXES");
+}
+
+/// A rule that only appends leaves the name as written, so an interior capital survives.
+#[test]
+fn interior_capitals_survive_a_plain_append() {
+    let phone = Noun::new("iPhone", "it");
+    assert_eq!(say!("{,+0}", phone), "iPhones");
+}

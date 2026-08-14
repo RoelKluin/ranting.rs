@@ -491,6 +491,26 @@ building, its build item is dropped rather than executed anyway.
       report text says a future case is a *divergence* between the two
       implementations, not a missing feature.
     - Zero existing tests changed: nothing in the suite had pinned "boxs".
+    - Two defects in the first cut, both found by review rather than by the
+      gates, both now pinned: (a) the rules matched on a lowercased copy of the
+      name and then sliced the *original*, which rendered `CITY` as "CITIes" and
+      **panicked** on any name whose byte length changes when lowercased
+      (`\u{212A}nife`) — they now run wholly on the lowercased form and restore
+      case through the same `apply_case` the irregular path uses, except where
+      the rule merely appends, which leaves interior capitals (`iPhone` →
+      `iPhones`) intact; `tests/ranting/property_based.rs::prop_inflect_no_panic`
+      is the general guard. (b) `ranting_gaps`'s probe skipped any word whose
+      render was not bare append-`s` — a valid proxy for "the table decided
+      this" only *before* the fix, and afterwards a skip of precisely the words
+      the new rules touch, leaving the differential check inert. It asks
+      `inflect_noun_irregular` directly now, which is what makes the empty
+      report above mean what it says.
+    - `data/irregular_plurals.txt` grew the rows the spelling-only rules cannot
+      derive: the `-ch`-pronounced-/k/ words (`stomach`, `epoch`, `monarch`,
+      `patriarch`, `matriarch`, `eunuch`, `loch`, `tech`), which the sibilant
+      rule would otherwise render "stomaches", and `bus`, whose `buses` would
+      otherwise singularize to "buse". These are the concrete cost of keeping
+      the rules lexicon-free, and they are the point of the table.
 
 ### v1.4 Success Criteria (provisional — finalized by item 4)
 - Items 1-3 answer, in writing, whether Arabic and/or Japanese would falsify
