@@ -182,7 +182,7 @@ the vocabulary is either compile-time configuration or nothing.
 
 | Option | Works with compile-time parsing? | Cost | Notes |
 |---|---|---|---|
-| **1. Widen the grammar; let the hook take first refusal** — accept any word in the pre-slot, classify unknown ones as `ArticleKind::Other`, and route `Other` to `inflect_article_custom` instead of returning `None` | **Yes** — purely a grammar and dispatch change, no registration anywhere | Small-to-moderate: `ph_ext`'s pre-slot, one runtime match arm, plus the `PH_EXT` oracle | **Prototyped end-to-end; see below.** No per-language registration at all, and it matches how the rest of Phase 6 works (hook first, English fallback). **Cost**: `{walk =0}` stops being a compile error and starts rendering `walk` as a literal — helpful diagnostics traded for openness |
+| **1. Widen the grammar; let the hook take first refusal** — accept any word in the pre-slot, classify unknown ones as `ArticleKind::Other`, and route `Other` to `inflect_article_custom` instead of returning `None` | **Yes** — purely a grammar and dispatch change, no registration anywhere | Small-to-moderate: `ph_ext`'s pre-slot, one runtime match arm, plus the `PH_EXT` oracle | **Prototyped end-to-end; see below.** No per-language registration at all, and it matches how the rest of Phase 6 works (hook first, English fallback). **Cost**: a typo'd article (`{teh gato}`) stops being a compile error and starts rendering literally — but see "the asymmetry" below, which is the strongest argument *for* option 1 |
 | **2. Per-language cargo features** — `ranting = { features = ["es", "de"] }` extends the compile-time vocabulary | Yes | Moderate, and grows with every language | Features are additive and unify globally, so all-on is the normal case; vocabularies would collide across languages with no way to say which is meant. Also puts every language's keyword list inside `ranting`, which is precisely what modularity was meant to avoid |
 | **3. Vocabulary declared at the call site or module** — e.g. an attribute naming the keyword set | Yes | Larger: a new configuration surface `say!()` does not have | Keeps vocabularies out of `ranting`, but proc macros cannot see other crates' items at expansion time, so the set must be spelled out locally — which is close to writing the words anyway |
 
@@ -257,11 +257,42 @@ So the implementation cost of option 1 is roughly: one fallback pass in
 `ph_ext::parse`, one widened matcher in `pre_one_rep`, one runtime match arm in
 `get_article_or_so`, and a decision about the `PH_EXT` oracle.
 
+### Non-obvious 3: the asymmetry — the post-noun slot is already wide open
+
+The apparent cost of option 1 is losing a compile error on an unrecognized
+pre-noun word. Measured against what the *post*-noun slot already does, that
+cost is smaller than it looks, because the crate has already answered this
+question the other way:
+
+| Template | Today |
+|---|---|
+| `{teh gato}` | compile error — `cannot find value 'teh' in this scope` |
+| `{=gato wlak}` | renders `él wlak` — unknown word accepted silently |
+| `{=gato <wlak}` | renders `él wlaked` — unknown word accepted *and conjugated* |
+
+An invented word after the noun is not merely tolerated, it is inflected: the
+tense marker applies `to_past` to `wlak` and produces `wlaked` without
+complaint. So "the crate catches your typos" is not a property `ranting` has;
+it is a property the pre-noun slot alone has, as a side effect of that slot's
+vocabulary being closed for parsing reasons rather than for diagnostic ones.
+
+That reframes option 1's cost. It does not introduce a new permissive
+philosophy — it makes the pre-noun slot consistent with the post-noun slot,
+where the permissive choice was already made. The words losing protection are
+the ~6 articles and ~14 modals/auxiliaries listed above.
+
+Two things follow. First, if typo protection on function words is judged
+worth keeping, the honest way to keep it is a deliberate check (a "did you
+mean `the`?" hint on a near-miss), not the parse failure that exists today by
+accident. Second, that check would be English-specific, so it belongs behind
+the same language selection everything else in this document is about.
+
 ## What this spike does not decide
 
 - **Whether to do it.** Option 1 changes diagnostics for existing English
-  templates (`{walk =0}`), which is a behavior change even though it is not a
-  signature break. That is a maintainer call.
+  templates (`{teh gato}` renders instead of failing), which is a behavior
+  change even though it is not a signature break. Non-obvious 3 argues the cost
+  is smaller than it first appears, but accepting it is a maintainer call.
 - **The `Language` trait question.** Refactoring the 23-method `Ranting` trait
   into an entity part and a delegating language part would let one entity render
   in several languages without one field per language. The experiment above
