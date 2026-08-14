@@ -669,10 +669,13 @@ building, its build item is dropped rather than executed anyway.
       doubling is conditioned by stress rather than letters) stay table entries.
       That split is the point: it says what `data/irregular_plurals.txt` is
       *for*, rather than treating it as the place every non-`-s` plural goes.
-    - The `-f`/`-fe` stems (`knife`, `wolf`, `shelf`, …) are all table rows
-      already, so those rules only ever fire for **compounds** the table's
-      exact-match lookup misses: `bookshelf` → `bookshelves`, `housewife` →
-      `housewives`. Not redundant with the table.
+    - The `-fe` stems (`knife`, `wife`, `life`) and some `-f` stems (`leaf`,
+      `loaf`, `wolf`, `thief`, `elf`) are table rows already, so for those
+      words the rule only ever fires for **compounds** the table's exact-match
+      lookup misses: `bookshelf` → `bookshelves`, `housewife` → `housewives`.
+      But `calf`/`half`/`shelf`/`self` have no row — the rule fires on the
+      bare word too, not only on compounds built from it. Not redundant with
+      the table either way (see `docs/architecture-review-2026-08-15.md` §1.3).
     - **The compatibility contract is the `singular_end`/`plural_end`
       attributes.** Write neither and the rules apply; a struct that *writes*
       either one has stated a rule of its own and keeps the literal

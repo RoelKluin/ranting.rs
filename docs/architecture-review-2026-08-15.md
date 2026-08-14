@@ -79,20 +79,21 @@ Verified consequences (as of 2026-08-15, before the fix):
 `piano` intentionally still has no row — the bare-`s` default already renders it correctly, and a
 row would be a no-op. All eight crates' gates pass with the two new rows.
 
-### 1.3 The `-f`/`-fe` "compounds only" claim is half true
+### 1.3 The `-f`/`-fe` "compounds only" claim is half true — ✅ **doc fixed 2026-08-16**
 
-`pluralization.md` point 3, `plurals.rs:38-40` and `ROADMAP.md` all say the `-f`/`-fe`→`-ves` stem
+`pluralization.md` point 3, `plurals.rs:38-40` and `ROADMAP.md` all said the `-f`/`-fe`→`-ves` stem
 lists "only ever fire for compounds", the bare words being table rows already. The verifier split
 it:
 
 - **`-fe` stems** (`knife`/`wife`/`life`) — rows at `data/irregular_plurals.txt:25-27`. Claim
   **holds**.
-- **`-f` stems** — `leaf`/`loaf`/`wolf`/`thief` are rows (`:28-32`), but `calf`, `half`, `shelf`,
-  `self`, `elf` are **not**. The `-f` rule fires for those bare words, and
+- **`-f` stems** — `leaf`/`loaf`/`wolf`/`thief`/`elf` are rows (`:28-32`), but `calf`, `half`,
+  `shelf`, `self` are **not**. The `-f` rule fires for those bare words, and
   `plurals.rs:253-255` asserts exactly that (passing).
 
-Output is correct either way; only the explanation is wrong. Left as a doc correction rather than
-a code change — the rules produce the right answer for these words.
+Output was correct either way; only the explanation was wrong. `.claude/rules/pluralization.md`
+point 3 and `ROADMAP.md`'s Phase 7 item 10 entry now state the split explicitly instead of the
+blanket "compounds only" claim.
 
 ### 1.4 `#[derive(Heed)]` on an empty braced struct — fixed 2026-08-16
 
