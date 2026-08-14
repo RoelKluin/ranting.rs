@@ -21,9 +21,9 @@ lives in [DONE.md](DONE.md). This file is the forward-looking roadmap only.
 
 🎯 **Phase 7 (v1.4.0, Falsification, Round Two: Beyond Indo-European)** is the next
 phase — see its section below. **In progress**: its three spikes (items 1-3), the
-build decision they fed (item 4), four unrelated items (7-10) and the signature
-change the decision blocked on (item 11) are done; what remains is the two
-reference lexicons (items 5-6, both unblocked) and items 12-13.
+build decision they fed (item 4), four unrelated items (7-10), the signature
+change the decision blocked on (item 11) and the Arabic lexicon (item 5) are
+done; what remains is `ranting-ja` (item 6) and items 12-13.
 
 **Shipping today**:
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
@@ -418,10 +418,40 @@ building, its build item is dropped rather than executed anyway.
      building it anyway.
    </details>
 
-5. **`ranting-ar` — Arabic reference lexicon** (16-24 hours, scope set by item 2
-   and **confirmed unchanged by item 4**) — third acceptance test.
-   **Unblocked**: item 11 landed 2026-08-14, so the dual is now a gap this crate
-   can render rather than one it would have to work around.
+5. **`ranting-ar` — Arabic reference lexicon** — ✅ **DONE 2026-08-14**;
+   `ranting_ar/`, 21 tests (14 in `tests/arabic.rs`, 6 in `tests/holes.rs`, 1
+   doctest). Built after item 11, as item 4 required, so its `tests/holes.rs`
+   records gaps rather than workarounds.
+   - **Both axes item 4 bought it for came through.** The dual renders on the
+     noun *and* on the verb agreeing with it, across sound and broken plurals —
+     the two halves that disagreed before item 11. `elide_article_custom` got
+     its first real user and the spike's open question is answered: the
+     two-string signature is sufficient, since the sun-letter trigger is
+     `following.chars().next()` and dropping the separator is what "the hook
+     replaces all three" already allows.
+   - **It found a panic in `ranting` on its first run**, unrelated to Arabic:
+     `split_at_find_end` advanced one *byte* past a byte index `rfind` returned,
+     so the elision splice sliced mid-codepoint for any article whose last
+     character is multibyte. Greek, Cyrillic and CJK were equally affected; it
+     survived because the hook had no real user and both other forks' articles
+     are ASCII. Fixed, pinned by
+     `tests/ranting/property_based.rs::elision_does_not_panic_on_a_multibyte_article`.
+     This is the fourth defect found by review or by running code rather than by
+     the gates.
+   - **Root-and-pattern morphology has no seam consequence**, as the spike
+     predicted: a broken plural and a sound one are indistinguishable at the
+     seam, both being table rows returned as an opaque `String`.
+   - Six holes recorded: bare dual with no numeral (a grammar change, out of
+     scope by the number-categories spec's own boundary), no genitive in
+     `GrammaticalCase` (`ranting_i18n` hole 3 reconfirmed from an unrelated
+     family), bound object/possessive pronouns, the construct state, VSO word
+     order (a boundary, like German's hole 8) and item 12's numeral separator.
+   - **`inflect_adjective_custom` is deliberately not implemented.** Arabic
+     adjectives are post-nominal like Spanish's, so `ranting_es` already proves
+     the hook works in that position; a second working example is not a
+     falsification. Recorded in the crate README as a scoping choice.
+
+   <details><summary>Original scope (kept for the record)</summary>
    - Same falsification contract as items 10 and 23: own directory
      (`ranting_ar/`), own `Cargo.toml`/`Cargo.lock`, depends on `ranting`
      alone (no `ranting_core`, no `ranting_derive`, no `pub(crate)` item, no
@@ -442,6 +472,7 @@ building, its build item is dropped rather than executed anyway.
    - What it proves: whether item 14's count channel and item 7's elision
      hook, both real Phase 6 surface with zero real-fork mileage before
      this, hold up against the first language actually built to need them.
+   </details>
 
 6. **`ranting-ja` — Japanese reference lexicon** (8-12 hours, scope set by item 3
    and **narrowed by item 4**) — fourth acceptance test. **Blocked on nothing**:

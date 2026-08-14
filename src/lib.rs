@@ -1162,7 +1162,15 @@ fn split_at_find_start(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
 }
 
 fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
-    s.rfind(fun).map(|u| s.split_at(u + 1))
+    // `rfind` yields the *start* byte of the matched char, so the split point is one whole
+    // character further on, not one byte. `u + 1` panicked on any multibyte match — every Arabic,
+    // Greek, Cyrillic or CJK placeholder reached it, since the predicate here is "the last
+    // non-whitespace character". Found by `ranting_ar`; pinned by
+    // `tests/ranting/property_based.rs::split_at_find_end_handles_multibyte_text`.
+    s.rfind(fun).map(|u| {
+        let width = s[u..].chars().next().map_or(1, char::len_utf8);
+        s.split_at(u + width)
+    })
 }
 
 /// Has the Ranting trait. Often you may want to `#[derive(Ranting)]` and sometimes override some
