@@ -104,6 +104,10 @@ fn parse_str_params(
         LazyLock::new(|| Regex::new(lang::PH_START).expect("valid placeholder regex"));
     let src = lit.to_slice();
     let text = src.text();
+    // The template literal's own span, handed to every identifier baked out of a placeholder --
+    // see `path_from`. `subspan` (which would narrow this to the individual word) is nightly-only
+    // and returns `None` here, so the literal is as precise as a stable build can get.
+    let lit_span = lit.span_provider.span();
     #[cfg(feature = "debug")]
     eprintln!("{}", text);
 
@@ -116,7 +120,7 @@ fn parse_str_params(
             let pre = caps.name("pre");
             let fmt = caps.name("fmt").map_or("", |s| s.as_str());
             if let Some(plain) = caps.name("plain") {
-                match get_opt_num_ph_expr(plain.as_str(), &params_in) {
+                match get_opt_num_ph_expr(plain.as_str(), &params_in, lit_span) {
                     Ok(expr) => {
                         let len = params.len().to_string();
                         params.push(expr);
@@ -173,6 +177,7 @@ fn parse_str_params(
                     preposition.map(|m| m.as_str()),
                     fmt,
                     runtime_tense,
+                    lit_span,
                 ) {
                     Ok(s) => s,
                     Err((start, end, msg)) => {
@@ -536,7 +541,16 @@ impl ToTokens for Say {
 }
 
 /// construct a path expression, e.g. to an identifier or a call in a visible mod.
-fn path_from<S: AsRef<str>>(path: S) -> Expr {
+///
+/// `span` is the template literal's own span, not `Span::call_site()`: an identifier baked here
+/// names a variable the caller is expected to have in scope, and when they don't, the resulting
+/// `E0425: cannot find value ...` is rustc's, not ours -- we cannot reword it, but we can decide
+/// where it points. Pointing at the literal narrows the caret from the whole `say!(...)`
+/// invocation to the template that actually contains the word.
+///
+/// Every segment must already be a valid Rust identifier -- see `check_ident_path`, which is the
+/// guard that keeps `syn::Ident::new`'s panic from reaching the user as "proc macro panicked".
+fn path_from<S: AsRef<str>>(path: S, span: Span) -> Expr {
     Expr::Path(syn::ExprPath {
         attrs: vec![],
         qself: None,
@@ -544,17 +558,48 @@ fn path_from<S: AsRef<str>>(path: S) -> Expr {
             leading_colon: None,
             segments: Punctuated::from_iter(path.as_ref().split("::").map(|s| syn::PathSegment {
                 // XXX: Span::mixed_site() here gives errors.
-                ident: syn::Ident::new(s, Span::call_site()),
+                ident: syn::Ident::new(s, span),
                 arguments: syn::PathArguments::None,
             })),
         },
     })
 }
 
+/// Reject a word that cannot become a `syn::Ident` before `path_from` tries.
+///
+/// `syn::Ident::new` *panics* on a non-identifier, which rustc surfaces as a bare
+/// "proc macro panicked / help: message: `\"gato-negro\"` is not a valid identifier" with the
+/// caret on the whole macro -- no indication which placeholder, and nothing naming the rule that
+/// was broken. The grammar reaches this: `ph_ext`'s word matcher admits `-` (and `'`), so a
+/// hyphenated noun parses fine and only blows up here. Returning an `Err` instead routes the
+/// message through `StrLitSlice::error`, which underlines the offending word in the template.
+///
+/// The check must mirror `Ident::new`'s rule exactly, which is "a keyword *or* a legal variable
+/// name" -- not `syn::parse_str::<Ident>`, whose `Parse` impl rejects keywords. `{self}` is live
+/// syntax (a `Ranting` method saying something about its own receiver, all over
+/// `tests/ranting/male_female_and_object.rs`), so rejecting keywords here would break working
+/// templates rather than catch a panic. Hence `Ident::parse_any`.
+fn check_ident_path(p: &str) -> Result<(), String> {
+    use syn::ext::IdentExt;
+    for segment in p.split("::") {
+        if syn::parse::Parser::parse_str(syn::Ident::parse_any, segment).is_err() {
+            return Err(format!(
+                "`{p}` is not a valid Rust identifier, so it cannot name a variable. A \
+                 placeholder's noun must be a variable in scope, a positional index (`{{0}}`), or \
+                 a named argument (`say!(\"{{x}}\", x = ..)`)"
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// The expression for a match. if numeric, retreive the expression from the positionals
-fn get_opt_num_ph_expr(p: &str, given: &HashMap<String, Expr>) -> Result<Expr, String> {
+fn get_opt_num_ph_expr(p: &str, given: &HashMap<String, Expr>, span: Span) -> Result<Expr, String> {
     match p.parse::<String>() {
-        Err(_) => Ok(path_from(p)),
+        Err(_) => {
+            check_ident_path(p)?;
+            Ok(path_from(p, span))
+        }
         Ok(s) => match given.get(&s) {
             Some(e) => Ok(e.clone()),
             None => match s.parse::<usize>() {
@@ -566,8 +611,12 @@ fn get_opt_num_ph_expr(p: &str, given: &HashMap<String, Expr>) -> Result<Expr, S
                         .count()
                 )),
                 Err(_) => {
-                    // Not a number and not in given arguments - assume it's a variable from local scope
-                    Ok(path_from(&s))
+                    // Not a number and not in given arguments - assume it's a variable from local
+                    // scope. Whether it really is one is rustc's call, not ours: `{el gato}` and
+                    // `{person walk}` are the same shape, so a word we don't recognise cannot be
+                    // rejected here without rejecting live English syntax too.
+                    check_ident_path(&s)?;
+                    Ok(path_from(&s, span))
                 }
             },
         },
@@ -584,6 +633,7 @@ fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
 
 // Placeholder parts are examined, added are replacements known at compile time,
 // or placeholders are split in many and positionals are added.
+#[allow(clippy::too_many_arguments)]
 fn handle_param(
     caps: &ranting_core::ph_ext::PhExtMatch,
     given: &HashMap<String, Expr>,
@@ -592,6 +642,7 @@ fn handle_param(
     preposition: Option<&str>,
     orig_fmt: &str,
     runtime_tense: bool,
+    span: Span,
 ) -> Result<String, (usize, usize, String)> {
     static POSS: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^((?:.*?\s+)?`)(\w+)\b(.*)$").unwrap());
@@ -737,8 +788,8 @@ fn handle_param(
     let plurality;
     // NB: if None, no alpha found => all are punct; occurs with '+' or '-'.
     (plurality, nr) = split_at_find_start(nr, |c| c.is_alphanumeric()).unwrap_or((nr, ""));
-    let noun =
-        get_opt_num_ph_expr(noun.as_str(), given).map_err(|s| (noun.start(), noun.end(), s))?;
+    let noun = get_opt_num_ph_expr(noun.as_str(), given, span)
+        .map_err(|s| (noun.start(), noun.end(), s))?;
 
     let (nr_fmt, fmt): (Vec<_>, Vec<_>) =
         orig_fmt
@@ -786,7 +837,7 @@ fn handle_param(
         // numeral hook is not called for it -- same "nothing rendered, nothing to customize"
         // gate as `elide_article_custom`'s hidden-noun case.
         let hidden = plurality.contains('?');
-        let nr_ph_expr = match get_opt_num_ph_expr(nr, given) {
+        let nr_ph_expr = match get_opt_num_ph_expr(nr, given, span) {
             Ok(n) => n,
             Err(s) => return Err((nr_s, nr_e, s)),
         };
@@ -864,7 +915,7 @@ fn handle_param(
         .to_string();
     let mut poss: TokenStream = parse_quote!("".to_string());
     if let Some(p) = possesive {
-        let expr = get_opt_num_ph_expr(&p, given).map_err(|s| (pre_s, pre_e, s))?;
+        let expr = get_opt_num_ph_expr(&p, given, span).map_err(|s| (pre_s, pre_e, s))?;
         poss = parse_quote!(ranting::inflect_possessive(
             #expr.subjective(),
             #expr.is_plural(),
@@ -963,4 +1014,51 @@ fn handle_param(
         )));
     }
     Ok(format!("{{{len}{fmt}}}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::check_ident_path;
+
+    /// The guard's whole point: these used to reach `syn::Ident::new` and *panic*, which rustc
+    /// reports as "proc macro panicked" with the caret on the entire `say!(...)` invocation and no
+    /// indication of which placeholder was at fault. `ph_ext`'s word matcher admits `-` and `'`,
+    /// so the grammar really does hand these through -- `{gato-negro}` parses fine and only blows
+    /// up at codegen.
+    #[test]
+    fn non_identifier_nouns_are_rejected_rather_than_panicking() {
+        for word in ["gato-negro", "l'eau", "2x", "a b", "", "el-gato::x"] {
+            let err = check_ident_path(word)
+                .expect_err("a word that cannot become a Rust identifier must be an error");
+            assert!(
+                err.contains("not a valid Rust identifier"),
+                "message should name the rule that was broken, got: {err}"
+            );
+            assert!(
+                err.contains(word) || word.is_empty(),
+                "message should quote the offending word, got: {err}"
+            );
+        }
+    }
+
+    /// Anything that *is* a plausible variable still passes -- including a raw identifier and a
+    /// multi-segment path, both of which `path_from` supports. Whether the name is actually in
+    /// scope is rustc's call, not ours: `{el gato}` and `{person walk}` are the same shape, so a
+    /// word we don't recognise cannot be rejected here without rejecting live English syntax.
+    ///
+    /// `self` is the one that matters: it is a keyword, so `syn::parse_str::<Ident>` rejects it,
+    /// but `Ident::new` accepts it and `{self}`/`{=self do}` are used throughout
+    /// `tests/ranting/male_female_and_object.rs`. The guard must mirror `Ident::new`'s rule, not
+    /// `syn`'s stricter `Parse` impl -- see `check_ident_path`.
+    #[test]
+    fn plausible_variable_names_still_pass() {
+        for word in [
+            "el", "gato", "person", "_x", "self", "r#fn", "módulo", "a::b::c",
+        ] {
+            assert!(
+                check_ident_path(word).is_ok(),
+                "{word} should be accepted as a possible variable name"
+            );
+        }
+    }
 }

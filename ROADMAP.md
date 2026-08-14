@@ -371,6 +371,41 @@ building, its build item is dropped rather than executed anyway.
      `ranting_es` compose in one binary through the public API alone, neither
      needing `ranting_core`/`ranting_derive`.
 
+8. **The `{el gato}` diagnostic** — ✅ **DONE 2026-08-14** (partly; the residue is
+   a boundary, not a gap). Full reasoning in
+   `docs/superpowers/specs/2026-08-14-language-modularity.md`'s appendix
+   "The `{el 0}` diagnostic, as far as it goes".
+   - Filed by item 7 as the last rough edge it left behind: after item 7,
+     `E0425: cannot find value 'el'` became the *only* remaining failure mode
+     for a native-keyword template, and it names a variable the author never
+     wrote.
+   - **The wording cannot be fixed, and this is now a decided boundary.** The
+     message is rustc's, emitted during name resolution of an identifier the
+     macro baked; a proc macro cannot intercept or annotate it. Replacing it
+     means rejecting the template ourselves, which requires deciding at
+     expansion time that `el` is not a variable — undecidable, because
+     `` {el gato} `` and `` {person walk} `` are the same shape and the latter
+     is live syntax in the test suite. Recognising a list of known non-English
+     article words would decide it, and is exactly the vocabulary-in-`ranting`
+     item 7 exists to avoid.
+   - **What landed instead.** (a) `path_from` takes the template literal's span
+     rather than `Span::call_site()`, moving the caret from the whole
+     `say!(...)` onto the literal — the entire stable-toolchain win, since
+     `proc_macro2::Literal::subspan` (which would narrow to the word) is
+     nightly-only and returns `None` on stable. (b) A real defect found while
+     investigating, unrelated to the filed one: `syn::Ident::new` *panicked* on
+     a hyphenated noun (`` {gato-negro} ``, which `ph_ext`'s word matcher
+     admits), surfacing as `error: proc macro panicked`. `check_ident_path` now
+     returns a spanned, worded error — decidable, unlike (a), because no Rust
+     variable can be named `gato-negro` whatever is in scope.
+   - Trap for anyone touching the guard: it must use `syn::Ident::parse_any`,
+     not `syn::parse_str::<syn::Ident>`. `Ident::new` accepts keywords, and
+     `` {self} `` is live syntax — the strict predicate broke five call sites.
+   - Not scoped: a compile-fail harness. This repo has no `trybuild` and
+     CLAUDE.md says "integration tests only"; the two diagnostics were verified
+     by compiling a scratch crate against a path dependency, and the unit tests
+     pin `check_ident_path` directly. Adding `trybuild` is a maintainer call.
+
 ### v1.4 Success Criteria (provisional — finalized by item 4)
 - Items 1-3 answer, in writing, whether Arabic and/or Japanese would falsify
   something German/Spanish could not, before any lexicon code is written
