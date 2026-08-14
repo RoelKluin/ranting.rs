@@ -1643,7 +1643,10 @@ impl From<placeholder::NumeralKind> for NumeralStyle {
 
 /// The numeral value backing a placeholder occurrence, when it has one — the count channel owed
 /// by ROADMAP.md Phase 6 item 4 and closed by item 14. Threaded into five of the six `_custom`
-/// hook pairs (see the "which hooks" note below); `None` for a placeholder with no numeral at all
+/// hook pairs by item 14 (see the "which hooks" note below), then extended by Phase 7 items 11,
+/// 12 and 26 to `Ranting::inflect`, `elide_numeral_custom` and `inflect_preposition_custom` —
+/// seven of the crate's eight `_custom`/`_with_context` hook pairs carry it today, plus `inflect`
+/// itself. `None` for a placeholder with no numeral at all
 /// (`` {noun} ``, `` {+noun} ``, `` {-noun} ``).
 ///
 /// # Why a struct and not a bare `i64`
@@ -1666,6 +1669,12 @@ impl From<placeholder::NumeralKind> for NumeralStyle {
 /// `NumeralStyle::Digits` case) — a second, differently-typed count parameter there would be
 /// redundant. This is Open Question 2 of the spike, resolved as "the five hooks with no numeral
 /// signal get the new channel; the one hook with richer numeral signal already does not."
+///
+/// Phase 7 later gave the same channel to three more sites that item 14 hadn't touched:
+/// `Ranting::inflect` (item 11 — the one count-less call that renders the counted noun itself),
+/// `elide_numeral_custom` (item 12), and `inflect_preposition_custom` (item 26, designed with the
+/// parameter from the start). `inflect_numeral_custom` remains the sole holdout, for the same
+/// reason given above.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct PlaceholderCount {
     /// The integer value of the placeholder's numeral (`{$n noun}`/`{#n noun}`).
@@ -2150,8 +2159,9 @@ pub trait Ranting: std::fmt::Display {
     /// hook since Phase 6 item 7. `一匹の 猫` was the best a fork could do, with **no** workaround
     /// — unlike a missing distinction, a wrong character is simply in the output.
     ///
-    /// Called *before* `elide_article_custom`, because `[article][numeral][noun]` makes this the
-    /// inner boundary of the two. It is **not** called for a hidden numeral (`` {?$n noun} ``),
+    /// Called first of the three post-assembly splices — ahead of preposition fusion and article
+    /// elision — because `[preposition][article][numeral][noun]` makes the numeral-noun boundary
+    /// the innermost of the three. It is **not** called for a hidden numeral (`` {?$n noun} ``),
     /// which renders nothing to fuse — the same gate a hidden noun gives the article hook.
     ///
     /// ```ignore

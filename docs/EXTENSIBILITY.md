@@ -897,8 +897,12 @@ item, as in §2.4/§2.6/§2.7; `Maybe(Some(x))` forwards to `x`, `Maybe(None)` d
 `elide_article_custom` and `inflect_adjective_custom` (and their five `_with_context` twins) each
 take a `count: Option<PlaceholderCount>` parameter (item 14) sourced from the placeholder's own
 `#var`/`$var` marker — `None` for a bare placeholder (`` {noun} ``, `` {+noun} ``, `` {-noun} ``).
-`Many<T>` (`src/collections.rs`) is the one wrapper that genuinely knows a count with no numeral
-in sight: its own `Vec`'s length. When `Many` delegates one of these five hook pairs to its single
+Phase 7 extended the same substitution to three more call sites: `Ranting::inflect` itself (item
+11), `elide_numeral_custom` (item 12), and `inflect_preposition_custom` (item 26) — eight call
+sites in total (`inflect_numeral_custom` is the one hook that stays out, since it already has its
+own, differently-typed `count: Option<i64>` — see §2.8). `Many<T>` (`src/collections.rs`) is the
+one wrapper that genuinely knows a count with no numeral in sight: its own `Vec`'s length. When
+`Many` delegates one of these eight hook pairs to its single
 item (the `len() == 1` case — see §2.4/§2.6/§2.7's wrapper notes), it substitutes its own length
 for a `None` count before forwarding, so a fork's hook sees `Some(PlaceholderCount { value: 1, .. })`
 even though the placeholder carried no numeral at all. If the placeholder *did* carry a numeral,
