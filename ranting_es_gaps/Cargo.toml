@@ -1,0 +1,22 @@
+[package]
+name = "ranting-es-gaps"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Corpus-driven differential check for ranting_es: enumerates its closed Spanish lexicon's agreement rules and checks them against real Spanish text"
+publish = false
+
+[[bin]]
+name = "ranting-es-gaps"
+path = "src/main.rs"
+
+[dependencies]
+# `ranting` for the trait/type surface (`Ranting`, `GrammaticalCase`, `NounClass`, ...) that the
+# probes call directly on `ranting_es` types. `ranting_es` is the system under test. Depending on
+# both does NOT compromise `ranting_es`'s own public-API-only falsifier contract -- that contract
+# is a property of `ranting_es/Cargo.toml` alone and is unaffected by who else depends on it. See
+# README.md's "Not a falsifier" section.
+ranting = { path = ".." }
+ranting_es = { path = "../ranting_es", package = "ranting-es" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

@@ -16,12 +16,12 @@ cargo fmt
 
 **A green gate at the repo root proves nothing about half the repo.** This is not a cargo
 workspace: `ranting` (root), `ranting_core`, `ranting_derive`, `ranting_i18n`, `ranting_es`,
-`ranting_ar`, `ranting_ja` and `ranting_gaps` each have their own `Cargo.toml`/`Cargo.lock`, and
-the commands above never compile or test the seven siblings. Before reporting anything as
-passing, run all three gates in **every** directory that has a `Cargo.toml`:
+`ranting_ar`, `ranting_ja`, `ranting_gaps` and `ranting_es_gaps` each have their own
+`Cargo.toml`/`Cargo.lock`, and the commands above never compile or test the eight siblings. Before
+reporting anything as passing, run all three gates in **every** directory that has a `Cargo.toml`:
 
 ```bash
-for d in . ranting_core ranting_derive ranting_i18n ranting_es ranting_ar ranting_ja ranting_gaps; do
+for d in . ranting_core ranting_derive ranting_i18n ranting_es ranting_ar ranting_ja ranting_gaps ranting_es_gaps; do
   cargo fmt --manifest-path $d/Cargo.toml --check
   cargo clippy --manifest-path $d/Cargo.toml --all-targets -- -D warnings
   cargo test --manifest-path $d/Cargo.toml
@@ -74,7 +74,9 @@ citations in the falsifier crates. Each is a decision already taken, not an over
   `ranting_derive` dependency — the moment one needs it, *that is the finding*, and it gets
   recorded as a hole rather than worked around. (`ranting_gaps` does
   depend on `ranting_core`; it is a dev tool inspecting `ranting` from outside, not a falsifier, and
-  is not precedent.)
+  is not precedent. `ranting_es_gaps` is the same shape one level down — a dev tool inspecting
+  `ranting_es` from outside, depending on both `ranting` and `ranting_es` — and is likewise not
+  precedent for `ranting_es`'s own `ranting`-alone contract, which its `Cargo.toml` still keeps.)
 - **English output stays byte-identical.** Every cross-language feature so far has been added by
   giving a hook a new parameter or a new default that reproduces today's English behavior exactly.
   A change that alters `say!()`'s existing output is a breaking change and needs saying out loud.
