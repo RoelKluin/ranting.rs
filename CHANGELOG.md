@@ -4,6 +4,16 @@
 
 ### Fixed
 
+- **`{?article noun}` rendered literal garbage** unless the entity's
+  `skip_article()` was `true`. The `?` marker (README's "display depends on
+  `no_article`", e.g. `say!("{?the 0} was great!", activity)`) was not stripped
+  before the word was classified, so `?the` was taken for a pre-noun *verb* and
+  conjugated: `say!("{?the dog}")` rendered `"?thes dog"` and `say!("{?a dog}")`
+  rendered `"?as dog"`, with no error at compile time or run time. `?the` is now
+  simply `the`, which is the documented reading. The `no_article = true` half —
+  the only half any test or example exercised, and why this survived — is
+  unchanged.
+
 - **Regular English pluralization** (ROADMAP.md Phase 7 item 10). `{+noun}` on a
   noun absent from `data/irregular_plurals.txt` used to append the `plural_end`
   attribute (default `"s"`) verbatim — there were no rules at all — so

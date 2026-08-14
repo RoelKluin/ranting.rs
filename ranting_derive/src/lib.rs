@@ -933,7 +933,7 @@ fn handle_param(
         let variant = if word.contains('`') {
             quote!(Other)
         } else {
-            match word.trim_start_matches('!') {
+            match word.trim_start_matches(['!', '?']) {
                 "the" => quote!(The),
                 "a" | "an" | "some" => quote!(AAnSome),
                 "these" | "those" => quote!(TheseThose),

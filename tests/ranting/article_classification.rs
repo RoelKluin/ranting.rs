@@ -36,3 +36,47 @@ fn combined_verb_and_backtick_possessive() {
         "Can his pair of two shoes remain singular?".to_string()
     );
 }
+
+/// A `?`-marked article ("display depends on the entity", README's `{?the 0}` syntax) must
+/// classify as the article it is.
+///
+/// It didn't: `ArticleKind::classify` stripped a leading `!` and nothing else, so `?the` fell
+/// through to `ArticleKind::Other` -- which is the *pre-noun verb* path -- and the article was
+/// conjugated as a verb. `{?the dog}` rendered "?thes dog" and `{?a dog}` rendered "?as dog",
+/// silently, at both compile time and run time. See
+/// docs/architecture-review-2026-08-14.md §1.5.
+///
+/// The marker is only ever *consumed*: on an entity that renders articles normally, `?the` is
+/// exactly `the` -- the entity is consulted for every article kind regardless (the
+/// `skip_article()` early return in `get_article_or_so` runs before the classification match),
+/// so `?` asks for the behavior that is already the default.
+#[test]
+fn question_marked_article_is_still_an_article() {
+    let dog = Noun::new("dog", "it");
+    assert_eq!(say!("{?the dog}"), "The dog".to_string());
+    assert_eq!(say!("{?a dog}"), "A dog".to_string());
+    assert_eq!(say!("I saw {?the dog}"), "I saw the dog".to_string());
+    assert_eq!(say!("I saw {?a dog}"), "I saw a dog".to_string());
+
+    // The marker is consumed, not rendered, in the plural/`an` forms too.
+    assert_eq!(say!("I saw {?some +dog}"), "I saw some dogs".to_string());
+    let apple = Noun::new("apple", "it");
+    assert_eq!(say!("I ate {?an apple}"), "I ate an apple".to_string());
+}
+
+/// The other half of the same syntax, which is what every existing test and doc example
+/// exercised and is why the bug above survived: an entity that skips articles omits it, marker
+/// or no marker.
+#[test]
+fn question_marked_article_still_omitted_by_no_article() {
+    #[derive_ranting]
+    #[ranting(subject = "it", no_article = true)]
+    struct Breakfast {}
+
+    assert_eq!(
+        say!("{?the 0} was great!", Breakfast {}),
+        // Lowercase: a derive-generated `name()` reads `uc == true` as "as written", which is
+        // the `OrthographyRole::Noun` rule -- this is README.md's own worked example.
+        "breakfast was great!".to_string()
+    );
+}

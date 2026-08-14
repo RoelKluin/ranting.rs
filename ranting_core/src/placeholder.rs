@@ -279,9 +279,15 @@ impl ArticleKind {
             }
             i += 1;
         }
-        // trim_start_matches('!'), byte-wise, to stay a const fn.
+        // trim_start_matches(['!', '?']), byte-wise, to stay a const fn.
+        //
+        // `?` matters as much as `!` here: it is the "display depends on the entity's
+        // `no_article`" marker README documents (`{?the 0}`), and leaving it attached
+        // classified `?the` as `Other`, which is the *pre-noun verb* path — so the article was
+        // conjugated as a verb and `{?the dog}` rendered "?thes dog". See
+        // docs/architecture-review-2026-08-14.md §1.5.
         let mut start = 0;
-        while start < bytes.len() && bytes[start] == b'!' {
+        while start < bytes.len() && (bytes[start] == b'!' || bytes[start] == b'?') {
             start += 1;
         }
         let article_form = bytes.split_at(start).1;
@@ -326,6 +332,21 @@ mod article_kind_tests {
     fn strips_leading_bang_before_classifying() {
         assert_eq!(ArticleKind::classify("!the"), ArticleKind::The);
         assert_eq!(ArticleKind::classify("!these"), ArticleKind::TheseThose);
+    }
+
+    /// The `?` marker (README's `{?the 0}`, "display depends on the entity's `no_article`")
+    /// has to come off too. It didn't, so `?the` classified as `Other` -- the pre-noun *verb*
+    /// path -- and `{?the dog}` rendered "?thes dog". See
+    /// docs/architecture-review-2026-08-14.md §1.5 and
+    /// `tests/ranting/article_classification.rs`.
+    #[test]
+    fn strips_leading_question_mark_before_classifying() {
+        assert_eq!(ArticleKind::classify("?the"), ArticleKind::The);
+        assert_eq!(ArticleKind::classify("?a"), ArticleKind::AAnSome);
+        assert_eq!(ArticleKind::classify("?an"), ArticleKind::AAnSome);
+        assert_eq!(ArticleKind::classify("?some"), ArticleKind::AAnSome);
+        // A word that is not an article keyword stays `Other` with the marker attached or not.
+        assert_eq!(ArticleKind::classify("?can"), ArticleKind::Other);
     }
 
     #[test]
