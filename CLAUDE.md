@@ -16,12 +16,12 @@ cargo fmt
 
 **A green gate at the repo root proves nothing about half the repo.** This is not a cargo
 workspace: `ranting` (root), `ranting_core`, `ranting_derive`, `ranting_i18n`, `ranting_es`,
-`ranting_ar` and `ranting_gaps` each have their own `Cargo.toml`/`Cargo.lock`, and the commands
-above never compile or test the six siblings. Before reporting anything as passing, run all three
-gates in **every** directory that has a `Cargo.toml`:
+`ranting_ar`, `ranting_ja` and `ranting_gaps` each have their own `Cargo.toml`/`Cargo.lock`, and
+the commands above never compile or test the seven siblings. Before reporting anything as
+passing, run all three gates in **every** directory that has a `Cargo.toml`:
 
 ```bash
-for d in . ranting_core ranting_derive ranting_i18n ranting_es ranting_ar ranting_gaps; do
+for d in . ranting_core ranting_derive ranting_i18n ranting_es ranting_ar ranting_ja ranting_gaps; do
   cargo fmt --manifest-path $d/Cargo.toml --check
   cargo clippy --manifest-path $d/Cargo.toml --all-targets -- -D warnings
   cargo test --manifest-path $d/Cargo.toml
@@ -64,12 +64,12 @@ citations in the falsifier crates. Each is a decision already taken, not an over
 
 ## Invariants that hold everywhere
 
-- **The falsifier contract is absolute.** `ranting_i18n` (German), `ranting_es` (Spanish) and
-  `ranting_ar` (Arabic) are
-  downstream consumers that depend on `ranting` **alone**, exactly as an ecosystem fork would, to
-  falsify the claim that the public API gives a non-English implementation enough signal. Neither
-  may ever gain a `ranting_core` or `ranting_derive` dependency — the moment one needs it, *that is
-  the finding*, and it gets recorded as a hole rather than worked around. (`ranting_gaps` does
+- **The falsifier contract is absolute.** `ranting_i18n` (German), `ranting_es` (Spanish),
+  `ranting_ar` (Arabic) and `ranting_ja` (Japanese) are downstream consumers that depend on
+  `ranting` **alone**, exactly as an ecosystem fork would, to falsify the claim that the public
+  API gives a non-English implementation enough signal. None may ever gain a `ranting_core` or
+  `ranting_derive` dependency — the moment one needs it, *that is the finding*, and it gets
+  recorded as a hole rather than worked around. (`ranting_gaps` does
   depend on `ranting_core`; it is a dev tool inspecting `ranting` from outside, not a falsifier, and
   is not precedent.)
 - **English output stays byte-identical.** Every cross-language feature so far has been added by
