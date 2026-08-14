@@ -48,7 +48,11 @@ The `say!()` macro **automatically conjugates verbs and adapts articles based on
 ### When to skip it
 
 - Template-heavy text (use a template engine instead).
-- Non-English languages (not yet supported; v1.1+ may change this).
+- Non-English languages. `ranting` inflects English by default, but every article, pronoun,
+  verb, adjective, numeral, preposition and capitalization decision is overridable through the
+  `Ranting` trait's `_custom` hooks — see `docs/EXTENSIBILITY.md`, and `ranting_i18n`/`ranting_es`
+  for worked German and Spanish implementations built on the public API alone. Word *order*
+  stays in your template: a non-English application supplies one template per language.
 
 ---
 

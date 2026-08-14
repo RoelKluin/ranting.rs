@@ -26,11 +26,12 @@ phase — see its section below. It is drafted, not started.
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
 - `say!()`/`say_with!()`/`ack!()`/`nay!()`/`heed!()`/`ask!()`/`#[derive(Heed)]`
 - Seven `_custom`/`_with_context` inflection hook pairs (verb, pronoun, article,
-  adjective, elision, numeral, preposition) plus `capitalize`, carrying grammatical
-  case, noun class, count, and orthography role
+  adjective, elision, numeral, preposition), plus the `capitalize`/`capitalize_with_context`
+  pair and one unpaired `is_first_person_subject_custom` — 23 `Ranting` trait methods in
+  all, carrying grammatical case, noun class, count, and orthography role
 - Five crates: `ranting`, `ranting_core`, `ranting_derive`, and the two downstream
   falsifiers `ranting_i18n` (German) and `ranting_es` (Spanish)
-- 456 tests across all five crates; zero critical issues
+- 526 compiled tests across all five crates, plus 15 runnable doctests; zero critical issues
 
 ---
 
@@ -93,9 +94,10 @@ building, its build item is dropped rather than executed anyway.
 
 1. **Unused-hook audit** (doc-only, 3-5 hours) — *cheap, informs items 2 and
    3; no dependency on either*
-   - Phase 6 shipped eight `_custom` hook pairs (verb, pronoun, article,
-     adjective, elision, numeral, preposition, plus `is_first_person_subject`
-     as a ninth non-paired hook) and twelve `_with_context` twins. An unused
+   - Phase 6 shipped seven `_custom` hook pairs (verb, pronoun, article,
+     adjective, elision, numeral, preposition), an eighth `capitalize` pair, and
+     one unpaired `is_first_person_subject_custom` — eight `_with_context`
+     twins in total, 23 `Ranting` trait methods. An unused
      hook is a design risk, not a feature: nothing has verified its shape
      matches a real need, only that it compiles and defaults correctly.
    - Verified already, ahead of scoping this item, by reading both existing

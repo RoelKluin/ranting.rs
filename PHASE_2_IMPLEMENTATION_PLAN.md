@@ -1,10 +1,11 @@
 # Phase 2 (v0.4.0) Implementation Plan: Grammar Depth
 
 > **Superseded.** This plan predates Phase 2's completion. See `DONE.md` (Phase 2
-> is marked complete, all 7 tenses shipped) and `ROADMAP.md`'s "Current State
-> (v1.2.1)" section for what's actually current. Kept here as a historical
+> is marked complete, all 7 tenses shipped) and `ROADMAP.md`'s "Current State"
+> section for what's actually current. Kept here as a historical
 > record only — the "Status: In Progress" line below and the "walkeds" bug it
-> describes are both stale; that bug is fixed.
+> describes are both stale; that bug is fixed. The API names below also predate
+> the Phase 4 rename of `inflect_possesive` to `inflect_possessive`.
 
 **Status**: In Progress (skeleton work started) — historical, see banner above
 **Timeline**: 3-4 months | **Target Coverage**: >85%

@@ -6,6 +6,14 @@
 **Consensus:** 68% unanimous/strong agreement (60%+ agreement across 12 architectural questions)  
 **Status:** Actionable recommendations locked in for v1.0 release
 
+> **Superseded (2026-08-14).** Kept as a historical record of the v1.0 review;
+> do not read it as current architecture. At least one of its locked-in answers
+> has since been deliberately reversed: Q1 records a unanimous 5/5 "KEEP current
+> (ranting + ranting_derive)", called non-negotiable, but the repo now has five
+> crates — `ranting_core` was extracted in Phase 4 item 1, and the two downstream
+> falsifiers `ranting_i18n`/`ranting_es` were added in Phase 6. See `DONE.md` and
+> `CLAUDE.md`'s Architecture section for the current structure.
+
 ---
 
 ## Executive Findings

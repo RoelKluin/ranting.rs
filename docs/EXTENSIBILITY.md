@@ -98,12 +98,13 @@ fn inflect_verb_custom_with_context(
     subject: &str,
     verb: &str,
     as_plural: bool,
+    count: Option<PlaceholderCount>,
     uc: bool,
     ctx: Option<&NarrationContext>,
 ) -> Option<String> {
     match (verb, ctx.and_then(|c| c.register)) {
         ("greet", Some(Register::Formal)) => Some(uc_1st_if("bows before", uc)),
-        _ => self.inflect_verb_custom(subject, verb, as_plural, uc),
+        _ => self.inflect_verb_custom(subject, verb, as_plural, count, uc),
     }
 }
 ```

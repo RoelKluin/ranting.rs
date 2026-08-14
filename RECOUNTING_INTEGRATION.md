@@ -3,6 +3,13 @@
 **Date**: 2026-08-12  
 **Context**: Recounting (parser-IF library for Rust) uses Ranting for all prose generation. This document tracks what Ranting provides today and what gaps exist for Recounting's roadmap.
 
+> **Superseded (2026-08-14).** This analysis describes the v0.2.1 surface and is
+> kept as a historical record. All three gaps it lists as blockers have since
+> shipped: "Runtime Tense Selection", "Runtime Viewpoint Selection" and
+> "Narration Context" are all delivered by `say_with!()` / `NarrationContext`
+> (Phase 3, v1.1.0 — see `DONE.md` and `docs/API.md`), so the M9 "Blocked" row
+> below is stale. Do not use this file to judge what Ranting supports today.
+
 ---
 
 ## Current State
