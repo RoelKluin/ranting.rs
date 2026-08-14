@@ -76,6 +76,15 @@ tech|techs
 # stem itself ends in a single -s.
 bus|buses
 
+# -o plurals taking -es rather than the bare -s a lexicon-free rule would give
+# (contrast `piano`|`pianos`, which the regular rule already gets right and so
+# stays out of this table).
+hero|heroes
+
+# Consonant doubling before -es, conditioned by stress rather than spelling —
+# the regular rule's sibilant arm gives "quizes" (single z) without this row.
+quiz|quizzes
+
 # Other irregular
 person|people
 goose|geese
