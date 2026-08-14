@@ -4,8 +4,10 @@
 one line — **output-language modularity already works today; authoring-language
 modularity is blocked by one grammar slot, and a prototype closing it passed
 every test in the repo except the two that compare the parser against its own
-un-widened reference oracle.** Whether to ship it is a maintainer decision; see
-"What this spike does not decide".
+un-widened reference oracle.** Option 1's only real cost — losing an accidental
+compile error on a misspelled article — has since been accepted by the
+maintainer (see "Decision", below), so what remains open is scheduling, not
+design.
 
 ## Motivation
 
@@ -281,18 +283,35 @@ philosophy — it makes the pre-noun slot consistent with the post-noun slot,
 where the permissive choice was already made. The words losing protection are
 the ~6 articles and ~14 modals/auxiliaries listed above.
 
-Two things follow. First, if typo protection on function words is judged
-worth keeping, the honest way to keep it is a deliberate check (a "did you
-mean `the`?" hint on a near-miss), not the parse failure that exists today by
-accident. Second, that check would be English-specific, so it belongs behind
-the same language selection everything else in this document is about.
+### Decision: the lost typo check is not `ranting`'s job (maintainer, 2026-08-14)
+
+Resolved rather than left open. **`ranting` is not a spelling corrector**;
+correction is a separate concern and, if wanted, a separate plugin. Losing the
+accidental check on `{teh gato}` is therefore accepted, not merely tolerated —
+it removes a behavior the crate never intended to offer and offers inconsistently
+(non-obvious 3), rather than sacrificing a feature.
+
+Two consequences worth stating precisely, because "another plugin" is reachable
+in one sense and not in the other:
+
+- **Compile-time correction cannot be a `ranting` plugin.** The template is
+  parsed during macro expansion, and a proc macro cannot consult another
+  crate's items or a runtime registry — the same constraint that rules out
+  options 2 and 3 above. Anything that wants to *reject* a misspelling at
+  compile time has to be an external lint reading the source, not something
+  registered with `ranting`.
+- **Runtime correction is already reachable**, and becomes more so under
+  option 1. Once `ArticleKind::Other` routes to `inflect_article_custom`, the
+  language module is handed the literal word — `"teh"` included — and may do
+  whatever it likes with it: correct it, log it, or return `None` and let it
+  render as written. A language module *is* the plugin, and it already has the
+  word in hand.
+
+So the honest split is: `ranting` parses and inflects, a language module may
+validate what it is handed at runtime, and compile-time spell-checking belongs
+to a tool outside this crate entirely.
 
 ## What this spike does not decide
-
-- **Whether to do it.** Option 1 changes diagnostics for existing English
-  templates (`{teh gato}` renders instead of failing), which is a behavior
-  change even though it is not a signature break. Non-obvious 3 argues the cost
-  is smaller than it first appears, but accepting it is a maintainer call.
 - **The `Language` trait question.** Refactoring the 23-method `Ranting` trait
   into an entity part and a delegating language part would let one entity render
   in several languages without one field per language. The experiment above
