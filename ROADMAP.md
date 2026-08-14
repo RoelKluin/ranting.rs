@@ -661,8 +661,9 @@ building, its build item is dropped rather than executed anyway.
       the rules lexicon-free, and they are the point of the table.
 
 11. **`count` on `Ranting::inflect`** (2-4 hours) — **blocks item 5**, scheduled
-    by item 4. Add `count: Option<PlaceholderCount>` as a fifth parameter, the
-    same type and from the same source as item 14's, so a counted noun can
+    by item 4. Add `count: Option<PlaceholderCount>` to
+    `fn inflect(&self, to_plural: bool, uc: bool, case: GrammaticalCase)` — the
+    same type and from the same source as item 14's — so a counted noun can
     render a third morphological number. Item 14 widened five hook pairs and
     `Ranting::inflect`'s `case: GrammaticalCase` in one commit but left
     `inflect` itself count-less, which is why `{$n kitab}` with `n = 2` renders
@@ -678,8 +679,14 @@ building, its build item is dropped rather than executed anyway.
       undocumented hook call order, and makes a `&self` trait stateful.
     - English-preserving by construction — English has no third number, so
       `None`/any value renders identically. Breaking for a fork that hand-writes
-      `inflect`, which is both falsifiers plus every derive-generated impl;
-      item 14's own signature change is the precedent for how to land it.
+      `inflect`, which is both falsifiers plus every derive-generated impl.
+      **Item 14 already widened this exact signature**, adding `case` in the
+      same commit as the five hook pairs — so this is a second widening of a
+      function that could have taken the count then, not a fresh precedent to
+      follow. Item 14's commit is where to look for how to land it mechanically
+      (two `get_plurality_fns` sites in `ranting_derive/src/ranting_impl.rs`,
+      the trait declaration in `src/lib.rs`, both falsifiers' hand-written
+      impls).
     - CLDR categories stay **out** (`2026-08-13-number-categories.md`); this
       hands a fork the raw count, exactly as item 14 did elsewhere.
 
