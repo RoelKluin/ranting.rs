@@ -92,8 +92,12 @@ first or in parallel. Items 4 and 5 (the builds) are contingent on what 1 and
 2 conclude and are scoped provisionally below; if a spike recommends against
 building, its build item is dropped rather than executed anyway.
 
-1. **Unused-hook audit** (doc-only, 3-5 hours) — *cheap, informs items 2 and
-   3; no dependency on either*
+1. **Unused-hook audit** (doc-only, 3-5 hours) — ✅ **DONE 2026-08-14**;
+   findings in `docs/superpowers/specs/2026-08-14-unused-hook-audit.md`,
+   re-runnable via `scripts/hook_audit.sh`. Headline: ten of twenty-three
+   methods have never been overridden by a fork, and item 14's `count`
+   channel is ignored by all fourteen hook declarations that carry it.
+   *Cheap, informs items 2 and 3; no dependency on either*
    - Phase 6 shipped seven `_custom` hook pairs (verb, pronoun, article,
      adjective, elision, numeral, preposition), an eighth `capitalize` pair, and
      one unpaired `is_first_person_subject_custom` — eight `_with_context`
@@ -107,7 +111,7 @@ building, its build item is dropped rather than executed anyway.
      `inflect_preposition_custom` instead) and Spanish's two contractions are
      the same; the hook item 7 built for `le`+`homme`→`l'homme` has never
      been exercised by a language that actually needs it. Neither fork
-     overrides **any** of the twelve `_with_context` methods either — the
+     overrides **any** of the eight `_with_context` methods either — the
      `hole_1_*` dialect test in `ranting_i18n/tests/holes.rs` proves the
      *plumbing* (item 12) delivers `NarrationContext` to the default body,
      not that a fork's own logic ever branches on `ctx.dialect`/
