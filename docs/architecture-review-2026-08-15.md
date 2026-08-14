@@ -154,12 +154,13 @@ generating `Self {}` for the braced-and-empty case. Pinned by
 ## 4. Left undone, and why
 
 - **§1.2's missing table rows have since been added** (2026-08-16) — see the updated §1.2 above.
-- **Four orphan top-level docs** — `ARGUMENT_PARSING_IMPROVEMENTS.md`, `DESIGN_REPORT_SUMMARY.md`,
-  `PHASE_2_IMPLEMENTATION_PLAN.md`, `RECOUNTING_INTEGRATION.md` (1,281 lines) — appear in no index.
-  Three carry self-supersession banners; `ARGUMENT_PARSING_IMPROVEMENTS.md` has none and
-  contradicts itself on what error message the code produces. `DESIGN_REPORT_SUMMARY.md`'s own
-  banner has drifted ("the repo now has five crates"). Deleting or bannering them is a maintainer
-  decision, not an audit finding.
+- **Four orphan top-level docs** — ✅ **deleted 2026-08-16 (maintainer decision)**.
+  `ARGUMENT_PARSING_IMPROVEMENTS.md`, `DESIGN_REPORT_SUMMARY.md`, `PHASE_2_IMPLEMENTATION_PLAN.md`,
+  `RECOUNTING_INTEGRATION.md` (1,281 lines total) appeared in no index; three carried
+  self-supersession banners and `ARGUMENT_PARSING_IMPROVEMENTS.md` had none and contradicted
+  itself on what error message the code produces. `DESIGN_REPORT_SUMMARY.md`'s own banner had also
+  drifted ("the repo now has five crates"). The maintainer chose deletion over bannering/indexing;
+  `CLAUDE.md`'s "Where the record lives" table no longer references them.
 - **`README.md` mentions no sibling crate at all** — ✅ **fixed 2026-08-16**, added a "Related
   crates in this repository" section. It also carried the `{*can can}` example that `ROADMAP.md`
   already tracked as demonstrating the marker where it changes nothing — ✅ **fixed 2026-08-16**,
