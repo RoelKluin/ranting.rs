@@ -313,3 +313,212 @@ fn wrappers_delegate_preposition_fusion() {
     let one = Many(vec![GermanHaus]);
     assert_eq!(say!("zu {the one}.", one), "zum Haus.".to_string());
 }
+
+// ---------------------------------------------------------------------------
+// The three post-assembly splices, in one placeholder
+// ---------------------------------------------------------------------------
+
+/// Overrides all three post-assembly hooks at once — preposition fusion, numeral elision and
+/// article elision. No such fixture existed before `docs/architecture-review-2026-08-15.md` §1.1,
+/// which is why the ordering defect it records was reachable but untested.
+struct AllThree;
+
+impl std::fmt::Display for AllThree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("gato")
+    }
+}
+
+impl Ranting for AllThree {
+    fn name(&self, _uc: bool) -> String {
+        "gato".to_string()
+    }
+    fn subjective(&self) -> &str {
+        "it"
+    }
+    fn is_plural(&self) -> bool {
+        false
+    }
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        _uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
+        "gato".to_string()
+    }
+    fn skip_article(&self) -> bool {
+        false
+    }
+    fn inflect_article_custom(
+        &self,
+        _article: &str,
+        _noun_singular: &str,
+        _case: GrammaticalCase,
+        _class: NounClass,
+        _as_plural: bool,
+        _count: Option<PlaceholderCount>,
+        _uc: bool,
+    ) -> Option<String> {
+        Some("el".to_string())
+    }
+    fn inflect_preposition_custom(
+        &self,
+        _preposition: &str,
+        _article: &str,
+        _case: GrammaticalCase,
+        _class: NounClass,
+        _as_plural: bool,
+        _count: Option<PlaceholderCount>,
+        _uc: bool,
+    ) -> Option<String> {
+        Some("del".to_string())
+    }
+    fn inflect_numeral_custom(
+        &self,
+        _numeral: &str,
+        count: Option<i64>,
+        _style: NumeralStyle,
+        _case: GrammaticalCase,
+        _class: NounClass,
+        _as_plural: bool,
+    ) -> Option<String> {
+        // Deliberately multibyte: the defect's worst form was a panic off a `char` boundary, and
+        // an ASCII numeral would only have produced silently wrong text.
+        Some(format!("«{}»", count?))
+    }
+    fn elide_numeral_custom(
+        &self,
+        numeral: &str,
+        _separator: &str,
+        following: &str,
+        _case: GrammaticalCase,
+        _class: NounClass,
+        _as_plural: bool,
+        _count: Option<PlaceholderCount>,
+    ) -> Option<String> {
+        Some(format!("{numeral}{following}"))
+    }
+}
+
+#[test]
+fn all_three_splices_in_one_placeholder() {
+    // `docs/architecture-review-2026-08-15.md` §1.1. The numeral splice runs first, on the
+    // innermost boundary, so preposition fusion and article elision both still see valid spans
+    // and pick up the already-fused numeral+noun as their trailing text.
+    let n = AllThree;
+    assert_eq!(say!("Vengo de {the $0 1}", 2, n), "Vengo del «2»gato");
+
+    // Each splice on its own, so a future failure says which one moved.
+    assert_eq!(say!("{the $0 1}", 2, n), "el «2»gato");
+    assert_eq!(say!("Vengo de {the 0}", n), "Vengo del gato");
+}
+
+#[test]
+fn the_numeral_splice_sees_its_own_text_not_a_displaced_window() {
+    // The defect's signature: after preposition fusion shifted every later byte, the numeral
+    // splice sliced a window out of the middle of the rendered text — the hook received `"> g"`
+    // out of `"<2> gato"`. With multibyte output the same displaced index panics instead, which
+    // is why this fixture's numeral is `«2»`. Asserting the hook's *inputs* rather than only the
+    // final string, since the old code could still produce a correct-looking result by accident.
+    use std::cell::RefCell;
+
+    thread_local! {
+        static SEEN: RefCell<Vec<(String, String, String)>> = const { RefCell::new(Vec::new()) };
+    }
+
+    struct Spy;
+    impl std::fmt::Display for Spy {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("gato")
+        }
+    }
+    impl Ranting for Spy {
+        fn name(&self, _uc: bool) -> String {
+            "gato".to_string()
+        }
+        fn subjective(&self) -> &str {
+            "it"
+        }
+        fn is_plural(&self) -> bool {
+            false
+        }
+        fn inflect(
+            &self,
+            _t: bool,
+            _u: bool,
+            _c: GrammaticalCase,
+            _n: Option<PlaceholderCount>,
+        ) -> String {
+            "gato".to_string()
+        }
+        fn skip_article(&self) -> bool {
+            false
+        }
+        fn inflect_article_custom(
+            &self,
+            _a: &str,
+            _s: &str,
+            _c: GrammaticalCase,
+            _cl: NounClass,
+            _p: bool,
+            _n: Option<PlaceholderCount>,
+            _uc: bool,
+        ) -> Option<String> {
+            Some("el".to_string())
+        }
+        fn inflect_preposition_custom(
+            &self,
+            _p: &str,
+            _a: &str,
+            _c: GrammaticalCase,
+            _cl: NounClass,
+            _pl: bool,
+            _n: Option<PlaceholderCount>,
+            _uc: bool,
+        ) -> Option<String> {
+            Some("del".to_string())
+        }
+        fn inflect_numeral_custom(
+            &self,
+            _num: &str,
+            count: Option<i64>,
+            _s: NumeralStyle,
+            _c: GrammaticalCase,
+            _cl: NounClass,
+            _p: bool,
+        ) -> Option<String> {
+            Some(format!("«{}»", count?))
+        }
+        fn elide_numeral_custom(
+            &self,
+            numeral: &str,
+            separator: &str,
+            following: &str,
+            _c: GrammaticalCase,
+            _cl: NounClass,
+            _p: bool,
+            _n: Option<PlaceholderCount>,
+        ) -> Option<String> {
+            SEEN.with(|s| {
+                s.borrow_mut().push((
+                    numeral.to_string(),
+                    separator.to_string(),
+                    following.to_string(),
+                ))
+            });
+            None
+        }
+    }
+
+    let _ = say!("Vengo de {the $0 1}", 2, Spy);
+    SEEN.with(|s| {
+        let seen = s.borrow();
+        assert_eq!(seen.len(), 1, "the numeral hook should be called once");
+        assert_eq!(
+            seen[0],
+            ("«2»".to_string(), " ".to_string(), "gato".to_string())
+        );
+    });
+}

@@ -889,9 +889,51 @@ where
             }
         };
         res.push_str(&s);
-        // Preposition-article fusion (ROADMAP.md Phase 6 item 26): tried first, at the same
-        // post-assembly point the elision splice below runs at, since it needs the same rendered
-        // article text elision does. On success it consumes both the preposition and the article,
+        // The numeral-noun boundary, spliced the same post-assembly way the article-noun boundary
+        // is below (ROADMAP.md Phase 7 item 12). It runs **first of the three**, before
+        // preposition fusion and article elision, because it edits the innermost region:
+        // `[preposition][article][numeral][noun]`. Every byte it rewrites is at or after
+        // `article_span`'s end, so both spans the two later splices depend on stay valid, and
+        // they in turn see the already-fused numeral+noun as their trailing text.
+        //
+        // It has to be this way round. When this ran *after* preposition fusion — as it did
+        // between Phase 7 item 12 and 2026-08-15 — a successful fusion had already truncated at
+        // `p_start` and rebuilt, shifting every later byte, while `numeral_span` still held
+        // pre-fusion offsets. The slice below then read a displaced window (`"> g"` out of
+        // `"<2> gato"`) and `res.truncate(start)` cut at a displaced index: silently wrong text,
+        // or a panic off a `char` boundary with multibyte input. See
+        // `docs/architecture-review-2026-08-15.md` §1.1.
+        //
+        // Japanese needs it: 「一匹の猫」 is written with no space anywhere, and until this
+        // existed the separator was pushed by this function and offered to no hook, so
+        // `一匹の 猫` was the best a fork could do. See `Ranting::elide_numeral_custom`.
+        if let Some((start, end)) = numeral_span.filter(|(start, end)| start != end) {
+            let (numeral_text, num_ws) =
+                split_at_find_end(&res[start..end], |c: char| !c.is_whitespace())
+                    .unwrap_or((&res[start..end], ""));
+            let (noun_ws, following) =
+                split_at_find_start(&res[end..], |c: char| !c.is_whitespace())
+                    .unwrap_or(("", &res[end..]));
+            let separator = format!("{num_ws}{noun_ws}");
+            let fused = noun.elide_numeral_custom_with_context(
+                numeral_text,
+                &separator,
+                following,
+                case.into(),
+                noun_class,
+                as_pl,
+                placeholder_count,
+                ctx,
+            );
+            if let Some(fused) = fused {
+                res.truncate(start);
+                res.push_str(&fused);
+            }
+        }
+        // Preposition-article fusion (ROADMAP.md Phase 6 item 26): tried before *article*
+        // elision, at the same post-assembly point, since it needs the same rendered article text
+        // elision does. The numeral splice above has already run and may have rewritten
+        // everything after the article, which is fine: `tail` below re-reads it. On success it consumes both the preposition and the article,
         // so the elision splice below is skipped -- the article it would have elided against no
         // longer exists. See `Ranting::inflect_preposition_custom`.
         let mut prep_fused = false;
@@ -926,38 +968,6 @@ where
                     res.push_str(&tail);
                     prep_fused = true;
                 }
-            }
-        }
-        // The numeral-noun boundary, spliced the same post-assembly way the article-noun boundary
-        // is below (ROADMAP.md Phase 7 item 12). It runs **first**, because it is the inner of
-        // the two boundaries: `[article][numeral][noun]`. Editing it leaves `article_span`
-        // untouched — every byte it rewrites is at or after `article_span`'s end — while the
-        // reverse order would move the numeral out from under this splice's own span.
-        //
-        // Japanese needs it: 「一匹の猫」 is written with no space anywhere, and until this
-        // existed the separator was pushed by this function and offered to no hook, so
-        // `一匹の 猫` was the best a fork could do. See `Ranting::elide_numeral_custom`.
-        if let Some((start, end)) = numeral_span.filter(|(start, end)| start != end) {
-            let (numeral_text, num_ws) =
-                split_at_find_end(&res[start..end], |c: char| !c.is_whitespace())
-                    .unwrap_or((&res[start..end], ""));
-            let (noun_ws, following) =
-                split_at_find_start(&res[end..], |c: char| !c.is_whitespace())
-                    .unwrap_or(("", &res[end..]));
-            let separator = format!("{num_ws}{noun_ws}");
-            let fused = noun.elide_numeral_custom_with_context(
-                numeral_text,
-                &separator,
-                following,
-                case.into(),
-                noun_class,
-                as_pl,
-                placeholder_count,
-                ctx,
-            );
-            if let Some(fused) = fused {
-                res.truncate(start);
-                res.push_str(&fused);
             }
         }
         // Post-assembly elision: the article and everything the placeholder renders after it are
