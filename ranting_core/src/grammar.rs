@@ -59,9 +59,15 @@ pub static PH_START: &str = concat!(
 
 /// The characters that make a `PH_START` `pre` capture count as sentence-initial: ASCII
 /// terminators, Greek's question mark, Urdu's full stop, CJK full-width terminators, and
-/// Spanish's opening `¿`/`¡`. Kept in sync with `PH_START`'s character classes above by
-/// construction — `ranting_derive`'s `at_sentence_start` check matches a captured `pre`'s first
-/// character against this list instead of hand-duplicating the punctuation set.
+/// Spanish's opening `¿`/`¡`. `ranting_derive`'s `at_sentence_start` check matches a captured
+/// `pre`'s first character against this list, and is its only reader.
+///
+/// **This list is NOT kept in sync with `PH_START` by construction — it is a hand-maintained
+/// duplicate.** `PH_START` is a `concat!` of string literals with the same characters hard-coded
+/// into its own character class above, and `concat!` cannot interpolate a `&[char]` const, so no
+/// mechanism couples the two. Adding a terminator here without also editing `PH_START`'s class
+/// (or vice versa) silently desynchronizes compile-time and regex-side sentence detection.
+/// `tests/ranting/sentence_detection.rs` is the only thing that would catch it.
 pub const SENTENCE_TRIGGER_CHARS: &[char] = &[
     '.', '?', '!', '\u{37E}', '\u{6D4}', '\u{3002}', '\u{FF01}', '\u{FF1F}', '\u{BF}', '\u{A1}',
 ];
