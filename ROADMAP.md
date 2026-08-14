@@ -444,8 +444,16 @@ building, its build item is dropped rather than executed anyway.
    - Six holes recorded: bare dual with no numeral (a grammar change, out of
      scope by the number-categories spec's own boundary), no genitive in
      `GrammaticalCase` (`ranting_i18n` hole 3 reconfirmed from an unrelated
-     family), bound object/possessive pronouns, the construct state, VSO word
-     order (a boundary, like German's hole 8) and item 12's numeral separator.
+     family), bound pronouns, the construct state, VSO word order (a boundary,
+     like German's hole 8) and item 12's numeral separator.
+     - **Hole 3 got narrower under probing, and is sharper for it.** Bound
+       pronouns are not simply unreachable: a template may abut two
+       placeholders, so `{0}{`1}` renders `كتابه` correctly. What is missing is
+       the power to *rewrite the preceding placeholder's output*, which the
+       suffix needs — a feminine `ة` becomes `ت` before it, so `طالبة` + `ه`
+       renders `طالبةه` where Arabic needs `طالبته`. That is precisely what
+       `elide_article_custom` does for an article, with no pronoun-side
+       equivalent. Worth noting as a candidate for a future item, not scheduled.
    - **`inflect_adjective_custom` is deliberately not implemented.** Arabic
      adjectives are post-nominal like Spanish's, so `ranting_es` already proves
      the hook works in that position; a second working example is not a

@@ -116,17 +116,22 @@ unrelated language family, which is worth recording: the gap is not a German qui
 script does not write the case ending, so nothing is *visibly* wrong in this crate's output, which
 is the trap rather than a reprieve. Pinned by `hole_2_the_genitive_case_has_no_marker`.
 
-### 3. Object and possessive pronouns are suffixes, and cannot attach to their host
+### 3. A bound pronoun cannot change the word it attaches to
 
 Arabic's object and possessive pronouns are bound morphemes on the host word — `كتابه` "his book",
 `رأيته` "I saw him" — not free words. `inflect_pronoun_custom` returns a string rendered as its own
-placeholder, so the closest this crate can do is emit the bare suffix standing alone.
+placeholder, so on its own it emits the bare suffix standing alone.
 
-This is the word-order boundary in a different costume: the suffix's *position* is inside another
-word, and no inflection hook will ever change position (`docs/EXTENSIBILITY.md` §2.12). Recorded
-as a hole rather than a boundary because it is a fair question whether a fork should be able to
-fuse a pronoun into an adjacent placeholder the way `elide_article_custom` fuses an article — the
-answer today is no. Pinned by `hole_3_bound_pronouns_cannot_attach_to_their_host`.
+Probing this narrowed it, and the narrowed version is the interesting one. **Juxtaposition is
+enough when the host does not change**: a template may abut two placeholders, and `{0}{`1}` really
+does render `كتابه`. What it cannot do is *rewrite the preceding placeholder's output* — and the
+suffix changes its host, since a feminine noun's `ة` becomes `ت` before it. So `طالبة` + `ه`
+renders `طالبةه` where Arabic needs `طالبته`.
+
+That is exactly the power `elide_article_custom` has for an article — replace the article, the
+separator and the following text as one — and there is no equivalent on the pronoun side. It is
+filed as a hole rather than as the word-order boundary (§2.12) for that reason: the *position* is
+reachable, the *fusion* is not. Pinned by `hole_3_bound_pronouns_cannot_attach_to_their_host`.
 
 ### 4. The construct state (الإضافة) is not expressible
 
