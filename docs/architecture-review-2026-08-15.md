@@ -15,19 +15,19 @@ audit ran, and the two highest-severity findings below are defects in that code.
 
 ## 1. Code defects
 
-### 1.1 The numeral-elision splice uses byte offsets preposition fusion has invalidated
+### 1.1 The numeral-elision splice used byte offsets preposition fusion had invalidated — ✅ **FIXED 2026-08-15**
 
-`src/lib.rs`, `handle_placeholder_impl`. **Open.** Introduced 2026-08-14 by ROADMAP.md Phase 7
-item 12.
+`src/lib.rs`, `handle_placeholder_impl`. Introduced 2026-08-14 by ROADMAP.md Phase 7 item 12,
+fixed the day after this review recorded it.
 
-Three post-assembly steps run in order: preposition fusion (`:892-930`), numeral elision
-(`:938-962`), article elision (`:964+`). On success, fusion does `res.truncate(p_start)` and
-rebuilds (`:922-926`), shifting every byte after `p_start` by
-`fused.len() - (a_end - p_start)`. But `numeral_span` was recorded far earlier, at `:735`.
+The three post-assembly steps *used to* run in the order preposition fusion, numeral elision,
+article elision. On success, fusion does `res.truncate(p_start)` and rebuilds, shifting every byte
+after `p_start` by `fused.len() - (a_end - p_start)`. But `numeral_span` was recorded far earlier,
+at the point the numeral is pushed.
 
-The article splice guards on `!prep_fused` (`:967`). **The numeral splice does not** (`:940`), so
-after a successful fusion it slices `&res[start..end]` at displaced offsets and truncates at a
-displaced index. Reproduced:
+The article splice guards on `!prep_fused`. **The numeral splice did not**, so after a successful
+fusion it sliced `&res[start..end]` at displaced offsets and truncated at a displaced index.
+Reproduced:
 
 ```
 say!("Vengo de {the $0 1}", 2, n)     // fixture fuses "de"+"el" -> "del"
@@ -41,18 +41,25 @@ displaced index lands off a `char` boundary and **panics** — the identical fai
 `-08-14.md` §1.7, in code written the day after §1.7 was fixed. `end` can also exceed `res.len()`
 when the fused form is shorter.
 
-Reachable rather than latent: `inflect_preposition_custom` is overridden by two existing forks and
-is not on the never-overridden list. No current test reaches it, because it additionally needs an
+It was reachable rather than latent: `inflect_preposition_custom` is overridden by two existing
+forks and is not on the never-overridden list. No test reached it, because it additionally needs an
 `elide_numeral_custom` override in the same placeholder, and only `ranting_ja` has one.
 
-The source comment at `:932-935` is wrong twice over: the numeral splice does not "run first"
-(fusion precedes it), and "editing it leaves `article_span` untouched" names the wrong hazard —
-the hazard runs the other way.
+The source comment was wrong twice over: it claimed the numeral splice "runs first" when fusion
+preceded it, and "editing it leaves `article_span` untouched" named the wrong hazard — the hazard
+ran the other way.
 
-**Fix shape**: either guard the numeral splice on `!prep_fused`, or record `numeral_span` after
-fusion. Whichever lands needs a regression test built from the repro above; a fixture that
-overrides preposition fusion, a numeral hook and `elide_numeral_custom` at once did not previously
-exist.
+**Fixed** by making the numeral splice run *first of the three*, ahead of preposition fusion —
+the innermost region of `[preposition][article][numeral][noun]`. Every byte it rewrites is then at
+or after `article_span`'s end, so both spans the later splices depend on stay valid, and they see
+the already-fused numeral+noun as their trailing text. That also makes the original comment's
+reasoning true rather than merely plausible.
+
+Pinned by two tests in `tests/ranting/preposition_fusion.rs`, **both verified to fail against the
+old ordering** rather than only to pass against the new: one asserts the rendered string, the other
+spies on the hook's inputs, since the old code could still produce a correct-looking result by
+accident. A fixture overriding preposition fusion, a numeral hook and `elide_numeral_custom` at
+once did not previously exist — which is why this was reachable but untested.
 
 ### 1.2 Two nouns render the wrong plural, and three docs assert the opposite
 
@@ -142,8 +149,6 @@ which takes the working path. The one-token fix noted in `-08-14.md` §1.1 has n
 
 ## 4. Left undone, and why
 
-- **§1.1 is not fixed by this review.** It is a code change with a behavioral test to write, not a
-  doc sync; it is recorded here so the fix is not mistaken for new work.
 - **§1.2's missing table rows are not added.** Adding `hero`/`quiz` is a one-line data change, but
   `pluralization.md` point 6's standing rule — "adding a rule to the engine means auditing what it
   now gets wrong" — applies in reverse too, and the audit that would justify the row set is its own
