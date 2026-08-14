@@ -16,6 +16,36 @@ ranting = "0.2"
 
 <br>
 
+## Related crates in this repository
+
+This repository is not a Cargo workspace — each crate below has its own `Cargo.toml`/`Cargo.lock`
+and its own `cargo test`. `ranting_core` and `ranting_derive` are internal crates `ranting` itself
+depends on. The rest are downstream crates that depend on published `ranting` alone, each built to
+falsify (or, for the two dev tools, inspect) the claim that `ranting`'s public API gives a
+non-English language enough signal to build a correct implementation on:
+
+- [`ranting_i18n`](ranting_i18n/README.md) — German; found that German's prenominal attributive
+  adjectives can't reach `ranting`'s postnominal `!`/`!!` degree slot in a grammatically correct
+  sentence.
+- [`ranting_es`](ranting_es/README.md) — Spanish; postnominal adjectives land exactly where the
+  `!` slot renders, so this is the crate that exercises adjective agreement with genuinely correct
+  output.
+- [`ranting_ar`](ranting_ar/README.md) — Arabic; the first non-Indo-European fork, exercising a
+  third morphological number (the dual) and preposition/article fusion.
+- [`ranting_ja`](ranting_ja/README.md) — Japanese; the first fork whose decisive finding is a
+  confirmation rather than a gap, plus a numeral/counter-noun separator defect it surfaced and
+  which is now fixed.
+- [`ranting_gaps`](ranting_gaps/README.md) — a development tool (not a falsifier) that reads
+  arbitrary English text and reports what `ranting` fails to inflect, ranked by corpus frequency.
+- [`ranting_es_gaps`](ranting_es_gaps/README.md) — the same idea one level down: inspects
+  `ranting_es`'s closed Spanish lexicon against real Spanish text instead of inspecting `ranting`
+  against open-vocabulary English.
+
+See `.claude/rules/crate-layout.md` for the full rationale behind each crate's role, and
+`docs/EXTENSIBILITY.md` for what a non-English fork can and can't reach through the public API.
+
+<br>
+
 ## Details
 
 - A `say!()` macro produces a String similar to `format!()`, but with placeholder markers a pronouns can be

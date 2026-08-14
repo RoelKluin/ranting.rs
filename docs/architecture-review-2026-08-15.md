@@ -160,9 +160,10 @@ generating `Self {}` for the braced-and-empty case. Pinned by
   contradicts itself on what error message the code produces. `DESIGN_REPORT_SUMMARY.md`'s own
   banner has drifted ("the repo now has five crates"). Deleting or bannering them is a maintainer
   decision, not an audit finding.
-- **`README.md` mentions no sibling crate at all**, and still carries the `{*can can}` example that
-  `ROADMAP.md` already tracks as demonstrating the marker where it changes nothing. Both are
-  existing open items rather than new findings.
+- **`README.md` mentions no sibling crate at all** — ✅ **fixed 2026-08-16**, added a "Related
+  crates in this repository" section. It also carried the `{*can can}` example that `ROADMAP.md`
+  already tracked as demonstrating the marker where it changes nothing — ✅ **fixed 2026-08-16**,
+  see §1.3's neighboring fix note above (README's `*` bullet now shows the actual contrast).
 - **Trivia skipped**: test counts, line counts, a duplicate `goose|geese` row (harmless — first
   match wins), and `plurals.rs`'s "63-line table" comment against 51 data rows.
 
