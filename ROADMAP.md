@@ -507,12 +507,21 @@ building, its build item is dropped rather than executed anyway.
      hook's `&self` suffices and `NounClass` stays `UNSET`. Item 2's open-ended
      `&'static str` is therefore *not exercised* by Japanese rather than
      falsified by it; Bantu remains the sharp test.
-   - Five holes: the numeral-noun separator (item 12, shipped **wrong** —
-     `一匹の 猫` — since there is no workaround to encode), the `?`-hidden
-     numeral's leading space (findings §1.6), unspaced prose returning an honest
-     `None`, `ask!()` degenerating to a function call on prose, case particles as
-     template text (the word-order boundary from an SOV direction) and
-     `Register`'s three values against keigo's finer gradation.
+   - Five holes, numbered 1-5 in the crate README and named `hole_N_*` in its
+     `tests/holes.rs`: **1** the numeral-noun separator (item 12, shipped
+     **wrong** — `一匹の 猫` — since there is no workaround to encode), with
+     sub-case **1b** for the `?`-hidden numeral's surviving leading space
+     (findings §1.6), which is why hole 1's obvious escape hatch fails too;
+     **2** unspaced prose returning an honest `None`; **3** `ask!()` degenerating
+     to a function call on prose; **4** case particles as template text (the
+     word-order boundary from an SOV direction); **5** `Register`'s three values
+     against keigo's finer gradation.
+     - Hole 4 is **cheaper than first written**, and the correction is the
+       useful part: a verb has to hang off some placeholder, so a verb-final
+       clause looks like it needs a noun repeated at the end — but the hidden
+       marker solves it exactly. `"{0}が{1}を{?0 see}"` renders
+       `猫が本を見ます`, idiomatic SOV with correct politeness and no
+       duplication. The boundary is real; this particular cost of it is not.
 
    <details><summary>Original scope (kept for the record)</summary>
    **Blocked on nothing**:

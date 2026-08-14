@@ -107,6 +107,18 @@ fn counter_forms_are_a_table_not_a_suffix() {
 }
 
 #[test]
+fn a_count_past_the_table_declines_and_english_shows_through() {
+    // The counter table stops at five. Past it the hook returns `None` and `ranting`'s own
+    // speller renders the numeral — mixed-script output, which is the decline-rather-than-guess
+    // contract being *visibly* wrong rather than plausibly wrong, exactly as an unmodelled verb
+    // is. Asserted rather than left to chance, since a fork extending the vocabulary needs to
+    // know what the boundary looks like.
+    let neko = JapaneseNoun::neko();
+    assert_eq!(say!("{#0 1}", 6, neko), "six 猫");
+    assert_eq!(say!("{$0 1}", 6, neko), "6 猫");
+}
+
+#[test]
 fn both_numeral_channels_take_the_counter() {
     // `$n` asks for digits, but a Japanese numeral is not usable without its counter, so this
     // channel gets the same treatment rather than falling through to bare digits.
