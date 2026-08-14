@@ -80,7 +80,7 @@ pub enum Register {
 /// `inflect_pronoun_custom_with_context` / `inflect_article_custom_with_context`
 /// hooks can branch on story-wide settings without the entity itself owning
 /// them (keeping `subject`, an entity property, separate from these, which
-/// are story settings — see CLAUDE.md's Non-obvious behaviors).
+/// are story settings — see `.claude/rules/extension-hooks.md`).
 ///
 /// `dialect` is a plain `&'static str` (e.g. "en-GB", "pirate") rather than
 /// an enum, since the crate places no constraints on it; it is entirely

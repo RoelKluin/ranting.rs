@@ -68,8 +68,8 @@ use std::str::FromStr;
 /// exposed so macro-generated code (which only has a `ranting::` path to
 /// work with) can name these types -- but not `#[doc(hidden)]` either,
 /// since understanding this module explains the `say!()`/`say_with!()`
-/// macro <-> runtime seam for anyone extending the grammar (see CLAUDE.md's
-/// "Macro flow" section).
+/// macro <-> runtime seam for anyone extending the grammar (see
+/// `.claude/rules/crate-layout.md`'s "Macro flow" section).
 pub use ranting_core::placeholder;
 
 #[doc(hidden)]
@@ -1638,7 +1638,7 @@ impl From<placeholder::CaseKind> for GrammaticalCase {
 ///
 /// Using singular they for an individual with gender-neutral pronouns (the runnable copy of
 /// `ranting_derive::derive_ranting`'s own doc example, which can't compile standalone there --
-/// see CLAUDE.md's "Doctests in proc-macro crate" note):
+/// see CLAUDE.md's "Testing conventions"):
 ///
 /// ```
 /// # use ranting::*;
