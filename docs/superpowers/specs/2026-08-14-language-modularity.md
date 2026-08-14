@@ -1,0 +1,279 @@
+# Spike: modular authoring languages and modular output languages
+
+**Status**: design spike complete, both axes verified empirically. Conclusion in
+one line — **output-language modularity already works today; authoring-language
+modularity is blocked by one grammar slot, and a prototype closing it passed
+every test in the repo except the two that compare the parser against its own
+un-widened reference oracle.** Whether to ship it is a maintainer decision; see
+"What this spike does not decide".
+
+## Motivation
+
+The request: language should be modular on two axes. A developer should be able
+to *write* templates in their own language, and to ship an application that
+*renders* in several languages, assembling third-party language modules rather
+than writing every rule personally.
+
+Concretely: someone writing in Russian, whose application supports Russian,
+English and Finnish, and who has those three modules available.
+
+Two prior spikes bound the problem before this one starts.
+`2026-08-13-word-order-feasibility.md` (Phase 6 item 1) makes word order a
+permanent boundary: one template per language per sentence, written by the
+caller. `2026-08-13-template-selection.md` (Phase 6 item 22) settles how the
+caller picks between them — an ordinary `match`, option 1, no crate machinery.
+So "supports three languages" always means at least three templates. This spike
+does not reopen either. It asks what is left once those are granted.
+
+## Axis B (output languages): already works — verified
+
+This was tested rather than reasoned about, since two language implementations
+already exist in-tree. A scratch binary depending on `ranting`, `ranting-i18n`
+and `ranting-es` simultaneously, using the public API only:
+
+```rust
+struct Cat {
+    de: ranting_i18n::GermanNoun,
+    es: ranting_es::SpanishNoun,
+}
+
+fn describe(lang: Lang, cat: &Cat) -> String {
+    match lang {
+        Lang::De => say!("Ich sehe {the *@0}.", cat.de),
+        Lang::Es => say!("Veo {the *=0}.", cat.es),
+    }
+}
+```
+
+Output:
+
+```
+DE: Ich sehe die Katze.
+ES: Veo el gato.
+```
+
+Both modules coexist in one binary, both render correctly, and neither needed
+`ranting_core` or `ranting_derive` — the falsifier invariant holds under
+composition, which had not previously been checked (each falsifier had only
+ever been built alone). Nothing in the crate prevents a third module joining
+them; `Ranting` is an ordinary public trait and a language module is an
+ordinary crate implementing it on its own noun type.
+
+**So the user's scenario is feasible today on this axis.** Three module crates,
+combined by an application neither of them knows about, is exactly what the
+above demonstrates at N=2.
+
+One qualifier on "works today", since the experiment proves *coexistence*
+specifically: adding a fourth language costs one entity field and one `match`
+arm per sentence, both in application code. It costs no change to `ranting` and
+no cooperation between the modules — but the entity is not generic over
+language, so this is "assemble N modules", not "drop in a module and the app
+adapts". Making it the latter is the `Language`-trait question deferred below,
+and it is ergonomics rather than feasibility.
+
+### What a language module can and cannot supply
+
+Worth stating precisely, because "modules available" can be read as more than
+it is. Language is bound to the **type**: `ranting_i18n::GermanNoun` and
+`ranting_es::SpanishNoun` are unrelated types, each carrying its own closed
+lexicon (`SpanishNoun` holds an `entry: &'static NounEntry`, `ranting_es/src/noun.rs:15`).
+Neither reads `NarrationContext::dialect`; language is not selected per call.
+
+A module can therefore supply **rules** — article selection, agreement,
+elision, case. Only the application knows that *its* `Cat` is `Katze` in German
+and `gato` in Spanish, so per-language **lexical data per entity** stays the
+caller's, in the same way templates do. The cost of the user's scenario is
+three templates per sentence, plus three name/gender/plural datasets per
+entity, plus three rule modules. The modules are the third of those and the
+smallest — they are also the only part that can genuinely be someone else's
+work, which is what the request actually asked for.
+
+Note also that `say!()` passes `None` for context, so any future
+language-selected-*by-context* design would make `say_with!()` the multilingual
+macro and `say!()` the English fast path. That is already the de facto split
+(Phase 6 item 12 existed because the `_with_context` hooks were otherwise
+unreachable downstream).
+
+## Axis A (authoring language): blocked, and the block is one regex
+
+Today a non-English template must still be written with English keywords. This
+renders correctly — the Spanish module's `inflect_article_custom` turns the
+English keyword into Spanish output:
+
+```
+say!("X {the *=0}.", gato)   =>   "X el gato."
+```
+
+Writing the Spanish keyword instead fails. Measured, three distinct failures:
+
+| Template | Result |
+|---|---|
+| `{the *=0}` | works — English keyword, Spanish output |
+| `{el *=0}` | compile error: ``expected article or verb, found ` *=0` `` |
+| `{el 0}`, `{el gato}` | compile error: `E0425: cannot find value 'el' in this scope` |
+
+The second failure mode is the worse one: it names a variable the author never
+wrote, because with no recognized pre-word the first word is taken as the noun.
+
+### The single gate
+
+Both closed vocabularies live in **one place** — the `pre` group of
+`ranting_core::grammar::PH_EXT` (`ranting_core/src/grammar.rs:130`), mirrored by
+hand in `ranting_core::ph_ext`'s recursive-descent parser:
+
+```
+(?P<pre>(?:
+    \??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se|`[\w-]+|
+    (?:[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
+    (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)
+    ...
+```
+
+That is two English vocabularies, not one:
+
+- **articles** — `a`/`an`/`some`/`the`/`these`/`those`
+- **pre-noun verbs** — a closed set of English modals and auxiliaries:
+  `can`, `may`, `shall`, `will`, `are`, `were`, `have`, `had`, `do`, `could`,
+  `would`, `should`, `must`, `might`, each optionally `n't`
+
+The verb half was not previously documented as closed. Verified: `{haven't =gato}`,
+`{are =gato}` and `{do =gato}` all compile; `{walk =gato}` and `{sees =gato}`
+do not — an ordinary English lexical verb is rejected exactly like a Spanish one.
+
+Downstream of the regex, two smaller mirrors of the article list exist:
+`article_kind_tokens` in `ranting_derive/src/lib.rs:886-888` (word → `ArticleKind`)
+and `get_article_or_so`'s match in `src/lib.rs:262-342`.
+
+### Why this is narrower than it looks
+
+`ArticleKind` turns out to be a **role label, not an English leak.** Every arm of
+`get_article_or_so` calls `inflect_article_custom_with_context` *first*, passing
+the word as written, and only falls back to English (`adapt_article`,
+`get_a_or_an`) when the hook returns `None`. The variant selects which fallback
+shape and which singular-derivation strategy to use — nothing more.
+
+The one exception is the gap: **`ArticleKind::Other` returns `None` without ever
+calling the hook** (`src/lib.rs:342`). An unrecognized word is not offered to the
+language module at all. That single arm, plus the regex that decides what counts
+as recognized, is the entire mechanism standing between today's behavior and
+native-language keywords.
+
+Two further pieces of Axis A are **already solved** and need no work:
+
+- **Verb conjugation** — `say_with!()`'s `runtime_tense` path bakes the
+  uninflected base verb instead of an English-conjugated form
+  (`ranting_derive/src/lib.rs:692-707`).
+- **Adjective degree** — `PostSpec::Degree` carries `base` alongside the
+  English `word`, so the hook receives the adjective as written.
+
+So Axis A reduces to the pre-word slot alone.
+
+## The hard constraint on any Axis A design
+
+`say!()`'s literal is parsed at proc-macro expansion time, before the
+surrounding crate exists as IR. This is the same ✅ **Locked** decision
+`2026-08-13-template-selection.md` leaned on. The consequence here: **the
+keyword vocabulary must be known at expansion time.** A runtime registry — a
+language module registering its articles with `ranting` at startup — cannot
+work, for the same reason a runtime template catalogue cannot. Whatever selects
+the vocabulary is either compile-time configuration or nothing.
+
+## Options, scored
+
+| Option | Works with compile-time parsing? | Cost | Notes |
+|---|---|---|---|
+| **1. Widen the grammar; let the hook take first refusal** — accept any word in the pre-slot, classify unknown ones as `ArticleKind::Other`, and route `Other` to `inflect_article_custom` instead of returning `None` | **Yes** — purely a grammar and dispatch change, no registration anywhere | Small-to-moderate: `ph_ext`'s pre-slot, one runtime match arm, plus the `PH_EXT` oracle | **Prototyped end-to-end; see below.** No per-language registration at all, and it matches how the rest of Phase 6 works (hook first, English fallback). **Cost**: `{walk =0}` stops being a compile error and starts rendering `walk` as a literal — helpful diagnostics traded for openness |
+| **2. Per-language cargo features** — `ranting = { features = ["es", "de"] }` extends the compile-time vocabulary | Yes | Moderate, and grows with every language | Features are additive and unify globally, so all-on is the normal case; vocabularies would collide across languages with no way to say which is meant. Also puts every language's keyword list inside `ranting`, which is precisely what modularity was meant to avoid |
+| **3. Vocabulary declared at the call site or module** — e.g. an attribute naming the keyword set | Yes | Larger: a new configuration surface `say!()` does not have | Keeps vocabularies out of `ranting`, but proc macros cannot see other crates' items at expansion time, so the set must be spelled out locally — which is close to writing the words anyway |
+
+Option 1 is the only one that preserves the modularity the request is about:
+the language module supplies the vocabulary *by answering the hook*, and
+`ranting` never learns any language's word list.
+
+## Option 1 prototyped: it works, and two things about it are non-obvious
+
+Option 1 was built as a throwaway (since reverted; the tree is clean) to check
+whether the two halves are separable and whether existing templates survive.
+Both answers are counterintuitive enough to record.
+
+### Non-obvious 1: widening the grammar *alone* is worse than the status quo
+
+With the pre-slot widened but `ArticleKind::Other` still returning `None`, the
+native keyword parses and renders — but as **inert literal text**:
+
+```
+say!("Veo {el *=gato}.", gato)    =>  "Veo el gato."     -- looks right
+say!("Veo {el +*=gato}.", gato)   =>  "Veo el gatos."    -- WRONG, no agreement
+say!("Veo {the +*=gato}.", gato)  =>  "Veo los gatos."   -- English keyword, correct
+```
+
+The module never sees `el`, so it cannot inflect it to `los`. A compile error
+was traded for silently wrong output. **The two halves are a package**; shipping
+the grammar change without the dispatch change would be a regression.
+
+With both halves, plus the module accepting its own keywords (three lines in
+`ranting_es`), every case is correct:
+
+```
+{el *=g}  => "el gato"     {el +*=g} => "los gatos"
+{la *=c}  => "la casa"     {la +*=c} => "las casas"
+{un *=g}  => "un gato"     {the +*=g} => "los gatos"   -- English still works
+```
+
+`ranting` learned no Spanish in the process: the vocabulary lives entirely in
+the module's `inflect_article_custom` match arm. That is the modularity the
+request asked for, demonstrated.
+
+### Non-obvious 2: the widened slot must be a *second pass*, not an extra candidate
+
+The natural implementation — add "any word" to `pre_one_rep`'s candidate list at
+lowest priority — **breaks 15 existing English call sites**. `pre` is a greedy
+repeated group, so a longer `pre` wins over the noun-only parse regardless of
+candidate order: `{w is}` starts parsing as `pre = "w "`, `noun = "is"`, and the
+macro emits `cannot find value 'is' in this scope`. The widened pre-slot
+collides with the post-noun verb slot, which is precisely the ambiguity the
+closed English vocabulary was resolving.
+
+The fix is to make widening a **fallback pass**: run the strict grammar first,
+and retry with the open pre-slot only for templates the strict pass *rejects*.
+Every template that compiles today takes pass 1 and is byte-identical by
+construction. With that change:
+
+| Crate | Result |
+|---|---|
+| `ranting` | 39 + 399 tests, 15 doctests — all pass |
+| `ranting_derive` | 9 tests — pass |
+| `ranting_i18n` | 31 tests — pass |
+| `ranting_es` | 23 tests — pass |
+| `ranting_core` | 25 pass, **2 fail** |
+
+The two failures are `ph_ext::tests::parity_curated_corpus` and `parity_fuzzed`
+— the differential fuzz comparing the hand-written parser against the `PH_EXT`
+regex oracle, which the prototype deliberately left un-widened. That is a known
+cost, not a surprise: a real implementation widens `PH_EXT` to match, or accepts
+that the oracle now describes only the strict pass.
+
+So the implementation cost of option 1 is roughly: one fallback pass in
+`ph_ext::parse`, one widened matcher in `pre_one_rep`, one runtime match arm in
+`get_article_or_so`, and a decision about the `PH_EXT` oracle.
+
+## What this spike does not decide
+
+- **Whether to do it.** Option 1 changes diagnostics for existing English
+  templates (`{walk =0}`), which is a behavior change even though it is not a
+  signature break. That is a maintainer call.
+- **The `Language` trait question.** Refactoring the 23-method `Ranting` trait
+  into an entity part and a delegating language part would let one entity render
+  in several languages without one field per language. The experiment above
+  shows the field-per-language shape works, so this is an ergonomics question,
+  not a feasibility one. Deliberately out of scope.
+- **`{el 0}`'s diagnostic.** Even if native keywords are never supported, the
+  `E0425: cannot find value 'el'` error names a variable the author never wrote.
+  That is a diagnostics defect worth fixing independently.
+
+## Relation to Phase 7
+
+This is a new item, orthogonal to items 1-4. Item 1 (unused-hook audit) feeds it
+directly — a hook no module overrides should not gain new responsibilities.
+Items 2 and 3 (Arabic, Japanese) ask whether *more* hooks are needed; this asks
+how hooks are *packaged*.
