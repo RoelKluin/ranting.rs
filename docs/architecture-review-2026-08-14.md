@@ -204,6 +204,31 @@ ever adopted. A Phase 7 spike is the natural home if it is pursued.
 A 405 KB `tags` file and `mksrc.sh` sit in the crate root. Both are tracked-or-present dev
 artifacts unrelated to the crate's source.
 
+### 4.7 The falsifiers cannot see a defect in derive-generated `inflect()` (added 2026-08-14)
+
+Both reference lexicons hand-write `Ranting::inflect` (`ranting_i18n/src/noun.rs:164`,
+`ranting_es/src/noun.rs:95`), because suffix arithmetic cannot produce `Füchse` or `voces`.
+That is correct for them and is not the finding. The finding is what it costs: **no crate in
+this repo exercises the derive-generated `inflect()` fallback against non-English input**, so
+the falsification apparatus is structurally blind to English orthography leaking through that
+path — the one path a fork gets by default, before it decides to override anything.
+
+It cost something concrete already. ROADMAP.md Phase 7 item 10 inferred "the struct declared
+its own rule" from the attribute *values* (`singular_end.is_empty() && plural_end == "s"`),
+which made `#[ranting(plural_end = "s")]` — bare append, no orthography, exactly what a German
+or Dutch loanword plural needs — indistinguishable from the default, and left `ranting::Noun`
+with no opt-out at all. All six crates' gates passed; the defect surfaced only when a reader
+asked what the change does to a non-English *caller* rather than to a non-English `Ranting`
+*impl*. It was fixed structurally (see item 10's entry and `docs/EXTENSIBILITY.md` §2.15), but
+the blind spot that hid it is unchanged.
+
+Not scheduled. The obvious repair — a falsifier that keeps the derived `inflect()` — is in
+tension with what the falsifiers are *for*, since a language whose plurals fit suffix
+arithmetic is not a language that stresses the API. A cheaper option is a test in `tests/`
+that pins derived-`inflect()` output for a handful of non-English names, which is what
+`tests/ranting/regular_plurals.rs` now partly does. Recorded so the next audit does not have
+to rediscover that "six green gates" excludes this path.
+
 ## 5. What this review deliberately did not do
 
 - Did not rewrite any doc to match code where the **code** looked like the bug (§1.1-1.4
