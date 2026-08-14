@@ -406,6 +406,44 @@ building, its build item is dropped rather than executed anyway.
      by compiling a scratch crate against a path dependency, and the unit tests
      pin `check_ident_path` directly. Adding `trybuild` is a maintainer call.
 
+9. **`ranting_gaps` — a corpus-driven gap finder** — ✅ **DONE 2026-08-14**.
+   Tool in `ranting_gaps/`, its own README, generated output in `failures/`.
+   - Reads arbitrary English text and reports what `ranting` cannot inflect,
+     ranked by how often the text needs it. Each cause answers four questions:
+     what causes it, why it fails (with the string `ranting` *actually*
+     renders, obtained by running the inflection), how common it is, and what
+     `ranting` would need.
+   - **It found the largest defect in the crate.** `Ranting::inflect()`'s
+     regular path appends the `plural_end` attribute, default `"s"`. There is
+     no `y`→`ies`, no `-es` after a sibilant, no `f`→`ves` — everything English
+     does beyond append-`s` must be a row in `data/irregular_plurals.txt`, all
+     63 lines of it. So `{+entity}` renders "entitys", `{+match}` renders
+     "matchs", `{+city}` renders "citys". Silent wrong output, on the crate's
+     most-used feature. `ranting_gaps/src/english.rs::regular_plural` is an
+     executable specification of the missing rules, with the counterexamples
+     (`day`/`days`, `roof`/`roofs`, `chief`/`chiefs`) pinned in its tests.
+     **This is the next thing to fix** and is not yet done.
+   - Also found: hyphenated compounds pluralize the wrong element
+     (`mother-in-laws` for `mothers-in-law`), which the `plural_end` escape
+     hatch cannot even work around, since the `-s` goes in the middle.
+   - Resolved rather than merely reported: the `{can can}` case. `{The can can}`
+     renders "Can can hold water." — the article vanishes — but
+     `{The *can can}` is correct, so `*` already fixes it. The gap is
+     documentation: README.md's only `*` example is `"A {*can can} contain
+     water."`, which puts the article *outside* the placeholder, and that shape
+     renders correctly *without* `*` — the example demonstrates the marker in
+     the one position where it changes nothing.
+   - Distinguishes `gap` from `boundary`, so the permanent word-order boundary
+     (item 20 / §2.12) is *counted* but never listed as work. That count —
+     1223 occurrences against this repo's own prose, the largest number in the
+     report — is evidence about scope, not a bug report.
+   - Not scoped, deliberately: invariant plurals (`sheep`, `fish`) and unlisted
+     irregular verbs. Both need to infer inflection from attestation patterns
+     rather than spelling, and both produce findings a human must hand-filter.
+   - Not a falsifier: it depends on `ranting_core` (for `ph_ext::parse` as the
+     pre-word oracle) and that is deliberate — see `CLAUDE.md`'s architecture
+     section. The `ranting_i18n`/`ranting_es` contract is unchanged.
+
 ### v1.4 Success Criteria (provisional — finalized by item 4)
 - Items 1-3 answer, in writing, whether Arabic and/or Japanese would falsify
   something German/Spanish could not, before any lexicon code is written

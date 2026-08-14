@@ -1,0 +1,848 @@
+[
+  {
+    "id": "word-order-prenominal-adjective",
+    "title": "Prenominal adjectives have no placeholder slot (permanent boundary)",
+    "kind": "boundary",
+    "cause": "The `!`/`!!` degree slot in `PH_EXT`'s `post` group is post-noun only. There is no pre-noun adjective slot, and per `docs/EXTENSIBILITY.md` §2.12 there will not be one: word order belongs to the template, and the template belongs to the caller.",
+    "why_it_fails": "An English attributive adjective precedes its noun, so it has to be written as literal text outside the placeholder, where it receives no agreement and no degree inflection. This is the same structural mismatch `ranting_i18n` records as its German hole 8 (`der kleine Hund`) -- and the reason `ranting_es` was chosen as the second falsifier, since Spanish's post-nominal `el gato negro` lands exactly where the `!` slot renders. English itself is on the German side of that split, which is easy to lose sight of.",
+    "what_ranting_needs": "Nothing. This is a decision on record, not an unfilled gap, and the count below is evidence about its cost rather than a request. What the count is *for*: if a given application's text is mostly bare noun phrases, the boundary is a footnote; if it is adjective-heavy prose, most of its noun phrases cannot be expressed as a single placeholder at all, and that is worth knowing before adopting the crate rather than after. Treat a high number as an argument about scope, not as a bug report.",
+    "cases": [
+      {
+        "subject": "same",
+        "ranting_renders": "literal text outside the placeholder: `the same {noun}`",
+        "expected": "agreeing with the noun, as `{noun !same}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 278,
+        "examples": [
+          "README.md:136 — override still sees the same grammatical role), but keeps displaying the noun's name instead",
+          "README.md:260 — \"{item}, take\" matches \"sword, take\" , and the same holds for non-ASCII",
+          "docs/API.md:22 — nay!(fmt, args...) Expands to Err(say!(fmt, args...)) — same shape as ack!() ."
+        ]
+      },
+      {
+        "subject": "own",
+        "ranting_renders": "literal text outside the placeholder: `the own {noun}`",
+        "expected": "agreeing with the noun, as `{noun !own}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 162,
+        "examples": [
+          "README.md:145 — the items' own names as \"a, b and c\" ;",
+          "README.md:178 — - A non-English template may write its own article word instead.",
+          "README.md:262 — punctuation is exempt — write it as its own template token ( \"{item}、 取る\" , not"
+        ]
+      },
+      {
+        "subject": "english",
+        "ranting_renders": "literal text outside the placeholder: `the english {noun}`",
+        "expected": "agreeing with the noun, as `{noun !english}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 83,
+        "examples": [
+          "README.md:179 — recognise as an English article is handed to inflect article custom , so a Spanish",
+          "README.md:180 — implementation can accept el / la / los / las and inflect them like the English keywords:",
+          "README.md:185 — an unmarked two-word placeholder keeps its English \"noun + post-noun verb\" reading."
+        ]
+      },
+      {
+        "subject": "new",
+        "ranting_renders": "literal text outside the placeholder: `the new {noun}`",
+        "expected": "agreeing with the noun, as `{noun !new}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 73,
+        "examples": [
+          "README.md:10 — New to Ranting?",
+          "README.md:34 — let title = Noun::new(\"name\", \"it\");",
+          "README.md:36 — say this(Noun::new(\"Jane\", \"I\"), &title),"
+        ]
+      },
+      {
+        "subject": "other",
+        "ranting_renders": "literal text outside the placeholder: `the other {noun}`",
+        "expected": "agreeing with the noun, as `{noun !other}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 69,
+        "examples": [
+          "README.md:114 — Other words within the",
+          "docs/API.md:373 — Other languages need",
+          "docs/CHEATSHEET.md:49 — composes with other markers, e.g."
+        ]
+      },
+      {
+        "subject": "first",
+        "ranting_renders": "literal text outside the placeholder: `the first {noun}`",
+        "expected": "agreeing with the noun, as `{noun !first}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 48,
+        "examples": [
+          "README.md:82 — Also an article or verb with an uppercase causess an uppercase for the first character.",
+          "docs/API.md:54 — is first person subject custom(&self, subject:",
+          "docs/API.md:54 — &str) - bool whether subject counts as first-person defaults to ranting core::grammar::is first person subject ( subject == \"I\" subject =..."
+        ]
+      },
+      {
+        "subject": "numeral",
+        "ranting_renders": "literal text outside the placeholder: `the numeral {noun}`",
+        "expected": "agreeing with the noun, as `{noun !numeral}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 45,
+        "examples": [
+          "docs/API.md:69 — inflect numeral custom / with context how a placeholder's var / $var number is written, keyed by NumeralStyle ( numeralstyle), Grammatica...",
+          "docs/API.md:69 — inflect numeral custom / with context how a placeholder's var / $var number is written, keyed by NumeralStyle ( numeralstyle), Grammatica...",
+          "docs/API.md:71 — The pronoun, article, adjective, elision, preposition-fusion and numeral hooks"
+        ]
+      },
+      {
+        "subject": "literal",
+        "ranting_renders": "literal text outside the placeholder: `the literal {noun}`",
+        "expected": "agreeing with the noun, as `{noun !literal}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 40,
+        "examples": [
+          "README.md:245 — {name...} captures greedily (multiple words) up to the next literal word or the end of input;",
+          "README.md:248 — - heed!() doesn't understand say!() 's grammar markers ( = , @ , , ~ , tense markers, articles) — it matches plain input text against lit...",
+          "README.md:258 — {$name} a run of digits, and {name...} runs up to the next whitespace-separated literal."
+        ]
+      },
+      {
+        "subject": "five",
+        "ranting_renders": "literal text outside the placeholder: `the five {noun}`",
+        "expected": "agreeing with the noun, as `{noun !five}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 33,
+        "examples": [
+          "docs/EXTENSIBILITY.md:318 — from the five placeholder markers ( = , @ , , ~ , % ) plus the markerless Name / Hidden",
+          "docs/EXTENSIBILITY.md:319 — they answer which of five English-shaped display forms did this placeholder marker",
+          "docs/EXTENSIBILITY.md:327 — accusative, dative, genitive) and English's five markers are different taxonomies that cross-cut"
+        ]
+      },
+      {
+        "subject": "full",
+        "ranting_renders": "literal text outside the placeholder: `the full {noun}`",
+        "expected": "agreeing with the noun, as `{noun !full}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 33,
+        "examples": [
+          "README.md:10 — Keep the Cheatsheet (docs/CHEATSHEET.md) open while you write, or browse the API Reference (docs/API.md) for the full public surface.",
+          "docs/API.md:6 — public item here has full rustdoc (including runnable examples) there.",
+          "docs/API.md:83 — length as the count\" entries for the full history (ROADMAP.md Phase 6 items"
+        ]
+      },
+      {
+        "subject": "single",
+        "ranting_renders": "literal text outside the placeholder: `the single {noun}`",
+        "expected": "agreeing with the noun, as `{noun !single}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 32,
+        "examples": [
+          "README.md:70 — Singular \"they\" conjugates as plural in form (they are, they have, they do) while referring to a single individual.",
+          "README.md:148 — single item when there is exactly one.",
+          "README.md:245 — - {name} captures a single word;"
+        ]
+      },
+      {
+        "subject": "whole",
+        "ranting_renders": "literal text outside the placeholder: `the whole {noun}`",
+        "expected": "agreeing with the noun, as `{noun !whole}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 28,
+        "examples": [
+          "README.md:272 — - The supported approach for such input is to capture the unsegmented run whole and segment it",
+          "docs/EXTENSIBILITY.md:409 — is improved is where the error points — at the template literal rather than the whole",
+          "docs/EXTENSIBILITY.md:1295 — Unlike following in §2.7 (which can be a whole rendered phrase"
+        ]
+      },
+      {
+        "subject": "adjective",
+        "ranting_renders": "literal text outside the placeholder: `the adjective {noun}`",
+        "expected": "agreeing with the noun, as `{noun !adjective}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 26,
+        "examples": [
+          "README.md:122 — ~ - adjective",
+          "docs/API.md:66 — inflect adjective custom / with context the post-noun !",
+          "docs/API.md:66 — adjective, keyed by AdjectiveDegree ( adjectivedegree), GrammaticalCase and NounClass"
+        ]
+      },
+      {
+        "subject": "next",
+        "ranting_renders": "literal text outside the placeholder: `the next {noun}`",
+        "expected": "agreeing with the noun, as `{noun !next}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 25,
+        "examples": [
+          "README.md:245 — {name...} captures greedily (multiple words) up to the next literal word or the end of input;",
+          "README.md:247 — - Two placeholders directly adjacent, with no text at all between them ( {a}{b} ), is a compile-time error — there would be no way to kno...",
+          "README.md:258 — {$name} a run of digits, and {name...} runs up to the next whitespace-separated literal."
+        ]
+      },
+      {
+        "subject": "public",
+        "ranting_renders": "literal text outside the placeholder: `the public {noun}`",
+        "expected": "agreeing with the noun, as `{noun !public}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 25,
+        "examples": [
+          "README.md:10 — Keep the Cheatsheet (docs/CHEATSHEET.md) open while you write, or browse the API Reference (docs/API.md) for the full public surface.",
+          "docs/API.md:3 — A structured overview of Ranting's public surface — what's exported, what it's",
+          "docs/API.md:6 — public item here has full rustdoc (including runnable examples) there."
+        ]
+      },
+      {
+        "subject": "derive",
+        "ranting_renders": "literal text outside the placeholder: `the derive {noun}`",
+        "expected": "agreeing with the noun, as `{noun !derive}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 21,
+        "examples": [
+          "README.md:8 — This library provides Ranting (https://docs.rs/ranting/0.2.1/ranting/trait.Ranting.html), a trait for inflection within say!() (https://d...",
+          "README.md:8 — This library provides Ranting (https://docs.rs/ranting/0.2.1/ranting/trait.Ranting.html), a trait for inflection within say!() (https://d...",
+          "README.md:26 — use ranting derive::"
+        ]
+      },
+      {
+        "subject": "real",
+        "ranting_renders": "literal text outside the placeholder: `the real {noun}`",
+        "expected": "agreeing with the noun, as `{noun !real}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 20,
+        "examples": [
+          "README.md:138 — always returns a real pronoun still get a case-correct article with the name shown, without a",
+          "README.md:273 — yourself with a real tokenizer:",
+          "docs/CHEATSHEET.md:9 — copy-pasted from real say!() calls, not hand-typed."
+        ]
+      },
+      {
+        "subject": "ordinary",
+        "ranting_renders": "literal text outside the placeholder: `the ordinary {noun}`",
+        "expected": "agreeing with the noun, as `{noun !ordinary}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 18,
+        "examples": [
+          "README.md:263 — \"{item}、取る\" ), since a literal that mixes punctuation with word characters is an ordinary",
+          "docs/EXTENSIBILITY.md:405 — parse runs only when the ordinary English parse fails , and an unmarked two-word placeholder",
+          "docs/EXTENSIBILITY.md:444 — Which label a given entity carries is ordinary per-value data,"
+        ]
+      },
+      {
+        "subject": "boundary",
+        "ranting_renders": "literal text outside the placeholder: `the boundary {noun}`",
+        "expected": "agreeing with the noun, as `{noun !boundary}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 16,
+        "examples": [
+          "README.md:168 — - Word order is a permanent boundary, not a gap :",
+          "README.md:250 — Whitespace is the only word boundary heed!() / ask!() know",
+          "README.md:256 — - Every boundary between a template's segments — literal-to-capture, capture-to-literal,"
+        ]
+      },
+      {
+        "subject": "actual",
+        "ranting_renders": "literal text outside the placeholder: `the actual {noun}`",
+        "expected": "agreeing with the noun, as `{noun !actual}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 15,
+        "examples": [
+          "docs/EXTENSIBILITY.md:1672 — - The actual output you got",
+          "docs/architecture-review-2026-08-13.md:30 — actual noun-inflection path ( Noun::inflect() doesn't use them).",
+          "docs/architecture-review-2026-08-13.md:78 — actual diff against the fixed baseline showed all 12 build and pass tests"
+        ]
+      },
+      {
+        "subject": "old",
+        "ranting_renders": "literal text outside the placeholder: `the old {noun}`",
+        "expected": "agreeing with the noun, as `{noun !old}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 14,
+        "examples": [
+          "docs/EXTENSIBILITY.md:854 — the old test",
+          "docs/EXTENSIBILITY.md:908 — exactly the old hard-coded check ( ranting core::grammar::is first person subject ), so English",
+          "docs/EXTENSIBILITY.md:936 — declining language that wants \"Der Hund bellt.\" , the only way to reach that with the old grammar"
+        ]
+      },
+      {
+        "subject": "last",
+        "ranting_renders": "literal text outside the placeholder: `the last {noun}`",
+        "expected": "agreeing with the noun, as `{noun !last}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 11,
+        "examples": [
+          "docs/architecture-review-2026-08-14.md:89 — / Heed /trait-object helpers ranting derive/README.md Last touched 2023-02-22;",
+          "docs/superpowers/plans/2026-08-12-heed-input-parsing-impl.md:283 — if matches!(segments.last(), Some(HeedSegment::Capture( ))) {",
+          "docs/superpowers/plans/2026-08-12-heed-input-parsing-impl.md:716 — be the prior count (202, per the last session's work) plus these 9 = 211."
+        ]
+      },
+      {
+        "subject": "identical",
+        "ranting_renders": "literal text outside the placeholder: `the identical {noun}`",
+        "expected": "agreeing with the noun, as `{noun !identical}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 9,
+        "examples": [
+          "docs/API.md:20 — Without a context, output is identical to say!() .",
+          "docs/EXTENSIBILITY.md:944 — marker (the article/elision hooks see the identical GrammaticalCase ) but renders the noun's name",
+          "docs/EXTENSIBILITY.md:1184 — None (or no say with!() context at all) means no override in effect — identical"
+        ]
+      },
+      {
+        "subject": "library",
+        "ranting_renders": "literal text outside the placeholder: `the library {noun}`",
+        "expected": "agreeing with the noun, as `{noun !library}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 9,
+        "examples": [
+          "README.md:8 — This library provides Ranting (https://docs.rs/ranting/0.2.1/ranting/trait.Ranting.html), a trait for inflection within say!() (https://d...",
+          "README.md:48 — The library fully supports singular they/them pronouns for individuals who prefer gender-neutral language:",
+          "docs/EXTENSIBILITY.md:1707 — By creating these forks, you help the Ranting ecosystem support more languages and dialects while keeping the core library lean and focus..."
+        ]
+      },
+      {
+        "subject": "original",
+        "ranting_renders": "literal text outside the placeholder: `the original {noun}`",
+        "expected": "agreeing with the noun, as `{noun !original}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 9,
+        "examples": [
+          "docs/EXTENSIBILITY.md:978 — ( =@~% ), falling back to the original single-character class — and ranting core::",
+          "docs/superpowers/plans/2026-08-12-heed-input-parsing-impl.md:821 — not injective (multiple original values render to the same text), so",
+          "docs/superpowers/plans/2026-08-12-trait-extensibility-impl.md:1033 — All tests pass (original tests + 9 new tests = ~226 total)"
+        ]
+      },
+      {
+        "subject": "dative",
+        "ranting_renders": "literal text outside the placeholder: `the dative {noun}`",
+        "expected": "agreeing with the noun, as `{noun !dative}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 7,
+        "examples": [
+          "docs/EXTENSIBILITY.md:326 — Why German dative/genitive can't be named by case alone.",
+          "docs/EXTENSIBILITY.md:327 — accusative, dative, genitive) and English's five markers are different taxonomies that cross-cut",
+          "docs/EXTENSIBILITY.md:328 — @ ( Objective ) covers both accusative and dative direct/indirect objects, and a"
+        ]
+      },
+      {
+        "subject": "plural",
+        "ranting_renders": "literal text outside the placeholder: `the plural {noun}`",
+        "expected": "agreeing with the noun, as `{noun !plural}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 7,
+        "examples": [
+          "README.md:22 — A verb alongside, always specified in plural, inflects accordingly.",
+          "README.md:70 — Singular \"they\" conjugates as plural in form (they are, they have, they do) while referring to a single individual.",
+          "README.md:112 — - A given Ranting Enum or Struct can also be inflected to plural or singular."
+        ]
+      },
+      {
+        "subject": "runnable",
+        "ranting_renders": "literal text outside the placeholder: `the runnable {noun}`",
+        "expected": "agreeing with the noun, as `{noun !runnable}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 7,
+        "examples": [
+          "docs/API.md:6 — public item here has full rustdoc (including runnable examples) there.",
+          "docs/EXTENSIBILITY.md:507 — See tests/ranting/noun class.rs for the runnable version, including the accusative",
+          "docs/EXTENSIBILITY.md:579 — is the runnable version, including a French superlative ( le plus noir ) that uses degree ."
+        ]
+      },
+      {
+        "subject": "external",
+        "ranting_renders": "literal text outside the placeholder: `the external {noun}`",
+        "expected": "agreeing with the noun, as `{noun !external}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 6,
+        "examples": [
+          "docs/API.md:130 — non-English implementation can pick der / die / das without an external",
+          "docs/superpowers/specs/2026-08-13-number-categories.md:223 — grammatical case, number , and register/dialect without an external",
+          "docs/superpowers/specs/2026-08-14-language-modularity.md:324 — user-supplied configuration, or an external lint reading the source."
+        ]
+      },
+      {
+        "subject": "numeric",
+        "ranting_renders": "literal text outside the placeholder: `the numeric {noun}`",
+        "expected": "agreeing with the noun, as `{noun !numeric}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 6,
+        "examples": [
+          "README.md:113 — If prependeded by $var or var , plurality of the noun is adapted to the numeric variable var.",
+          "README.md:173 — - If a Noun or numeric plurality has a leading question mark, it is hidden but its inferred inflection does apply.",
+          "README.md:212 — Positional arguments and numeric references are supported, as well as named arguments:"
+        ]
+      },
+      {
+        "subject": "signal",
+        "ranting_renders": "literal text outside the placeholder: `the signal {noun}`",
+        "expected": "agreeing with the noun, as `{noun !signal}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 6,
+        "examples": [
+          "docs/API.md:220 — existing numeral signal made a second PlaceholderCount parameter there",
+          "docs/API.md:250 — sentence start (Phase 6 item 17) is uc 's underlying signal alone, without",
+          "docs/EXTENSIBILITY.md:648 — sentence start is the first signal alone, computed once"
+        ]
+      },
+      {
+        "subject": "spanish",
+        "ranting_renders": "literal text outside the placeholder: `the spanish {noun}`",
+        "expected": "agreeing with the noun, as `{noun !spanish}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 6,
+        "examples": [
+          "README.md:179 — recognise as an English article is handed to inflect article custom , so a Spanish",
+          "docs/API.md:97 — build ecosystem forks (Spanish, pirate, Scottish, etc.",
+          "docs/API.md:314 — the article rendered right after it — German zu + dem → zum , Spanish"
+        ]
+      },
+      {
+        "subject": "local",
+        "ranting_renders": "literal text outside the placeholder: `the local {noun}`",
+        "expected": "agreeing with the noun, as `{noun !local}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 5,
+        "examples": [
+          "docs/API.md:384 — The count is local to the",
+          "docs/API.md:394 — Hence two local newtype wrappers ( Box T has no such problem, since std",
+          "docs/EXTENSIBILITY.md:848 — The count here is local to the numeral."
+        ]
+      },
+      {
+        "subject": "main",
+        "ranting_renders": "literal text outside the placeholder: `the main {noun}`",
+        "expected": "agreeing with the noun, as `{noun !main}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 5,
+        "examples": [
+          "README.md:33 — fn main() {",
+          "README.md:54 — fn main() {",
+          "README.md:97 — fn main() {"
+        ]
+      },
+      {
+        "subject": "tutorial",
+        "ranting_renders": "literal text outside the placeholder: `the tutorial {noun}`",
+        "expected": "agreeing with the noun, as `{noun !tutorial}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 5,
+        "examples": [
+          "README.md:10 — Start with the Tutorial (docs/TUTORIAL.md) (30-40 min read) or jump to the Cookbook (docs/COOKBOOK.md) (10 practical recipes).",
+          "README.md:10 — Start with the Tutorial (docs/TUTORIAL.md) (30-40 min read) or jump to the Cookbook (docs/COOKBOOK.md) (10 practical recipes).",
+          "docs/API.md:7 — guided introduction, see the Tutorial (TUTORIAL.md);"
+        ]
+      },
+      {
+        "subject": "vocabulary",
+        "ranting_renders": "literal text outside the placeholder: `the vocabulary {noun}`",
+        "expected": "agreeing with the noun, as `{noun !vocabulary}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 5,
+        "examples": [
+          "README.md:183 — itself knows no non-English vocabulary;",
+          "docs/EXTENSIBILITY.md:399 — vocabulary — it lives entirely in the match above, which is what keeps languages modular.",
+          "docs/EXTENSIBILITY.md:1094 — match wearing a struct instead of a bare arm list (no reduction, only new vocabulary) or a table"
+        ]
+      },
+      {
+        "subject": "alternative",
+        "ranting_renders": "literal text outside the placeholder: `the alternative {noun}`",
+        "expected": "agreeing with the noun, as `{noun !alternative}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 4,
+        "examples": [
+          "docs/EXTENSIBILITY.md:893 — alternative count to offer, and Maybe(None) has none at all — so both keep forwarding whatever",
+          "docs/superpowers/specs/2026-08-14-language-modularity.md:391 — alternative in a repeated group is not local to that alternative.",
+          "docs/superpowers/specs/2026-08-14-language-modularity.md:391 — alternative in a repeated group is not local to that alternative."
+        ]
+      },
+      {
+        "subject": "differential",
+        "ranting_renders": "literal text outside the placeholder: `the differential {noun}`",
+        "expected": "agreeing with the noun, as `{noun !differential}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 4,
+        "examples": [
+          "docs/superpowers/specs/2026-08-14-language-modularity.md:256 — — the differential fuzz comparing the hand-written parser against the PH EXT",
+          "docs/superpowers/specs/2026-08-14-language-modularity.md:401 — differential test checks.",
+          "docs/superpowers/specs/2026-08-14-language-modularity.md:405 — reference grammar for the English pass — which is what the differential fuzz was"
+        ]
+      },
+      {
+        "subject": "exhaustive",
+        "ranting_renders": "literal text outside the placeholder: `the exhaustive {noun}`",
+        "expected": "agreeing with the noun, as `{noun !exhaustive}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 4,
+        "examples": [
+          "docs/EXTENSIBILITY.md:1197 — closed is what makes the compiler check exhaustive for the nine English pronouns — but a fork's",
+          "docs/superpowers/specs/2026-08-12-input-parsing-feasibility.md:167 — the reverse (aux word → tense marker) is a small, exhaustive, already-enumerable match.",
+          "docs/superpowers/specs/2026-08-13-adjective-declension-class.md:170 — - A closed enum invites the same \"collects on every downstream exhaustive"
+        ]
+      },
+      {
+        "subject": "final",
+        "ranting_renders": "literal text outside the placeholder: `the final {noun}`",
+        "expected": "agreeing with the noun, as `{noun !final}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 4,
+        "examples": [
+          "docs/superpowers/plans/2026-08-12-heed-input-parsing-impl.md:303 — /// Joins parsed segments into the final anchored regex pattern, plus the",
+          "docs/superpowers/plans/2026-08-12-heed-input-parsing-impl.md:831 — Run the full verification pass one final time:",
+          "docs/superpowers/plans/2026-08-12-trait-extensibility-impl.md:991 — Update ROADMAP.md and Final Verification"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "regular-plural-rules",
+    "title": "No regular English pluralization rules",
+    "kind": "gap",
+    "cause": "`Ranting::inflect()`'s regular path appends the `plural_end` attribute, which defaults to `\"s\"` and is concatenated verbatim. `src/language/plurals.rs` provides only a lookup into the generated `IRREGULAR_PLURALS` table (`data/irregular_plurals.txt`, 63 lines); when a word is absent from it there is no rule to fall back on, only the suffix.",
+    "why_it_fails": "Every English noun outside the 63-line table whose plural is not formed by bare `-s` renders wrong: `{+fly}` gives \"flys\", `{+box}` gives \"boxs\", `{+church}` gives \"churchs\", `{+knife}` gives \"knifes\". The failure is silent -- there is no error, just an incorrect word in the output -- and it affects the crate's single most-used feature.",
+    "what_ranting_needs": "Regular orthographic rules in `src/language/plurals.rs`, applied before the append-`plural_end` fallback: consonant + `y` → `ies`; `s`/`x`/`z`/`ch`/`sh` → `es`; the `f`/`fe` → `ves` stems. `ranting_gaps/src/english.rs::regular_plural` is an executable reference implementation with the counterexamples (`day`/`days`, `roof`/`roofs`, `chief`/`chiefs`) already pinned in its tests. The classes that need a lexicon rather than a spelling rule -- `-o` → `oes` for `hero` but `-os` for `piano`, `-us` → `-i` for Latin borrowings but not for `bus` -- stay table entries, which is what the table should be reserved for. Note `Ranting::inflect` takes `to_plural` and the noun form only, so this is a change to the English rules, not to any trait signature; a non-English fork already overrides the whole path.",
+    "cases": [
+      {
+        "subject": "entity",
+        "ranting_renders": "entitys",
+        "expected": "entities",
+        "confidence": "attested",
+        "occurrences": 76,
+        "examples": [
+          "docs/API.md:128 — An open-ended lexical-gender / noun-class label carried by the entity and",
+          "docs/EXTENSIBILITY.md:113 — stays a property of the entity, while register / dialect / narration person are",
+          "docs/EXTENSIBILITY.md:262 — The noun's own lexical gender / noun class, carried by the entity rather"
+        ]
+      },
+      {
+        "subject": "match",
+        "ranting_renders": "matchs",
+        "expected": "matches",
+        "confidence": "attested",
+        "occurrences": 21,
+        "examples": [
+          "README.md:191 — so they can be used anywhere an expression is valid (bound to a let , as a match arm's tail value, etc.);",
+          "README.md:246 — - Returns None if the input doesn't match the template.",
+          "README.md:271 — way it is normally written, heed!() will simply not match."
+        ]
+      },
+      {
+        "subject": "boundary",
+        "ranting_renders": "boundarys",
+        "expected": "boundaries",
+        "confidence": "attested",
+        "occurrences": 16,
+        "examples": [
+          "README.md:168 — - Word order is a permanent boundary, not a gap :",
+          "README.md:250 — Whitespace is the only word boundary heed!() / ask!() know",
+          "README.md:256 — - Every boundary between a template's segments — literal-to-capture, capture-to-literal,"
+        ]
+      },
+      {
+        "subject": "class",
+        "ranting_renders": "classs",
+        "expected": "classes",
+        "confidence": "attested",
+        "occurrences": 14,
+        "examples": [
+          "README.md:130 — say!(\"{?w !!good} in class\", w) → \"best in class\" .",
+          "README.md:130 — say!(\"{?w !!good} in class\", w) → \"best in class\" .",
+          "README.md:200 — gender \"\" - the lexical gender / noun class label, e.g."
+        ]
+      },
+      {
+        "subject": "fix",
+        "ranting_renders": "fixs",
+        "expected": "fixes",
+        "confidence": "attested",
+        "occurrences": 11,
+        "examples": [
+          "docs/EXTENSIBILITY.md:586 — every English user, the shape of point fix ROADMAP.md Phase 6 item 1 rejected for German word",
+          "docs/EXTENSIBILITY.md:942 — The fix is a fused two-character form of the case marker:",
+          "docs/EXTENSIBILITY.md:1061 — The fix is not a hook."
+        ]
+      },
+      {
+        "subject": "regex",
+        "ranting_renders": "regexs",
+        "expected": "regexes",
+        "confidence": "attested",
+        "occurrences": 10,
+        "examples": [
+          "README.md:276 — with no whitespace to anchor on, a regex asked to",
+          "docs/API.md:336 — same regex match at sentence start already reads — and bakes it into",
+          "docs/API.md:481 — regex compiled once via OnceLock ."
+        ]
+      },
+      {
+        "subject": "dependency",
+        "ranting_renders": "dependencys",
+        "expected": "dependencies",
+        "confidence": "attested",
+        "occurrences": 7,
+        "examples": [
+          "docs/architecture-review-2026-08-13.md:35 — dependency of ranting , its own dead code shows as a plain warning, not an",
+          "docs/architecture-review-2026-08-13.md:149 — ahead\" — dependency modernization, the typed caps:",
+          "docs/superpowers/plans/2026-08-12-heed-input-parsing-impl.md:9 — Rust, syn / quote / proc-macro2 (already ranting derive dependencies), regex (already a dependency of both crates — no new dependency for..."
+        ]
+      },
+      {
+        "subject": "copy",
+        "ranting_renders": "copys",
+        "expected": "copies",
+        "confidence": "attested",
+        "occurrences": 5,
+        "examples": [
+          "docs/API.md:147 — Copy , Eq , Hash , Display , and Default",
+          "docs/API.md:416 — Copy (reusable across multiple say with!() calls).",
+          "docs/EXTENSIBILITY.md:13 — derive(Clone, Copy)"
+        ]
+      },
+      {
+        "subject": "haus",
+        "ranting_renders": "hauss",
+        "expected": "hauses",
+        "confidence": "attested",
+        "occurrences": 5,
+        "examples": [
+          "docs/EXTENSIBILITY.md:478 — der Hund / die Katze / das Haus from one code path.",
+          "docs/EXTENSIBILITY.md:1283 — say!(\"in {the 0}.\", haus) (haus declared dative) → \"im Haus.\" , where an unhandled pair (a",
+          "docs/EXTENSIBILITY.md:1283 — say!(\"in {the 0}.\", haus) (haus declared dative) → \"im Haus.\" , where an unhandled pair (a"
+        ]
+      },
+      {
+        "subject": "vocabulary",
+        "ranting_renders": "vocabularys",
+        "expected": "vocabularies",
+        "confidence": "attested",
+        "occurrences": 5,
+        "examples": [
+          "README.md:183 — itself knows no non-English vocabulary;",
+          "docs/EXTENSIBILITY.md:399 — vocabulary — it lives entirely in the match above, which is what keeps languages modular.",
+          "docs/EXTENSIBILITY.md:1094 — match wearing a struct instead of a bare arm list (no reduction, only new vocabulary) or a table"
+        ]
+      },
+      {
+        "subject": "branch",
+        "ranting_renders": "branchs",
+        "expected": "branches",
+        "confidence": "attested",
+        "occurrences": 4,
+        "examples": [
+          "docs/COOKBOOK.md:60 — // Past branch:",
+          "docs/COOKBOOK.md:64 — // Future branch:",
+          "docs/EXTENSIBILITY.md:93 — for your hook to branch on:"
+        ]
+      },
+      {
+        "subject": "carry",
+        "ranting_renders": "carrys",
+        "expected": "carries",
+        "confidence": "attested",
+        "occurrences": 2,
+        "examples": [
+          "README.md:125 — - A post-noun word can carry a degree marker to convert it to its comparative or superlative form:",
+          "README.md:184 — The noun must carry a case marker ( {el =0} , not {el 0} ) —",
+          "docs/EXTENSIBILITY.md:251 — the noun must carry a"
+        ]
+      },
+      {
+        "subject": "category",
+        "ranting_renders": "categorys",
+        "expected": "categories",
+        "confidence": "attested",
+        "occurrences": 2,
+        "examples": [
+          "docs/superpowers/specs/2026-08-13-number-categories.md:5 — English-owned, and add a count channel (not a category channel) to the",
+          "docs/superpowers/specs/2026-08-13-number-categories.md:34 — morphological consequence of the category rather than a separate axis.",
+          "docs/superpowers/specs/2026-08-13-number-categories.md:119 — number category would not reach them even if every other site had it."
+        ]
+      },
+      {
+        "subject": "directory",
+        "ranting_renders": "directorys",
+        "expected": "directories",
+        "confidence": "attested",
+        "occurrences": 2,
+        "examples": [
+          "CLAUDE.md:20 — directory).",
+          "CLAUDE.md:21 — inside each sibling crate directory, e.g.",
+          "CLAUDE.md:23 — already do this — its gate dirs / run gate helpers iterate every directory with its own"
+        ]
+      },
+      {
+        "subject": "fuzz",
+        "ranting_renders": "fuzzs",
+        "expected": "fuzzes",
+        "confidence": "attested",
+        "occurrences": 2,
+        "examples": [
+          "docs/superpowers/specs/2026-08-13-number-categories.md:432 — A dual/paucal marker in the placeholder grammar ( {2noun} ) Would close the \"categorial number with no numeral\" case, but adds grammar su...",
+          "docs/superpowers/specs/2026-08-13-preposition-fusion.md:66 — \"will x\" is a valid pre-noun slot in the fuzz corpus",
+          "docs/superpowers/specs/2026-08-14-language-modularity.md:256 — — the differential fuzz comparing the hand-written parser against the PH EXT"
+        ]
+      },
+      {
+        "subject": "half",
+        "ranting_renders": "halfs",
+        "expected": "halves",
+        "confidence": "attested",
+        "occurrences": 2,
+        "examples": [
+          "docs/API.md:24 — Returns Option String ( None on no match), joining heed!() in the Option-returning half of the macro family.",
+          "docs/architecture-review-2026-08-13.md:230 — half of the gap.",
+          "docs/superpowers/plans/2026-08-12-heed-input-parsing-impl.md:5 — Add heed!(template, input) , a new expression macro that matches free-form input text against a small template grammar (literal words + n..."
+        ]
+      },
+      {
+        "subject": "priority",
+        "ranting_renders": "prioritys",
+        "expected": "priorities",
+        "confidence": "attested",
+        "occurrences": 2,
+        "examples": [
+          "docs/superpowers/plans/2026-08-12-heed-input-parsing-impl.md:810 — Add a new item after item 7 in the \"Upcoming Priority Features\" list",
+          "docs/superpowers/plans/2026-08-12-trait-extensibility-impl.md:994 — ROADMAP.md (mark Priority 2 complete)",
+          "docs/superpowers/plans/2026-08-12-trait-extensibility-impl.md:1002 — Update ROADMAP.md to mark Priority 2 complete"
+        ]
+      },
+      {
+        "subject": "property",
+        "ranting_renders": "propertys",
+        "expected": "properties",
+        "confidence": "attested",
+        "occurrences": 2,
+        "examples": [
+          "docs/EXTENSIBILITY.md:113 — stays a property of the entity, while register / dialect / narration person are",
+          "docs/EXTENSIBILITY.md:476 — is a property of the entity , exactly like subject , so that is where it lives.",
+          "docs/EXTENSIBILITY.md:1004 — It is a permanent property"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pre-word-homograph",
+    "title": "Nouns that collide with the closed pre-noun vocabulary",
+    "kind": "gap",
+    "cause": "`ranting_core::grammar::PH_EXT`'s `pre` group accepts a closed set of articles plus modal/auxiliary verbs (`can`, `may`, `shall`, `will`, `are`, `were`, `have`, `had`, `do`, `could`, `would`, `should`, `must`, `might`, each optionally with `n't`). Some of those words are also ordinary nouns. When one is the placeholder's noun *and* an article is inside the placeholder, the pre-word reading wins and consumes a token.",
+    "why_it_fails": "`say!(\"{The can can} hold water.\")` renders \"Can can hold water.\" -- the article is gone. The three neighbouring shapes are all correct: `\"A {can can} hold water.\"` (article outside the placeholder), `{The +can can}`, and `{=can can}`. So this is not \"`can` is broken\", it is one specific shape, and the failure is silent output corruption rather than a compile error. Note the two columns below are *parses*, not rendered strings: the render is only obtainable by compiling, and the one verified render is quoted here. Read the case table with the `heuristic` label in mind: the *parse* is certain, but whether a given word is really used as a noun rests on the determiner cue, which over-fires on prose that quotes grammar words. `can`, `will` and `must` are genuine English nouns; check the quoted sentences before trusting the rest.",
+    "what_ranting_needs": "Documentation, not code -- checked by compiling, not assumed. `say!(\"{The *can can} hold water.\")` renders \"The can can hold water.\", so the `*` marker already fixes every case in the table below. What is missing is any way to find that out: README.md's only `*` example is `\"A {*can can} contain water.\"`, which puts the article *outside* the placeholder -- and that shape renders correctly *without* `*`, so the example demonstrates the marker in the one position where it changes nothing. A reader hitting the real failure has no reason to reach for `*`, and no error message to prompt them; the output is silently wrong. Fix: change the README example to `{The *can can}` and say what `*` is for -- disambiguating a noun that is also in the closed pre-word vocabulary. Leaving the parser alone is the right call here: preferring the token-consuming reading would change how every existing template parses, to buy what one documented character already buys.",
+    "cases": [
+      {
+        "subject": "are",
+        "ranting_renders": "pre=\"are \" noun=\"hold\" post=\"\"",
+        "expected": "pre=\"The \" noun=\"are\" post=\" hold\"",
+        "confidence": "heuristic",
+        "occurrences": 32,
+        "examples": [
+          "README.md:29 — say!(\"{=who do} say { who title are} {who}.\")",
+          "README.md:64 — say!(\"{=jordan are} a talented engineer.",
+          "README.md:65 — \"They are a talented engineer."
+        ]
+      },
+      {
+        "subject": "can",
+        "ranting_renders": "pre=\"can \" noun=\"hold\" post=\"\"",
+        "expected": "pre=\"The \" noun=\"can\" post=\" hold\"",
+        "confidence": "heuristic",
+        "occurrences": 8,
+        "examples": [
+          "README.md:21 — - A say!() macro produces a String similar to format!() , but with placeholder markers a pronouns can be",
+          "README.md:73 — You can use derive(Ranting) on a struct or enum for similar",
+          "README.md:112 — - A given Ranting Enum or Struct can also be inflected to plural or singular."
+        ]
+      },
+      {
+        "subject": "would",
+        "ranting_renders": "pre=\"would \" noun=\"hold\" post=\"\"",
+        "expected": "pre=\"The \" noun=\"would\" post=\" hold\"",
+        "confidence": "heuristic",
+        "occurrences": 7,
+        "examples": [
+          "README.md:135 — case-marks the placeholder exactly as the bare marker would (an inflect article custom",
+          "README.md:247 — - Two placeholders directly adjacent, with no text at all between them ( {a}{b} ), is a compile-time error — there would be no way to kno...",
+          "README.md:277 — split {a}的{b} out of 我的剑 finds a split rather than the intended one, which would trade a"
+        ]
+      },
+      {
+        "subject": "have",
+        "ranting_renders": "pre=\"have \" noun=\"hold\" post=\"\"",
+        "expected": "pre=\"The \" noun=\"have\" post=\" hold\"",
+        "confidence": "heuristic",
+        "occurrences": 6,
+        "examples": [
+          "README.md:59 — say!(\"{=alex have} shared { alex} pronouns:",
+          "README.md:60 — \"They have shared their pronouns:",
+          "README.md:70 — Singular \"they\" conjugates as plural in form (they are, they have, they do) while referring to a single individual."
+        ]
+      },
+      {
+        "subject": "were",
+        "ranting_renders": "pre=\"were \" noun=\"hold\" post=\"\"",
+        "expected": "pre=\"The \" noun=\"were\" post=\" hold\"",
+        "confidence": "heuristic",
+        "occurrences": 6,
+        "examples": [
+          "docs/API.md:371 — A placeholder writes its number two ways and both were hard-coded English:",
+          "docs/EXTENSIBILITY.md:800 — A placeholder can write its number two ways, and before this hook both were",
+          "docs/EXTENSIBILITY.md:894 — count they were handed, None included."
+        ]
+      },
+      {
+        "subject": "should",
+        "ranting_renders": "pre=\"should \" noun=\"hold\" post=\"\"",
+        "expected": "pre=\"The \" noun=\"should\" post=\" hold\"",
+        "confidence": "heuristic",
+        "occurrences": 3,
+        "examples": [
+          "README.md:193 — Not for error handling, because true errors should be easy to search in code.",
+          "README.md:208 — uc false - whether the name should always start with uppercase (advanced)",
+          "docs/COOKBOOK.md:91 — User bios should respect the person's pronouns and be grammatically correct in one pass."
+        ]
+      },
+      {
+        "subject": "can't",
+        "ranting_renders": "pre=\"can't \" noun=\"hold\" post=\"\"",
+        "expected": "pre=\"The \" noun=\"can't\" post=\" hold\"",
+        "confidence": "heuristic",
+        "occurrences": 2,
+        "examples": [
+          "README.md:153 — Vec T / Option T can't implement Ranting directly — the trait requires Display , and Rust's",
+          "docs/API.md:391 — Vec T and Option T can't implement Ranting directly — the trait",
+          "docs/CHEATSHEET.md:140 — Result String, String = nay!(\"{=p can't} get in { p} house.\");"
+        ]
+      },
+      {
+        "subject": "do",
+        "ranting_renders": "pre=\"do \" noun=\"hold\" post=\"\"",
+        "expected": "pre=\"The \" noun=\"do\" post=\" hold\"",
+        "confidence": "heuristic",
+        "occurrences": 2,
+        "examples": [
+          "README.md:29 — say!(\"{=who do} say { who title are} {who}.\")",
+          "README.md:37 — \"I do say my name is Jane.\".to string()",
+          "README.md:70 — Singular \"they\" conjugates as plural in form (they are, they have, they do) while referring to a single individual."
+        ]
+      },
+      {
+        "subject": "must",
+        "ranting_renders": "pre=\"must \" noun=\"hold\" post=\"\"",
+        "expected": "pre=\"The \" noun=\"must\" post=\" hold\"",
+        "confidence": "heuristic",
+        "occurrences": 2,
+        "examples": [
+          "README.md:184 — The noun must carry a case marker ( {el =0} , not {el 0} ) —",
+          "README.md:196 — if \"$\", the struct must contain a subject:",
+          "README.md:197 — if \"$\", the struct must contain a name:"
+        ]
+      },
+      {
+        "subject": "will",
+        "ranting_renders": "pre=\"will \" noun=\"hold\" post=\"\"",
+        "expected": "pre=\"The \" noun=\"will\" post=\" hold\"",
+        "confidence": "heuristic",
+        "occurrences": 2,
+        "examples": [
+          "README.md:170 — application needs one template per language, and no inflection hook will ever change that.",
+          "README.md:253 — They ship no word segmenter and will not gain one.",
+          "README.md:271 — way it is normally written, heed!() will simply not match."
+        ]
+      }
+    ]
+  }
+]

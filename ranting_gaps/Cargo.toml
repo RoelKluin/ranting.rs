@@ -1,0 +1,21 @@
+[package]
+name = "ranting-gaps"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Corpus-driven gap finder for ranting: reads arbitrary English text and reports what ranting cannot inflect, with frequency evidence"
+publish = false
+
+[[bin]]
+name = "ranting-gaps"
+path = "src/main.rs"
+
+[dependencies]
+# `ranting` for the inflections under test, reached through the public API exactly as a
+# user would. `ranting_core` for `ph_ext::parse`, used as the authoritative oracle for the
+# closed pre-word vocabulary -- see `src/probes/pre_word_homograph.rs` for why duplicating
+# that word list here would be worse.
+ranting = { path = ".." }
+ranting_core = { path = "../ranting_core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
