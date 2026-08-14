@@ -104,7 +104,13 @@ impl Ranting for SpanishPerson {
         self.plural
     }
 
-    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         // Personal pronouns don't decline by case here — `subjective()`/`objective()`/etc.
         // already cover case via the pronoun hook, same as `ranting_i18n::GermanPerson`.
         uc_1st_if(self.subject, uc)

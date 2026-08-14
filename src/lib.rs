@@ -288,10 +288,15 @@ where
         ArticleKind::AAnSome => {
             // adapt_article() discards the a/an choice when as_pl, so only singularize when the
             // singular form is actually rendered; inflect() would panic on non-standard plurals.
+            // `None`, not `count`: this asks what the noun's *singular* spelling is so a/an can be
+            // picked from its first letter — it is not the site that renders the counted noun, and
+            // it already forces `to_plural = false`, so a count of 2 here would contradict it. No
+            // signal is lost: item 14 gave `inflect_article_custom_with_context` its own `count`,
+            // which this placeholder's real numeral reaches just below.
             let singular = if as_pl {
                 noun.name(false)
             } else {
-                noun.inflect(false, false, case)
+                noun.inflect(false, false, case, None)
             };
             if let Some(custom) = noun.inflect_article_custom_with_context(
                 article_form,
@@ -729,7 +734,7 @@ where
         // for a real case variant (never `Name`/`Hidden` -- see the field's own docs), so this
         // check has to run before the `case` match, not as one more arm of it.
         let s = if display_as_name {
-            let name = noun.inflect(as_pl, uc, case.into());
+            let name = noun.inflect(as_pl, uc, case.into(), placeholder_count);
             noun.capitalize_with_context(&name, OrthographyRole::Noun, false, sentence_start, ctx)
         } else {
             match case {
@@ -845,7 +850,7 @@ where
                 // not "force uppercase". Hence `false`: the hook must not apply it a second time.
                 // A fork that capitalizes nouns unconditionally (German) ignores the flag anyway.
                 CaseKind::Name | CaseKind::Hidden => {
-                    let name = noun.inflect(as_pl, uc, case.into());
+                    let name = noun.inflect(as_pl, uc, case.into(), placeholder_count);
                     noun.capitalize_with_context(
                         &name,
                         OrthographyRole::Noun,
@@ -1700,7 +1705,27 @@ pub trait Ranting: std::fmt::Display {
     /// `ranting_i18n`'s `GermanNoun::inflect` (hole 2 in `ranting_i18n/README.md`) for a worked
     /// example that declines by both `self`'s own entity-carried case override *and*, when there
     /// is none, this parameter.
-    fn inflect(&self, to_plural: bool, uc: bool, case: GrammaticalCase) -> String;
+    ///
+    /// `count` is the placeholder's own numeral, when it wrote one — the same
+    /// [`PlaceholderCount`] item 14 gave the five agreeing hook pairs, added by ROADMAP.md Phase 7
+    /// item 11 because `inflect` renders *the counted noun itself* and was the one call item 14
+    /// did not widen. Without it, a language with a third morphological number could agree in that
+    /// number everywhere except on the noun: Arabic `{$n kitab}` with `n = 2` gave every hook that
+    /// agrees with the noun `PlaceholderCount { value: 2, .. }` and gave the noun the plural
+    /// `kutub` rather than the dual `kitābān` — grammatical-looking output, wrong in one word.
+    /// `to_plural` alone cannot express it, and widening `to_plural` to an enum would break every
+    /// existing implementation's match. `None` means the placeholder wrote no numeral, which is
+    /// *not* the same as a count of one. English implementations ignore it; CLDR plural categories
+    /// stay deliberately out of the crate (see
+    /// `docs/superpowers/specs/2026-08-13-number-categories.md`) — this hands a fork the raw
+    /// count and lets it decide.
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        case: GrammaticalCase,
+        count: Option<PlaceholderCount>,
+    ) -> String;
     /// If an article is only required when emphasizing, set `#{ranting(no_article = "true")]`,
     /// and this function will return accordingly (used by placeholders).
     // examples: Names, languages, elements, food grains, meals (unless particular), sports.

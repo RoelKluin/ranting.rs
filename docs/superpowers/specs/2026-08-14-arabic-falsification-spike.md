@@ -187,9 +187,13 @@ across person/number/gender.
 
 ## Residue
 
-- **§1's signature change is owed and is not scheduled.** Until it lands, the crate's answer to
-  "can a fork render a third number?" is "for everything except the noun itself", which no document
-  currently states.
+- ~~**§1's signature change is owed and is not scheduled.**~~ **Landed 2026-08-14** as ROADMAP.md
+  Phase 7 item 11, scheduled by the item 4 addendum below. `Ranting::inflect` now takes
+  `count: Option<PlaceholderCount>`, and this spike's own `ArNoun` is the acceptance test
+  (`tests/ranting/third_number.rs`): `{$0 1}` with `n = 2` renders `kitaban`, and
+  `"{$0 1} and {+1}"` renders the dual once rather than twice — the `Cell` hack's failure mode,
+  pinned so it stays fixed. The crate's answer to "can a fork render a third number?" is now
+  "yes, including on the noun".
 - **Unrelated defect found while probing** (filed as `docs/architecture-review-2026-08-14.md`
   §1.5): `{?the noun}` — the documented "hide the article unless the entity wants one" syntax —
   renders literal garbage (`"?thes dog"`) for any noun whose `skip_article()` is `false`. It works

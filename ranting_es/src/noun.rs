@@ -92,7 +92,13 @@ impl Ranting for SpanishNoun {
         self.plural
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         // No case to honor here — see the struct doc comment and the README's "no case hole".
         uc_1st_if(self.form(to_plural), uc)
     }

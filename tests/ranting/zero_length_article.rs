@@ -34,7 +34,13 @@ impl Ranting for Hund {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         let word = if to_plural { "Hunde" } else { "Hund" };
         uc_1st_if(word, uc)
     }
@@ -107,8 +113,14 @@ fn elide_article_custom_is_still_never_called_for_a_zero_length_article() {
         fn is_plural(&self) -> bool {
             Hund.is_plural()
         }
-        fn inflect(&self, to_plural: bool, uc: bool, case: GrammaticalCase) -> String {
-            Hund.inflect(to_plural, uc, case)
+        fn inflect(
+            &self,
+            to_plural: bool,
+            uc: bool,
+            case: GrammaticalCase,
+            _count: Option<PlaceholderCount>,
+        ) -> String {
+            Hund.inflect(to_plural, uc, case, None)
         }
         fn skip_article(&self) -> bool {
             Hund.skip_article()
@@ -162,7 +174,13 @@ impl Ranting for NoArticleNoun {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if("Alaska", uc)
     }
     fn skip_article(&self) -> bool {

@@ -29,7 +29,13 @@ impl Ranting for GermanNarrator {
     fn is_plural(&self) -> bool {
         self.subject == "wir"
     }
-    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if(self.name, uc)
     }
     fn skip_article(&self) -> bool {
@@ -65,7 +71,13 @@ impl Ranting for UnhookedGermanNarrator {
     fn is_plural(&self) -> bool {
         self.subject == "wir"
     }
-    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if(self.name, uc)
     }
     fn skip_article(&self) -> bool {

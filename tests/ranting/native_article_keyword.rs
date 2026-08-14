@@ -52,7 +52,13 @@ impl Ranting for SpanishNoun {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if(
             if to_plural {
                 self.plural

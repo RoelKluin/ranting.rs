@@ -27,7 +27,7 @@ use ranting::{GrammaticalCase, Noun, Ranting};
 /// can work around a single word; that is per-noun configuration, not a rule, and does not change
 /// what this probe reports.
 pub(crate) fn ranting_plural(word: &str) -> String {
-    Noun::new(word, "it").inflect(true, false, GrammaticalCase::Name)
+    Noun::new(word, "it").inflect(true, false, GrammaticalCase::Name, None)
 }
 
 /// True when the corpus already treats `word` as a plural, i.e. it ends in `s` and the corpus

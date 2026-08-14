@@ -45,7 +45,13 @@ impl Ranting for GermanNoun {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if(self.word, uc)
     }
     fn skip_article(&self) -> bool {
@@ -155,7 +161,13 @@ fn the_pronoun_hook_receives_the_class_too() {
         fn is_plural(&self) -> bool {
             false
         }
-        fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+        fn inflect(
+            &self,
+            _to_plural: bool,
+            uc: bool,
+            _case: GrammaticalCase,
+            _count: Option<PlaceholderCount>,
+        ) -> String {
             uc_1st_if("Katze", uc)
         }
         fn skip_article(&self) -> bool {
@@ -206,7 +218,13 @@ fn a_noun_that_declares_no_class_reports_unset() {
         fn is_plural(&self) -> bool {
             false
         }
-        fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+        fn inflect(
+            &self,
+            _to_plural: bool,
+            uc: bool,
+            _case: GrammaticalCase,
+            _count: Option<PlaceholderCount>,
+        ) -> String {
             uc_1st_if("dog", uc)
         }
         fn skip_article(&self) -> bool {

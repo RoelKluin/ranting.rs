@@ -75,7 +75,13 @@ impl Ranting for FrenchNoun {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if(if to_plural { self.plural } else { self.word }, uc)
     }
     fn skip_article(&self) -> bool {
@@ -197,7 +203,13 @@ impl Ranting for ItalianNoun {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if(self.0, uc)
     }
     fn skip_article(&self) -> bool {
@@ -292,7 +304,13 @@ impl Ranting for Probe {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if(if to_plural { "chiens" } else { "chien" }, uc)
     }
     fn skip_article(&self) -> bool {

@@ -36,7 +36,13 @@ impl Ranting for Courtier {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         if to_plural {
             uc_1st_if("courtiers", uc)
         } else {
@@ -119,7 +125,13 @@ impl Ranting for Innkeeper {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         if to_plural {
             uc_1st_if("innkeepers", uc)
         } else {
@@ -198,7 +210,13 @@ impl Ranting for Merchant {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         if to_plural {
             uc_1st_if("merchants", uc)
         } else {
@@ -290,7 +308,13 @@ impl Ranting for ContextHookSentinel {
         false
     }
 
-    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if("sentinel", uc)
     }
 

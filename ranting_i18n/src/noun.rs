@@ -161,7 +161,13 @@ impl Ranting for GermanNoun {
         self.plural
     }
 
-    fn inflect(&self, to_plural: bool, _uc: bool, case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        _uc: bool,
+        case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         // Hole 2 is still open, just narrower now (item 14). `inflect` gained a `case`
         // parameter, but the only call site that reaches it is bare-placeholder rendering
         // (`{the 0}`/`{?the 0}`), which is always `GrammaticalCase::Name`/`Hidden` — any

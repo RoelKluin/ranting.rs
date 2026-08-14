@@ -43,7 +43,7 @@ for your own structs/enums; `Box<T>`, `Many<T>`, `Maybe<T>` all forward it
 | `name(&self, uc: bool) -> String` | display name | struct name, `#[ranting(name = "...")]`, or `self.name` if `name = "$"` |
 | `subjective(&self) -> &str` | subject pronoun | `"it"`, `#[ranting(subject = "...")]`, or `self.subject` if `subject = "$"` |
 | `is_plural(&self) -> bool` | plurality | usually from `subjective()`; overridable for `you` |
-| `inflect(&self, to_plural: bool, uc: bool, case: GrammaticalCase) -> String` | singular/plural name form | uses `#[ranting(singular_end, plural_end)]`; `case` is the placeholder's own `GrammaticalCase` (`Name` for a bare `` {noun} ``), threaded through so a case-declining fork's `inflect()` can pick a form without needing a separate case-aware hook — see the fused-marker note below |
+| `inflect(&self, to_plural: bool, uc: bool, case: GrammaticalCase, count: Option<PlaceholderCount>) -> String` | singular/plural name form | uses `#[ranting(singular_end, plural_end)]`; `case` is the placeholder's own `GrammaticalCase` (`Name` for a bare `` {noun} ``), threaded through so a case-declining fork's `inflect()` can pick a form without needing a separate case-aware hook — see the fused-marker note below. `count` is the placeholder's own numeral, `None` when it wrote none (which is *not* a count of one), so a language with a third morphological number can render it on the noun — see `docs/EXTENSIBILITY.md` §2.16 |
 | `skip_article(&self) -> bool` | whether to omit an article | for proper nouns, uncountables, etc; `#[ranting(no_article = true)]` |
 
 **Defaulted methods:**
