@@ -338,7 +338,9 @@ is why it still wins for vocabulary even though a configuration channel exists.
   not a feasibility one. Deliberately out of scope.
 - **`{el 0}`'s diagnostic.** Even if native keywords are never supported, the
   `E0425: cannot find value 'el'` error names a variable the author never wrote.
-  That is a diagnostics defect worth fixing independently.
+  That is a diagnostics defect worth fixing independently. *Investigated and
+  partly closed by Phase 7 item 8 (2026-08-14): the message is rustc's and the
+  shape is undecidable, so only the span could be narrowed. See the appendix.*
 
 ## Relation to Phase 7
 
@@ -427,6 +429,8 @@ two cannot both be had. Pinned by
 This also leaves the `{el 0}` diagnostic defect below open, and slightly
 sharpens it: the confusing `E0425` is now the *only* remaining failure mode for
 a native-keyword template, so improving that message is worth more than it was.
+*Taken up as Phase 7 item 8 and found to be only partly fixable — see the
+appendix's "The `{el 0}` diagnostic, as far as it goes" section.*
 
 ### Both falsifiers use it
 
@@ -460,3 +464,94 @@ each falsifier.
 `heed!()`/`ask!()`/`#[derive(Heed)]` are unaffected: `ranting_derive/src/heed.rs`
 never references `ph_ext`, so input matching does not share the changed parse
 path.
+
+## The `{el 0}` diagnostic, as far as it goes (2026-08-14, Phase 7 item 8)
+
+The "still open" list above names the `E0425` message as a diagnostics defect
+worth fixing independently. It was taken up, and it is **only partly fixable**.
+The reason is worth recording, because the obvious fix is unavailable for two
+independent reasons and neither is going to change.
+
+### The message cannot be reworded
+
+`E0425: cannot find value 'el' in this scope` is rustc's, emitted during name
+resolution of an identifier the macro baked. A proc macro has no way to
+intercept it or attach a note. The only way to replace it is to not bake the
+identifier — i.e. to reject the template ourselves, with our own message.
+
+That requires deciding, at expansion time, that `el` is *not* a variable. It is
+not decidable. `` {el gato} `` and `` {person walk} `` are the same shape — noun
+plus post-noun verb — and `` {person walk} `` is live syntax used in the test
+suite today. The macro sees a word; whether a binding by that name exists is
+rustc's knowledge, not the macro's, and arrives strictly later. Rejecting the
+shape would break working English templates to improve the message on broken
+Spanish ones.
+
+Recognising a *list* of known non-English article words would decide it, and is
+exactly the vocabulary-in-`ranting` that this whole spike exists to avoid.
+
+### The span cannot be narrowed to the word
+
+`StrLitSlice::error` already points at a substring of the template, which is why
+`ph_ext`'s parse errors underline the offending characters. That machinery
+depends on `proc_macro2::Literal::subspan`, which is nightly-only and returns
+`None` on stable (rustc 1.97.1 confirmed) — hence the "At `<template>`" +
+squiggle fallback those errors print instead. rustc's own error, though, gets no
+fallback: it uses the `Span` the identifier carries, and on stable the finest
+span available for a piece of a string literal is the whole literal.
+
+### What did land
+
+Two changes, both in `ranting_derive/src/lib.rs`:
+
+1. **`path_from` takes the template literal's span instead of
+   `Span::call_site()`.** The `E0425` caret moves from the whole
+   `say!("Veo {el gato}.")` invocation to the `"Veo {el gato}."` literal, and the
+   "this error originates in the macro `say`" note disappears. That is the entire
+   stable-toolchain win, and on nightly it is also the hook a future
+   `subspan`-based narrowing would use.
+
+2. **`check_ident_path` guards `syn::Ident::new`, which was panicking.** This is
+   the real defect found while investigating, and it is not the one the item was
+   filed for. `ph_ext`'s word matcher admits `-` and `'`, so
+   `` say!("X {gato-negro}.") `` parsed fine and then hit `Ident::new`'s panic —
+   surfacing as a bare `error: proc macro panicked` / `help: message:
+   "gato-negro" is not a valid identifier`, with the caret on the whole macro and
+   no indication of which placeholder was at fault. It now returns an `Err`
+   through the existing spanned-error path:
+
+   ```
+   error: `gato-negro` is not a valid Rust identifier, so it cannot name a
+          variable. A placeholder's noun must be a variable in scope, a
+          positional index (`{0}`), or a named argument (`say!("{x}", x = ..)`):
+          At "X {gato-negro}."
+                 ^^^^^^^^^^
+   ```
+
+   This is a case where a better message *is* available, precisely because it is
+   decidable: no Rust variable can be named `gato-negro`, whatever is in scope.
+
+One trap, caught by the existing suite rather than by reasoning: the guard must
+mirror `Ident::new`'s rule, which is "a keyword **or** a legal variable name".
+`syn::parse_str::<syn::Ident>` rejects keywords, and `` {self} ``/`` {=self do} ``
+are live syntax throughout `tests/ranting/male_female_and_object.rs` — the first
+version of the guard broke five call sites. `syn::Ident::parse_any` is the
+correct predicate.
+
+### Verification
+
+553 tests across all five crates (2 new unit tests in `ranting_derive`, pinning
+both directions of `check_ident_path`), `cargo fmt --check` and
+`cargo clippy --all-targets -- -D warnings` clean in each. The two rendered
+diagnostics above were verified by compiling a scratch crate against a path
+dependency on `ranting`, not by assertion — this repo has no compile-fail
+harness (no `trybuild`), and adding one is a new dev-dependency and a new testing
+convention in a repo whose CLAUDE.md says "integration tests only", so it is left
+as the maintainer's call.
+
+### What stays open
+
+`{el gato}`'s wording. It is not a bug with an unwritten fix; it is a consequence
+of the noun slot being genuinely ambiguous. The honest mitigation is
+documentation — `docs/EXTENSIBILITY.md` §2.3 now says a native article needs a
+case marker and that the resulting error is rustc's — not a macro change.

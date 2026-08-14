@@ -401,9 +401,13 @@ vocabulary — it lives entirely in the `match` above, which is what keeps langu
 Three things to know:
 
 - **The noun needs a case marker.** `` {el *=0} `` works; `` {el 0} `` does not, and still fails
-  with `E0425: cannot find value 'el'`. The open-vocabulary parse runs only when the ordinary
-  English parse *fails*, and an unmarked two-word placeholder doesn't fail — it reads as
-  noun + post-noun verb, which is what `` {=0 walk} `` relies on.
+  with `E0425: cannot find value 'el'` — rustc's message, not `ranting`'s. The open-vocabulary
+  parse runs only when the ordinary English parse *fails*, and an unmarked two-word placeholder
+  doesn't fail — it reads as noun + post-noun verb, which is what `` {=0 walk} `` relies on. The
+  wording cannot be improved: `` {el gato} `` and `` {person walk} `` are the same shape, so the
+  macro cannot tell a mistyped article from a variable it simply doesn't know is in scope. What
+  *is* improved is where the error points — at the template literal rather than the whole
+  `say!(...)` invocation (ROADMAP.md Phase 7 item 8).
 - **This hook is the only channel.** A word left to render as literal text gets no agreement at
   all, so declining a word you meant to handle produces `"el gatos"` rather than an error.
 - **English is unaffected.** An impl that doesn't recognise the word returns `None` and it renders
