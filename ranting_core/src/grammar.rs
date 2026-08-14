@@ -26,8 +26,10 @@ use strum_macros::EnumString;
 //   - Spanish opening `¿`/`¡` (U+00BF/U+00A1) mark sentence-initial from the *other* side: the
 //     punctuation is the trigger and the placeholder can immediately follow it (`¿{noun}...`), so
 //     it is `\s*+` (optional, not required) rather than `\s+`.
-// `SENTENCE_TRIGGER_CHARS` below is the single source of truth for "does this pre-capture start
-// a sentence" so the regex here and `ranting_derive`'s `at_sentence_start` check can't drift.
+// `SENTENCE_TRIGGER_CHARS` below lists the same characters for `ranting_derive`'s
+// `at_sentence_start` check, but is NOT structurally coupled to the class above -- this is a
+// `concat!` of string literals, which cannot interpolate a `&[char]` const. The two are
+// hand-maintained duplicates; edit both together. See the note on the const itself.
 //
 // ROADMAP.md Phase 6 item 26 (docs/superpowers/specs/2026-08-13-preposition-fusion.md, option
 // (b)): `pre`'s alternation gained one more branch, `\w[\w'-]*\s+` -- a single literal word (plus
