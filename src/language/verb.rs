@@ -6,8 +6,8 @@
 //! inflect_verb, inflect_possessive, and other existing inflection functions.
 
 // This module only needs IRREGULAR_PAST, from ranting_core::verb_conjugate
-// (the single generated copy of the table — see CLAUDE.md's Architecture
-// section for why there's no longer a per-crate copy of this codegen).
+// (the single generated copy of the table — see `.claude/rules/crate-layout.md`
+// for why there's no longer a per-crate copy of this codegen).
 use ranting_core::verb_conjugate::IRREGULAR_PAST;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

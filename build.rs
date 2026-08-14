@@ -5,7 +5,7 @@
 //! The irregular *verb* table used to be generated here too (for
 //! `detect_tense`), but that codegen now lives solely in `ranting_core`'s
 //! build.rs — `ranting` reads `ranting_core::verb_conjugate::IRREGULAR_PAST`
-//! instead of generating its own copy (see CLAUDE.md's Architecture section).
+//! instead of generating its own copy (see `.claude/rules/crate-layout.md`).
 
 use std::env;
 use std::fs;

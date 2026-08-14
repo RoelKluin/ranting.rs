@@ -79,8 +79,8 @@ numeral hook is the exception, since it already gets its own richer
 `count: Option<i64>` (see [`PlaceholderCount`](#placeholdercount)).
 `Many<T>` substitutes its own `Vec`'s length for `count` when delegating one
 of these hooks to its single item — see [Wrapper types](#wrapper-types). See
-`CLAUDE.md`'s "What `as_plural: bool` promises" and "`Many` supplies its own
-length as the count" entries for the full history (ROADMAP.md Phase 6 items
+`.claude/rules/extension-hooks.md`'s "What `as_plural: bool` promises" and
+wrapper-delegation entries for the full history (ROADMAP.md Phase 6 items
 14 and 15).
 
 **Orthography hook** (defaults to today's English behavior rather than to
