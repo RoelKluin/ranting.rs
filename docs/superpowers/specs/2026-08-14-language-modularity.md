@@ -369,6 +369,26 @@ replaced by a threaded parameter:
    `inflect_article_custom_with_context`** instead of returning `None`, mapping
    `Some` to `custom + space` and leaving `None` to render the word as written.
 
+### The open pass allows `pre` exactly one repetition
+
+Found by testing after the first commit, and worth recording because the cause is
+non-local. `pre` is a **repeated** group whose capture keeps only the *last*
+repetition (see `ph_ext`'s module doc on `X?+`). An open pre-word slot therefore
+matches `{de the *=gato}` as two repetitions — `de `, then `the ` — and the
+capture retains only `the `. The runtime then rendered the article and **`de` was
+silently dropped**: `say!("{de the *=0}", gato)` produced `"El gato"`.
+
+Restricting the open *matcher* to one word does not fix this; the repetition
+happens a level up, in `star_candidates`. The fix is in `parse_pass`: for the
+open pass, skip any candidate whose `pre` span does not start at the group's own
+start offset, which admits only a single repetition. `{de the *=gato}` and
+`{de el *=gato}` are parse errors again, as they were before this pass existed —
+the pre-noun-slot restriction `ranting_i18n`'s hole 7 documents is unchanged.
+
+The general shape is worth remembering when touching this parser: **a new
+alternative in a repeated group is not local to that alternative.** Pinned in
+`open_pass_only_for_input_english_rejects`.
+
 ### `PH_EXT` stays the English grammar, and parity now targets the English pass
 
 The plan was to widen `PH_EXT` to match. That turned out to be impossible in
@@ -408,10 +428,35 @@ This also leaves the `{el 0}` diagnostic defect below open, and slightly
 sharpens it: the confusing `E0425` is now the *only* remaining failure mode for
 a native-keyword template, so improving that message is worth more than it was.
 
+### Both falsifiers use it
+
+The falsifier contract is that a gap is only closed when a real fork can reach
+it through the public API, so both were updated rather than left writing English
+keywords inside their own templates:
+
+- `ranting_es` accepts `el`/`la`/`los`/`las`/`un`/`una`/`unos`/`unas`, pinned by
+  `native_spanish_article_keywords` in `ranting_es/tests/spanish.rs`.
+- `ranting_i18n` accepts `der`/`die`/`das`/`den`/`dem`/`des` and the `ein-`
+  forms, pinned by `native_german_article_keywords` in
+  `ranting_i18n/tests/german.rs`.
+
+Both show the same property: the written form selects only the **paradigm**.
+`{los *=0}` on a singular Spanish noun renders `el`, and `{der *@0}` on an
+accusative German placeholder renders `den` — case, gender and number still pick
+the form, exactly as they did for the English keyword. `ranting` gained no
+vocabulary in either language; both word lists live in the forks'
+`inflect_article_custom`.
+
 ### Verification
 
-549 tests across all five crates pass, with `cargo fmt --check` and
+551 tests across all five crates pass, with `cargo fmt --check` and
 `cargo clippy --all-targets -- -D warnings` clean in each. New coverage:
 `tests/ranting/native_article_keyword.rs` (5 tests — native definite/indefinite
 keywords, gender and number agreement, English byte-identity, and the unmarked
-limitation) and `ph_ext::tests::open_pass_only_for_input_english_rejects`.
+limitation), `ph_ext::tests::open_pass_only_for_input_english_rejects` (both
+directions plus the one-repetition regression), and one native-keyword test in
+each falsifier.
+
+`heed!()`/`ask!()`/`#[derive(Heed)]` are unaffected: `ranting_derive/src/heed.rs`
+never references `ph_ext`, so input matching does not share the changed parse
+path.

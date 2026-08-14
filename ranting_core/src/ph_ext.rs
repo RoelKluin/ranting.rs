@@ -493,13 +493,22 @@ fn pre_one_rep(s: &str, pos: usize, pre_words: PreWords) -> Vec<usize> {
     let mut out = Vec::new();
     if pre_words == PreWords::Open {
         // The open pass replaces the closed vocabulary rather than extending it:
-        // any single word, with the same trailing-whitespace requirement every
-        // English branch below already imposes via `finish_pre_candidates`. It is
-        // only ever reached for input the English pass rejected outright, so it
-        // cannot change how an existing template parses.
+        // exactly one word, then the mandatory trailing whitespace. It is only ever
+        // reached for input the English pass rejected outright, so it cannot change
+        // how an existing template parses.
+        //
+        // Deliberately *not* `finish_pre_candidates`: the "extra words" tail is an
+        // English construct (`{a set of $n chiens}`) that works because the closed
+        // vocabulary anchors the first word. Offering it here lets an open word be
+        // followed by a recognized English article -- `{de the *=0}` -- where the
+        // runtime renders only the article and the open word is silently dropped.
+        // One word keeps that a parse failure, as it was before this pass existed.
         let word_len = leading_word_or_apostrophe_len(rest);
         if word_len > 0 {
-            out.extend(finish_pre_candidates(s, pos + word_len));
+            let ws_len = leading_ws_len(&s[pos + word_len..]);
+            if ws_len > 0 {
+                out.push(pos + word_len + ws_len);
+            }
         }
         return out;
     }
@@ -739,6 +748,16 @@ fn parse_pass(s: &str, pre_words: PreWords) -> Result<PhExtMatch<'_>, PhExtError
     // written with `?+` in the source grammar.
     for (uc_span, pos0) in star_candidates(s, 0, uc_one_rep) {
         for (pre_span, pos1) in star_candidates(s, pos0, |s, p| pre_one_rep(s, p, pre_words)) {
+            // The open pass allows `pre` exactly one repetition. `pre` is a repeated
+            // group whose capture keeps only the *last* repetition (see the module
+            // doc), so without this an open word followed by another word parses as
+            // two repetitions and the first is consumed but never captured -- the
+            // runtime then renders only the second and the first is silently dropped
+            // (`{de the *=0}` rendering "El gato", losing `de`). A single repetition
+            // keeps that a parse failure, as it was before this pass existed.
+            if pre_words == PreWords::Open && pre_span.is_some_and(|(start, _)| start != pos0) {
+                continue;
+            }
             for (nr_span, pos2) in star_candidates(s, pos1, nr_one_rep) {
                 for (case_span, pos3) in star_candidates(s, pos2, case_one_rep) {
                     let noun_len = leading_word_or_hyphen_len(&s[pos3..]);
@@ -892,6 +911,17 @@ mod tests {
             .expect("unmarked two-word input still parses as noun + post");
         assert_eq!(unmarked.name("noun").map(|x| x.as_str()), Some("la"));
         assert_eq!(unmarked.name("pre"), None);
+
+        // The open pass allows `pre` exactly ONE repetition. Two words must stay a
+        // parse failure: `pre`'s capture keeps only the last repetition, so accepting
+        // them would consume the first word without capturing it, and the runtime
+        // would render only the second -- `{de the *=0}` silently losing `de`.
+        for input in ["de the *=gato", "de el *=gato", "un el *=gato"] {
+            assert!(
+                parse(input).is_err(),
+                "{input:?} must stay rejected: a second pre word would be dropped, not rendered"
+            );
+        }
 
         // Still rejected by both: no pre word can rescue a missing noun.
         assert!(parse("").is_err());

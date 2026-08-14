@@ -256,3 +256,41 @@ fn plain_sentence_mid_text_does_not_capitalize() {
         "Creo que el gato es bonito."
     );
 }
+
+/// A Spanish template written *in Spanish*, not with English keywords.
+///
+/// Before 2026-08-14 the pre-noun slot accepted only a closed English vocabulary, so every
+/// template in this file had to say `{the *=0}` and rely on `inflect_article_custom` to turn
+/// the English keyword into Spanish output. An unrecognized pre-noun word is now handed to
+/// that hook instead of being rendered as literal text, so the template can say what it means.
+///
+/// `ranting` still knows no Spanish: `el`/`la`/`los`/`las`/`un`/`una` are matched in
+/// `SpanishNoun::inflect_article_custom`, in this crate. That is the whole point — the
+/// vocabulary belongs to the language module, which is what makes languages modular.
+#[test]
+fn native_spanish_article_keywords() {
+    // The written form selects the paradigm; gender and number still pick the form.
+    assert_eq!(say!("Veo {el *=0}.", SpanishNoun::gato()), "Veo el gato.");
+    assert_eq!(
+        say!("Veo {el +*=0}.", SpanishNoun::gato()),
+        "Veo los gatos."
+    );
+    assert_eq!(say!("Veo {la *=0}.", SpanishNoun::casa()), "Veo la casa.");
+    assert_eq!(
+        say!("Veo {la +*=0}.", SpanishNoun::casa()),
+        "Veo las casas."
+    );
+    assert_eq!(say!("Veo {un *=0}.", SpanishNoun::gato()), "Veo un gato.");
+    assert_eq!(say!("Veo {una *=0}.", SpanishNoun::casa()), "Veo una casa.");
+
+    // Writing a form that disagrees with the entity is corrected, exactly as the English
+    // keyword would be: `los` on a singular noun still renders `el`.
+    assert_eq!(say!("Veo {los *=0}.", SpanishNoun::gato()), "Veo el gato.");
+
+    // The English keyword still works, unchanged -- this is additive.
+    assert_eq!(say!("Veo {the *=0}.", SpanishNoun::gato()), "Veo el gato.");
+
+    // `el agua`: the euphonic-article rule is entity-carried, so it applies to the native
+    // keyword exactly as it does to the English one.
+    assert_eq!(say!("Veo {la *=0}.", SpanishNoun::agua()), "Veo el agua.");
+}

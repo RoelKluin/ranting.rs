@@ -315,3 +315,51 @@ fn person_pronouns_decline_too() {
         "Wir sehen uns."
     );
 }
+
+/// A German template written *in German*, not with English keywords.
+///
+/// Before 2026-08-14 the pre-noun slot accepted only a closed English vocabulary, so every
+/// template in this file had to say `{the *=0}` and rely on `inflect_article_custom` to turn
+/// the English keyword into a declined German article. An unrecognized pre-noun word is now
+/// handed to that hook instead of being rendered as literal text.
+///
+/// `ranting` still knows no German: `der`/`die`/`das`/`den`/`dem`/`des` and the `ein-` forms
+/// are matched in `GermanNoun::inflect_article_custom`, in this crate. Which form is *written*
+/// selects only the paradigm — case, gender and number still pick the actual form, so a
+/// template may write the citation form `der` everywhere and still get `den` where the
+/// placeholder's case marker calls for it.
+#[test]
+fn native_german_article_keywords() {
+    assert_eq!(
+        say!("{Der *=0} bellt.", GermanNoun::hund()),
+        "Der Hund bellt."
+    );
+    assert_eq!(
+        say!("Ich sehe {den *@0}.", GermanNoun::hund()),
+        "Ich sehe den Hund."
+    );
+    // Writing the nominative `der` on an accusative placeholder still renders `den`:
+    // the case marker decides, not the written word.
+    assert_eq!(
+        say!("Ich sehe {der *@0}.", GermanNoun::hund()),
+        "Ich sehe den Hund."
+    );
+    assert_eq!(
+        say!("{Die *=0} schläft.", GermanNoun::katze()),
+        "Die Katze schläft."
+    );
+    assert_eq!(
+        say!("{Das *=0} steht.", GermanNoun::haus()),
+        "Das Haus steht."
+    );
+    assert_eq!(
+        say!("Ich sehe {ein *@0}.", GermanNoun::haus()),
+        "Ich sehe ein Haus."
+    );
+
+    // The English keyword still works, unchanged -- this is additive.
+    assert_eq!(
+        say!("{The *=0} bellt.", GermanNoun::hund()),
+        "Der Hund bellt."
+    );
+}
