@@ -422,10 +422,11 @@ building, its build item is dropped rather than executed anyway.
      most-used feature. `ranting_gaps/src/english.rs::regular_plural` is an
      executable specification of the missing rules, with the counterexamples
      (`day`/`days`, `roof`/`roofs`, `chief`/`chiefs`) pinned in its tests.
-     **This is the next thing to fix** and is not yet done.
+     **Fixed by item 10 below.**
    - Also found: hyphenated compounds pluralize the wrong element
      (`mother-in-laws` for `mothers-in-law`), which the `plural_end` escape
-     hatch cannot even work around, since the `-s` goes in the middle.
+     hatch cannot even work around, since the `-s` goes in the middle. Also
+     fixed by item 10.
    - Resolved rather than merely reported: the `{can can}` case. `{The can can}`
      renders "Can can hold water." — the article vanishes — but
      `{The *can can}` is correct, so `*` already fixes it. The gap is
@@ -443,6 +444,53 @@ building, its build item is dropped rather than executed anyway.
    - Not a falsifier: it depends on `ranting_core` (for `ph_ext::parse` as the
      pre-word oracle) and that is deliberate — see `CLAUDE.md`'s architecture
      section. The `ranting_i18n`/`ranting_es` contract is unchanged.
+
+10. **Regular English pluralization rules** — ✅ **DONE 2026-08-14**. Closes the
+    defect item 9 found. `src/language/plurals.rs` gained `regular_plural` and
+    `compound_plural`; the new public `ranting::inflect_noun_regular` is what
+    derive-generated `inflect()` calls once the irregular table misses.
+    - Rules are *orthographic only* — consonant + `y` → `ies`, `-es` after
+      `s`/`x`/`z`/`ch`/`sh`, and the `-f`/`-fe` → `-ves` stem lists. The classes
+      that need to know what a word means or where it was borrowed from (`hero`
+      vs. `piano`, Latin `-us` vs. `bus`, `quiz` → `quizzes`, whose consonant
+      doubling is conditioned by stress rather than letters) stay table entries.
+      That split is the point: it says what `data/irregular_plurals.txt` is
+      *for*, rather than treating it as the place every non-`-s` plural goes.
+    - The `-f`/`-fe` stems (`knife`, `wolf`, `shelf`, …) are all table rows
+      already, so those rules only ever fire for **compounds** the table's
+      exact-match lookup misses: `bookshelf` → `bookshelves`, `housewife` →
+      `housewives`. Not redundant with the table.
+    - **The compatibility contract is the `singular_end`/`plural_end`
+      attributes.** At their defaults the rules apply; a struct that *sets*
+      either one has stated a rule of its own and keeps the literal
+      strip-and-append it always got. That is what stops a non-English impl
+      using `plural_end` as an escape hatch from silently acquiring English
+      orthography — `tests/ranting/regular_plurals.rs` pins it with a German
+      `plural_end = "e"` struct whose name (`Fuchs`) would otherwise take `-es`.
+    - **Singularization was deliberately left alone**, and this is the item's
+      one open asymmetry. Every inverse rule has a counterexample class spelling
+      cannot separate from its positive class: `-ies` → `-y` fixes `cities` but
+      breaks `movies` → "movy", which today's naive `-s` strip gets *right*, and
+      a `-ves` → `-f` suffix rule turns `olives` into "olife". Trading one wrong
+      class for another is not progress, so `{-cities}` still renders "citie".
+      Pinned as `singularization_is_deliberately_unchanged` so it reads as a
+      decision rather than an oversight. Reopening it needs a lexicon, not a
+      rule.
+    - **`ranting_gaps/src/english.rs` keeps its own copy of the rules on
+      purpose** — it is the differential oracle the probes compare `ranting`
+      against, so making it call `ranting::inflect_noun_regular` would make the
+      probes agree by construction and report zero findings forever. Both files
+      carry a note saying so; the arrangement is the same one `CLAUDE.md`
+      records for `PH_EXT` versus `ph_ext`.
+    - Acceptance was the tool itself, not a hand-written test: rerunning
+      `ranting-gaps` over the same 111k-word corpus drops `regular-plural-rules`
+      (188 occurrences) and `compound-head-plural` from the report entirely,
+      leaving only the word-order boundary and the pre-word homographs. Both
+      probes were kept and their tests inverted into regression guards — an
+      empty finding now means "the rules are present and agree", and their
+      report text says a future case is a *divergence* between the two
+      implementations, not a missing feature.
+    - Zero existing tests changed: nothing in the suite had pinned "boxs".
 
 ### v1.4 Success Criteria (provisional — finalized by item 4)
 - Items 1-3 answer, in writing, whether Arabic and/or Japanese would falsify

@@ -52,7 +52,9 @@ use in_definite::get_a_or_an;
 use language::english::{
     adapt_article, inflect_adjective, inflect_objective, inflect_subjective, inflect_verb,
 };
-pub use language::english::{inflect_noun_irregular, inflect_possessive, inflect_reflexive};
+pub use language::english::{
+    inflect_noun_irregular, inflect_noun_regular, inflect_possessive, inflect_reflexive,
+};
 pub use ranting_core::grammar::{SubjectPronoun, is_subject, is_subjective_plural};
 use ranting_core::placeholder::{
     ArticleKind, CaseKind, NumeralKind, NumeralSpec, PlaceholderSpec, PostSpec,

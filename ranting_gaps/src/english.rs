@@ -1,13 +1,15 @@
-//! A reference implementation of regular English noun pluralization.
+//! An independent implementation of regular English noun pluralization.
 //!
-//! This exists because `ranting` has none. `Ranting::inflect()` falls back to the `plural_end`
-//! attribute, which defaults to `"s"` and is simply appended -- so `{+fly}` renders `"flys"` and
-//! `{+box}` renders `"boxs"`. Everything English does beyond append-`s` has to be a row in
-//! `data/irregular_plurals.txt`, which is 63 lines long.
+//! It was written because `ranting` had none: `Ranting::inflect()` fell back to appending the
+//! `plural_end` attribute, so `{+fly}` rendered `"flys"`. It served as the specification for the
+//! fix, and `src/language/plurals.rs` now implements the same rules (ROADMAP.md Phase 7 item 10).
 //!
-//! So this module is not a convenience for the tool: it *is* the deliverable. The rules below are
-//! the specification of the missing feature, written where they can be executed and tested rather
-//! than described in a roadmap item. `failures/regular-plural-rules/README.md` cites them.
+//! **This copy must stay independent -- do not make it call `ranting`.** The probes compare
+//! `ranting`'s real output against these rules; routing both through one implementation would
+//! make them agree by construction and report zero findings forever, whatever `ranting` does.
+//! The duplication is a differential oracle, the same arrangement `CLAUDE.md` records for
+//! `PH_EXT` versus `ph_ext`, and not the hand-kept duplication this repo warns about elsewhere.
+//! `src/language/plurals.rs` carries the matching note.
 //!
 //! Scope is deliberate. These are the *orthographic* rules -- the ones that are a function of the
 //! spelling alone, and therefore implementable without a lexicon. The classes that need to know

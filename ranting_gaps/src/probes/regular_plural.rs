@@ -1,10 +1,16 @@
 //! The headline probe: nouns whose plural `ranting` gets wrong because it has no regular
-//! pluralization rules at all.
+//! pluralization rules.
 //!
-//! `Ranting::inflect()`'s regular path appends the `plural_end` attribute, which defaults to
-//! `"s"`. There is no `y`→`ies`, no `-es` after a sibilant, no `f`→`ves`. Everything English does
-//! beyond append-`s` has to be a row in `data/irregular_plurals.txt`, which is 63 lines long --
-//! so `{+fly}` renders `"flys"`, `{+box}` renders `"boxs"`, and `{+church}` renders `"churchs"`.
+//! **This probe's original finding has been fixed** (ROADMAP.md Phase 7 item 10). Until then,
+//! `Ranting::inflect()`'s regular path appended the `plural_end` attribute, which defaults to
+//! `"s"`, with no `y`→`ies`, no `-es` after a sibilant and no `f`→`ves`, so `{+fly}` rendered
+//! `"flys"` and `{+box}` rendered `"boxs"`. `src/language/plurals.rs` now carries those rules.
+//!
+//! The probe stays, and reporting **nothing now means "the rules are present and agree"**, not
+//! "the probe is broken" -- it compares `ranting`'s real output against [`crate::english`]'s
+//! independently written copy of the rules, so it also catches a future regression or a
+//! divergence between the two. That independence is the point: see the note at the top of
+//! `crate::english`.
 //!
 //! This is one cause, not one-per-word, which is why the probe emits a single `Finding` with a
 //! frequency-ranked case table rather than a file per broken noun.
@@ -99,28 +105,32 @@ pub fn probe(
             id: "regular-plural-rules",
             title: "No regular English pluralization rules",
             kind: Kind::Gap,
-            cause: "`Ranting::inflect()`'s regular path appends the `plural_end` attribute, which \
-                    defaults to `\"s\"` and is concatenated verbatim. `src/language/plurals.rs` \
-                    provides only a lookup into the generated `IRREGULAR_PLURALS` table \
-                    (`data/irregular_plurals.txt`, 63 lines); when a word is absent from it there \
-                    is no rule to fall back on, only the suffix.",
+            cause: "`Ranting::inflect()`'s regular path used to append the `plural_end` attribute \
+                    (default `\"s\"`) verbatim, with `src/language/plurals.rs` offering only a \
+                    lookup into the generated `IRREGULAR_PLURALS` table \
+                    (`data/irregular_plurals.txt`, 63 lines) -- so a word absent from the table \
+                    had no rule to fall back on, only the suffix. That path now goes through \
+                    `ranting::inflect_noun_regular` and the orthographic rules, which is why any \
+                    case below is a divergence rather than the original gap.",
             why_it_fails: "Every English noun outside the 63-line table whose plural is not formed \
-                           by bare `-s` renders wrong: `{+fly}` gives \"flys\", `{+box}` gives \
-                           \"boxs\", `{+church}` gives \"churchs\", `{+knife}` gives \"knifes\". \
-                           The failure is silent -- there is no error, just an incorrect word in \
-                           the output -- and it affects the crate's single most-used feature.",
+                           by bare `-s` used to render wrong -- `{+fly}` gave \"flys\", `{+box}` \
+                           gave \"boxs\" -- silently, with no error, on the crate's single \
+                           most-used feature. The rules landed in `src/language/plurals.rs`, so a \
+                           case below now means `ranting` and this crate's independent copy of \
+                           those rules have diverged, which is worth exactly the same attention.",
             what_ranting_needs:
-                "Regular orthographic rules in `src/language/plurals.rs`, applied before the \
-                 append-`plural_end` fallback: consonant + `y` → `ies`; `s`/`x`/`z`/`ch`/`sh` → \
-                 `es`; the `f`/`fe` → `ves` stems. `ranting_gaps/src/english.rs::regular_plural` \
-                 is an executable reference implementation with the counterexamples \
-                 (`day`/`days`, `roof`/`roofs`, `chief`/`chiefs`) already pinned in its tests. \
-                 The classes that need a lexicon rather than a spelling rule -- `-o` → `oes` for \
-                 `hero` but `-os` for `piano`, `-us` → `-i` for Latin borrowings but not for \
-                 `bus` -- stay table entries, which is what the table should be reserved for. \
-                 Note `Ranting::inflect` takes `to_plural` and the noun form only, so this is a \
-                 change to the English rules, not to any trait signature; a non-English fork \
-                 already overrides the whole path.",
+                "Nothing structural -- these rules landed in `src/language/plurals.rs` as \
+                 ROADMAP.md Phase 7 item 10 (consonant + `y` → `ies`; `s`/`x`/`z`/`ch`/`sh` → \
+                 `es`; the `f`/`fe` → `ves` stems), reached through \
+                 `ranting::inflect_noun_regular` when the irregular table misses and the \
+                 `singular_end`/`plural_end` attributes are at their defaults. So a case listed \
+                 below is no longer a missing feature: it is a **divergence** between \
+                 `src/language/plurals.rs` and this crate's independently written copy in \
+                 `ranting_gaps/src/english.rs`, and one of the two is now wrong. Check which \
+                 before changing either. Words needing a lexicon rather than a spelling rule -- \
+                 `-o` → `oes` for `hero` but `-os` for `piano`, `-us` → `-i` for Latin borrowings \
+                 but not for `bus`, `quiz` → `quizzes` -- are out of scope for both and belong in \
+                 `data/irregular_plurals.txt`.",
             cases,
         }
         .finish(limit),
@@ -131,31 +141,32 @@ pub fn probe(
 mod tests {
     use super::*;
 
-    /// The behavior the whole finding rests on: these words are absent from
-    /// `data/irregular_plurals.txt`, so they reach the append-`s` fallback and come out wrong.
-    /// If `ranting` ever grows the rules, this test fails and the finding is retired -- which is
-    /// the correct way for it to end.
+    /// The words this probe was written to report. `ranting` renders them correctly now, and the
+    /// assertion is deliberately kept rather than deleted: it is the differential check the whole
+    /// probe rests on, so it is worth more as a live regression guard on `ranting` than as a
+    /// deleted line in the history.
+    ///
+    /// `knife` is absent on purpose: it is a row in `data/irregular_plurals.txt`, so the table --
+    /// not the rules -- decides it, and the probe skips it either way.
     #[test]
-    fn ranting_appends_a_bare_s_where_english_does_not() {
-        for (word, ranting_gives, english_wants) in [
-            ("fly", "flys", "flies"),
-            ("box", "boxs", "boxes"),
-            ("church", "churchs", "churches"),
-            ("city", "citys", "cities"),
-            ("bus", "buss", "buses"),
-            // `knife` is deliberately absent: it is already a row in
-            // `data/irregular_plurals.txt`, so it renders "knives" and the probe skips it. The
-            // gap is the words the table does *not* cover, which is most of them.
+    fn ranting_now_agrees_with_the_reference_rules() {
+        for (word, english_wants) in [
+            ("fly", "flies"),
+            ("box", "boxes"),
+            ("church", "churches"),
+            ("city", "cities"),
+            ("bus", "buses"),
+            ("bookshelf", "bookshelves"),
         ] {
-            assert_eq!(
-                ranting_plural(word),
-                ranting_gives,
-                "ranting's plural of {word}"
-            );
             assert_eq!(
                 regular_plural(word),
                 english_wants,
                 "reference rule for {word}"
+            );
+            assert_eq!(
+                ranting_plural(word),
+                english_wants,
+                "ranting's plural of {word}"
             );
         }
     }

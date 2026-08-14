@@ -1,7 +1,9 @@
 //! Hyphenated compounds, which pluralize their **head** rather than their tail.
 //!
-//! `mother-in-law` → `mothers-in-law`, not `mother-in-laws`. `ranting` has no notion of a
-//! compound head, so `{+mother_in_law}` renders `"mother-in-laws"` -- confirmed by running it.
+//! `mother-in-law` → `mothers-in-law`, not `mother-in-laws`. `ranting` had no notion of a
+//! compound head, so `{+mother_in_law}` rendered `"mother-in-laws"`; **fixed** alongside the
+//! regular rules (ROADMAP.md Phase 7 item 10), and this probe now guards the fix differentially.
+//! See [`super::regular_plural`] for what an empty finding means.
 //!
 //! Kept separate from [`super::regular_plural`] even though both are `Ranting::inflect()`
 //! falling through to append-`s`, because the fix is different in kind: one is a spelling rule,
@@ -67,14 +69,12 @@ pub fn probe(
                            `-s` has to be inserted in the middle of the word, and `plural_end` \
                            can only append.",
             what_ranting_needs:
-                "Head detection in `src/language/plurals.rs`, before the append-`plural_end` \
-                 fallback: split on `-`, and when the second element is a preposition or a \
-                 postposed adjective, pluralize the first element and rejoin. \
-                 `ranting_gaps/src/english.rs::compound_plural` is a reference implementation, \
-                 with `t-shirt` and `merry-go-round` pinned as words that must keep tail \
-                 pluralization. Worth noting how small this is: the whole rule is a `split('-')` \
-                 and a two-word lookup, and it removes a failure the `plural_end` escape hatch \
-                 cannot reach.",
+                "Nothing structural -- `src/language/plurals.rs::compound_plural` landed with the \
+                 regular rules (ROADMAP.md Phase 7 item 10): split on `-`, and when the second \
+                 element is a preposition or a postposed adjective, pluralize the first element \
+                 and rejoin, with `t-shirt` and `merry-go-round` pinned as words that must keep \
+                 tail pluralization. A case listed below is therefore a divergence between that \
+                 and `ranting_gaps/src/english.rs::compound_plural`, not a missing feature.",
             cases,
         }
         .finish(limit),
@@ -86,13 +86,16 @@ mod tests {
     use super::super::regular_plural::ranting_plural;
     use crate::english::compound_plural;
 
+    /// Kept as a live regression guard now that the head rule has landed, for the same reason as
+    /// `super::regular_plural`'s: the differential comparison is the probe.
     #[test]
-    fn ranting_pluralizes_the_tail_of_a_headed_compound() {
-        assert_eq!(ranting_plural("mother-in-law"), "mother-in-laws");
+    fn ranting_pluralizes_the_head_of_a_headed_compound() {
         assert_eq!(
             compound_plural("mother-in-law").as_deref(),
             Some("mothers-in-law")
         );
+        assert_eq!(ranting_plural("mother-in-law"), "mothers-in-law");
+        assert_eq!(ranting_plural("passer-by"), "passers-by");
     }
 
     /// A compound with no head structure must agree with `ranting`, so it never becomes a case.

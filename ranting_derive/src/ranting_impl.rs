@@ -143,28 +143,18 @@ fn get_plurality_fns(opt: &RantingOptions) -> TokenStream {
                         if let Some(plural) = ranting::inflect_noun_irregular(&name, true) {
                             ranting::uc_1st_if(&plural, uc)
                         } else {
-                            // Fall back to regular plural formation. If `name`
-                            // doesn't end in `singular_end` (a Ranting impl
-                            // whose attribute doesn't match its own data), it
-                            // isn't singularizable via this rule — degrade
-                            // gracefully by returning the name unchanged
-                            // rather than panicking on formatting-time data.
-                            match name.strip_suffix(#singular_end) {
-                                Some(stem) => stem.to_string() + #plural_end,
-                                None => name,
-                            }
+                            // Fall back to the regular rules. They apply English
+                            // orthography only while both attributes are at their
+                            // defaults; a struct that set either one keeps the
+                            // literal strip-and-append it declared.
+                            ranting::inflect_noun_regular(&name, true, #singular_end, #plural_end)
                         }
                     } else {
                         // Try irregular singular lookup first
                         if let Some(singular) = ranting::inflect_noun_irregular(&name, false) {
                             ranting::uc_1st_if(&singular, uc)
                         } else {
-                            // Fall back to regular singular formation; same
-                            // graceful-degradation rationale as above.
-                            match name.strip_suffix(#plural_end) {
-                                Some(stem) => stem.to_string() + #singular_end,
-                                None => name,
-                            }
+                            ranting::inflect_noun_regular(&name, false, #singular_end, #plural_end)
                         }
                     }
                 }
@@ -190,26 +180,16 @@ fn get_plurality_fns(opt: &RantingOptions) -> TokenStream {
                         if let Some(plural) = ranting::inflect_noun_irregular(&name, true) {
                             ranting::uc_1st_if(&plural, uc)
                         } else {
-                            // Fall back to regular plural formation; degrade
-                            // gracefully (return name unchanged) instead of
-                            // panicking when the suffix doesn't match — see
-                            // the `subject = "$"` branch above for the same
-                            // rationale.
-                            match name.strip_suffix(#singular_end) {
-                                Some(stem) => stem.to_string() + #plural_end,
-                                None => name,
-                            }
+                            // See the `subject = "$"` branch above: same rules,
+                            // same attribute-defaults contract.
+                            ranting::inflect_noun_regular(&name, true, #singular_end, #plural_end)
                         }
                     } else {
                         // Try irregular singular lookup first
                         if let Some(singular) = ranting::inflect_noun_irregular(&name, false) {
                             ranting::uc_1st_if(&singular, uc)
                         } else {
-                            // Fall back to regular singular formation
-                            match name.strip_suffix(#plural_end) {
-                                Some(stem) => stem.to_string() + #singular_end,
-                                None => name,
-                            }
+                            ranting::inflect_noun_regular(&name, false, #singular_end, #plural_end)
                         }
                     }
                 }

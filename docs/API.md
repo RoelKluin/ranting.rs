@@ -535,7 +535,7 @@ struct Wizard {}
 | `subject` | `"it"` | The subject pronoun; `"$"` means read a `subject: String` field on the struct instead. |
 | `name` | struct/enum name | Display name; `"$"` means read a `name: String` field instead. |
 | `singular_end` | `""` | Suffix stripped when singularizing (for `inflect()`). |
-| `plural_end` | `"s"` | Suffix added when pluralizing. |
+| `plural_end` | `"s"` | Suffix added when pluralizing. **Leaving both at their defaults selects English's regular rules** (`fly`→`flies`, `box`→`boxes`, `bookshelf`→`bookshelves`, `mother-in-law`→`mothers-in-law`), applied after the `data/irregular_plurals.txt` lookup. Setting either declares your own rule, and the suffix is then stripped/appended literally with no English orthography: `plural_end = "e"` on a noun named `Fuchs` gives `Fuchse`, not `Fuchses`. Singularization always strips literally — the inverse rules are deliberately not implemented, since no spelling rule separates `cities`→`city` from `movies`→`movie`. |
 | `gender` | `""` (unset) | Lexical gender / noun class label, e.g. `"masculine"`; any label a fork wants. `"$"` means read a `gender: ranting::NounClass` field instead. Surfaces as [`noun_class()`](#nounclass); omitting it generates no `noun_class` override at all. |
 
 **Cosmetic attributes** — formatting/display only:

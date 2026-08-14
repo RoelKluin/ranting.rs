@@ -2,7 +2,7 @@
 
 **Kind:** boundary — measured, not actionable  
 **Distinct words:** 40  
-**Corpus occurrences:** 1223
+**Corpus occurrences:** 1228
 
 ## Cause
 
@@ -21,7 +21,7 @@ Nothing. This is a decision on record, not an unfilled gap, and the count below 
 | Word | ranting renders | English requires | Occurrences | Confidence |
 |---|---|---|---|---|
 | `same` | `literal text outside the placeholder: `the same {noun}`` | `agreeing with the noun, as `{noun !same}` does post-noun` | 278 | heuristic |
-| `own` | `literal text outside the placeholder: `the own {noun}`` | `agreeing with the noun, as `{noun !own}` does post-noun` | 162 | heuristic |
+| `own` | `literal text outside the placeholder: `the own {noun}`` | `agreeing with the noun, as `{noun !own}` does post-noun` | 163 | heuristic |
 | `english` | `literal text outside the placeholder: `the english {noun}`` | `agreeing with the noun, as `{noun !english}` does post-noun` | 83 | heuristic |
 | `new` | `literal text outside the placeholder: `the new {noun}`` | `agreeing with the noun, as `{noun !new}` does post-noun` | 73 | heuristic |
 | `other` | `literal text outside the placeholder: `the other {noun}`` | `agreeing with the noun, as `{noun !other}` does post-noun` | 69 | heuristic |
@@ -33,8 +33,8 @@ Nothing. This is a decision on record, not an unfilled gap, and the count below 
 | `single` | `literal text outside the placeholder: `the single {noun}`` | `agreeing with the noun, as `{noun !single}` does post-noun` | 32 | heuristic |
 | `whole` | `literal text outside the placeholder: `the whole {noun}`` | `agreeing with the noun, as `{noun !whole}` does post-noun` | 28 | heuristic |
 | `adjective` | `literal text outside the placeholder: `the adjective {noun}`` | `agreeing with the noun, as `{noun !adjective}` does post-noun` | 26 | heuristic |
-| `next` | `literal text outside the placeholder: `the next {noun}`` | `agreeing with the noun, as `{noun !next}` does post-noun` | 25 | heuristic |
-| `public` | `literal text outside the placeholder: `the public {noun}`` | `agreeing with the noun, as `{noun !public}` does post-noun` | 25 | heuristic |
+| `next` | `literal text outside the placeholder: `the next {noun}`` | `agreeing with the noun, as `{noun !next}` does post-noun` | 26 | heuristic |
+| `public` | `literal text outside the placeholder: `the public {noun}`` | `agreeing with the noun, as `{noun !public}` does post-noun` | 26 | heuristic |
 | `derive` | `literal text outside the placeholder: `the derive {noun}`` | `agreeing with the noun, as `{noun !derive}` does post-noun` | 21 | heuristic |
 | `real` | `literal text outside the placeholder: `the real {noun}`` | `agreeing with the noun, as `{noun !real}` does post-noun` | 20 | heuristic |
 | `ordinary` | `literal text outside the placeholder: `the ordinary {noun}`` | `agreeing with the noun, as `{noun !ordinary}` does post-noun` | 18 | heuristic |
@@ -45,8 +45,8 @@ Nothing. This is a decision on record, not an unfilled gap, and the count below 
 | `identical` | `literal text outside the placeholder: `the identical {noun}`` | `agreeing with the noun, as `{noun !identical}` does post-noun` | 9 | heuristic |
 | `library` | `literal text outside the placeholder: `the library {noun}`` | `agreeing with the noun, as `{noun !library}` does post-noun` | 9 | heuristic |
 | `original` | `literal text outside the placeholder: `the original {noun}`` | `agreeing with the noun, as `{noun !original}` does post-noun` | 9 | heuristic |
+| `plural` | `literal text outside the placeholder: `the plural {noun}`` | `agreeing with the noun, as `{noun !plural}` does post-noun` | 9 | heuristic |
 | `dative` | `literal text outside the placeholder: `the dative {noun}`` | `agreeing with the noun, as `{noun !dative}` does post-noun` | 7 | heuristic |
-| `plural` | `literal text outside the placeholder: `the plural {noun}`` | `agreeing with the noun, as `{noun !plural}` does post-noun` | 7 | heuristic |
 | `runnable` | `literal text outside the placeholder: `the runnable {noun}`` | `agreeing with the noun, as `{noun !runnable}` does post-noun` | 7 | heuristic |
 | `external` | `literal text outside the placeholder: `the external {noun}`` | `agreeing with the noun, as `{noun !external}` does post-noun` | 6 | heuristic |
 | `numeric` | `literal text outside the placeholder: `the numeric {noun}`` | `agreeing with the noun, as `{noun !numeric}` does post-noun` | 6 | heuristic |
@@ -57,9 +57,9 @@ Nothing. This is a decision on record, not an unfilled gap, and the count below 
 | `tutorial` | `literal text outside the placeholder: `the tutorial {noun}`` | `agreeing with the noun, as `{noun !tutorial}` does post-noun` | 5 | heuristic |
 | `vocabulary` | `literal text outside the placeholder: `the vocabulary {noun}`` | `agreeing with the noun, as `{noun !vocabulary}` does post-noun` | 5 | heuristic |
 | `alternative` | `literal text outside the placeholder: `the alternative {noun}`` | `agreeing with the noun, as `{noun !alternative}` does post-noun` | 4 | heuristic |
+| `authoritative` | `literal text outside the placeholder: `the authoritative {noun}`` | `agreeing with the noun, as `{noun !authoritative}` does post-noun` | 4 | heuristic |
 | `differential` | `literal text outside the placeholder: `the differential {noun}`` | `agreeing with the noun, as `{noun !differential}` does post-noun` | 4 | heuristic |
 | `exhaustive` | `literal text outside the placeholder: `the exhaustive {noun}`` | `agreeing with the noun, as `{noun !exhaustive}` does post-noun` | 4 | heuristic |
-| `final` | `literal text outside the placeholder: `the final {noun}`` | `agreeing with the noun, as `{noun !final}` does post-noun` | 4 | heuristic |
 
 ## Evidence
 
@@ -213,17 +213,17 @@ Nothing. This is a decision on record, not an unfilled gap, and the count below 
 - docs/superpowers/plans/2026-08-12-heed-input-parsing-impl.md:821 — not injective (multiple original values render to the same text), so
 - docs/superpowers/plans/2026-08-12-trait-extensibility-impl.md:1033 — All tests pass (original tests + 9 new tests = ~226 total)
 
-### `dative`
-
-- docs/EXTENSIBILITY.md:326 — Why German dative/genitive can't be named by case alone.
-- docs/EXTENSIBILITY.md:327 — accusative, dative, genitive) and English's five markers are different taxonomies that cross-cut
-- docs/EXTENSIBILITY.md:328 — @ ( Objective ) covers both accusative and dative direct/indirect objects, and a
-
 ### `plural`
 
 - README.md:22 — A verb alongside, always specified in plural, inflects accordingly.
 - README.md:70 — Singular "they" conjugates as plural in form (they are, they have, they do) while referring to a single individual.
 - README.md:112 — - A given Ranting Enum or Struct can also be inflected to plural or singular.
+
+### `dative`
+
+- docs/EXTENSIBILITY.md:326 — Why German dative/genitive can't be named by case alone.
+- docs/EXTENSIBILITY.md:327 — accusative, dative, genitive) and English's five markers are different taxonomies that cross-cut
+- docs/EXTENSIBILITY.md:328 — @ ( Objective ) covers both accusative and dative direct/indirect objects, and a
 
 ### `runnable`
 
@@ -285,6 +285,12 @@ Nothing. This is a decision on record, not an unfilled gap, and the count below 
 - docs/superpowers/specs/2026-08-14-language-modularity.md:391 — alternative in a repeated group is not local to that alternative.
 - docs/superpowers/specs/2026-08-14-language-modularity.md:391 — alternative in a repeated group is not local to that alternative.
 
+### `authoritative`
+
+- docs/superpowers/specs/2026-08-13-number-categories.md:4 — bool authoritative and
+- docs/superpowers/specs/2026-08-13-number-categories.md:203 — (b) Parallel channel alongside the bool, bool authoritative for English One parameter added to 6 (soon 8) hooks;
+- docs/superpowers/specs/2026-08-13-number-categories.md:280 — authoritative for every English fallback path, so say!() 's output is
+
 ### `differential`
 
 - docs/superpowers/specs/2026-08-14-language-modularity.md:256 — — the differential fuzz comparing the hand-written parser against the PH EXT
@@ -296,10 +302,4 @@ Nothing. This is a decision on record, not an unfilled gap, and the count below 
 - docs/EXTENSIBILITY.md:1197 — closed is what makes the compiler check exhaustive for the nine English pronouns — but a fork's
 - docs/superpowers/specs/2026-08-12-input-parsing-feasibility.md:167 — the reverse (aux word → tense marker) is a small, exhaustive, already-enumerable match.
 - docs/superpowers/specs/2026-08-13-adjective-declension-class.md:170 — - A closed enum invites the same "collects on every downstream exhaustive
-
-### `final`
-
-- docs/superpowers/plans/2026-08-12-heed-input-parsing-impl.md:303 — /// Joins parsed segments into the final anchored regex pattern, plus the
-- docs/superpowers/plans/2026-08-12-heed-input-parsing-impl.md:831 — Run the full verification pass one final time:
-- docs/superpowers/plans/2026-08-12-trait-extensibility-impl.md:991 — Update ROADMAP.md and Final Verification
 
