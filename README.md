@@ -3,9 +3,9 @@ Ranting&ensp;╰(°Д°)/
 
 [<img alt="github" src="https://img.shields.io/badge/github-RoelKluin/ranting-8da0cb?style=for-the-badge&labelColor=555555&logo=github" height="20">](https://github.com/RoelKluin/ranting.rs)
 [<img alt="crates.io" src="https://img.shields.io/crates/v/ranting.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/ranting)
-[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-ranting-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/ranting/1.3.0/ranting/)
+[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-ranting-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/ranting/1.3.1/ranting/)
 
-This library provides [`Ranting`](https://docs.rs/ranting/1.3.0/ranting/trait.Ranting.html), a trait for inflection within [`say!()`](https://docs.rs/ranting_derive/1.3.0/ranting_derive/macro.say.html) litteral string placeholders.
+This library provides [`Ranting`](https://docs.rs/ranting/1.3.1/ranting/trait.Ranting.html), a trait for inflection within [`say!()`](https://docs.rs/ranting_derive/1.3.1/ranting_derive/macro.say.html) litteral string placeholders.
 
 **New to Ranting?** Start with the [**Tutorial**](docs/TUTORIAL.md) (30-40 min read) or jump to the [**Cookbook**](docs/COOKBOOK.md) (10 practical recipes). Already know the basics? Keep the [**Cheatsheet**](docs/CHEATSHEET.md) open while you write, or browse the [**API Reference**](docs/API.md) for the full public surface. (Tutorial, Cookbook and Cheatsheet are also available [**en español**](docs/es/TUTORIAL.md).)
 
