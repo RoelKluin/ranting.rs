@@ -175,6 +175,18 @@ fn main() {
 - An 'article' can be one of `a`, `an`, `some`, `the`, `those` or `these`. These and those are converted to
   this and that if the pronoun is singular. A question mark indicates its display dependends (see no_article).
 
+- **A non-English template may write its own article word instead.** Any word `ranting` doesn't
+  recognise as an English article is handed to `inflect_article_custom`, so a Spanish
+  implementation can accept `el`/`la`/`los`/`las` and inflect them like the English keywords:
+  `say!("Veo {el *=0}.", gato)` → `"Veo el gato."`, and `say!("Veo {el +*=0}.", gato)` →
+  `"Veo los gatos."` — the implementation picks the form, so the article still agrees. `ranting`
+  itself knows no non-English vocabulary; the word list lives in your `Ranting` impl, which is
+  what keeps languages modular. The noun must carry a case marker (`{el *=0}`, not `{el 0}`) —
+  an unmarked two-word placeholder keeps its English "noun + post-noun verb" reading. English
+  templates are unaffected: an impl that doesn't recognise the word returns `None` and it renders
+  exactly as written. See [`docs/EXTENSIBILITY.md`](docs/EXTENSIBILITY.md) §2.3 and
+  `docs/superpowers/specs/2026-08-14-language-modularity.md`.
+
 - `ack!()` and `nay!()` expand to plain `Ok(say!(...))` / `Err(say!(...))` expressions — not a hidden `return` —
   so they can be used anywhere an expression is valid (bound to a `let`, as a match arm's tail value, etc.); write
   `return ack!(...)`/`return nay!(...)` yourself for early-return behavior. Intended for allow or deny ranting

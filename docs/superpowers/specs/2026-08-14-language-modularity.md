@@ -1,13 +1,16 @@
 # Spike: modular authoring languages and modular output languages
 
-**Status**: design spike complete, both axes verified empirically. Conclusion in
-one line — **output-language modularity already works today; authoring-language
-modularity is blocked by one grammar slot, and a prototype closing it passed
-every test in the repo except the two that compare the parser against its own
-un-widened reference oracle.** Option 1's only real cost — losing an accidental
-compile error on a misspelled article — has since been accepted by the
-maintainer (see "Decision", below), so what remains open is scheduling, not
-design.
+**Status**: spike complete and **option 1 shipped** (2026-08-14). Output-language
+modularity already worked; authoring-language modularity was blocked by one
+grammar slot, and that block is now removed — a template may write its own
+article keyword (`{el *=gato}`) and the language module inflects it
+(`{el +*=gato}` → `los gatos`), with `ranting` itself knowing no non-English
+vocabulary. Option 1's only cost — losing an accidental compile error on a
+misspelled article — was accepted by the maintainer (see "Decision", below).
+
+Implementation notes, and one limitation found while building it, are in
+"As shipped" at the end of this document. The design discussion below is kept
+as written, since it is what the implementation was chosen from.
 
 ## Motivation
 
@@ -343,3 +346,72 @@ This is a new item, orthogonal to items 1-4. Item 1 (unused-hook audit) feeds it
 directly — a hook no module overrides should not gain new responsibilities.
 Items 2 and 3 (Arabic, Japanese) ask whether *more* hooks are needed; this asks
 how hooks are *packaged*.
+
+---
+
+## As shipped (2026-08-14)
+
+Three changes, matching option 1 as scored, with the prototype's thread-local
+replaced by a threaded parameter:
+
+1. **`ranting_core::ph_ext::parse` runs two passes.** `parse_pass(s,
+   PreWords::English)` first — the closed vocabulary the grammar has always had
+   — and `parse_pass(s, PreWords::Open)` only if that fails, with the strict
+   error returned on double failure so diagnostics are unchanged for genuinely
+   malformed input. `PreWords` is threaded into `pre_one_rep` through the
+   `star_candidates` closure rather than carried in thread-local state, since a
+   differentially-fuzzed parser should not have invisible mode.
+2. **`pre_one_rep`'s open arm replaces the vocabulary rather than extending it**
+   — one word (`leading_word_or_apostrophe_len`, so `haven't` and `l'` still
+   work), with the same trailing-whitespace requirement every English branch
+   imposes via `finish_pre_candidates`.
+3. **`get_article_or_so`'s `ArticleKind::Other` arm calls
+   `inflect_article_custom_with_context`** instead of returning `None`, mapping
+   `Some` to `custom + space` and leaving `None` to render the word as written.
+
+### `PH_EXT` stays the English grammar, and parity now targets the English pass
+
+The plan was to widen `PH_EXT` to match. That turned out to be impossible in
+the useful sense: a single regex has **one** preference order, so it cannot
+express "prefer the English reading of `{w is}`, fall back to the open reading
+only if there isn't one". Widening `PH_EXT`'s alternation would make it accept
+the same *language* but disagree on *captures*, which is exactly what the
+differential test checks.
+
+So `assert_parity` now compares `PH_EXT` against `parse_pass(input,
+PreWords::English)` rather than against `parse`. `PH_EXT` remains the exact
+reference grammar for the English pass — which is what the differential fuzz was
+protecting — and the open pass is pinned separately by
+`open_pass_only_for_input_english_rejects`, which asserts both directions: that
+accepted English templates parse identically through `parse`, and that the
+newly-accepted inputs are ones the English pass rejects.
+
+### Limitation found while building: the noun needs a marker
+
+The open pass runs **only when the English pass fails**, and an unmarked
+two-word placeholder does not fail — `{la casa}` parses as `noun = "la"`,
+`post = " casa"`, the ordinary noun + post-noun-verb reading. So:
+
+| Template | Result |
+|---|---|
+| `{el *=gato}`, `{el +*=gato}`, `{la *=casa}` | native article, inflected by the module |
+| `{el gato}` | unchanged — still `noun = "el"`, hence `E0425: cannot find value 'el'` |
+
+A non-English template therefore needs a case marker on the noun for its article
+to be read as an article. That is not a regression (nothing worked before), and
+it follows from the priority ordering that makes English byte-identical — the
+two cannot both be had. Pinned by
+`ph_ext::tests::open_pass_only_for_input_english_rejects` and
+`tests/ranting/native_article_keyword.rs::unmarked_two_word_placeholder_keeps_the_english_reading`.
+
+This also leaves the `{el 0}` diagnostic defect below open, and slightly
+sharpens it: the confusing `E0425` is now the *only* remaining failure mode for
+a native-keyword template, so improving that message is worth more than it was.
+
+### Verification
+
+549 tests across all five crates pass, with `cargo fmt --check` and
+`cargo clippy --all-targets -- -D warnings` clean in each. New coverage:
+`tests/ranting/native_article_keyword.rs` (5 tests — native definite/indefinite
+keywords, gender and number agreement, English byte-identity, and the unmarked
+limitation) and `ph_ext::tests::open_pass_only_for_input_english_rejects`.

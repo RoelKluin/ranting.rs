@@ -243,7 +243,15 @@ fn inflect_article_custom(
 ```
 
 **Parameters:**
-- `article` (&str): The requested article form ("a", "an", "the", "some", "these", "those")
+- `article` (&str): The requested article form. English's own keywords — `"a"`, `"an"`, `"the"`,
+  `"some"`, `"these"`, `"those"` — plus, since 2026-08-14, **any word `ranting` does not recognise
+  as one**. That is what lets a template be written in its own language (`` {el *=gato} ``,
+  `` {der *@hund} ``) rather than with English keywords: the unrecognised word is handed here, and
+  returning `Some` makes it an article. Returning `None` — every English impl's default — leaves it
+  rendered exactly as written, so English output is unchanged. Two caveats: the noun must carry a
+  case marker (`` {el *=0} ``, not `` {el 0} ``, which still parses `el` as the noun itself), and
+  this hook is the *only* channel — a word that renders as literal text gets no agreement. See
+  §"Accepting your own article words" below.
 - `noun_singular` (&str): The singular inflected form of the noun (useful for vowel/gender detection)
 - `case` (`GrammaticalCase`): The noun's own grammatical role, taken from its case marker if the
   template gave it one (`` {the =noun} `` → `Subjective`, `` {the @noun} `` → `Objective`, etc.);
@@ -351,6 +359,58 @@ to reach dative at all, the `case` parameter handed to `inflect_article_custom` 
 — stays open by design; it's pinned by `hole_3_grammatical_case_cannot_express_dative_so_the_marker_
 is_ignored` in `ranting_i18n/tests/holes.rs` and is not expected to close. No code, hook signature,
 or marker changed as part of this section — it documents existing behavior only.
+
+#### Accepting your own article words (2026-08-14)
+
+Before this change a non-English template still had to be written with English keywords —
+`say!("Veo {the *=0}.", gato)` — and rely on this hook to turn `"the"` into `"el"`. Now the
+template can say `el`, because a word `ranting` doesn't recognise as an English article is passed
+to this hook rather than rendered as literal text:
+
+```rust
+fn inflect_article_custom(
+    &self, article: &str, _noun_singular: &str, _case: GrammaticalCase,
+    _class: NounClass, as_plural: bool, _count: Option<PlaceholderCount>, uc: bool,
+) -> Option<String> {
+    let definite = match article {
+        "the" => true,                            // English keyword, still accepted
+        "el" | "la" | "los" | "las" => true,      // your own
+        "a" | "an" | "un" | "una" => false,
+        _ => return None,                         // decline: renders as written
+    };
+    let form = match (definite, as_plural, self.feminine) {
+        (true, false, false) => "el",   (true, false, true) => "la",
+        (true, true, false) => "los",   (true, true, true) => "las",
+        (false, false, false) => "un",  (false, false, true) => "una",
+        (false, true, false) => "unos", (false, true, true) => "unas",
+    };
+    Some(uc_1st_if(form, uc))
+}
+```
+
+```rust
+say!("Veo {el *=0}.", gato)    // "Veo el gato."
+say!("Veo {el +*=0}.", gato)   // "Veo los gatos."  <- the hook picks the form
+say!("Veo {la +*=0}.", casa)   // "Veo las casas."
+```
+
+Note the written word selects the *paradigm*, not the form: `` {los *=0} `` on a singular noun
+still renders `"el gato"`, exactly as `` {the *=0} `` would. `ranting` never learns your
+vocabulary — it lives entirely in the `match` above, which is what keeps languages modular.
+
+Three things to know:
+
+- **The noun needs a case marker.** `` {el *=0} `` works; `` {el 0} `` does not, and still fails
+  with `E0425: cannot find value 'el'`. The open-vocabulary parse runs only when the ordinary
+  English parse *fails*, and an unmarked two-word placeholder doesn't fail — it reads as
+  noun + post-noun verb, which is what `` {=0 walk} `` relies on.
+- **This hook is the only channel.** A word left to render as literal text gets no agreement at
+  all, so declining a word you meant to handle produces `"el gatos"` rather than an error.
+- **English is unaffected.** An impl that doesn't recognise the word returns `None` and it renders
+  as written, which is what it did before.
+
+Pinned by `tests/ranting/native_article_keyword.rs`. Full design and the rejected alternatives are
+in `docs/superpowers/specs/2026-08-14-language-modularity.md`.
 
 ### 2.4 Lexical Gender / Noun Class: `noun_class()` and the `class` parameter (v1.3)
 
