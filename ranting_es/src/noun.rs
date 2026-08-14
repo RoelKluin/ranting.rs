@@ -119,8 +119,15 @@ impl Ranting for SpanishNoun {
         // of *which noun* this is, not of the placeholder's marker, exactly the way
         // `GermanNoun::definiteness` is entity-carried for a different reason (README hole 4b).
         let form = match article {
-            "the" => lexicon::definite_article(class.as_str(), as_plural, self.entry.euphonic_el),
-            "a" | "an" => {
+            // Spanish's own articles alongside English's — reachable because `ranting` now
+            // hands an unrecognized pre-noun word to this hook rather than rendering it as
+            // literal text, so a Spanish template can be written in Spanish (`{el *=gato}`).
+            // The written form selects only the paradigm; gender and number still pick the
+            // form, so `{los *=gato}` on a singular noun renders "el".
+            "the" | "el" | "la" | "los" | "las" => {
+                lexicon::definite_article(class.as_str(), as_plural, self.entry.euphonic_el)
+            }
+            "a" | "an" | "un" | "una" | "unos" | "unas" => {
                 lexicon::indefinite_article(class.as_str(), as_plural, self.entry.euphonic_el)
             }
             // `some`/`these`/`those` are English quantifier/demonstrative slots this lexicon

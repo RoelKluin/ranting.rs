@@ -197,8 +197,19 @@ impl Ranting for GermanNoun {
     ) -> Option<String> {
         let case = self.case_for(case);
         let form = match article {
-            "the" => definite_article(case, class.as_str(), as_plural),
-            "a" | "an" => indefinite_article(case, class.as_str(), as_plural),
+            // German's own definite article, in every form this lexicon declines it into.
+            // Reachable because `ranting` now hands an unrecognized pre-noun word to this
+            // hook instead of rendering it as literal text, which is what lets a German
+            // template be written in German (`{der *=hund}`) rather than with the English
+            // keyword (`{the *=hund}`). Which form is *written* selects only the paradigm;
+            // `case`/`class`/`as_plural` still pick the form, so `{den *=hund}` on a
+            // nominative placeholder correctly renders "der".
+            "the" | "der" | "die" | "das" | "den" | "dem" | "des" => {
+                definite_article(case, class.as_str(), as_plural)
+            }
+            "a" | "an" | "ein" | "eine" | "einen" | "einem" | "eines" | "einer" => {
+                indefinite_article(case, class.as_str(), as_plural)
+            }
             // `some`/`these`/`those` are English quantifier/demonstrative slots this lexicon
             // does not model; let them fall through rather than mistranslate.
             _ => return None,
