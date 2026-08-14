@@ -106,6 +106,14 @@
   additionally say "unset" at runtime, which is how `Noun` keeps the English
   rules for every noun that never calls `with_plural_end`.
 
+## v1.3.1 — Internationalization Foundations (republish)
+
+Identical in content to v1.3.0 below. `1.3.0` was burned on crates.io: `ranting_core`
+published successfully, but the version-locked `ranting_derive`/`ranting` publish
+stalled on an unrelated crates.io ownership/token issue, and crates.io versions are
+immutable once uploaded — so the rest of the locked group had to move to `1.3.1`
+instead of retrying `1.3.0`.
+
 ## v1.3.0 — Internationalization Foundations
 
 Phase 6's goal was narrow: make a non-English `Ranting` implementation
