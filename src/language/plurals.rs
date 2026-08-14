@@ -14,8 +14,9 @@
 //! lexicon. The classes that require knowing what a word *means* or where it was borrowed from
 //! (`-us` → `-i` for Latin nouns but not for `bus`; `-o` → `-oes` for `hero` but `-os` for
 //! `piano`; `quiz` → `quizzes`, whose consonant doubling is conditioned by stress rather than by
-//! letters) stay table entries. A half-right rule for those would be worse than an honest
-//! omission.
+//! letters) stay table entries — `hero`/`quiz` are rows in `data/irregular_plurals.txt`; `piano`
+//! isn't, since the bare-`s` default already gets it right and doesn't need overriding. A
+//! half-right rule for these classes would be worse than an honest omission.
 //!
 //! **Pluralization only — the inverse is deliberately unchanged.** Singularization still strips
 //! `plural_end`, because every inverse rule has a counterexample class that spelling cannot
