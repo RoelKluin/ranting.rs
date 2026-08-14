@@ -872,6 +872,50 @@ building, its build item is dropped rather than executed anyway.
       ROADMAP itself nearly did in item 3.
     </details>
 
+14. **`ranting_es_gaps` — a corpus-driven agreement checker for `ranting_es`** —
+    ✅ **DONE 2026-08-16**. Not part of item 4's original build decision; added
+    later from a brainstorm exploring whether `ranting_gaps`'s corpus-driven
+    approach generalizes past English. Tool in `ranting_es_gaps/`, its own
+    README, `failures/`-shaped generated output (not committed — no fixed
+    corpus ships with the tool, see below).
+    - **It cannot be `ranting_gaps` for Spanish.** `ranting_gaps` nominates
+      candidate words from an open English vocabulary and finds bugs in
+      `ranting`'s *general* regular-pluralization rule. `ranting_es`'s
+      lexicon is a closed set — 4 nouns, 4 verbs, 3 adjectives, numerals
+      `0..=12`, every gender/conjugation hand-listed rather than
+      suffix-generated (`problema` is coded masculine specifically to prove
+      there's no `-o`/`-a` gender-guessing heuristic to test) — so there is
+      no general rule to differentially check against brand-new words.
+    - **Enumerate-then-attest, not nominate-then-filter.** Every comparison
+      the tool makes (4 nouns × article/number combinations, 3 adjectives ×
+      4 nouns × number, 4 verbs × 6 persons, 2 prepositions × 8 article
+      forms) is enumerated directly from `ranting_es::lexicon` up front. A
+      corpus only grades each enumerated case's confidence (`certain` vs.
+      `attested`) — it never decides whether a case exists, so there is no
+      `--min-occurrences`/`--unattested` filtering the way `ranting_gaps` has.
+    - Five probes: `article_agreement`, `adjective_agreement`,
+      `preposition_fusion`, `verb_person` (all `Kind::Gap`) and
+      `lexicon_coverage` (`Kind::Boundary` — measures how much of a given
+      corpus's noun phrases fall outside the closed lexicon; not a bug list).
+      All four `Kind::Gap` probes report zero mismatches against `ranting_es`
+      as it stands today, pinned by each probe's own differential test.
+    - **Not a falsifier**, same shape as `ranting_gaps` one level down: it
+      depends on both `ranting` (trait/type surface the probes call directly)
+      and `ranting_es` (system under test), which does not relax
+      `ranting_es/Cargo.toml`'s own `ranting`-alone contract. Picked up by
+      `scripts/hook_audit.sh`'s fork-detection grep for the same reason
+      `ranting_gaps` is (it depends on `ranting` directly) and contributes
+      zero to every column there, since it calls hooks rather than defining
+      them.
+    - **No corpus ships with the tool.** A hand-curated Spanish sample built
+      to contain the closed lexicon's words in agreeing forms would be
+      circular — writing `la casa negra` *because* the expected output is
+      already known defeats the point of an independent oracle. Point it at
+      real Spanish text (a Tatoeba dump, a Wikipedia extract) instead.
+    - Full rationale, what it deliberately cannot do, and the `NOT_HOLES`
+      checklist of `ranting_es/README.md` behaviors it must never misreport
+      as bugs: `ranting_es_gaps/README.md`.
+
 ### v1.4 Success Criteria (finalized by item 4, 2026-08-14)
 - Items 1-3 answer, in writing, whether Arabic and/or Japanese would falsify
   something German/Spanish could not, before any lexicon code is written
