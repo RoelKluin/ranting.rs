@@ -294,22 +294,38 @@ it removes a behavior the crate never intended to offer and offers inconsistentl
 Two consequences worth stating precisely, because "another plugin" is reachable
 in one sense and not in the other:
 
-- **Compile-time correction cannot be a `ranting` plugin.** The template is
-  parsed during macro expansion, and a proc macro cannot consult another
-  crate's items or a runtime registry — the same constraint that rules out
-  options 2 and 3 above. Anything that wants to *reject* a misspelling at
-  compile time has to be an external lint reading the source, not something
-  registered with `ranting`.
+- **A compile-time check cannot be a `ranting_derive` *plugin*, in the sense of
+  third-party code.** A proc macro receives only a `TokenStream` and runs with
+  its *own* dependency graph; it cannot call into a crate the downstream user
+  chose. The dependency arrow points the wrong way — `ranting_derive` picks what
+  it links against, and no downstream crate can inject itself into that. This
+  is the same constraint that rules out options 2 and 3 above.
+- **But it *can* be configuration, which is a real and under-appreciated
+  mechanism.** Verified by instrumenting `say_with`'s expansion: a proc macro
+  sees `CARGO_MANIFEST_DIR` pointing at **the downstream crate**, not at
+  `ranting_derive` (probe output: `manifest_dir=".../polyglot" pkg="polyglot"`).
+  A proc macro is ordinary code and may read files, so `ranting_derive` could
+  read a `ranting.toml` from the user's crate root and check against a word list
+  declared there. That is data supplied by the user, not code — a curated
+  first-party check with user-supplied input, not an open extension point.
 - **Runtime correction is already reachable**, and becomes more so under
   option 1. Once `ArticleKind::Other` routes to `inflect_article_custom`, the
   language module is handed the literal word — `"teh"` included — and may do
   whatever it likes with it: correct it, log it, or return `None` and let it
-  render as written. A language module *is* the plugin, and it already has the
-  word in hand.
+  render as written. Here a language module genuinely *is* the plugin: it is
+  third-party code, chosen by the user, receiving the word.
 
-So the honest split is: `ranting` parses and inflects, a language module may
-validate what it is handed at runtime, and compile-time spell-checking belongs
-to a tool outside this crate entirely.
+So the honest split is: `ranting` parses and inflects; a language module — real
+third-party code — may validate what it is handed at runtime; and a compile-time
+check is possible but would be first-party code in `ranting_derive` driven by
+user-supplied configuration, or an external lint reading the source. It cannot
+be third-party code running at expansion time.
+
+Note that the config-file mechanism does **not** reopen options 2 and 3 for
+*vocabulary*. It could carry a word list, but doing so would make the
+application restate vocabulary its language module already knows, duplicating it
+in a second place that can drift. Option 1 needs no configuration at all, which
+is why it still wins for vocabulary even though a configuration channel exists.
 
 ## What this spike does not decide
 - **The `Language` trait question.** Refactoring the 23-method `Ranting` trait
