@@ -2,7 +2,7 @@
 
 **Kind:** gap — actionable  
 **Distinct words:** 10  
-**Corpus occurrences:** 70
+**Corpus occurrences:** 73
 
 ## Cause
 
@@ -21,7 +21,7 @@ Documentation, not code -- checked by compiling, not assumed. `say!("{The *can c
 | Word | ranting renders | English requires | Occurrences | Confidence |
 |---|---|---|---|---|
 | `are` | `pre="are " noun="hold" post=""` | `pre="The " noun="are" post=" hold"` | 32 | heuristic |
-| `can` | `pre="can " noun="hold" post=""` | `pre="The " noun="can" post=" hold"` | 8 | heuristic |
+| `can` | `pre="can " noun="hold" post=""` | `pre="The " noun="can" post=" hold"` | 11 | heuristic |
 | `would` | `pre="would " noun="hold" post=""` | `pre="The " noun="would" post=" hold"` | 7 | heuristic |
 | `have` | `pre="have " noun="hold" post=""` | `pre="The " noun="have" post=" hold"` | 6 | heuristic |
 | `were` | `pre="were " noun="hold" post=""` | `pre="The " noun="were" post=" hold"` | 6 | heuristic |

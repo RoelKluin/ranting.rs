@@ -196,7 +196,14 @@ fn main() {
   * **subject** ["it"] - the subject pronoun; if "$", the struct must contain a `subject: String` field
   * **name** [Struct or Enum name] - the display name; if "$", the struct must contain a `name: String` field
   * **singular_end** [""] - suffix to strip when singularizing (for inflect() method)
-  * **plural_end** ["s"] - suffix to add when pluralizing (for inflect() method)
+  * **plural_end** ["s"] - suffix to add when pluralizing (for inflect() method).
+    Leaving both at their defaults gets English's regular rules — `fly`→`flies`, `box`→`boxes`,
+    `bookshelf`→`bookshelves`, `mother-in-law`→`mothers-in-law` — after the irregular table in
+    `data/irregular_plurals.txt` is consulted. Setting either one instead declares your own rule,
+    and that suffix is then stripped/appended literally, with no English orthography applied:
+    `#[ranting(plural_end = "e")]` on a noun named `Fuchs` gives `Fuchse`, not `Fuchses`.
+    Singularization always strips `plural_end` literally — the inverse rules are not implemented,
+    because no spelling rule separates `cities`→`city` from `movies`→`movie`.
   * **gender** [""] - the lexical gender / noun class label, e.g. `"masculine"` — any label a
     non-English implementation wants; `ranting` never interprets it, it only hands it to the
     article and pronoun customization hooks as a `NounClass`. If "$", the struct must contain a

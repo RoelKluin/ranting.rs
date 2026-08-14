@@ -23,7 +23,7 @@ evidence rather than assertion:
 
 ## What it found
 
-Run against this repo's own 111k words of prose:
+Run against this repo's own 111k words of prose, on the first run:
 
 | Cause | Kind | Occurrences |
 |---|---|---|
@@ -31,13 +31,18 @@ Run against this repo's own 111k words of prose:
 | No regular English pluralization rules | gap | 188 |
 | Nouns colliding with the closed pre-noun vocabulary | gap | 70 |
 
-The headline is the second one. `Ranting::inflect()`'s regular path appends the `plural_end`
-attribute, which defaults to `"s"` — there is no `y`→`ies`, no `-es` after a sibilant, no
-`f`→`ves`. Everything English does beyond append-`s` has to be a row in
-`data/irregular_plurals.txt`, which is 63 lines long, so `{+entity}` renders `"entitys"` and
-`{+match}` renders `"matchs"`. `src/english.rs` is an executable specification of the missing
+The headline was the second one. `Ranting::inflect()`'s regular path appended the `plural_end`
+attribute, which defaults to `"s"` — there was no `y`→`ies`, no `-es` after a sibilant, no
+`f`→`ves`. Everything English does beyond append-`s` had to be a row in
+`data/irregular_plurals.txt`, which is 63 lines long, so `{+entity}` rendered `"entitys"` and
+`{+match}` rendered `"matchs"`. `src/english.rs` was the executable specification of the missing
 rules, with the counterexamples (`day`/`days`, `roof`/`roofs`, `chief`/`chiefs`) pinned in its
 tests.
+
+**That gap is now closed** (ROADMAP.md Phase 7 item 10), along with compound heads
+(`mothers-in-law`), and rerunning is how it was accepted: both causes drop out of the report
+entirely, leaving the word-order boundary and the pre-word homographs. So a probe reporting
+nothing now means *the rules are present and agree* — see [Probes](#probes).
 
 ## Two things it deliberately does *not* do
 
@@ -82,10 +87,16 @@ Rerunning replaces the tree — the output is generated, not edited.
 
 | Probe | Kind | Detects |
 |---|---|---|
-| `regular-plural-rules` | gap | Nouns that reach the append-`s` fallback and come out wrong |
-| `compound-head-plural` | gap | `mother-in-laws` where English writes `mothers-in-law` |
+| `regular-plural-rules` | gap | Nouns whose plural `ranting` gets wrong — *closed; now a regression guard* |
+| `compound-head-plural` | gap | `mother-in-laws` where English writes `mothers-in-law` — *closed; now a regression guard* |
 | `pre-word-homograph` | gap | Nouns that are also articles or modals, so `{The can can}` misparses |
 | `word-order-prenominal-adjective` | boundary | `the small dog` — measured, not actionable |
+
+The first two probes are kept now that their findings are fixed, rather than deleted. Each
+compares `ranting`'s real output against `src/english.rs`'s **independently written** copy of the
+same rules, so an empty finding is a passing differential check. That copy must stay independent:
+calling `ranting::inflect_noun_regular` from it would make the comparison tautological and the
+probes would report nothing forever, whatever `ranting` did. Both files carry a note saying so.
 
 Two probes were designed and dropped before implementation: **invariant plurals** (`sheep`,
 `fish`) and **unlisted irregular verbs** (`slay`/`slew` absent from `data/irregular_verbs.txt`).

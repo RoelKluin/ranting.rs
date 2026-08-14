@@ -352,6 +352,50 @@ pub fn inflect_noun_irregular(noun_form: &str, to_plural: bool) -> Option<String
     }
 }
 
+/// Inflect a noun the irregular table doesn't list, by rule.
+///
+/// Called by derive-generated `Ranting::inflect()` impls after
+/// [`inflect_noun_irregular`] returns `None`. `singular_end`/`plural_end` are the
+/// `#[ranting(..)]` attributes as the struct declared them — literals, or the struct's own
+/// fields when the attribute is `"$"`, which is why they arrive as runtime `&str` rather than
+/// being resolved in the macro.
+///
+/// **Which path runs is decided by those two attributes, and that is the compatibility
+/// contract.** At their defaults (`singular_end = ""`, `plural_end = "s"`) the noun goes through
+/// English's regular orthographic rules — see [`plurals::regular_plural`](super::plurals) — so
+/// `{+fly}` renders `"flies"` where it used to render `"flys"`. A struct that *sets* either
+/// attribute has stated a rule of its own, and that statement wins: it still gets the literal
+/// strip-and-append it always got, unchanged. That is what keeps a non-English impl relying on
+/// `plural_end` from silently acquiring English spelling rules.
+///
+/// Singularization is the pre-existing strip-`plural_end` behavior in both cases, deliberately —
+/// the module docs on `plurals` give the counterexample classes that rule it out.
+///
+/// A form that doesn't end in the suffix it would have to strip is returned unchanged rather
+/// than panicking: this runs at formatting time, on data.
+pub fn inflect_noun_regular(
+    noun_form: &str,
+    to_plural: bool,
+    singular_end: &str,
+    plural_end: &str,
+) -> String {
+    if to_plural {
+        if singular_end.is_empty() && plural_end == "s" {
+            return super::plurals::compound_plural(noun_form)
+                .unwrap_or_else(|| super::plurals::regular_plural(noun_form));
+        }
+        match noun_form.strip_suffix(singular_end) {
+            Some(stem) => stem.to_string() + plural_end,
+            None => noun_form.to_string(),
+        }
+    } else {
+        match noun_form.strip_suffix(plural_end) {
+            Some(stem) => stem.to_string() + singular_end,
+            None => noun_form.to_string(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{IrregularPluralVerb, inflect_noun_irregular, pronoun_forms};

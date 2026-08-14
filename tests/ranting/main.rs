@@ -32,6 +32,7 @@ mod readme_example;
 mod recursive_inflection;
 mod reexports;
 mod reflexive_pronouns;
+mod regular_plurals;
 
 mod runtime_tense;
 mod runtime_viewpoint;
