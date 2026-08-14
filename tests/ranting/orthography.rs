@@ -38,7 +38,13 @@ impl Ranting for Hund {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, _to_plural: bool, _uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        _uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         "hund".to_string()
     }
     fn skip_article(&self) -> bool {
@@ -107,7 +113,13 @@ impl Ranting for HundOhneHook {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, _to_plural: bool, _uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        _uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         "hund".to_string()
     }
     fn skip_article(&self) -> bool {
@@ -160,7 +172,13 @@ impl Ranting for Neko {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, _to_plural: bool, _uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        _uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         "neko".to_string()
     }
     fn skip_article(&self) -> bool {
@@ -214,7 +232,13 @@ impl Ranting for Probe {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if(if to_plural { "things" } else { "thing" }, uc)
     }
     fn skip_article(&self) -> bool {
@@ -309,7 +333,13 @@ impl Ranting for ProbeWithCustomArticle {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if(if to_plural { "things" } else { "thing" }, uc)
     }
     fn skip_article(&self) -> bool {
@@ -379,7 +409,13 @@ impl Ranting for Kedi {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, _to_plural: bool, _uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        _uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         "it".to_string()
     }
     fn skip_article(&self) -> bool {
@@ -504,7 +540,13 @@ impl Ranting for SentenceProbe {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if(if to_plural { "things" } else { "thing" }, uc)
     }
     fn skip_article(&self) -> bool {

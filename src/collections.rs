@@ -117,12 +117,23 @@ impl<T: Ranting> Ranting for Many<T> {
         self.0.len() != 1
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        case: GrammaticalCase,
+        count: Option<PlaceholderCount>,
+    ) -> String {
         // A collection of distinct named items has no separate singular/plural word form of its
         // own to choose between (unlike a single countable noun), except in the one-item case
         // where it just forwards to that item.
         match self.0.len() {
-            1 => self.0[0].inflect(to_plural, uc, case),
+            1 => {
+                // Same substitution as every `_custom` pair below: the `Vec`'s length is a count
+                // no placeholder numeral supplied, and it only fills the gap, never overrides.
+                let count = count.or_else(|| self.own_count());
+                self.0[0].inflect(to_plural, uc, case, count)
+            }
             _ => self.joined_names(uc),
         }
     }
@@ -552,9 +563,15 @@ impl<T: Ranting> Ranting for Maybe<T> {
         }
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        case: GrammaticalCase,
+        count: Option<PlaceholderCount>,
+    ) -> String {
         match &self.0 {
-            Some(item) => item.inflect(to_plural, uc, case),
+            Some(item) => item.inflect(to_plural, uc, case, count),
             None => String::new(),
         }
     }
@@ -862,8 +879,14 @@ impl<T: Ranting> Ranting for Box<T> {
         (**self).is_plural()
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, case: GrammaticalCase) -> String {
-        (**self).inflect(to_plural, uc, case)
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        case: GrammaticalCase,
+        count: Option<PlaceholderCount>,
+    ) -> String {
+        (**self).inflect(to_plural, uc, case, count)
     }
 
     fn skip_article(&self) -> bool {

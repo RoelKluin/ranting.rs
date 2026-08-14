@@ -456,9 +456,17 @@ plural**, because `inflect` still sees only a bool. Verified, not predicted — 
 placeholder in the same template).
 
 So the correct verdict for dual-with-a-numeral is neither "unreachable" (this document, before
-item 14) nor "reachable" (item 14, assumed): it is **agreement reachable, head noun not**. Closing
-it needs `count: Option<PlaceholderCount>` on `Ranting::inflect` — the same type, the same source,
-one more signature. That change is owed and unscheduled.
+item 14) nor "reachable" (item 14, assumed): it was **agreement reachable, head noun not**. Closing
+it needed `count: Option<PlaceholderCount>` on `Ranting::inflect` — the same type, the same source,
+one more signature.
+
+**That change landed 2026-08-14 as ROADMAP.md Phase 7 item 11**, scheduled by the item 4 build
+decision. Dual-with-a-numeral is now reachable end to end, verified by
+`tests/ranting/third_number.rs` rather than assumed: `{$0 1}` renders `kitab`/`kitaban`/`kutub` at
+counts 1/2/3, both numeral channels carry the count, and `None` stays distinguishable from a count
+of one. The final verdict for option (b) is therefore **recommended and delivered**, in two
+commits a day apart, with the second one found only by running the code. The bullets below are
+unaffected — they are the cases no count channel reaches.
 
 ## What stays impossible under this recommendation
 

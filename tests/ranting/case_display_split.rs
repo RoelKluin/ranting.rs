@@ -42,7 +42,13 @@ impl Ranting for Mann {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if("Mann", uc)
     }
     fn skip_article(&self) -> bool {
@@ -139,7 +145,13 @@ fn fused_marker_reaches_inflects_own_case_parameter_too() {
         fn is_plural(&self) -> bool {
             false
         }
-        fn inflect(&self, _to_plural: bool, uc: bool, case: GrammaticalCase) -> String {
+        fn inflect(
+            &self,
+            _to_plural: bool,
+            uc: bool,
+            case: GrammaticalCase,
+            _count: Option<PlaceholderCount>,
+        ) -> String {
             SEEN_INFLECT_CASE.with(|s| s.borrow_mut().push(case));
             uc_1st_if("dog", uc)
         }

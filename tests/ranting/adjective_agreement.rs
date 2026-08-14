@@ -70,7 +70,13 @@ impl Ranting for FrenchNoun {
     fn is_plural(&self) -> bool {
         self.is_plural
     }
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if(
             if to_plural {
                 self.plural
@@ -235,7 +241,13 @@ fn the_hook_receives_the_written_adjective_and_the_agreement_inputs() {
         fn is_plural(&self) -> bool {
             false
         }
-        fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+        fn inflect(
+            &self,
+            _to_plural: bool,
+            uc: bool,
+            _case: GrammaticalCase,
+            _count: Option<PlaceholderCount>,
+        ) -> String {
             uc_1st_if("chat", uc)
         }
         fn skip_article(&self) -> bool {
@@ -325,7 +337,13 @@ fn the_with_context_hook_is_the_one_called() {
         fn is_plural(&self) -> bool {
             false
         }
-        fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+        fn inflect(
+            &self,
+            _to_plural: bool,
+            uc: bool,
+            _case: GrammaticalCase,
+            _count: Option<PlaceholderCount>,
+        ) -> String {
             uc_1st_if("chose", uc)
         }
         fn skip_article(&self) -> bool {

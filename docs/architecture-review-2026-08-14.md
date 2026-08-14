@@ -277,7 +277,15 @@ asked what the change does to a non-English *caller* rather than to a non-Englis
 *impl*. It was fixed structurally (see item 10's entry and `docs/EXTENSIBILITY.md` §2.15), but
 the blind spot that hid it is unchanged.
 
-Not scheduled. The obvious repair — a falsifier that keeps the derived `inflect()` — is in
+**Narrowed, not closed, 2026-08-14.** ROADMAP.md Phase 7 item 11 added
+`tests/ranting/third_number.rs`, which is the first thing in this repo to exercise
+`Ranting::inflect` against non-English input at all — it hand-writes a three-number Arabic noun
+and asserts the rendered output. That closes the *hand-written* half: a defect in what `inflect`
+is handed, like item 11's own missing count, is now visible to the suite. It does **not** close
+the half described above, which is about the *derive-generated* fallback. A fork that overrides
+nothing still runs a path nothing in this repo checks against a non-English name.
+
+The residue is not scheduled. The obvious repair — a falsifier that keeps the derived `inflect()` — is in
 tension with what the falsifiers are *for*, since a language whose plurals fit suffix
 arithmetic is not a language that stresses the API. A cheaper option is a test in `tests/`
 that pins derived-`inflect()` output for a handful of non-English names, which is what

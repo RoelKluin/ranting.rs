@@ -38,8 +38,14 @@ fn hole_1_the_with_context_hooks_are_now_reachable_so_dialect_arrives() {
         fn is_plural(&self) -> bool {
             self.0.is_plural()
         }
-        fn inflect(&self, to_plural: bool, uc: bool, case: ranting::GrammaticalCase) -> String {
-            self.0.inflect(to_plural, uc, case)
+        fn inflect(
+            &self,
+            to_plural: bool,
+            uc: bool,
+            case: ranting::GrammaticalCase,
+            _count: Option<ranting::PlaceholderCount>,
+        ) -> String {
+            self.0.inflect(to_plural, uc, case, None)
         }
         fn skip_article(&self) -> bool {
             self.0.skip_article()
@@ -226,8 +232,14 @@ fn hole_6_a_missing_article_no_longer_leaves_a_stray_separator() {
         fn is_plural(&self) -> bool {
             self.0.is_plural()
         }
-        fn inflect(&self, to_plural: bool, uc: bool, case: ranting::GrammaticalCase) -> String {
-            self.0.inflect(to_plural, uc, case)
+        fn inflect(
+            &self,
+            to_plural: bool,
+            uc: bool,
+            case: ranting::GrammaticalCase,
+            _count: Option<ranting::PlaceholderCount>,
+        ) -> String {
+            self.0.inflect(to_plural, uc, case, None)
         }
         fn skip_article(&self) -> bool {
             self.0.skip_article()

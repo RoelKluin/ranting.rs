@@ -27,7 +27,13 @@ impl Ranting for PirateNoun {
         true
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         if to_plural {
             uc_1st_if("pirates", uc)
         } else {
@@ -96,7 +102,13 @@ impl Ranting for PirateCaptain {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         if to_plural {
             uc_1st_if("captains", uc)
         } else {
@@ -176,7 +188,13 @@ impl Ranting for Dignitary {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         if to_plural {
             uc_1st_if("dignitaries", uc)
         } else {
@@ -254,7 +272,13 @@ impl Ranting for SpanishFeminine {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         if to_plural {
             uc_1st_if("cosas", uc)
         } else {
@@ -333,7 +357,13 @@ impl Ranting for ScottishHighlander {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         if to_plural {
             uc_1st_if("highlanders", uc)
         } else {
@@ -411,7 +441,13 @@ impl Ranting for PlainNoun {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         if to_plural {
             uc_1st_if("things", uc)
         } else {
@@ -464,7 +500,13 @@ impl Ranting for Sentinel {
         false
     }
 
-    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if("sentinel", uc)
     }
 
@@ -548,7 +590,13 @@ impl Ranting for SpanishNoun {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if(
             if to_plural {
                 self.plural

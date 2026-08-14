@@ -150,7 +150,13 @@ impl Ranting for PirateNoun {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         if to_plural {
             uc_1st_if("swabs", uc)
         } else {

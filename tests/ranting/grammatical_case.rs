@@ -31,7 +31,13 @@ impl Ranting for GermanNoun {
     fn is_plural(&self) -> bool {
         false
     }
-    fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        _to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if("Mann", uc)
     }
     fn skip_article(&self) -> bool {
@@ -103,7 +109,13 @@ fn bare_placeholder_with_no_case_marker_reports_name_case() {
         fn is_plural(&self) -> bool {
             false
         }
-        fn inflect(&self, _to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+        fn inflect(
+            &self,
+            _to_plural: bool,
+            uc: bool,
+            _case: GrammaticalCase,
+            _count: Option<PlaceholderCount>,
+        ) -> String {
             uc_1st_if("dog", uc)
         }
         fn skip_article(&self) -> bool {

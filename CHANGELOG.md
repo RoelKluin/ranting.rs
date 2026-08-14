@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Changed (breaking)
+
+- **`Ranting::inflect` takes a fifth parameter,
+  `count: Option<PlaceholderCount>`** (ROADMAP.md Phase 7 item 11). Every
+  hand-written `Ranting` impl must add it; derive-generated impls are
+  regenerated and need no change. **Rendered output is unchanged** — nothing in
+  the crate reads the new parameter, and English has no form for it to select.
+  - Why: `inflect` renders *the counted noun itself* and was the one call Phase
+    6 item 14 did not give a count, so a language with a third morphological
+    number could agree in that number everywhere except on the noun. Arabic
+    `{$n kitab}` with `n = 2` gave every agreeing hook
+    `PlaceholderCount { value: 2, .. }` and gave the noun the plural `kutub`
+    rather than the dual `kitābān` — output that looks grammatical and is wrong
+    in one word.
+  - `None` means the placeholder wrote no numeral, which is **not** the same as
+    a count of one. `Many` substitutes its own length when the placeholder
+    supplied none, never overriding an explicit numeral.
+  - See `docs/EXTENSIBILITY.md` §2.16 and `tests/ranting/third_number.rs`.
+
 ### Fixed
 
 - **`{?article noun}` rendered literal garbage** unless the entity's

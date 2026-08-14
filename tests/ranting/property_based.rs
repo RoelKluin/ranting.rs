@@ -72,7 +72,7 @@ proptest! {
         // mid-codepoint. That is pinned by name in `src/language/plurals.rs`;
         // this is the general guard.
         let noun = Noun::new(&name, "it");
-        let _ = noun.inflect(to_plural, uc, GrammaticalCase::Name);
+        let _ = noun.inflect(to_plural, uc, GrammaticalCase::Name, None);
     }
 }
 
@@ -128,7 +128,7 @@ fn inflect_degrades_gracefully_on_suffix_mismatch() {
 
     let sheep = Sheep;
     assert_eq!(
-        Ranting::inflect(&sheep, false, false, GrammaticalCase::Name),
+        Ranting::inflect(&sheep, false, false, GrammaticalCase::Name, None),
         "sheep"
     );
 }

@@ -33,7 +33,13 @@ impl Ranting for CountProbe {
     fn is_plural(&self) -> bool {
         true
     }
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if(if to_plural { "probes" } else { "probe" }, uc)
     }
     fn skip_article(&self) -> bool {

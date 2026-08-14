@@ -32,8 +32,8 @@ done
 so a future sibling crate is gated automatically without editing the script.
 
 Green gates are necessary, not sufficient: they have missed real defects three times in this repo,
-each found by review instead. See `docs/architecture-review-2026-08-14.md` §4.7 for the one
-structural blind spot that is known and unclosed.
+each found by review instead. See `docs/architecture-review-2026-08-14.md` §4.7 for the known
+structural blind spot — narrowed 2026-08-14, still open for derive-generated `inflect()`.
 
 ## Where the record lives
 

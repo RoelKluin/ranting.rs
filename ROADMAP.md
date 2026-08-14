@@ -21,9 +21,9 @@ lives in [DONE.md](DONE.md). This file is the forward-looking roadmap only.
 
 🎯 **Phase 7 (v1.4.0, Falsification, Round Two: Beyond Indo-European)** is the next
 phase — see its section below. **In progress**: its three spikes (items 1-3), the
-build decision they fed (item 4) and four unrelated items (7-10) are done; what
-remains is the two reference lexicons (items 5-6) and the three items the build
-decision scheduled (11-13).
+build decision they fed (item 4), four unrelated items (7-10) and the signature
+change the decision blocked on (item 11) are done; what remains is the two
+reference lexicons (items 5-6, both unblocked) and items 12-13.
 
 **Shipping today**:
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
@@ -420,8 +420,8 @@ building, its build item is dropped rather than executed anyway.
 
 5. **`ranting-ar` — Arabic reference lexicon** (16-24 hours, scope set by item 2
    and **confirmed unchanged by item 4**) — third acceptance test.
-   **Blocked on item 11** — building it first would put a workaround, not the
-   gap, into its `tests/holes.rs`; see item 4.
+   **Unblocked**: item 11 landed 2026-08-14, so the dual is now a gap this crate
+   can render rather than one it would have to work around.
    - Same falsification contract as items 10 and 23: own directory
      (`ranting_ar/`), own `Cargo.toml`/`Cargo.lock`, depends on `ranting`
      alone (no `ranting_core`, no `ranting_derive`, no `pub(crate)` item, no
@@ -660,8 +660,30 @@ building, its build item is dropped rather than executed anyway.
       otherwise singularize to "buse". These are the concrete cost of keeping
       the rules lexicon-free, and they are the point of the table.
 
-11. **`count` on `Ranting::inflect`** (2-4 hours) — **blocks item 5**, scheduled
-    by item 4. Add `count: Option<PlaceholderCount>` to
+11. **`count` on `Ranting::inflect`** — ✅ **DONE 2026-08-14**; **item 5 is
+    unblocked.** Acceptance is `tests/ranting/third_number.rs`, six tests built
+    on the Arabic spike's own `ArNoun`: `{$0 1}` with counts 1/2/3 renders
+    `kitab`/`kitaban`/`kutub`, `{#0 1}` does the same through the spelled-out
+    channel, `"{$0 1} and {+1}"` renders the dual **once** (the `Cell` hack's
+    failure mode), `None` is shown distinguishable from a count of one, English
+    is byte-identical, and `Many` fills the gap from its own length. That file
+    is also the first thing in the repo to exercise `inflect` against
+    non-English input at all — the §4.7 blind spot, now narrowed rather than
+    closed (the *derive-generated* fallback is still unexercised there).
+    - One thing the acceptance test had to work around and future items should
+      know: **a bare `{noun}` never reaches `inflect`** — with no marker the
+      macro renders through `Display`. Pre-existing and unchanged; `{+noun}` is
+      how you get an uncounted `inflect` call.
+    - Mechanically: trait declaration, three `src/collections.rs` wrappers,
+      three derive-generated sites, two `handle_placeholder_impl` render sites,
+      and 52 hand-written impls across tests and both falsifiers. The
+      `ArticleKind::AAnSome` call passes **`None`** rather than the count — it
+      asks what the noun's singular *spelling* is so a/an can be picked from
+      its first letter, already forces `to_plural = false`, and loses no signal,
+      since item 14 gave `inflect_article_custom_with_context` its own `count`.
+
+    <details><summary>Original scope (kept for the record)</summary>
+    Add `count: Option<PlaceholderCount>` to
     `fn inflect(&self, to_plural: bool, uc: bool, case: GrammaticalCase)` — the
     same type and from the same source as item 14's — so a counted noun can
     render a third morphological number. Item 14 widened five hook pairs and
@@ -689,6 +711,7 @@ building, its build item is dropped rather than executed anyway.
       impls).
     - CLDR categories stay **out** (`2026-08-13-number-categories.md`); this
       hands a fork the raw count, exactly as item 14 did elsewhere.
+    </details>
 
 12. **The numeral-noun separator** (3-5 hours) — scheduled by item 4, **does not
     block item 6**. `handle_placeholder_impl` pushes a hard-coded space between

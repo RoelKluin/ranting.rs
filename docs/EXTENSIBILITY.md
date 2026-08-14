@@ -32,7 +32,13 @@ impl Ranting for PirateNoun {
         true
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         if to_plural {
             uc_1st_if("pirates", uc)
         } else {
@@ -1363,6 +1369,54 @@ exist so English orthography does not leak into your output, not as a pluralizat
 Override `inflect()` and consult your own lexicon — which is what both reference lexicons do
 (`ranting_i18n/src/noun.rs`, `ranting_es/src/noun.rs`).
 
+### 2.16 A Third Number on the Noun Itself: `inflect()`'s `count` (ROADMAP.md Phase 7 item 11)
+
+`inflect()`'s `to_plural: bool` can only ask for two forms. If your language has a third
+morphological number — Arabic's dual, a Slavic paucal — the placeholder's own numeral is what
+picks it, and `inflect()` receives it as a fifth parameter:
+
+```rust
+fn inflect(
+    &self,
+    to_plural: bool,
+    uc: bool,
+    _case: GrammaticalCase,
+    count: Option<PlaceholderCount>,
+) -> String {
+    // كِتاب: singular kitāb, dual kitābān (exactly two), plural kutub (three or more).
+    if count.map(|c| c.value) == Some(2) {
+        return uc_1st_if("kitaban", uc);
+    }
+    if to_plural { uc_1st_if("kutub", uc) } else { uc_1st_if("kitab", uc) }
+}
+```
+
+```rust
+say!("I have {$0 1}", 2, book)   // "I have ٢ kitaban"  — not the plural
+say!("I have {$0 1}", 3, book)   // "I have ٣ kutub"
+```
+
+Five things to know:
+
+1. **Do not key the third form on `to_plural`.** `{$n noun}` with `n = 2` is plural agreement in
+   English terms, so `to_plural` is `true` for both the dual and the plural. `count` is the only
+   signal that separates them.
+2. **`None` is not a count of one.** It means the placeholder wrote no numeral at all, which stays
+   distinguishable from `{$n noun}` with `n = 1`.
+3. **Both numeral channels carry it** — `{#n noun}` (spelled out) and `{$n noun}` (digits).
+4. **A bare `{noun}` never reaches `inflect()`**: with no marker at all the macro renders through
+   `Display`. Write `{+noun}`/`{-noun}` or a case marker if you need the call.
+5. **`Many` fills the gap** from its own length when the placeholder supplied none, and only then
+   — an explicit numeral always wins. See §2.9.
+
+The same count also reaches the verb, pronoun, article, elision and adjective hooks (Phase 6
+item 14), so agreement and the head noun now come from one signal. What stays out of reach is a
+third number with **no** numeral in the placeholder — `{+noun}` cannot ask for a bare dual, since
+`+`/`-` are the only number markers the grammar accepts. Carry that as entity state and read it
+off `self`, the way `ranting_i18n` carries definiteness; see
+`docs/superpowers/specs/2026-08-13-number-categories.md` for why CLDR categories are deliberately
+not in the crate.
+
 ## Partial Customization
 
 You don't need to implement every `_custom` method. If you only need verb customization, implement `inflect_verb_custom()` and leave the rest as default (returning `None`). The trait provides a default for all of them:
@@ -1425,7 +1479,13 @@ impl Ranting for PirateNoun {
         true
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         if to_plural {
             uc_1st_if("pirates", uc)
         } else {
@@ -1500,7 +1560,13 @@ impl Ranting for ScottishHighlander {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         if to_plural {
             uc_1st_if("highlanders", uc)
         } else {
@@ -1608,7 +1674,13 @@ impl Ranting for SpanishNoun {
         false
     }
 
-    fn inflect(&self, to_plural: bool, uc: bool, _case: GrammaticalCase) -> String {
+    fn inflect(
+        &self,
+        to_plural: bool,
+        uc: bool,
+        _case: GrammaticalCase,
+        _count: Option<PlaceholderCount>,
+    ) -> String {
         uc_1st_if(if to_plural { self.plural } else { self.singular }, uc)
     }
 
