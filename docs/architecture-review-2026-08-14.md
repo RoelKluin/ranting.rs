@@ -162,7 +162,44 @@ a default.
   already noted as Phase 7 item 1's motivating finding, repeated here because it means the
   hook's shape has never been validated against a language that needs it.
 
-### 4.5 Stray artifacts in `ranting_derive/`
+### 4.5 The template keyword vocabulary is English, and cannot be localized by any hook
+
+Raised by the maintainer 2026-08-14, from `docs/EXTENSIBILITY.md`'s "For New Language
+Modules" example. That example is *correct* — it shows `say!("{the 0 be} noir.", word)`
+rendering `"Le chat est noir."`, i.e. English keywords producing French output through the
+hooks. The observation is that a French author would rather write `dis!("{le 0 suis}
+noir.", word)`. Measured, against a scratch crate depending on `/work`:
+
+| Written | Result |
+|---|---|
+| `dis!(...)` as a macro alias | **Works today.** `pub use ranting::say as dis;` is enough; nothing in the crate prevents it |
+| `{the chat suis}` — French verb in the post-noun slot | **Silently wrong**: renders `"The chat suises noir."`. The slot accepts an arbitrary word and applies English conjugation to it. No error |
+| `{le 0}` — French article in the pre-noun slot | **Misleading compile error**: `le` is not in the article keyword list, so it falls through to implicit-variable lookup and rustc reports `cannot find value 'le' in this scope` — naming a variable the author never wrote |
+
+The article keyword list is matched at `ranting_derive/src/lib.rs:886-888` (`"the"`,
+`"a"|"an"|"some"`, `"these"|"those"`) during macro expansion. `inflect_article_custom`
+decides what `the` *renders as*; it cannot make `le` a recognized keyword, because the
+keyword is consumed before any runtime hook exists. So this gap is not reachable from the
+hook surface Phase 6 built, and no addition to that surface would close it.
+
+Evidence that the friction is real rather than hypothetical: `ranting_es`'s own tests
+write `say!("Vengo de {the *=0}.", ...)` — an English article keyword inside a Spanish
+template. Both falsifier crates do this throughout; neither README records it as a hole,
+because both were written to test the *hooks*, and the keyword vocabulary sits upstream of
+them.
+
+Distinct from the word-order boundary (Phase 6 item 20, `docs/EXTENSIBILITY.md` §2.12).
+That boundary says the *order* of words is the caller's template; this is about the
+*sigil vocabulary inside a placeholder* being English regardless of template. A fork can
+already choose its own word order and its own rendered output — it cannot choose the
+keywords it writes to request them.
+
+Not scheduled, not designed. Recorded because it is currently unrecorded anywhere, and
+because the two failure modes above (silent mis-conjugation, and an error naming a
+phantom variable) are worth knowing about independently of whether localized keywords are
+ever adopted. A Phase 7 spike is the natural home if it is pursued.
+
+### 4.6 Stray artifacts in `ranting_derive/`
 
 A 405 KB `tags` file and `mksrc.sh` sit in the crate root. Both are tracked-or-present dev
 artifacts unrelated to the crate's source.
