@@ -40,6 +40,8 @@ pub(crate) fn derive_heed(input: DeriveInput) -> TokenStream {
         Err(e) => return e.write_errors(),
     };
 
+    let is_unit_struct = matches!(&input.data, Data::Struct(s) if matches!(s.fields, Fields::Unit));
+
     let named: Vec<_> = match &input.data {
         Data::Struct(s) => match &s.fields {
             Fields::Named(named) => named.named.iter().collect(),
@@ -129,12 +131,18 @@ pub(crate) fn derive_heed(input: DeriveInput) -> TokenStream {
         .to_compile_error();
     }
 
-    // A true unit struct (`struct Foo;`) must be constructed as bare `Self`,
-    // not `Self {}` — the latter is only valid for a struct declared with
-    // (empty) braces. Likewise, an unused `__v` binding when there are no
-    // fields to pop from it would warn under `-D warnings`.
+    // A true unit struct (`struct Foo;`) must be constructed as bare `Self`, not `Self {}` —
+    // the latter is only valid for a struct declared with (possibly empty) braces, so an
+    // empty-but-braced struct (`struct Foo {}`) needs `Self {}`, not `Self`. Likewise, an
+    // unused `__v` binding when there are no fields to pop from it would warn under
+    // `-D warnings`.
     let (bind_caps, construct) = if field_idents.is_empty() {
-        (quote! { let _ = __ranting_heed_caps; }, quote! { Self })
+        let ctor = if is_unit_struct {
+            quote! { Self }
+        } else {
+            quote! { Self {} }
+        };
+        (quote! { let _ = __ranting_heed_caps; }, ctor)
     } else {
         (
             quote! { let mut __v = __ranting_heed_caps.into_iter(); },

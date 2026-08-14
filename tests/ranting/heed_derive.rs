@@ -117,3 +117,18 @@ fn zero_captures_still_generates_heed() {
     assert_eq!(LookAround::heed("look around"), Some(LookAround));
     assert_eq!(LookAround::heed("look elsewhere"), None);
 }
+
+// Empty-braced struct (`struct Foo {}`), distinct from the true unit struct `LookAround`
+// above: `Fields::Named` with zero fields, not `Fields::Unit`. Must construct `Self {}`, not
+// bare `Self` — the latter doesn't typecheck for a struct declared with braces. Previously
+// mishandled because the codegen branched on "zero fields" rather than "which `Fields`
+// variant" (docs/architecture-review-2026-08-14.md §1.1 / -08-15.md §1.4).
+#[derive(Heed, Debug, PartialEq)]
+#[heed(template = "wait")]
+struct Wait {}
+
+#[test]
+fn zero_captures_empty_braced_struct_still_generates_heed() {
+    assert_eq!(Wait::heed("wait"), Some(Wait {}));
+    assert_eq!(Wait::heed("go"), None);
+}

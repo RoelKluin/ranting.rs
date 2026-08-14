@@ -61,23 +61,23 @@ spies on the hook's inputs, since the old code could still produce a correct-loo
 accident. A fixture overriding preposition fusion, a numeral hook and `elide_numeral_custom` at
 once did not previously exist — which is why this was reachable but untested.
 
-### 1.2 Two nouns render the wrong plural, and three docs assert the opposite
+### 1.2 Two nouns rendered the wrong plural — fixed 2026-08-16
 
-`data/irregular_plurals.txt` does **not** contain `hero`, `piano` or `quiz`, though
+`data/irregular_plurals.txt` did **not** contain `hero`, `piano` or `quiz`, though
 `.claude/rules/pluralization.md` point 2, `ROADMAP.md` and `src/language/plurals.rs:15-17` all
-state that it does, and give exactly those words as the reason the table exists.
+stated that it did, and gave exactly those words as the reason the table exists.
 
-Verified consequences:
+Verified consequences (as of 2026-08-15, before the fix):
 
-| Input | Renders | Correct | Path |
+| Input | Rendered | Correct | Path |
 |---|---|---|---|
 | `{+hero}` | `heros` | `heroes` | bare append, `plurals.rs:108` — reaches no sibilant arm |
 | `{+quiz}` | `quizes` | `quizzes` | sibilant arm on `z`, `plurals.rs:102` |
 | `{+piano}` | `pianos` | `pianos` | **correct** — not a defect |
 
-The docs state the intent (spelling-only rules, lexical exceptions in the table) and the intent is
-right; the table is simply missing two rows. Recorded here rather than fixed, and the docs are
-**not** rewritten to bless `heros` — see the note under §3.
+**Fixed 2026-08-16**: `hero|heroes` and `quiz|quizzes` added to `data/irregular_plurals.txt`.
+`piano` intentionally still has no row — the bare-`s` default already renders it correctly, and a
+row would be a no-op. All eight crates' gates pass with the two new rows.
 
 ### 1.3 The `-f`/`-fe` "compounds only" claim is half true
 
@@ -94,12 +94,15 @@ it:
 Output is correct either way; only the explanation is wrong. Left as a doc correction rather than
 a code change — the rules produce the right answer for these words.
 
-### 1.4 `#[derive(Heed)]` on an empty braced struct — still open
+### 1.4 `#[derive(Heed)]` on an empty braced struct — fixed 2026-08-16
 
-`-08-14.md` §1.1, re-confirmed unchanged. `ranting_derive/src/heed_derive.rs:136` branches on
-`field_idents.is_empty()` rather than on `Fields::Unit` vs `Fields::Named`, emitting a bare `Self`
-— legal only for tuple and unit structs. Still untested; the existing coverage uses a unit struct,
-which takes the working path. The one-token fix noted in `-08-14.md` §1.1 has not been applied.
+`-08-14.md` §1.1. `ranting_derive/src/heed_derive.rs:136` branched on `field_idents.is_empty()`
+rather than on `Fields::Unit` vs `Fields::Named`, emitting a bare `Self` — legal only for tuple
+and unit structs — for an empty *braced* struct too, where `Self {}` was required. Fixed by
+tracking `is_unit_struct` (from the `Fields` variant) separately from "has zero fields," and
+generating `Self {}` for the braced-and-empty case. Pinned by
+`tests/ranting/heed_derive.rs::zero_captures_empty_braced_struct_still_generates_heed`
+(`struct Wait {}`). All eight crates' gates pass.
 
 ## 2. Documentation defects found and fixed on 2026-08-15
 
@@ -149,12 +152,7 @@ which takes the working path. The one-token fix noted in `-08-14.md` §1.1 has n
 
 ## 4. Left undone, and why
 
-- **§1.2's missing table rows are not added.** Adding `hero`/`quiz` is a one-line data change, but
-  `pluralization.md` point 6's standing rule — "adding a rule to the engine means auditing what it
-  now gets wrong" — applies in reverse too, and the audit that would justify the row set is its own
-  task.
-- **The docs were not rewritten to describe `heros` as intended behavior.** Where a doc states an
-  intent the code fails to meet, the intent stays and the gap is logged here.
+- **§1.2's missing table rows have since been added** (2026-08-16) — see the updated §1.2 above.
 - **Four orphan top-level docs** — `ARGUMENT_PARSING_IMPROVEMENTS.md`, `DESIGN_REPORT_SUMMARY.md`,
   `PHASE_2_IMPLEMENTATION_PLAN.md`, `RECOUNTING_INTEGRATION.md` (1,281 lines) — appear in no index.
   Three carry self-supersession banners; `ARGUMENT_PARSING_IMPROVEMENTS.md` has none and
