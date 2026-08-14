@@ -1,5 +1,7 @@
 # Ranting Cookbook: 10 Practical Recipes
 
+*[🇪🇸 Leer en español](es/COOKBOOK.md)*
+
 Real-world examples for pronoun-aware text generation. Each recipe includes a code snippet, explanation, and test reference.
 
 > All examples are backed by compiled tests in `tests/ranting/cookbook.rs`, so they'll be checked on every `cargo test`.

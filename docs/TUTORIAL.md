@@ -1,5 +1,7 @@
 # Getting Started with Ranting
 
+*[🇪🇸 Leer en español](es/TUTORIAL.md)*
+
 A practical guide to building pronoun-aware text generation with the `say!()` macro. Estimated read time: 30-40 minutes.
 
 ---

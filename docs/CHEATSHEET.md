@@ -1,5 +1,7 @@
 # Ranting Cheatsheet
 
+*[🇪🇸 Leer en español](es/CHEATSHEET.md)*
+
 A single-page quick reference for `say!()` placeholder syntax and the crate's
 public macros/types. For a guided introduction see the [Tutorial](TUTORIAL.md);
 for worked examples see the [Cookbook](COOKBOOK.md); for the full public API
