@@ -50,9 +50,10 @@ crate's first `cargo test` reached a line six existing gates could not (§1.7). 
 Citations of the form "ROADMAP.md Phase N item M" for N ≤ 6 point through the redirect stub to
 `DONE.md` under the same phase and item number.
 
-**Read `docs/architecture-review-2026-08-14.md` before "fixing"** the `CHANGELOG.md` v1.3.0 vs.
-manifest 0.2.1 version mismatch, the absent `exclude` key, or the ~60 stale-looking ROADMAP
-citations in the falsifier crates. Each is a decision already taken, not an oversight.
+**Read `docs/architecture-review-2026-08-14.md` before "fixing"** the absent `exclude` key or the
+~60 stale-looking ROADMAP citations in the falsifier crates. Each is a decision already taken, not
+an oversight. (The `CHANGELOG.md` v1.3.0-vs-manifest mismatch that used to be listed here was
+resolved 2026-08-16: `ranting`/`ranting_derive`/`ranting_core` are now versioned `1.3.0` to match.)
 
 ## Task-specific rules — read the matching file before you start
 
