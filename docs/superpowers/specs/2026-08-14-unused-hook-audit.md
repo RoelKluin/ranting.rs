@@ -61,6 +61,20 @@ whose override would signal if it were reached, used to assert that the hook is
   style            declared=2   ignored=0   used=2
 ```
 
+> **Re-run 2026-08-14, after `ranting_ja` (Phase 7 item 6): the list is eight.**
+> `inflect_verb_custom_with_context` is off it — the **first `_with_context`
+> twin any fork has ever overridden**, and the first real read of
+> `NarrationContext::register`, which had been inert since Phase 3. Japanese
+> keigo is the case this audit could not construct from inside the repo: German
+> and Spanish politeness is a pronoun slot, so `register` had nothing to do in
+> either. Result 1's "all eight `_with_context` methods" is therefore no longer
+> true; seven remain, plus `is_first_person_subject_custom`.
+>
+> Note what the crate did *not* need: only the `_with_context` twin is
+> overridden, and the plain hook's default delegation carries `say!()` calls
+> unchanged. That is the documented sufficient shape, relied on by a real fork
+> for the first time.
+
 > **Re-run 2026-08-14, after `ranting_ar` (Phase 7 item 5) landed: the list is
 > nine, not ten.** `elide_article_custom` is off it — this audit's headline
 > example of "built for `l'homme`, never used by a language that needs it" now

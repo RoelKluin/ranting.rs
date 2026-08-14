@@ -22,8 +22,8 @@ lives in [DONE.md](DONE.md). This file is the forward-looking roadmap only.
 🎯 **Phase 7 (v1.4.0, Falsification, Round Two: Beyond Indo-European)** is the next
 phase — see its section below. **In progress**: its three spikes (items 1-3), the
 build decision they fed (item 4), four unrelated items (7-10), the signature
-change the decision blocked on (item 11) and the Arabic lexicon (item 5) are
-done; what remains is `ranting-ja` (item 6) and items 12-13.
+change the decision blocked on (item 11) and **both** reference lexicons
+(items 5 and 6) are done; what remains is items 12 and 13.
 
 **Shipping today**:
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
@@ -482,8 +482,40 @@ building, its build item is dropped rather than executed anyway.
      this, hold up against the first language actually built to need them.
    </details>
 
-6. **`ranting-ja` — Japanese reference lexicon** (8-12 hours, scope set by item 3
-   and **narrowed by item 4**) — fourth acceptance test. **Blocked on nothing**:
+6. **`ranting-ja` — Japanese reference lexicon** — ✅ **DONE 2026-08-14**;
+   `ranting_ja/`, 17 tests (10 in `tests/japanese.rs`, 6 in `tests/holes.rs`, 1
+   doctest), at item 4's narrowed scope.
+   - **`NarrationContext::register` has a real consumer and passes.** Inert since
+     Phase 3; `say_with!(formal, "{0 are}", neko)` renders `猫 です` and the
+     casual context `猫 だ`, with no pronoun in the template and no entity state
+     — the *only* difference is the register. Sonkeigo (食べる → 召し上がる)
+     needed no additional signal either: it is a lookup keyed by verb, register
+     and `&self`, all three already in the hook. This is the confirmation item 4
+     said the audit could not produce from inside the repo, and it is why the
+     build was justified before the trait freezes.
+   - **First fork ever to override a `_with_context` twin.** The item 1 audit's
+     never-overridden list is now **eight**, down from ten before item 5:
+     `elide_article_custom` went to `ranting_ar`, `inflect_verb_custom_with_context`
+     to this crate. The eight that remain are the seven other twins plus
+     `is_first_person_subject_custom`, exactly as item 4 predicted.
+   - **Two of eight hook pairs are live, recorded as a finding, not as holes.**
+     `inflect` is an identity function here — including item 11's `count`, which
+     Arabic needed a day earlier. Two crates landing a day apart and disagreeing
+     completely about which half of the surface matters is the apparatus working.
+   - **The `NounClass`-as-classifier question dissolved**, as the item 3 spike
+     predicted: which counter a noun takes is a property of that noun, so the
+     hook's `&self` suffices and `NounClass` stays `UNSET`. Item 2's open-ended
+     `&'static str` is therefore *not exercised* by Japanese rather than
+     falsified by it; Bantu remains the sharp test.
+   - Five holes: the numeral-noun separator (item 12, shipped **wrong** —
+     `一匹の 猫` — since there is no workaround to encode), the `?`-hidden
+     numeral's leading space (findings §1.6), unspaced prose returning an honest
+     `None`, `ask!()` degenerating to a function call on prose, case particles as
+     template text (the word-order boundary from an SOV direction) and
+     `Register`'s three values against keigo's finer gradation.
+
+   <details><summary>Original scope (kept for the record)</summary>
+   **Blocked on nothing**:
    item 12's separator gap has no workaround to encode, so this crate's
    `tests/holes.rs` records it honestly against today's code — that hole test is
    what justifies item 12, not the other way round.
@@ -509,6 +541,7 @@ building, its build item is dropped rather than executed anyway.
      genuinely different kind of noun classification than gender, and
      whether `NarrationContext.register` — designed in Phase 3, still inert
      after Phase 6 — turns out to have a real consumer at all.
+   </details>
 
 7. **Native-language article keywords** — ✅ **DONE 2026-08-14**; design,
    rejected alternatives and implementation notes in

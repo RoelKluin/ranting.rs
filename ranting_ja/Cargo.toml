@@ -1,0 +1,10 @@
+[package]
+name = "ranting-ja"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Japanese reference lexicon for ranting: the fourth acceptance test, for NarrationContext::register and numeral classifiers"
+publish = false
+
+[dependencies]
+ranting = { path = ".." }
