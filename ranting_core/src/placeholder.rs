@@ -209,18 +209,27 @@ pub enum NumeralKind {
 /// The numeral slot of a placeholder: which notation was asked for, and the
 /// whitespace that separates it from whatever precedes it.
 ///
-/// `None` on a [`PlaceholderSpec`] means "no numeral is rendered here" --
-/// which covers both a placeholder without a `#var`/`$var` marker at all
-/// *and* a hidden one (`` {?$n noun} ``), where the number is used for
-/// number agreement but never rendered. Keeping the leading space inside
-/// this struct rather than in a field of its own makes a space without a
-/// numeral unrepresentable, and (unlike leaving it baked into the rendered
-/// string, as it was before ROADMAP.md Phase 6 item 8) keeps it out of the
-/// text a numeral hook is handed and returns a replacement for.
+/// `None` on a [`PlaceholderSpec`] means the placeholder has no `#var`/`$var`
+/// marker at all. A *hidden* one (`` {?$n noun} ``) is `Some` with
+/// [`hidden`](Self::hidden) set: the number is used for agreement and never
+/// rendered, but the slot still exists, and the separator that would have
+/// followed the numeral has to be suppressed along with it rather than left to
+/// render as a stray space (ROADMAP.md Phase 7 item 13; before that,
+/// `` say!("I see {?$0 boot}", 2) `` rendered `"I see  boots"`).
+///
+/// Keeping the leading space inside this struct rather than in a field of its
+/// own keeps it out of the text a numeral hook is handed and returns a
+/// replacement for -- unlike leaving it baked into the rendered string, as it
+/// was before ROADMAP.md Phase 6 item 8.
 #[derive(Debug, Clone, Copy)]
 pub struct NumeralSpec {
     pub kind: NumeralKind,
     pub leading_space: &'static str,
+    /// `` {?$n noun} ``: the count is used for agreement, nothing is rendered,
+    /// and neither the numeral hook nor `elide_numeral_custom` is called --
+    /// the same "nothing rendered, nothing to customize" gate a hidden noun
+    /// gives `elide_article_custom`.
+    pub hidden: bool,
 }
 
 /// Which article keyword (if any) a word in the `pre` slot represents --

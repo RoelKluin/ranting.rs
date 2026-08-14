@@ -100,6 +100,27 @@ fn the_article_binds_to_whichever_number_was_rendered() {
 }
 
 #[test]
+fn the_article_splice_still_lands_with_a_numeral_between_it_and_the_noun() {
+    // The only place in the repo where the two post-assembly splices interact. Rendered order is
+    // `[article][numeral][noun]`, and ROADMAP.md Phase 7 item 12's numeral splice runs *first*
+    // because it is the inner boundary — every byte it rewrites is at or after the article span's
+    // end, so `article_span` stays valid. Getting that order wrong misplaces text silently rather
+    // than panicking, which is why it is asserted rather than reasoned about.
+    //
+    // This crate does not override `elide_numeral_custom` (Arabic writes the space), so what is
+    // pinned here is that adding the numeral splice did not disturb the article one.
+    let kitab = ArabicNoun::kitab();
+    assert_eq!(say!("{the $0 1}", 2, kitab), "ال٢ كتابان");
+    assert_eq!(say!("{the $0 1}", 5, kitab), "ال٥ كتب");
+
+    // Sun letter, so the article assimilates to whatever is adjacent — which with a numeral
+    // present is the numeral, not the noun. Worth pinning as the honest consequence of the
+    // article hook receiving *rendered adjacent text* rather than the noun.
+    let shams = ArabicNoun::shams();
+    assert_eq!(say!("{the $0 1}", 3, shams), "ال٣ شموس");
+}
+
+#[test]
 fn there_is_no_indefinite_article() {
     // Arabic marks indefiniteness by the *bare* noun. The hook returns an empty string rather
     // than declining, because declining would let `ranting` render English "a"/"an".

@@ -23,6 +23,16 @@
 
 ### Fixed
 
+- **`{?$n noun}` left a stray space.** `say!("I see {?$0 boot}", 2)` rendered
+  `"I see  boots"` (ROADMAP.md Phase 7 item 13). A hidden numeral sits between
+  two separators — its own leading one and the noun's — and with nothing
+  rendered between them the pair now collapses to one, the same way a
+  zero-length article's does. The leading separator is the one kept, which is
+  what leaves `{The ?$n noun}` rendering `"The raven"`. Cosmetic in English;
+  it was on the critical path of `ranting_ja`'s only candidate workaround for
+  the numeral separator. It had been *pinned* by `tests/ranting/numeral.rs`
+  rather than flagged, so it read as intended behavior for two phases.
+
 - **Elision panicked on a non-ASCII article.** `split_at_find_end` advanced one
   *byte* past the byte index `rfind` returned, so the post-assembly elision
   splice sliced mid-codepoint whenever the rendered article's last character was
@@ -70,6 +80,19 @@
     `epoch`, `monarch`, …) the spelling-only rules cannot recognize, plus `bus`.
 
 ### Added
+
+- **`Ranting::elide_numeral_custom` / `_with_context`** (ROADMAP.md Phase 7
+  item 12) — an eighth `_custom` hook pair, the numeral-side twin of
+  `elide_article_custom`: same post-assembly splice, same
+  replace-all-three-or-decline contract. It fuses a rendered numeral with the
+  noun after it, which is what Japanese 「一匹の猫」 needs — written as one run
+  with no space. Until this existed the separator was pushed by
+  `handle_placeholder` and offered to no hook, so `一匹の 猫` was the best a fork
+  could do; unlike a missing distinction, that is a wrong character in the
+  output with no workaround. Runs *before* `elide_article_custom`, since
+  `[article][numeral][noun]` makes it the inner of the two boundaries, and is
+  not called for a hidden numeral. English output is unchanged — the default
+  returns `None`. First and only user: `ranting_ar`'s sibling `ranting_ja`.
 
 - `ranting::inflect_noun_regular`, the public entry point derive-generated
   `inflect()` impls use once the irregular table misses. Its `singular_end`/

@@ -65,15 +65,16 @@ passes `Some(ctx)` — so overriding only the `_with_context` form is enough):
 | `inflect_article_custom` / `_with_context` | article form (a/an/the/some, demonstratives), keyed by `GrammaticalCase` and `NounClass` |
 | `inflect_adjective_custom` / `_with_context` | the post-noun `!`/`!!` adjective, keyed by [`AdjectiveDegree`](#adjectivedegree), `GrammaticalCase` and `NounClass` |
 | `elide_article_custom` / `_with_context` | elision/contraction of a rendered article with the word after it — see [Elision](#elision-elide_article_custom) |
+| `elide_numeral_custom` / `_with_context` | the same, for a rendered numeral and the noun after it (Japanese 一匹の猫) — see [Elision](#elision-elide_article_custom) |
 | `inflect_preposition_custom` / `_with_context` | fusion of a template-literal preposition with the article rendered right after it — see [Preposition Fusion](#preposition-fusion-inflect_preposition_custom) |
 | `inflect_numeral_custom` / `_with_context` | how a placeholder's `#var`/`$var` number is written, keyed by [`NumeralStyle`](#numeralstyle), `GrammaticalCase` and `NounClass` — see [Numerals](#numerals-inflect_numeral_custom) |
 
-The pronoun, article, adjective, elision, preposition-fusion and numeral hooks
-also receive the noun's own [`NounClass`](#nounclass) as a `class` parameter,
-and the article, adjective, elision, preposition-fusion and numeral hooks
-their `GrammaticalCase`; the verb hook receives neither. Six of these hook
-pairs — verb, pronoun, article, elision, preposition-fusion and adjective —
-additionally take `count: Option<PlaceholderCount>`, sourced from the
+The pronoun, article, adjective, both elision, preposition-fusion and numeral
+hooks also receive the noun's own [`NounClass`](#nounclass) as a `class`
+parameter, and the article, adjective, both elision, preposition-fusion and
+numeral hooks their `GrammaticalCase`; the verb hook receives neither. Seven of
+these hook pairs — verb, pronoun, article, both elision, preposition-fusion and
+adjective — additionally take `count: Option<PlaceholderCount>`, sourced from the
 placeholder's own `#var`/`$var` marker (`None` for a bare placeholder); the
 numeral hook is the exception, since it already gets its own richer
 `count: Option<i64>` (see [`PlaceholderCount`](#placeholdercount)).
@@ -335,6 +336,15 @@ boundary (`de` + `le` → `du`) — that gap now has its own hook, described nex
 — and hidden nouns (`` {?the noun} ``), which render nothing to elide
 against. See [`docs/EXTENSIBILITY.md` §2.7](EXTENSIBILITY.md) and
 `tests/ranting/elision.rs`.
+
+`elide_numeral_custom` / `_with_context` is the numeral-side twin, with the
+identical signature bar its first parameter (`numeral` rather than `article`)
+and the identical contract. It fuses a rendered numeral with the noun that
+follows it — Japanese 「一匹の猫」 is written as one run — and runs *before* the
+article hook, `[article][numeral][noun]` making it the inner boundary of the
+two. Not called for a hidden numeral. ROADMAP.md Phase 7 item 12; see
+[`docs/EXTENSIBILITY.md` §2.17](EXTENSIBILITY.md) and `ranting_ja`, its first
+and only user.
 
 ## Preposition Fusion (`inflect_preposition_custom`)
 

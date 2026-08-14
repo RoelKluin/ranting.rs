@@ -1430,6 +1430,61 @@ off `self`, the way `ranting_i18n` carries definiteness; see
 `docs/superpowers/specs/2026-08-13-number-categories.md` for why CLDR categories are deliberately
 not in the crate.
 
+### 2.17 Binding a Numeral to Its Noun: `elide_numeral_custom()` (ROADMAP.md Phase 7 item 12)
+
+```rust
+fn elide_numeral_custom(
+    &self,
+    numeral: &str,          // what the numeral slot rendered — your own hook's output, or English's
+    separator: &str,        // the whitespace between it and the noun (usually " ")
+    following: &str,        // the rest of the placeholder's rendered output
+    case: GrammaticalCase,
+    class: NounClass,
+    as_plural: bool,
+    count: Option<PlaceholderCount>,
+) -> Option<String>         // Some(fused) replaces all three; None keeps them as rendered
+
+fn elide_numeral_custom_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) -> Option<String>
+```
+
+**The numeral-side twin of §2.7.** Same post-assembly splice, same replace-all-three contract, same
+absence of a `uc` parameter. If §2.7 makes sense to you, this needs no further explanation.
+
+**Why it exists** is worth knowing, because it is the clearest example in the repo of a fork
+producing a hook rather than a hook waiting for a fork. `ranting_ja` writes 「一匹の猫」 as one run
+with no space anywhere. The article-noun separator had been droppable since Phase 6 item 7; the
+numeral-noun separator was pushed by `handle_placeholder` and offered to nothing, so `一匹の 猫`
+was the best any fork could do. Unlike a missing *distinction* — which a fork can decline to model
+— a wrong character is simply in the output, with no workaround: hiding the numeral left a
+different stray space, writing it as template literal text kills §2.8 for that fork, and
+post-processing the finished string would corrupt Latin text in the same template. So `ranting_ja`
+shipped the wrong output as a recorded hole, and this hook closed it.
+
+```rust
+fn elide_numeral_custom(
+    &self, numeral: &str, _separator: &str, following: &str,
+    _case: GrammaticalCase, _class: NounClass, _as_plural: bool,
+    _count: Option<PlaceholderCount>,
+) -> Option<String> {
+    Some(format!("{numeral}{following}"))   // 一匹の + 猫 -> 一匹の猫
+}
+```
+
+**Ordering against §2.7.** Rendered order is `[article][numeral][noun]`, and this hook runs
+**first**, on the inner of the two boundaries. Both can fire in one placeholder; each sees what the
+other left. A fork that fuses here changes what §2.7's `following` contains, which is the intended
+behavior — §2.7 has always received *rendered adjacent text* rather than the noun.
+
+**Not called for a hidden numeral** (`` {?$n noun} ``), which renders nothing to fuse — the same
+gate a hidden noun gives §2.7. Since Phase 7 item 13 a hidden numeral also leaves no stray
+separator behind.
+
+**English is untouched:** the default returns `None`, which keeps numeral, separator and following
+text exactly as rendered.
+
+**Wrappers** behave exactly as §2.7's: `Box<T>` forwards, `Many` forwards only at one item,
+`Maybe(Some(x))` forwards and `Maybe(None)` declines.
+
 ## Partial Customization
 
 You don't need to implement every `_custom` method. If you only need verb customization, implement `inflect_verb_custom()` and leave the rest as default (returning `None`). The trait provides a default for all of them:

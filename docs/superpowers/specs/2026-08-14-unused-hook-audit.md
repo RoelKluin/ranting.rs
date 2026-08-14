@@ -61,6 +61,14 @@ whose override would signal if it were reached, used to assert that the hook is
   style            declared=2   ignored=0   used=2
 ```
 
+> **Re-run 2026-08-14, after Phase 7 item 12 added an eighth `_custom` pair: the
+> list reads nine.** It grew by exactly one, and only by its `_with_context`
+> twin — `elide_numeral_custom` itself was overridden by `ranting_ja` in the
+> commit that created it, so it never spent a day unexercised. That is the
+> discipline this audit argues for, applied prospectively: the hook was built
+> *because* a fork had already shipped the wrong output for want of it, not on
+> spec. The twin joining the list is the predicted class, not a new finding.
+
 > **Re-run 2026-08-14, after `ranting_ja` (Phase 7 item 6): the list is eight.**
 > `inflect_verb_custom_with_context` is off it — the **first `_with_context`
 > twin any fork has ever overridden**, and the first real read of

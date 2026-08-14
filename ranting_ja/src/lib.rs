@@ -10,13 +10,14 @@
 //!   instead. Japanese keigo operates on the verb with no pronoun present at all. This crate is
 //!   the evidence that `register`'s design is right, which the item 1 audit could not settle from
 //!   inside the repo — and the item 4 decision turns on it, since publishing freezes the trait.
-//! - **A defect no other language reaches**: the numeral and its noun are joined by a hard-coded
-//!   space that no hook can remove, so 「一匹の猫」 is unreachable and 「一匹の 猫」 is what
-//!   renders. Recorded as hole 1 and scheduled as ROADMAP.md Phase 7 item 12. This crate
-//!   deliberately ships the wrong output rather than working around it.
+//! - **A defect no other language reaches**: the numeral and its noun were joined by a hard-coded
+//!   space that no hook could remove, so 「一匹の猫」 was unreachable and 「一匹の 猫」 was what
+//!   rendered. This crate shipped the wrong output rather than working around it, since unlike
+//!   Arabic's dual the gap had no workaround to encode. ROADMAP.md Phase 7 item 12 then closed it
+//!   with [`Ranting::elide_numeral_custom`], of which this crate is the first and only user.
 //!
-//! Only **two of the eight hook pairs are live** here — verb and numeral. That is a finding, not
-//! a gap: a surface sized for maximally-inflected languages degrading to near-nothing for a
+//! Only **three of the eight hook pairs are live** here — verb, numeral and numeral elision. That
+//! is a finding, not a gap: a surface sized for maximally-inflected languages degrading to near-nothing for a
 //! low-inflection one is the intended shape, and Japanese is the proof that it degrades cleanly
 //! rather than forcing a fork to fight it. See `README.md`.
 //!

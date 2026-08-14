@@ -90,9 +90,9 @@ fn the_classifier_is_read_off_the_noun_not_off_noun_class() {
     // whether that misuses a parameter documented as a gender/lexical-class label. The question
     // **dissolves**: which counter a noun takes is a property of that noun, so the hook's `&self`
     // is already enough. `NounClass` stays `UNSET` in this crate.
-    assert_eq!(say!("{#0 1}", 1, JapaneseNoun::neko()), "一匹の 猫");
-    assert_eq!(say!("{#0 1}", 3, JapaneseNoun::hito()), "三人の 人");
-    assert_eq!(say!("{#0 1}", 2, JapaneseNoun::hon()), "二本の 本");
+    assert_eq!(say!("{#0 1}", 1, JapaneseNoun::neko()), "一匹の猫");
+    assert_eq!(say!("{#0 1}", 3, JapaneseNoun::hito()), "三人の人");
+    assert_eq!(say!("{#0 1}", 2, JapaneseNoun::hon()), "二本の本");
 }
 
 #[test]
@@ -101,9 +101,9 @@ fn counter_forms_are_a_table_not_a_suffix() {
     // appending a counter to a numeral. This is the same shape as an irregular plural table, and
     // the seam is indifferent to it — the hook returns an opaque `String`.
     let neko = JapaneseNoun::neko();
-    assert_eq!(say!("{#0 1}", 1, neko), "一匹の 猫");
-    assert_eq!(say!("{#0 1}", 2, neko), "二匹の 猫");
-    assert_eq!(say!("{#0 1}", 3, neko), "三匹の 猫");
+    assert_eq!(say!("{#0 1}", 1, neko), "一匹の猫");
+    assert_eq!(say!("{#0 1}", 2, neko), "二匹の猫");
+    assert_eq!(say!("{#0 1}", 3, neko), "三匹の猫");
 }
 
 #[test]
@@ -114,8 +114,8 @@ fn a_count_past_the_table_declines_and_english_shows_through() {
     // is. Asserted rather than left to chance, since a fork extending the vocabulary needs to
     // know what the boundary looks like.
     let neko = JapaneseNoun::neko();
-    assert_eq!(say!("{#0 1}", 6, neko), "six 猫");
-    assert_eq!(say!("{$0 1}", 6, neko), "6 猫");
+    assert_eq!(say!("{#0 1}", 6, neko), "six猫");
+    assert_eq!(say!("{$0 1}", 6, neko), "6猫");
 }
 
 #[test]
@@ -123,8 +123,8 @@ fn both_numeral_channels_take_the_counter() {
     // `$n` asks for digits, but a Japanese numeral is not usable without its counter, so this
     // channel gets the same treatment rather than falling through to bare digits.
     let hon = JapaneseNoun::hon();
-    assert_eq!(say!("{$0 1}", 2, hon), "二本の 本");
-    assert_eq!(say!("{#0 1}", 2, hon), "二本の 本");
+    assert_eq!(say!("{$0 1}", 2, hon), "二本の本");
+    assert_eq!(say!("{#0 1}", 2, hon), "二本の本");
 }
 
 // ------------------------------------------------------------------ input parsing --
