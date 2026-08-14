@@ -20,7 +20,10 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 lives in [DONE.md](DONE.md). This file is the forward-looking roadmap only.
 
 🎯 **Phase 7 (v1.4.0, Falsification, Round Two: Beyond Indo-European)** is the next
-phase — see its section below. It is drafted, not started.
+phase — see its section below. **In progress**: its three spikes (items 1-3), the
+build decision they fed (item 4) and four unrelated items (7-10) are done; what
+remains is the two reference lexicons (items 5-6) and the three items the build
+decision scheduled (11-13).
 
 **Shipping today**:
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
@@ -362,12 +365,39 @@ building, its build item is dropped rather than executed anyway.
    </details>
 
 4. **Build decision** (no dedicated hours — a synthesis step, not a spike) —
-   *depends on items 1-3*, **all three of which are now done**, so this is
-   unblocked. Both spikes recommend building, on different axes and with an
-   ordering constraint: `ranting-ar` should follow the `Ranting::inflect` count
-   change item 2 found owed, or its `tests/holes.rs` records a workaround
-   instead of the gap. Neither spike's recommendation is the decision — that is
-   this item's job.
+   ✅ **DONE 2026-08-14**; written as the addendum at the end of
+   `docs/superpowers/specs/2026-08-14-arabic-falsification-spike.md`, pointed to
+   from the Japanese spike's own recommendation section.
+   - **Verdict: build both, ordered — new item 11 first, then `ranting-ar`
+     (item 5), then `ranting-ja` (item 6).** Both clear item 10/23's bar, on
+     different axes, and the expectation stated below survived being checked.
+   - **Arabic** clears it on a live defect in a shipped signature (a counted
+     noun cannot render a third number, because `Ranting::inflect` was the one
+     call item 14 did not widen) and becomes `elide_article_custom`'s first real
+     user. **Japanese** clears it on §1's numeral-noun separator plus a
+     *confirmation* — `register` read for real, and passing. A confirmation is
+     close to the "another working example" the bar rejects; what clears it is
+     **item 1**: publishing freezes the trait, `register` has been inert since
+     Phase 3, and an audit from inside the repo structurally cannot settle
+     whether an unused hook's shape is right. Each lexicon converts a
+     never-exercised surface into an exercised one *before* the freeze; building
+     neither does not leave that surface unjudged, it freezes it unjudged.
+   - **`ranting-ar` blocks on item 11; `ranting-ja` blocks on nothing.** This
+     inverts the repo's own *record the hole, then fix it* precedent
+     (`ranting_i18n` hole 1 → item 12), so the addendum justifies the exception
+     rather than adopting it silently. The discriminator is whether the gap has
+     a workaround the lexicon would be **forced to encode**: Arabic has two
+     (the `Cell` side-channel, or omitting the dual) and both make
+     `tests/holes.rs` a record of something other than the gap; Japanese has
+     none, so its hole test is honest against today's code.
+   - Two of item 1's ten never-overridden methods stay that way after both
+     builds — the eight `_with_context` twins as a class (overriding only the
+     twin is the documented sufficient shape) and
+     `is_first_person_subject_custom`. The success criteria below already admit
+     that outcome; it is stated here rather than discovered at freeze time.
+   - Schedules new items 11, 12 and 13, and de-provisionalizes items 5 and 6.
+
+   <details><summary>Original scope (kept for the record)</summary>
    - Read items 1-3 together and decide, in writing (a short addendum to
      whichever spike doc(s) are richer, not a new document), whether to build
      `ranting_ar`, `ranting_ja`, both, or neither, using the same bar item 10
@@ -386,9 +416,12 @@ building, its build item is dropped rather than executed anyway.
      expensive"), record that as a legitimate outcome exactly as Phase 6's
      own spikes did, and drop the corresponding build item below rather than
      building it anyway.
+   </details>
 
-5. **`ranting-ar` — Arabic reference lexicon** (16-24 hours, *provisional,
-   scope set by item 2 and confirmed by item 4*) — third acceptance test
+5. **`ranting-ar` — Arabic reference lexicon** (16-24 hours, scope set by item 2
+   and **confirmed unchanged by item 4**) — third acceptance test.
+   **Blocked on item 11** — building it first would put a workaround, not the
+   gap, into its `tests/holes.rs`; see item 4.
    - Same falsification contract as items 10 and 23: own directory
      (`ranting_ar/`), own `Cargo.toml`/`Cargo.lock`, depends on `ranting`
      alone (no `ranting_core`, no `ranting_derive`, no `pub(crate)` item, no
@@ -410,17 +443,26 @@ building, its build item is dropped rather than executed anyway.
      hook, both real Phase 6 surface with zero real-fork mileage before
      this, hold up against the first language actually built to need them.
 
-6. **`ranting-ja` — Japanese reference lexicon** (16-24 hours, *provisional,
-   scope set by item 3 and confirmed by item 4*) — fourth acceptance test
+6. **`ranting-ja` — Japanese reference lexicon** (8-12 hours, scope set by item 3
+   and **narrowed by item 4**) — fourth acceptance test. **Blocked on nothing**:
+   item 12's separator gap has no workaround to encode, so this crate's
+   `tests/holes.rs` records it honestly against today's code — that hole test is
+   what justifies item 12, not the other way round.
    - Same falsification contract as items 10, 23 and 5 above.
-   - Scope (provisional — item 3 sets the final vocabulary): a small closed
-     set of nouns spanning at least two classifier categories, `i`-adjective
-     and verb conjugation across teineigo/plain register, and — if item 3's
-     spike concludes it is worth attempting rather than declining up front —
-     one `heed!()`/`ask!()` example against real, unspaced Japanese input,
-     with a `None` result and a documented workaround treated as a
-     legitimate finding, the same way item 9 treated an honest `None` as
-     success rather than failure.
+   - Scope, **smaller than this item's original provisional sizing** because
+     item 3 §4 found six of the eight hook pairs untouched by Japanese — sizing
+     it like German's would be padding: a small noun set with classifiers,
+     teineigo verb forms driven by `NarrationContext.register`, and one
+     `ask!()` audience over *spaced, command-style* input to pin item 3 §3's
+     narrowing (`ask!()` is useful for Japanese command input and not for
+     Japanese prose input; against unspaced prose every template collapses to a
+     single `{clause}` capture). Unspaced input gets one `heed!()` example
+     showing the honest `None` and the `{clause}` escape hatch, the same way
+     item 9 treated an honest `None` as success rather than failure.
+   - The six unused hook pairs go in its `README.md` as a **finding**, not as
+     holes: a surface sized for maximally-inflected languages degrading to
+     near-nothing for a low-inflection one is the intended shape, and Japanese
+     is the evidence that it degrades cleanly.
    - Not scoped, per item 1's already-locked boundary: SOV word order with
      postpositional particles (named unreachable in item 1's spec already;
      Japanese would only reconfirm it).
@@ -618,13 +660,74 @@ building, its build item is dropped rather than executed anyway.
       otherwise singularize to "buse". These are the concrete cost of keeping
       the rules lexicon-free, and they are the point of the table.
 
-### v1.4 Success Criteria (provisional — finalized by item 4)
+11. **`count` on `Ranting::inflect`** (2-4 hours) — **blocks item 5**, scheduled
+    by item 4. Add `count: Option<PlaceholderCount>` as a fifth parameter, the
+    same type and from the same source as item 14's, so a counted noun can
+    render a third morphological number. Item 14 widened five hook pairs and
+    `Ranting::inflect`'s `case: GrammaticalCase` in one commit but left
+    `inflect` itself count-less, which is why `{$n kitab}` with `n = 2` renders
+    the Arabic plural while every hook that *agrees* with that noun sees
+    `PlaceholderCount { value: 2, .. }` — grammatical-looking output, wrong in
+    one word. `docs/superpowers/specs/2026-08-13-number-categories.md`'s
+    inventory missed it because `inflect` is not a `_custom` hook, and now
+    carries a correction section saying so.
+    - **Not** the `Cell` side-channel that smuggles the count from
+      `inflect_numeral_custom` into `inflect`. It was tried, it works, and it is
+      not an answer: it contaminates later placeholders in the same template
+      (`"{$n kitab} and {+kitab}"` renders the dual twice), depends on
+      undocumented hook call order, and makes a `&self` trait stateful.
+    - English-preserving by construction — English has no third number, so
+      `None`/any value renders identically. Breaking for a fork that hand-writes
+      `inflect`, which is both falsifiers plus every derive-generated impl;
+      item 14's own signature change is the precedent for how to land it.
+    - CLDR categories stay **out** (`2026-08-13-number-categories.md`); this
+      hands a fork the raw count, exactly as item 14 did elsewhere.
+
+12. **The numeral-noun separator** (3-5 hours) — scheduled by item 4, **does not
+    block item 6**. `handle_placeholder_impl` pushes a hard-coded space between
+    the rendered numeral and the noun, and no hook is offered it — so Japanese's
+    「一匹の猫」 is unreachable and 「一匹の 猫」 is what renders. Exactly parallel
+    to Arabic's article-bound-to-noun case, except that one got item 7's
+    `elide_article_custom` and this one got nothing. Two candidate shapes, both
+    from item 3 §1: pass the separator to `inflect_numeral_custom` and honor an
+    empty return, or add a numeral-side splice matching `elide_article_custom`'s
+    post-assembly design. The second is the closer precedent — that hook exists
+    *precisely* so a fork can drop a separator — and keeps the numeral hook's
+    signature alone.
+    - The existing escape hatches are all worse than the gap and none of them
+      substitutes for this: `{?$n neko}` hides the numeral and still leaves a
+      leading space (item 13), writing the numeral as template literal text
+      makes item 8 dead for that fork, and squeezing spaces after `say!()`
+      returns would corrupt Latin text in the same template.
+
+13. **Two residues both spikes left** (1-2 hours, doc + one decision) —
+    scheduled by item 4 so they are not lost.
+    - **`{?$n noun}` renders a double space** (`"I see  boots"`, `"есть  стол"`).
+      It is currently *pinned* by `tests/ranting/numeral.rs`, so it reads as
+      intended behavior rather than as a defect; filed as
+      `docs/architecture-review-2026-08-14.md` §1.6. Cosmetic for English, on
+      the critical path of item 12's only workaround for Japanese. Decide it
+      either way — fix and re-pin, or state in the test why the space is
+      intended — but stop letting the test assert it silently.
+    - **"Story-wide" is the wrong word for `NarrationContext`** in the docs and
+      in `.claude/rules/extension-hooks.md`. It describes the *intended* use,
+      not a constraint the type imposes: the context is per-call, so keigo
+      varying per addressee within one scene is expressible today by
+      constructing a different context per utterance. The current wording
+      invites a fork to conclude such variation is out of scope, which this
+      ROADMAP itself nearly did in item 3.
+
+### v1.4 Success Criteria (finalized by item 4, 2026-08-14)
 - Items 1-3 answer, in writing, whether Arabic and/or Japanese would falsify
   something German/Spanish could not, before any lexicon code is written
 - The unused-hook list from item 1 either gains a real consumer through
   items 5/6, or Phase 7 states explicitly why it remains legitimately unused
   (a hook whose only job is an English-preserving default for a construction
-  no scoped fork needs is not automatically a defect)
+  no scoped fork needs is not automatically a defect). Item 4 settled which:
+  `elide_article_custom` gains one through item 5 and `register` through
+  item 6; the eight `_with_context` twins and
+  `is_first_person_subject_custom` stay unused, legitimately, and this
+  criterion is met by saying so before the trait is frozen — not after
 - Zero behavioral change to existing `say!()`/`say_with!()` output, exactly
   as every Phase 6 item required — additive, English-preserving, verified by
   the existing suite passing unchanged

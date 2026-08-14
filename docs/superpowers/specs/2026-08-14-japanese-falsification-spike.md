@@ -181,6 +181,11 @@ Scope should be smaller than the ROADMAP's provisional sizing suggests, because 
 the hook surface would be untouched: a small noun set with classifiers, teineigo verb forms driven
 by `register`, and an `ask!()` audience over command-style spaced input to pin §3's narrowing.
 
+**Item 4 accepted this recommendation, including the narrowed scope, and decided `ranting-ja` is
+*not* blocked on §1's separator fix** — unlike Arabic's dual, the separator gap has no workaround
+to encode, so this crate's `tests/holes.rs` records it honestly. The written decision is the
+addendum at the end of `2026-08-14-arabic-falsification-spike.md`.
+
 ## Residue
 
 - **§1's separator gap is unscheduled**, and unlike the Arabic dual it has no partial workaround at

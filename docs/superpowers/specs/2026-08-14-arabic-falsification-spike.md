@@ -197,3 +197,100 @@ across person/number/gender.
 - **`{?$n noun}` leaves a double space** (`"I see  boots"`), currently *pinned* by
   `tests/ranting/numeral.rs` rather than flagged. Recorded in the Japanese spike, where it matters
   more.
+
+---
+
+# Addendum: the item 4 build decision (2026-08-14)
+
+ROADMAP.md Phase 7 item 4 is a synthesis step, not a spike, and item 4's own instruction is that
+it be written as an addendum to whichever spike doc is richer rather than as a new document. This
+is that addendum; the Japanese spike carries a pointer to it. It reads items 1, 2 and 3 together
+and decides what gets built.
+
+**Verdict: build both, in this order — the `Ranting::inflect` count change first, then
+`ranting-ar`, then `ranting-ja`.** Neither spike's own recommendation is the decision, and both
+survive being checked against the bar rather than adopted; the ordering below is the part item 4
+actually settles, because the blocking relationship the Arabic spike asked for did not exist
+anywhere in the plan.
+
+## The bar, and how each language clears it
+
+The bar items 10 and 23 set implicitly: build a language only when its spike found *falsification
+value existing forks cannot supply* — not "another working example."
+
+- **`ranting-ar` clears it on a live defect in a shipped signature.** `Ranting::inflect` takes
+  `to_plural: bool`, so a counted noun cannot render a third morphological number even though
+  item 14 gave every agreeing hook a `count`. No Indo-European lexicon can reach this: German and
+  Spanish have no third number to ask for. It also becomes `elide_article_custom`'s first real
+  user — item 1 found that hook overridden by neither fork.
+- **`ranting-ja` clears it on two axes**, one of which needs stating carefully. The defect axis is
+  §1's numeral-noun separator: a hard-coded space no hook can remove, with no workaround at all.
+  The other is a *confirmation* — `NarrationContext.register` is read for real, and it passes —
+  and a confirmation sits uncomfortably close to the "another working example" the bar rejects.
+  What makes it clear the bar is item 1: `register` has been inert since Phase 3, and an audit
+  from inside the repo structurally cannot settle whether an unused hook's shape is right. Only a
+  fork that had to use it can.
+
+**That third axis — item 1 — is what makes the timing non-arbitrary, and it applies to both.**
+The audit's own framing: publishing freezes the trait, removing a method after 0.3.0 is a
+breaking change, and right now it is free. Each lexicon converts a never-exercised surface into an
+exercised one before the freeze. `ranting-ar` does it for `elide_article_custom`; `ranting-ja`
+does it for `register`. Building neither does not leave the surface unjudged — it freezes it
+unjudged.
+
+Two of item 1's ten never-overridden methods stay never-overridden after both builds: the eight
+`_with_context` twins as a class (a fork overriding only the twin is the documented sufficient
+shape, so this is expected rather than alarming) and `is_first_person_subject_custom`, which
+neither Arabic nor Japanese has a reason to reach. Phase 7's success criteria already admit that
+outcome; it should be stated in the phase rather than discovered at freeze time.
+
+## Why `ranting-ar` blocks on a fix and `ranting-ja` does not
+
+This is the one judgment call worth making explicit, because it inverts the repo's own precedent.
+The established order is *record the hole, then fix it* — `ranting_i18n`'s hole 1 recorded
+`say_with!()` as unreachable downstream and item 12 closed it afterwards. Arabic asks for the
+opposite, so the exception needs justifying rather than adopting silently.
+
+The discriminator is **whether the gap has a workaround the lexicon would be forced to encode**:
+
+| | Arabic dual | Japanese separator |
+|---|---|---|
+| Workaround available | yes — the `Cell` side-channel, or omit the dual | **none** |
+| What `tests/holes.rs` would record | the workaround, or nothing | the gap, honestly |
+| Blocks its build item | **yes** | no |
+
+A hole test is only worth writing when it pins what the crate *actually renders* against a gap
+that is really there. Arabic has two ways out and both poison that: the `Cell` hack contaminates
+later placeholders in the same template and makes a `&self` trait stateful, and omitting the dual
+records nothing at all. Japanese has no way out — the wrong character is simply in the output — so
+its hole test says exactly what the gap is, and `ranting-ja` can be built against today's code.
+
+The precedent therefore holds where it was set: a hole gets recorded first *when recording it is
+honest*. It is the availability of a dishonest recording, not the mere existence of a fix, that
+moves Arabic's fix in front of its build.
+
+## Scope, confirmed
+
+- **`ranting-ar`**: unchanged from the ROADMAP's provisional sizing.
+- **`ranting-ja`**: **smaller** than the ROADMAP's provisional sizing. Japanese leaves six of the
+  eight hook pairs untouched (§4), so scoping it like German's would be padding: a small noun set
+  with classifiers, teineigo verb forms driven by `register`, and one `ask!()` audience over
+  spaced command-style input to pin §3's narrowing. Its `README.md` should record the six unused
+  pairs as a finding — clean degradation is the intended shape and Japanese is the evidence — not
+  as holes.
+
+## What this decision schedules
+
+Four ROADMAP items, three of them new. Without them the decision above would name a blocking
+change that exists nowhere in the plan.
+
+1. **New item 11** — `count: Option<PlaceholderCount>` on `Ranting::inflect`. Blocks item 5.
+2. **New item 12** — the numeral-side separator, matching `elide_article_custom`'s treatment.
+   Does *not* block item 6; item 6's hole test is what justifies it.
+3. **New item 13** — the two small residues both spikes leave: `{?$n noun}`'s double space, which
+   is currently *pinned* by `tests/ranting/numeral.rs` and so reads as intended behavior, and
+   `NarrationContext`'s "story-wide" wording, which the Japanese spike showed is a description of
+   intended use that the type does not impose.
+4. **Items 5 and 6** lose "provisional" and record the scope above.
+
+Item 4 ends here. Neither implementation is started by this document.
