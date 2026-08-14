@@ -765,10 +765,15 @@ placeholder's own pre-text carried after it (`` {a set of $n chiens} `` gives `"
 then the number when there is one, then the noun name or case-selected pronoun. Rendered text, not
 dictionary forms — that is the point of running after assembly.
 
-**No `uc` parameter.** The `article` handed to this hook is already rendered *and* capitalized —
-whether by §2.3's hook or the English fallback — so there is nothing left for `uc` to decide. A
-fork that re-cases its fused form inspects the first character, or calls `capitalize` (§2.6)
-itself.
+**No `uc` parameter, and this is the hook's one real trap.** The `article` handed to this hook is
+already rendered *and* capitalized — whether by §2.3's hook or the English fallback — so there is
+nothing left for `uc` to decide. The consequence is that a `match` on the lowercase form **silently
+falls through to `None`** at the start of a sentence: the hook is called, matches nothing, and the
+article renders unfused with no error anywhere. That is why the French example above lists `"Le" |
+"La"` alongside `"le" | "la"` rather than being sloppy. Match case-insensitively, or normalize
+first and re-case your fused form by inspecting the first character or calling `capitalize` (§2.6).
+Found the hard way by the Arabic spike, whose `al-` matching hit it
+(`docs/superpowers/specs/2026-08-14-arabic-falsification-spike.md`).
 
 **What is not reachable from here.** Preposition-article fusion *across a placeholder boundary* —
 French `de` + `le` → `du`, Italian `di` + `il` → `del` — is out of scope for *this* hook: the

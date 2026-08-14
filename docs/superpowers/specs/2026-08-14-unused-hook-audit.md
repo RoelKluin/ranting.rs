@@ -61,6 +61,16 @@ whose override would signal if it were reached, used to assert that the hook is
   style            declared=2   ignored=0   used=2
 ```
 
+> **Re-run 2026-08-14, after Phase 7 item 11** widened `Ranting::inflect` with a
+> `count`: `count` reads `declared=20 ignored=18 used=2`, `case`
+> `declared=19 ignored=8 used=11`, `uc` `declared=19 ignored=1 used=18`. The four
+> new declarations are the four fork `inflect` overrides, all `_count`, which
+> **strengthens** the finding below rather than dating it: item 11 was justified
+> by a spike, not by a fork that had already reached for it, and the forks that
+> now carry the parameter still have no use for it. Result 1's headline is
+> unchanged — `inflect` was already overridden by both forks. The numbers above
+> are kept as the reading item 4's decision was made on.
+
 A never-reached hook and a reached-but-ignored parameter are different kinds of
 evidence, and the second is stronger. A fork that never overrides
 `elide_article_custom` simply had no elision to express. A fork that *does*
