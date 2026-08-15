@@ -138,28 +138,41 @@ subjunctive is *not* recoverable from the verb: it is a property of the clause (
 placeholder. So the plausible shapes are an escape-hatch marker or a `NarrationContext` flag, not
 a smarter conjugator — see Phase 8 item 2.
 
-### 1.6 Phrasal and compound verbs take the third-person `-s` on the wrong word — breaking to fix
+### 1.6 Phrasal and compound verbs take the third-person `-s` on the wrong word — ✅ **FIXED 2026-08-15**
 
-`src/language/english.rs`, `inflect_verb` (`:97`), the `"he" | "she" | "it"` arm. The suffix rules
-append to the whole trimmed string, so a multi-word verb is inflected on its **last** word:
+`src/lib.rs`, `handle_placeholder_impl`'s `PostSpec::Verb(raw)` arm (`:1032`, previously). Not, as
+first suspected, `inflect_verb`'s suffix rules acting on a whole multi-word string — instrumenting
+the call showed `inflect_verb` was only ever handed a single word to begin with. The real split
+happens earlier: `PostSpec::Verb` carries the placeholder's post-noun text as free-form, unsplit
+text (see its own doc comment in `ranting_core/src/placeholder.rs`), and the runtime split it at
+its **last** whitespace, conjugating the trailing word and passing everything before it through
+as inert literal text:
 
 ```rust
 say!("{=0 pick up} the sword.")     // -> "He pick ups the sword."
 ```
 
-Correct is "picks up". The head is the first word, and **all three** append branches inside that
-one arm have the bug independently — the sibilant `+ "es"`, the consonant-`y` `+ "ies"` and the
-default `+ "s"` — because which one fires is decided by the spelling of the **particle**, not of
-the verb: `` {=0 stick to} `` takes the sibilant branch ("stick toes") and `` {=0 get by} `` the
-consonant-`y` branch ("get bies"). A fix that splits off the head therefore has to reach all three,
-not just the `+ "s"` one the obvious example lands in. Tense-marked forms are **not** affected —
-`` {<0 pick up} `` and friends conjugate through `ranting_core::verb_conjugate`, which the macro
-applies to the head — so the defect is specific to bare third-person-singular present, which is
-also the single most common form in generated prose.
+"pick " was pushed verbatim, and "up" — the particle, not the verb — was handed to `inflect_verb`
+and inflected as if it were the whole verb. Correct is "picks up": the **head**, not the last
+word, is what should conjugate. Every multi-word verb hit this, not just the `+ "s"` case the
+obvious example lands in — `` {=0 stick to} `` conjugated "to" on the sibilant branch ("stick
+toes") and `` {=0 get by} `` conjugated "by" on the consonant-`y` branch ("get bies"), because
+which suffix rule fired was decided by the spelling of whatever word happened to be last, not by
+the verb. Tense-marked forms are **not** affected — `` {<0 pick up} `` and friends conjugate
+through `ranting_core::verb_conjugate`, which the macro already applies to the head word at
+compile time — so the defect was specific to bare third-person-singular present, which is also the
+single most common form in generated prose.
 
 Not previously recorded anywhere: absent from ROADMAP.md, DONE.md, both earlier reviews and
-`failures/`. The fix is contained (split at the first space, conjugate the head, re-append the
-remainder) but it changes rendered output for existing templates, hence breaking.
+`failures/`.
+
+**Fixed** by splitting `PostSpec::Verb`'s raw text at its **first** whitespace instead of its
+last: the first word is now conjugated (via the unchanged `inflect_verb`/`conjugate_verb` path)
+and everything after it — including the separating whitespace — is appended verbatim after the
+conjugated form, instead of being pushed as literal text before it. A single-word verb has no
+whitespace to split on, so it is byte-identical to before. Breaking, recorded in CHANGELOG.md
+under Changed (breaking); new coverage in `tests/ranting/verb_tense.rs` ("pick up", "stick to",
+"get by", and a single-word control, each in first, second and third person).
 
 ### 1.7 Plural proper names get `'s` instead of a bare apostrophe — ✅ **FIXED 2026-08-15**
 

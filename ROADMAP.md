@@ -1026,6 +1026,13 @@ literal template").
      `english.rs:555` (**breaking**; the fix is item 2, the two are the same work)
    - §1.6 phrasal verbs take third-person `-s` on the last word — "He pick ups"
      (**breaking**; bare present only, tense-marked forms are already correct)
+     — ✅ **done 2026-08-15**: the real split was in `src/lib.rs`'s `PostSpec::Verb`
+     handling, not `inflect_verb` itself — it cut the placeholder's post-noun text at
+     its *last* whitespace and conjugated the trailing particle instead of the verb.
+     It now splits at the *first* whitespace, conjugating the head word and
+     re-appending the remainder unchanged; a single-word verb is byte-identical to
+     before. See CHANGELOG.md's Changed (breaking) entry and
+     `tests/ranting/verb_tense.rs`.
    - §1.7 plural proper names get `'s` — "the Joneses's", because `is_name` looks at
      the first character and nothing else (**breaking**; smallest of the six)
      — ✅ **done 2026-08-15**: `adapt_possesive_s` no longer consults `is_name` at

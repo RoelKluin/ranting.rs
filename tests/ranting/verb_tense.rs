@@ -443,3 +443,106 @@ fn tense_marker_perfect_mixed_sentence() {
     let result = say!("{=0 %finish} {=0 <%start} before dinner.", person);
     assert_eq!(result, "She has finished she had started before dinner.");
 }
+
+// Regression for docs/architecture-review-2026-08-15.md §1.6 (ROADMAP.md
+// Phase 8 item 6): a phrasal/compound verb used to take the bare
+// third-person-singular -s on its *last* word instead of its head, because
+// which suffix branch fired was decided by the spelling of the particle, not
+// the verb — "pick up" -> "pick ups", "stick to" -> "stick toes", "get by"
+// -> "get bies". The fix conjugates the head word only and re-appends the
+// remainder unchanged.
+
+#[test]
+fn phrasal_verb_pick_up_third_person() {
+    assert_eq!(
+        say!("{=0 pick up} the sword.", Noun::new("person", "he")),
+        "He picks up the sword."
+    );
+    assert_eq!(
+        say!("{=0 pick up} the sword.", Noun::new("person", "she")),
+        "She picks up the sword."
+    );
+    assert_eq!(
+        say!("{=0 pick up} the sword.", Noun::new("thing", "it")),
+        "It picks up the sword."
+    );
+}
+
+#[test]
+fn phrasal_verb_stick_to_third_person() {
+    assert_eq!(
+        say!("{=0 stick to} the plan.", Noun::new("person", "he")),
+        "He sticks to the plan."
+    );
+    assert_eq!(
+        say!("{=0 stick to} the plan.", Noun::new("person", "she")),
+        "She sticks to the plan."
+    );
+    assert_eq!(
+        say!("{=0 stick to} the plan.", Noun::new("thing", "it")),
+        "It sticks to the plan."
+    );
+}
+
+#[test]
+fn phrasal_verb_get_by_third_person() {
+    assert_eq!(
+        say!("{=0 get by} on little.", Noun::new("person", "he")),
+        "He gets by on little."
+    );
+    assert_eq!(
+        say!("{=0 get by} on little.", Noun::new("person", "she")),
+        "She gets by on little."
+    );
+    assert_eq!(
+        say!("{=0 get by} on little.", Noun::new("thing", "it")),
+        "It gets by on little."
+    );
+}
+
+#[test]
+fn phrasal_verb_first_and_second_person_unchanged() {
+    // First and second person never add -s, so the phrasal verb must render
+    // exactly as written for both.
+    assert_eq!(
+        say!("{=0 pick up} the sword.", Noun::new("person", "I")),
+        "I pick up the sword."
+    );
+    assert_eq!(
+        say!("{=0 pick up} the sword.", Noun::new("person", "you")),
+        "You pick up the sword."
+    );
+    assert_eq!(
+        say!("{=0 stick to} the plan.", Noun::new("person", "we")),
+        "We stick to the plan."
+    );
+    assert_eq!(
+        say!("{=0 get by} on little.", Noun::new("people", "they")),
+        "They get by on little."
+    );
+}
+
+#[test]
+fn single_word_verb_control_unaffected() {
+    // Single-word verbs must stay byte-identical to before the head/tail split.
+    assert_eq!(
+        say!("{=0 walk} home.", Noun::new("person", "he")),
+        "He walks home."
+    );
+    assert_eq!(
+        say!("{=0 walk} home.", Noun::new("person", "she")),
+        "She walks home."
+    );
+    assert_eq!(
+        say!("{=0 walk} home.", Noun::new("thing", "it")),
+        "It walks home."
+    );
+    assert_eq!(
+        say!("{=0 walk} home.", Noun::new("person", "I")),
+        "I walk home."
+    );
+    assert_eq!(
+        say!("{=0 walk} home.", Noun::new("person", "you")),
+        "You walk home."
+    );
+}

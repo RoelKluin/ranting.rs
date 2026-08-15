@@ -52,6 +52,34 @@
   - See `tests/ranting/possessive_apostrophe.rs` for the plural-proper-name,
     singular-name-ending-in-`s`, and plural-common-noun cases side by side.
 
+- **A phrasal or compound verb now takes the third-person `-s` on its head
+  word, not its last word.** `say!("{=0 pick up} the sword.")` used to render
+  `"He pick ups the sword."`; it now renders `"He picks up the sword."`
+  (`docs/architecture-review-2026-08-15.md` §1.6, ROADMAP.md Phase 8 item 6).
+  **This changes `say!()`'s rendered output for every bare-present-tense
+  phrasal or compound verb placeholder** — the case CLAUDE.md's byte-identity
+  invariant requires calling out explicitly.
+  - The split was in `src/lib.rs`'s `PostSpec::Verb` handling, not in
+    `inflect_verb` itself: it used to cut the placeholder's post-noun text at
+    its *last* whitespace, push everything before that as literal text, and
+    hand only the trailing word to `inflect_verb` — so which suffix branch
+    fired was decided by the spelling of whatever word happened to be last,
+    not by the verb: `` {=0 stick to} `` conjugated "to" on the sibilant
+    branch ("stick toes") and `` {=0 get by} `` conjugated "by" on the
+    consonant-`y` branch ("get bies"). It now splits at the *first*
+    whitespace instead, conjugating the head word through the unchanged
+    `inflect_verb`/`conjugate_verb` path and appending the remainder
+    (including the separating whitespace) after the conjugated form instead
+    of before it.
+  - A single-word verb has no whitespace to split on, so it is byte-identical
+    to before — this only changes multi-word verbs.
+  - Tense-marked forms (`` {<0 pick up} `` and friends) were already correct
+    and are untouched: they conjugate through
+    `ranting_core::verb_conjugate`, which the macro already applies to the
+    head word only.
+  - See `tests/ranting/verb_tense.rs` ("pick up", "stick to", "get by", and a
+    single-word control, each in first, second and third person).
+
 ### Fixed
 
 - **A negative `#var` spelled the non-word "negativeone".**

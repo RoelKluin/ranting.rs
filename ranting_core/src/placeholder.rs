@@ -153,10 +153,12 @@ pub enum PostSpec {
     PossessiveS,
     /// A verb with no tense marker, exactly as captured (including its
     /// leading whitespace, and possibly more than one word -- e.g. a
-    /// modal phrase). `ranting_derive` doesn't split this one down further
-    /// at compile time; the runtime's last-word conjugation + leading-word
-    /// passthrough logic is unchanged from before this refactor. `say!()`
-    /// bakes it fully conjugated; `say_with!()` bakes the base form.
+    /// phrasal verb or modal phrase). `ranting_derive` doesn't split this
+    /// one down further at compile time; the runtime conjugates the head
+    /// word and passes the rest through verbatim (until 2026-08-15 it
+    /// conjugated the *last* word instead -- docs/architecture-review-2026-08-15.md
+    /// §1.6). `say!()` bakes it fully conjugated; `say_with!()` bakes the
+    /// base form.
     Verb(&'static str),
     /// A tense-marked verb (`<`, `=`, `>`, `<=`, `%`, `<%`). `word` is the
     /// compile-time-conjugated form for `say!()` or the uninflected base

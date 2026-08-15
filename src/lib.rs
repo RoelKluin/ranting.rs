@@ -1030,14 +1030,15 @@ where
             res.push_str(adapt_possesive_s(as_pl));
         }
         PostSpec::Verb(raw) => {
-            // Same last-word-conjugated / leading-words-verbatim split as before this
-            // refactor: `PostSpec::Verb` still carries free multi-word text (see its
-            // doc comment), the macro never had a marker to split it on.
+            // A phrasal or compound verb ("pick up") conjugates on its head word;
+            // everything after the first word — including the separating whitespace
+            // — is carried through unchanged. (Until 2026-08-15 this split off the
+            // *last* word instead, which conjugated the particle rather than the verb —
+            // "pick up" -> "pick ups"; see docs/architecture-review-2026-08-15.md §1.6.)
             let rest =
                 split_at_find_start(raw, |c: char| !c.is_whitespace()).map_or(raw, |(_, r)| r);
-            let (etc2, word) =
-                split_at_find_end(rest, |c: char| c.is_whitespace()).unwrap_or(("", rest));
-            res.push_str(etc2);
+            let (word, trailing) =
+                split_at_find_start(rest, |c: char| c.is_whitespace()).unwrap_or((rest, ""));
             if !word.is_empty() {
                 match word {
                     "'" | "'s" => {
@@ -1057,6 +1058,7 @@ where
                         res.push_str(&verb);
                     }
                 }
+                res.push_str(trailing);
             }
         }
         PostSpec::Tense {
