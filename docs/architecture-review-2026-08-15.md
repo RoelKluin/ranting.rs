@@ -105,12 +105,12 @@ generating `Self {}` for the braced-and-empty case. Pinned by
 `tests/ranting/heed_derive.rs::zero_captures_empty_braced_struct_still_generates_heed`
 (`struct Wait {}`). All eight crates' gates pass.
 
-**§§1.5-1.10 come from the English grammar coverage review (2026-08-15).**
+**§§1.5-1.12 come from the English grammar coverage review (2026-08-15).**
 A grammarian read the placeholder surface end to end against complex-sentence English and reported
 both *missing channels* and *wrong output today*. The missing channels are scoped as ROADMAP.md
-Phase 8; the six entries below are the half that belongs here, because each one renders something
+Phase 8; the entries below are the half that belongs here, because each one renders something
 incorrect from input a caller wrote correctly. Every code claim was re-verified against the source
-before it was recorded. **All six are English-output changes**, so each names whether fixing it is
+before it was recorded. **They are all English-output changes**, so each names whether fixing it is
 breaking under CLAUDE.md's byte-identity invariant — that is what decides which can ride a patch
 release and which cannot.
 
@@ -263,6 +263,60 @@ modifier + head (`red house` → "red houses", correct today) than a postposed-h
 closed lists bound that risk, and bounding it is the design question the fix has to answer. See
 `.claude/rules/pluralization.md` point 6 — adding a rule means auditing what it now gets wrong.
 
+### 1.11 A sentence-initial numeral spends the placeholder's `uc` on the noun — breaking to fix
+
+Found 2026-08-15 while spot-checking §1.9's fix; not caused by it, and it predates the whole
+grammar review. When a placeholder starts a sentence, `handle_placeholder` capitalizes the first
+thing it can — but a numeral is not on that list, so the capital lands on the *noun*, several
+words in:
+
+```rust
+say!("{#n item} fell.", n = 2)      // -> "two Items fell."     want "Two items fell."
+say!("{$n item} fell.", n = 2)      // -> "2 Items fell."       want "2 items fell."
+say!("{the #n item} fell.", n = 2)  // -> "The two items fell." correct — the article takes it
+```
+
+The article case is right, which is what makes the other two look like an oversight rather than a
+policy. It is neither: `src/lib.rs:2454` documents the behavior in
+`inflect_numeral_custom`'s own doc — "`handle_placeholder` never capitalizes the numeral (a
+placeholder that starts a sentence spends its `uc` on the article, verb or noun)" — and offers
+that as the reason the hook takes no `uc`. So the decision was made and written down; what was
+never checked is what it *renders* when there is no article to spend the `uc` on.
+
+Two different fixes, because the two channels differ:
+
+- `#var` (spelled out) — the numeral is a word, so it should take the capital: "Two items fell."
+  That means either capitalizing before the hook runs, or giving the hook the `uc` the doc
+  currently explains away.
+- `$var` (digits) — a digit cannot be capitalized, so the `uc` should be **dropped**, not passed
+  along. "2 items fell." is correct English and "2 Items fell." is not.
+
+Breaking either way, and the hook's doc has to change with it.
+
+### 1.12 A negative count agrees plural — recorded as a decision, not filed as a defect
+
+§1.9's fix introduced the "minus one" spelling, which made a pre-existing agreement rule visible
+for the first time: `as_pl` for `#var` is `count != Some(1)` (`src/lib.rs:520`), so `-1` is not
+`1` and takes the plural.
+
+```rust
+say!("I see {#n item}.", n = -1)   // -> "I see minus one items."
+```
+
+The fix's author defended this in a source comment at the match arm — "minus one degrees" is what
+English actually says for a measure, and deciding agreement from the *count* rather than from the
+rendered word is also what stops a fork's `inflect_numeral_custom` from flipping agreement by
+returning a string containing "one". Both halves of that are right.
+
+What it does not settle is the countable case: "minus one item" is what a native speaker writes
+for a discrete thing, and the same rule renders "minus one items". English genuinely splits here
+along measure-versus-count, which is the mass/count distinction ROADMAP.md Phase 8 item 3 part (b)
+would supply and nothing in the crate has today. So this is recorded rather than scheduled — a
+maintainer's call on whether `-1` should be treated as `1` for agreement (fixing countables,
+breaking measures), left alone (the reverse), or deferred until the mass/count flag exists and
+can decide per entity. Sniffing the spelled form is not an option, for the reason the source
+comment gives.
+
 ## 2. Documentation defects found and fixed on 2026-08-15
 
 | # | Claim | Where | Reality |
@@ -353,7 +407,8 @@ still hasn't fired on this corner of the hook surface.
 
 ### 4.2 The grammar review's other half is scoped, not fixed (added 2026-08-15)
 
-§§1.5-1.10 are the defect half of the English coverage review. The other half — constructions
+§§1.5-1.12 are the defect half of the English coverage review (§§1.11-1.12 were added on
+2026-08-15 while spot-checking §1.9's fix; both predate the review). The other half — constructions
 complex English needs that no placeholder can express (the participle channel and passive voice,
 agreeing quantifiers, the mass/count distinction, ordinals, adverb derivation) — is scoped as
 **ROADMAP.md Phase 8** rather than recorded here, since none of it is a defect: what renders today

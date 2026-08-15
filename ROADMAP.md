@@ -25,10 +25,11 @@ lives in [DONE.md](DONE.md). This file is the forward-looking roadmap only.
 (item 11), **both** reference lexicons (items 5 and 6) and the two items they
 scheduled (12 and 13) all landed on 2026-08-14.
 
-📋 **Phase 8 (English grammar depth) is scoped, not started** — six recorded defects
+📋 **Phase 8 (English grammar depth) is scoped, partly landed** — seven recorded defects
 plus five missing channels, from a grammarian's end-to-end review of the placeholder
 surface against complex-sentence English (2026-08-15). See its section below; the
-defect half is `docs/architecture-review-2026-08-15.md` §§1.5-1.10.
+defect half is `docs/architecture-review-2026-08-15.md` §§1.5-1.12; §§1.6, 1.7 and 1.9
+landed on 2026-08-15.
 
 **Shipping today**:
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
@@ -954,7 +955,7 @@ question that was never asked in the other direction: whether the English the cr
 ships can carry a **complex sentence**. A grammarian reviewed the placeholder surface
 end to end for that and found two distinct kinds of answer — constructions with no
 channel at all (below), and six places where `ranting` renders something wrong from
-input the caller wrote correctly (`docs/architecture-review-2026-08-15.md` §§1.5-1.10).
+input the caller wrote correctly (`docs/architecture-review-2026-08-15.md` §§1.5-1.12).
 The defects are item 6; items 1-5 are the missing channels, ordered by how often a
 writer of ordinary prose hits them.*
 
@@ -1018,10 +1019,11 @@ literal template").
    literal text anyway. Scoped here to be *decided*, possibly declined — it may be a
    channel that exists and is rarely reachable, which is the same shape as
    `ranting_i18n`'s prenominal-adjective hole.
-6. **The six recorded defects** — `docs/architecture-review-2026-08-15.md` §§1.5-1.10,
-   each verified against the source. Four change rendered English and are therefore
+6. **The recorded defects** — `docs/architecture-review-2026-08-15.md` §§1.5-1.12,
+   each verified against the source: seven defects plus one agreement question left
+   as a maintainer's call (§1.12). Five change rendered English and are therefore
    **breaking** under the byte-identity invariant, so they want one release between
-   them rather than four:
+   them rather than five:
    - §1.5 subjunctive `were`→`was`, both persons, pinned by a regression test at
      `english.rs:555` (**breaking**; the fix is item 2, the two are the same work)
    - §1.6 phrasal verbs take third-person `-s` on the last word — "He pick ups"
@@ -1053,6 +1055,19 @@ literal template").
      spells positive 21 as "twentyone" and non-negative output is unchanged.
      `i64::MIN`'s pre-existing upstream panic is deliberately left as it was.
      Pinned by `tests/ranting/numeral.rs`
+   - §1.11 a sentence-initial numeral spends the placeholder's `uc` on the **noun** —
+     `` {#n item} `` renders "two Items fell.", `` {$n item} `` renders "2 Items fell.",
+     while `` {the #n item} `` is correct because the article takes the capital
+     (**breaking**; found 2026-08-15 spot-checking §1.9's fix, but older than the
+     review). Two fixes, not one: `#var` should capitalize the spelled numeral,
+     `$var` should drop the `uc` rather than pass it on. `inflect_numeral_custom`'s
+     doc at `src/lib.rs:2454` states the current behavior as policy and has to change
+     with it
+   - §1.12 a negative `#var` count agrees plural — "minus one items", from
+     `as_pl = count != Some(1)`. **Recorded as a maintainer's call, not scheduled**:
+     the plural is right for measures ("minus one degrees") and wrong for countables,
+     which is the mass/count split item 3 part (b) would supply. Deciding agreement
+     from the count rather than the rendered word is correct either way and must stay
 
 **Non-goals, with the decision they cite**
 - **Relative and interrogative pronoun case** (who/whom/whose). The case machinery
