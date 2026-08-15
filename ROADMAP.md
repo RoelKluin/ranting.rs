@@ -981,6 +981,22 @@ literal template").
    family the `*=`/`*@` work established (`=%verb` → "is/are seen", `>%verb` → "will
    have seen"), which reuses `PH_EXT`'s existing fused-marker precedent rather than
    adding a grammar level. Agreement on the auxiliary is already correct machinery.
+
+   **PROPOSED (2026-08-15 spike — NOT implemented; maintainer decision needed).**
+   `docs/superpowers/specs/2026-08-15-participle-channel.md` recommends five
+   enumerated fused spellings as new `TenseMarker` variants — `=%` (present
+   passive, "is taken"), `<=%` (past passive), `>%` (future perfect), `%=`
+   (present perfect progressive, "has been picking"), `<%=` (past perfect
+   progressive) — all composed from already-taken `post` characters, so
+   `PH_EXT`/`ph_ext` need **no** grammar or parser edits (each spelling is a
+   compile error today, making English byte-identity hold by construction), and
+   the passive's auxiliary agreement reuses `AuxiliaryVerb::IsAre`/`WasWere`
+   unchanged. Three decisions are left for sign-off, per the spike: the spellings
+   themselves; the `ctx.tense` × voice interaction under `say_with!()` (the spike
+   recommends tense-axis-only overrides that preserve voice — the naive extension
+   silently renders a passive placeholder active); and whether all five land
+   together (recommended) or the passive pair first. The sigil grammar is Locked,
+   so nothing ships until a maintainer rules.
 2. **A subjunctive escape hatch** *(fixes the one place the crate damages correct
    input)* — the defect is §1.5; the *feature* question is what the fix should be.
    Indicative-vs-subjunctive is a property of the clause (`if`, `wish`, mandative
