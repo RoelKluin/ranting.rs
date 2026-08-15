@@ -604,6 +604,79 @@ fn check_ident_path(p: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Reject a bare `-ing` participle in a verb slot that wrote no tense marker.
+///
+/// `{=0 walking}` used to compile and render "She walking": `inflect_verb`'s `detect_tense`
+/// branch correctly returns a non-present form untouched, but with no tense marker nothing ever
+/// supplies the auxiliary, so the writer error fails silently into user-visible text
+/// (`docs/architecture-review-2026-08-15.md` §1.8). The macro has the template string, so the
+/// mistake is caught here instead, with a message naming both intended spellings (`{=0 walk}` for
+/// the present, `{=0 =walk}` for the progressive).
+///
+/// Only the `-ing` form is rejected. A bare *past* in the same slot (`{=0 walked}`,
+/// `{=0 went}`) is left alone deliberately: past tense needs no auxiliary, so the untouched
+/// rendering is grammatical, and `tests/ranting/verb_tense.rs` pins it as intended output.
+///
+/// There is no lexicon here (matching the crate's spelling-only stance), so three spelling
+/// gates keep base verbs that merely *end* in "ing" out of the error:
+/// - an irregular base in `IRREGULAR_PAST` ("sing", "ring", "sting", "string", "swing",
+///   "bring") is accepted outright;
+/// - a stem shorter than two characters ("ping", "wing", "zing") cannot be a verb base;
+/// - a stem with no vowel ("cling" → "cl", likewise "fling", "sling", "spring", "wring")
+///   cannot either. `y` counts as a vowel so "flying" (stem "fly") and "dying" (stem "dy")
+///   are still caught.
+fn check_unmarked_verb_slot(word: &str) -> Result<(), String> {
+    let word_lower = word.to_lowercase();
+    let Some(stem) = word_lower.strip_suffix("ing") else {
+        return Ok(());
+    };
+    if stem.len() < 2
+        || verb_conjugate::IRREGULAR_PAST
+            .iter()
+            .any(|(base, _)| *base == word_lower)
+        || !stem
+            .chars()
+            .any(|c| matches!(c, 'a' | 'e' | 'i' | 'o' | 'u' | 'y'))
+    {
+        return Ok(());
+    }
+    // Recover the base verb for the message by undoing each of `to_continuous`'s spelling rules
+    // and keeping the first candidate that round-trips ("walk", "run" from "runn", "make" from
+    // "mak", "die" from "dy"). The undoubled form is tried before the raw stem because both
+    // round-trip for a doubled consonant ("runn" + ing is also "running") -- except when the
+    // letter is one that legitimately doubles at the end of a base ("fall", "pass", "buzz",
+    // "stuff"), where the raw stem is the real verb. The stem is only a fallback, not
+    // authoritative.
+    let mut candidates = Vec::new();
+    let stem_chars: Vec<char> = stem.chars().collect();
+    if stem_chars.len() >= 2
+        && stem_chars[stem_chars.len() - 1] == stem_chars[stem_chars.len() - 2]
+        && !matches!(stem_chars[stem_chars.len() - 1], 'l' | 's' | 'z' | 'f')
+    {
+        candidates.push(stem[..stem.len() - 1].to_string());
+    }
+    // `to_continuous`'s ie -> y rule only ever produces a two-character stem ("die" -> "dy",
+    // "lie", "tie", "vie"); a longer y-final stem ("fly", "try", "spy") is its own base, so the
+    // restored-`ie` candidate is gated on the stem length and tried first.
+    if let Some(pre_y) = stem.strip_suffix('y')
+        && stem.len() == 2
+    {
+        candidates.push(format!("{pre_y}ie"));
+    }
+    candidates.push(stem.to_string());
+    candidates.push(format!("{stem}e"));
+    let base = candidates
+        .into_iter()
+        .find(|c| verb_conjugate::to_continuous(c) == word_lower)
+        .unwrap_or_else(|| stem.to_string());
+    Err(format!(
+        "`{word}` is a continuous form, but this verb slot has no tense marker, so nothing \
+         supplies the auxiliary and the output is ungrammatical (\"She {word_lower}\"). Write \
+         `{base}` for the present tense (`{{=0 {base}}}`), or `={base}` for the progressive \
+         (`{{=0 ={base}}}`)"
+    ))
+}
+
 /// The expression for a match. if numeric, retreive the expression from the positionals
 fn get_opt_num_ph_expr(p: &str, given: &HashMap<String, Expr>, span: Span) -> Result<Expr, String> {
     match p.parse::<String>() {
@@ -708,6 +781,15 @@ fn handle_param(
             // captured (the runtime still splits off the trailing word to conjugate and
             // passes leading words through verbatim -- unchanged from before this
             // refactor, see `PostSpec::Verb`'s doc comment).
+            //
+            // The head word is the one the runtime conjugates, so it is the one checked
+            // against `check_unmarked_verb_slot` -- a bare participle here would render
+            // ungrammatically ("She walking") with nothing supplying the auxiliary.
+            let head = post_trimmed.split_whitespace().next().unwrap_or("");
+            if let Err(msg) = check_unmarked_verb_slot(head) {
+                let post_span = post_span.unwrap();
+                return Err((post_span.start(), post_span.end(), msg));
+            }
             quote!(ranting::placeholder::PostSpec::Verb(#post))
         } else {
             let marker = &post_trimmed[..marker_end];
@@ -1030,7 +1112,7 @@ fn handle_param(
 
 #[cfg(test)]
 mod tests {
-    use super::check_ident_path;
+    use super::{check_ident_path, check_unmarked_verb_slot};
 
     /// The guard's whole point: these used to reach `syn::Ident::new` and *panic*, which rustc
     /// reports as "proc macro panicked" with the caret on the entire `say!(...)` invocation and no
@@ -1070,6 +1152,66 @@ mod tests {
             assert!(
                 check_ident_path(word).is_ok(),
                 "{word} should be accepted as a possible variable name"
+            );
+        }
+    }
+
+    /// `docs/architecture-review-2026-08-15.md` §1.8: `{=0 walking}` used to render "She walking"
+    /// silently. There is no trybuild harness, so like `check_ident_path` above, the guard
+    /// function is pinned directly rather than through the rendered compile error.
+    #[test]
+    fn bare_participles_in_a_verb_slot_are_rejected() {
+        for word in [
+            "walking", "running", "talking", "playing", "making", "going", "doing", "being",
+            "flying", "dying", "eating", "Walking",
+        ] {
+            let err = check_unmarked_verb_slot(word)
+                .expect_err("a bare -ing form in an unmarked verb slot must be an error");
+            assert!(
+                err.contains("no tense marker"),
+                "message should name the rule that was broken, got: {err}"
+            );
+            assert!(
+                err.contains(word),
+                "message should quote the offending word, got: {err}"
+            );
+        }
+    }
+
+    /// The message must name both intended spellings, with the base verb recovered from the
+    /// participle -- including through consonant undoubling and restored final `e`/`ie`.
+    #[test]
+    fn rejection_message_names_both_intended_spellings() {
+        for (word, base) in [
+            ("walking", "walk"),
+            ("running", "run"),
+            ("making", "make"),
+            ("dying", "die"),
+        ] {
+            let err = check_unmarked_verb_slot(word).unwrap_err();
+            assert!(
+                err.contains(&format!("{{=0 {base}}}")) && err.contains(&format!("{{=0 ={base}}}")),
+                "message for `{word}` should name `{{=0 {base}}}` and `{{=0 ={base}}}`, got: {err}"
+            );
+        }
+    }
+
+    /// What must survive the guard. Two families:
+    /// - bare *past* forms (`{=0 walked}`, `{=0 went}`): grammatical without an auxiliary, and
+    ///   pinned as intended output throughout `tests/ranting/verb_tense.rs`;
+    /// - base verbs that merely end in "ing": the irregular bases ("sing", "bring", "swing",
+    ///   "string"), the one-letter stems ("ping", "wing"), and the vowel-less stems ("cling",
+    ///   "fling", "wring").
+    #[test]
+    fn legitimate_verb_slot_words_still_pass() {
+        for word in [
+            "walk", "walked", "went", "was", "is", "eat", "pick", "sing", "ring", "bring", "sting",
+            "string", "swing", "cling", "fling", "sling", "wring", "ping", "ding", "wing", "zing",
+            "king", "thing", "",
+        ] {
+            assert!(
+                check_unmarked_verb_slot(word).is_ok(),
+                "`{word}` should be accepted in an unmarked verb slot"
             );
         }
     }

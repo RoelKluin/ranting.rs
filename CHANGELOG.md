@@ -13,6 +13,29 @@
   falsifier crates included, and `docs/EXTENSIBILITY.md` now use
   `capitalize_if`. Behavior is identical.
 
+### Changed
+
+- **A bare `-ing` form in an unmarked verb slot is now a compile error instead
+  of rendering ungrammatical text.** `say!("{=0 walking}")` used to compile and
+  render `"She walking"` — the runtime correctly leaves a non-present form
+  untouched, but nothing ever supplies the auxiliary, so the writer error
+  failed silently into user-visible output
+  (`docs/architecture-review-2026-08-15.md` §1.8, ROADMAP.md Phase 8 item 6).
+  The macro now rejects the template with a message naming both intended
+  spellings: `{=0 walk}` for the present, `{=0 =walk}` for the progressive.
+  No grammatical template changes meaning or output — this only turns a
+  previously-accepted malformed template into an error at compile time.
+  - Bare *past* forms are untouched: `{=0 walked}` and `{=0 went}` render
+    grammatically without an auxiliary and stay pinned as intended output in
+    `tests/ranting/verb_tense.rs`.
+  - Base verbs that merely end in "ing" (`{0 sing}`, `{0 bring}`, `{0 ping}`,
+    `{0 cling}`) still compile — the guard checks irregular-table bases and
+    stem shape, not the raw suffix. Live in `ranting_ar`/`ranting_ja`, which
+    both use `{0 sing}`.
+  - Pinned by unit tests on `check_unmarked_verb_slot` in
+    `ranting_derive/src/lib.rs` (this repo has no trybuild harness — same
+    arrangement as `check_ident_path`).
+
 ### Changed (breaking)
 
 - **`Ranting::inflect` takes a fifth parameter,

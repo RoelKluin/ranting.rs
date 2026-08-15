@@ -197,7 +197,7 @@ Breaking, recorded in CHANGELOG.md under Changed (breaking); new coverage in
 `tests/ranting/possessive_apostrophe.rs` (plural proper name, singular name ending in `s`, plural
 common noun).
 
-### 1.8 A bare participle after a subject marker renders ungrammatically, and is pinned
+### 1.8 A bare participle after a subject marker renders ungrammatically, and is pinned — ✅ **FIXED 2026-08-15**
 
 `{=0 walking}` renders "She walking" — the third-person arm sees a non-present tense
 (`detect_tense`) and returns the word untouched, which is right for `` {<0 walked} `` and wrong
@@ -211,6 +211,26 @@ runtime; what is missing is a diagnostic. The macro has the string at compile ti
 rejects other malformed placeholders, so a bare `-ing`/`-ed` word in a verb slot with no tense
 marker is detectable there. Not breaking — a warning, or an error behind the existing compile-time
 guard path.
+
+**Fixed** as a compile error through the existing `StrLitSlice::error` path:
+`check_unmarked_verb_slot` in `ranting_derive/src/lib.rs` rejects a bare `-ing` head word in a
+marker-less verb slot, naming both intended spellings in the message. Two scope decisions from
+implementing:
+
+- **Only `-ing` is rejected, not `-ed`.** A bare past in the same slot (`{=0 walked}`,
+  `{=0 went}`) renders *grammatically* — past tense needs no auxiliary, so "returned untouched"
+  is the correct output there, and `tests/ranting/verb_tense.rs` pins it extensively as intended.
+  Rejecting it would break correct, working templates for no defect.
+- The guard has no lexicon (the crate's spelling-only stance): base verbs that merely end in
+  "ing" survive via the irregular-verb table (`sing`, `bring`, `swing`), a minimum stem length
+  (`ping`, `wing`), and a stem-must-contain-a-vowel check (`cling`, `fling`, `wring`) — with `y`
+  counting as a vowel so `flying`/`dying` are still caught. `{0 sing}` is live in
+  `ranting_ar`/`ranting_ja` and still compiles.
+
+The pinning tests `test_continuous_form_walking`/`test_continuous_form_other` were retired (the
+templates no longer compile) and replaced with a note plus a test of the intended spellings; the
+guard itself is unit-tested directly in `ranting_derive`, the `check_ident_path` arrangement,
+since there is no trybuild harness. See CHANGELOG.md's Changed entry.
 
 ### 1.9 A negative `#var` spells "negativeone" — ✅ **FIXED 2026-08-15**
 

@@ -1158,6 +1158,15 @@ literal template").
    - §1.8 `{=0 walking}` → "She walking", silently, and is *pinned* as a test. Nothing
      to fix at runtime — what is missing is a compile-time diagnostic, which the macro
      has the string to produce (**not breaking**)
+     — ✅ **done 2026-08-15**: `check_unmarked_verb_slot` in `ranting_derive/src/lib.rs`
+     rejects a bare `-ing` head word in a marker-less verb slot at compile time, naming
+     both intended spellings (`{=0 walk}` present, `{=0 =walk}` progressive). Bare pasts
+     (`{=0 walked}`, `{=0 went}`) stay accepted — they render grammatically and are
+     pinned as intended — and base verbs merely ending in "ing" (`sing`, `bring`,
+     `ping`, `cling`) survive via table/stem-shape checks, no lexicon. The two tests
+     that pinned the old output were retired. Guard unit-tested directly (no trybuild),
+     the `check_ident_path` arrangement. See CHANGELOG.md's Changed entry and
+     `docs/architecture-review-2026-08-15.md` §1.8
    - §1.9 a negative `#var` spells "negativeone" (**not breaking**; upstream, guard it)
      — ✅ **done 2026-08-15**: a private `spell_count` in `src/lib.rs` spells the
      magnitude and prefixes `"minus "`, inside the one string the numeral hook may
