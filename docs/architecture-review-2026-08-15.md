@@ -105,6 +105,116 @@ generating `Self {}` for the braced-and-empty case. Pinned by
 `tests/ranting/heed_derive.rs::zero_captures_empty_braced_struct_still_generates_heed`
 (`struct Wait {}`). All eight crates' gates pass.
 
+**§§1.5-1.10 come from the English grammar coverage review (2026-08-15).**
+A grammarian read the placeholder surface end to end against complex-sentence English and reported
+both *missing channels* and *wrong output today*. The missing channels are scoped as ROADMAP.md
+Phase 8; the six entries below are the half that belongs here, because each one renders something
+incorrect from input a caller wrote correctly. Every code claim was re-verified against the source
+before it was recorded. **All six are English-output changes**, so each names whether fixing it is
+breaking under CLAUDE.md's byte-identity invariant — that is what decides which can ride a patch
+release and which cannot.
+
+### 1.5 The subjunctive `were` is rewritten to `was`, in both persons — breaking to fix
+
+`src/language/english.rs`. `IrregularPluralVerb::Were` maps to `Some("was")` in **both**
+`first_person` (`:75`) and `third_person` (`:87`), unconditionally, so
+
+```rust
+say!("If {=i were} rich, …")   // -> "If I was rich, …"
+say!("If {=0 were} rich, …")   // -> "If he was rich, …"
+```
+
+There is no marker meaning "leave this verb form alone", so a caller who wrote the counterfactual
+correctly cannot keep it. This is the one finding in the review where `ranting` *damages* correct
+input rather than merely failing to generate something: a missing feature leaves the writer with
+hand-written text, this silently replaces formal English with the colloquial form.
+
+Two things make the fix more than a one-line edit. The mapping is duplicated across the two
+person arms, and it is **pinned by a regression test** — `(IrregularPluralVerb::Were,
+Some("was"), Some("was"))` at `:555` — so the current behavior is deliberate for the indicative
+(`you were` → `he was` is right) and cannot simply be deleted. Distinguishing indicative from
+subjunctive is *not* recoverable from the verb: it is a property of the clause (`if`, `wish`,
+`as though`, mandative `demand that`), which lives in the caller's template, not in the
+placeholder. So the plausible shapes are an escape-hatch marker or a `NarrationContext` flag, not
+a smarter conjugator — see Phase 8 item 2.
+
+### 1.6 Phrasal and compound verbs take the third-person `-s` on the wrong word — breaking to fix
+
+`src/language/english.rs`, `inflect_verb` (`:97`), the `"he" | "she" | "it"` arm. The suffix rules
+append to the whole trimmed string, so a multi-word verb is inflected on its **last** word:
+
+```rust
+say!("{=0 pick up} the sword.")     // -> "He pick ups the sword."
+```
+
+Correct is "picks up". The head is the first word, and **all three** append branches inside that
+one arm have the bug independently — the sibilant `+ "es"`, the consonant-`y` `+ "ies"` and the
+default `+ "s"` — because which one fires is decided by the spelling of the **particle**, not of
+the verb: `` {=0 stick to} `` takes the sibilant branch ("stick toes") and `` {=0 get by} `` the
+consonant-`y` branch ("get bies"). A fix that splits off the head therefore has to reach all three,
+not just the `+ "s"` one the obvious example lands in. Tense-marked forms are **not** affected —
+`` {<0 pick up} `` and friends conjugate through `ranting_core::verb_conjugate`, which the macro
+applies to the head — so the defect is specific to bare third-person-singular present, which is
+also the single most common form in generated prose.
+
+Not previously recorded anywhere: absent from ROADMAP.md, DONE.md, both earlier reviews and
+`failures/`. The fix is contained (split at the first space, conjugate the head, re-append the
+remainder) but it changes rendered output for existing templates, hence breaking.
+
+### 1.7 Plural proper names get `'s` instead of a bare apostrophe — breaking to fix
+
+`src/lib.rs:1496`. `adapt_possesive_s` picks the bare `'` only when the noun is plural *and* not a
+name, and `is_name` (`:1503`) decides "name" by looking at nothing but the first character:
+
+```rust
+noun.name(false).trim_start_matches('\'').starts_with(|c: char| c.is_uppercase())
+```
+
+So `` {the Joneses'} `` renders "the Joneses's". The exemption is correct for a *singular* name
+ending in `s` (Myles's, which the doctest at `:1490` pins) but it fires on any capitalized noun
+regardless of number, and plural proper names take the bare apostrophe like any other plural.
+Smallest and most mechanical of the six; still an output change.
+
+### 1.8 A bare participle after a subject marker renders ungrammatically, and is pinned
+
+`{=0 walking}` renders "She walking" — the third-person arm sees a non-present tense
+(`detect_tense`) and returns the word untouched, which is right for `` {<0 walked} `` and wrong
+here, because nothing supplied the auxiliary. `tests/ranting/verb_tense.rs`'s
+`test_continuous_form_walking` **pins** it, so it is current intended behavior rather than an
+oversight.
+
+The template is a writer error (`` {=0 walk} `` is the intended spelling, or `` {=0 =walk} `` for
+the progressive), but it fails silently into user-visible text. There is nothing to fix at
+runtime; what is missing is a diagnostic. The macro has the string at compile time and already
+rejects other malformed placeholders, so a bare `-ing`/`-ed` word in a verb slot with no tense
+marker is detectable there. Not breaking — a warning, or an error behind the existing compile-time
+guard path.
+
+### 1.9 A negative `#var` spells "negativeone" — not breaking
+
+`src/lib.rs:509` already carries the comment: `rant_convert_numbers` spells only 1 as "one", and
+`-1` comes back as "negativeone", a single unhyphenated non-word. It is upstream
+(`english_numbers::convert_no_fmt`) rather than ours, and no caller is likely to have pinned it,
+so guarding it (reject, or render digits) is not a byte-identity break in any realistic sense.
+Recorded here so it stops being only a source comment.
+
+### 1.10 Space-separated compound nouns pluralize on the tail — breaking to fix
+
+`src/language/plurals.rs:121`, `compound_plural` opens with `word.split('-')` and returns `None`
+for anything without a hyphen, so head-first compounds written with hyphens work — `mother-in-law`
+→ `mothers-in-law` via the preposition list, `attorney-general`/`court-martial` via the
+postposed-adjective list — while the same words written with spaces fall through to
+`regular_plural` and pluralize on the tail: `attorney general` → "attorney generals",
+`court martial` → "court martials". Both closed lists (`in of by at on to up`;
+`martial general apparent designate`) are reachable, so this is a splitting gap, not an unreached
+branch.
+
+Deliberately *not* filed as "just also split on spaces": the space case is genuinely riskier,
+since a space-separated noun phrase in a placeholder is far more likely to be an ordinary
+modifier + head (`red house` → "red houses", correct today) than a postposed-head compound. The
+closed lists bound that risk, and bounding it is the design question the fix has to answer. See
+`.claude/rules/pluralization.md` point 6 — adding a rule means auditing what it now gets wrong.
+
 ## 2. Documentation defects found and fixed on 2026-08-15
 
 | # | Claim | Where | Reality |
@@ -192,3 +302,13 @@ Not scheduled as a fix — there is no defect to correct and no test to write ye
 ever exercised the path that would expose one. Left as an open item, in the same spirit as §4.7:
 the falsifier contract is designed to surface exactly this kind of gap, and after four forks it
 still hasn't fired on this corner of the hook surface.
+
+### 4.2 The grammar review's other half is scoped, not fixed (added 2026-08-15)
+
+§§1.5-1.10 are the defect half of the English coverage review. The other half — constructions
+complex English needs that no placeholder can express (the participle channel and passive voice,
+agreeing quantifiers, the mass/count distinction, ordinals, adverb derivation) — is scoped as
+**ROADMAP.md Phase 8** rather than recorded here, since none of it is a defect: what renders today
+is correct, there is simply no channel and the caller hand-writes the words. The review also
+declined two candidates outright as word-order-boundary matters (relative-pronoun selection,
+reciprocals); Phase 8's non-goals name them and cite the locked decision rather than re-opening it.

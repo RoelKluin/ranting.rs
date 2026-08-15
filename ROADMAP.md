@@ -25,6 +25,11 @@ lives in [DONE.md](DONE.md). This file is the forward-looking roadmap only.
 (item 11), **both** reference lexicons (items 5 and 6) and the two items they
 scheduled (12 and 13) all landed on 2026-08-14.
 
+📋 **Phase 8 (English grammar depth) is scoped, not started** — six recorded defects
+plus five missing channels, from a grammarian's end-to-end review of the placeholder
+surface against complex-sentence English (2026-08-15). See its section below; the
+defect half is `docs/architecture-review-2026-08-15.md` §§1.5-1.10.
+
 **Shipping today**:
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
 - `say!()`/`say_with!()`/`ack!()`/`nay!()`/`heed!()`/`ask!()`/`#[derive(Heed)]`
@@ -941,6 +946,112 @@ building, its build item is dropped rather than executed anyway.
 
 ---
 
+## Phase 8 — English grammar depth (scoped 2026-08-15, not started)
+
+*Goal: Phases 6 and 7 spent four falsifier crates asking whether the hook surface
+carries enough signal for a **non-English** implementation. This phase asks the
+question that was never asked in the other direction: whether the English the crate
+ships can carry a **complex sentence**. A grammarian reviewed the placeholder surface
+end to end for that and found two distinct kinds of answer — constructions with no
+channel at all (below), and six places where `ranting` renders something wrong from
+input the caller wrote correctly (`docs/architecture-review-2026-08-15.md` §§1.5-1.10).
+The defects are item 6; items 1-5 are the missing channels, ordered by how often a
+writer of ordinary prose hits them.*
+
+**No version number yet.** Items 1-3 each change what an existing template can render
+and item 6 changes what existing templates *do* render, so how this phase slices into
+releases depends on which items are taken — that is a decision for whoever schedules
+it, not a number to guess now.
+
+**What this phase is not**: a re-opening of the word-order boundary. Two candidates
+the review raised are declined for that reason and are named under Non-goals below;
+they are cited, not re-litigated (Key Architecture Decisions, "Word order lives in the
+literal template").
+
+1. **The participle channel, and passive voice with it** *(largest gap; parts already
+   exist)* — `ranting_core::verb_conjugate::to_past_participle` is already built and
+   already fed by the irregular tables, but the only markers that reach it are `%`
+   (present perfect) and `<%` (past perfect). So a template cannot compose
+   `be` + participle for a *variable* verb: passive voice ("the sword **is taken**"),
+   future perfect ("**will have taken**"), perfect progressive ("**has been picking**")
+   and the conditional perfect are all hand-written today, for a verb whose form the
+   crate already knows how to produce. Passive alone is pervasive in the descriptive
+   prose this crate targets. Shape suggested by the review: a fused marker in the
+   family the `*=`/`*@` work established (`=%verb` → "is/are seen", `>%verb` → "will
+   have seen"), which reuses `PH_EXT`'s existing fused-marker precedent rather than
+   adding a grammar level. Agreement on the auxiliary is already correct machinery.
+2. **A subjunctive escape hatch** *(fixes the one place the crate damages correct
+   input)* — the defect is §1.5; the *feature* question is what the fix should be.
+   Indicative-vs-subjunctive is a property of the clause (`if`, `wish`, mandative
+   `demand that`), which lives in the caller's template and is not recoverable from
+   the verb, so a smarter conjugator cannot do it. The two shapes worth spiking are a
+   verbatim marker ("this verb form is final, inflect nothing") — which is cheap,
+   general, and useful well beyond the subjunctive — and a `NarrationContext` mood
+   flag, which is not, since mood varies per clause and `NarrationContext` is per
+   call. Retires the "Subjunctive mood and hypotheticals" bullet from
+   *v1.4+: Advanced Features* below, which named the gap without knowing the crate
+   actively overwrites it.
+3. **Agreeing quantifiers, and the mass/count distinction** — `ArticleOrSo` stops at
+   a/an/some/the/these/those, so *no*, *every*, *each*, *either*, *much*/*many* and
+   *less*/*fewer* have no channel and a quantified noun phrase is hand-assembled.
+   Two sub-parts, separable: (a) quantifiers that agree in number, which is the
+   existing `these`/`those`→`this`/`that` machinery pointed at more words — *no* is
+   number-transparent ("no item" / "no items"), *every*↔*all* swaps on number; and
+   (b) a mass/count flag on the entity (`#[ranting(mass)]`, the shape `gender` already
+   uses), without which `{a 0}` on "information" renders "an information" and nothing
+   can pick *much* over *many*. (b) is what makes (a) correct rather than merely
+   available. Zero-count idiom ("there are **no** items") is expressible today via
+   `` {?#n +items} `` but is undiscoverable; (a) is also its ergonomic fix.
+4. **Ordinals** — `#var` spells cardinals only, so "the **third** attempt" cannot come
+   out of a placeholder. Pure word-form inflection with no word movement, i.e. squarely
+   inside the boundary. Cheapest of the five and it has a second constituency: ordinals
+   agree in gender in Spanish and Arabic, so an `ord` variant of `#` handed to
+   `inflect_numeral_custom` (which already carries `NumeralStyle` and a real `count`)
+   gives `ranting_es`/`ranting_ar` something to override, against the never-exercised
+   surface §4.1 records. Note `english_numbers::convert_no_fmt`'s behavior on negatives
+   while here — see item 6's §1.9.
+5. **Adverb derivation** — quick→quickly, happy→happily, is in-place word inflection of
+   exactly the kind the crate already does for degree (`!`/`!!`), and has no channel.
+   Lowest priority of the five: the adjective slot is post-noun only, so the sentence
+   positions an adverb actually occupies are frequently ones a template writes as
+   literal text anyway. Scoped here to be *decided*, possibly declined — it may be a
+   channel that exists and is rarely reachable, which is the same shape as
+   `ranting_i18n`'s prenominal-adjective hole.
+6. **The six recorded defects** — `docs/architecture-review-2026-08-15.md` §§1.5-1.10,
+   each verified against the source. Four change rendered English and are therefore
+   **breaking** under the byte-identity invariant, so they want one release between
+   them rather than four:
+   - §1.5 subjunctive `were`→`was`, both persons, pinned by a regression test at
+     `english.rs:555` (**breaking**; the fix is item 2, the two are the same work)
+   - §1.6 phrasal verbs take third-person `-s` on the last word — "He pick ups"
+     (**breaking**; bare present only, tense-marked forms are already correct)
+   - §1.7 plural proper names get `'s` — "the Joneses's", because `is_name` looks at
+     the first character and nothing else (**breaking**; smallest of the six)
+   - §1.10 space-separated compound nouns pluralize on the tail — "attorney generals",
+     where the hyphenated spelling is already correct (**breaking**; the head-detection
+     lists exist, the risk to bound is ordinary modifier + head)
+   - §1.8 `{=0 walking}` → "She walking", silently, and is *pinned* as a test. Nothing
+     to fix at runtime — what is missing is a compile-time diagnostic, which the macro
+     has the string to produce (**not breaking**)
+   - §1.9 a negative `#var` spells "negativeone" (**not breaking**; upstream, guard it)
+
+**Non-goals, with the decision they cite**
+- **Relative and interrogative pronoun case** (who/whom/whose). The case machinery
+  exists and the review rated the gap real, but selecting a relative pronoun requires
+  knowing its antecedent and its role in a subordinate clause — knowledge that lives in
+  the sentence's structure, not in the entity or the placeholder. Declined on the same
+  grounds as Phase 6 item 1's locked boundary, not on cost.
+- **Reciprocals** (each other / one another), **imperatives**, **indefinite pronouns**
+  and **existential *there***: all correctly literal template text today. The review
+  confirmed this rather than finding a gap.
+- **Modal conjugation** — modals are invariant in English and the crate models that
+  correctly; there is nothing to add.
+- **"Each of the boys is"** — notional agreement across a partitive. The `OF` heuristic
+  handles the partitive *head* already; a general treatment needs the clause, see the
+  first bullet.
+
+---
+
 ## Post-v1.2: Future Directions
 
 ### v1.3.0+: Beyond Phase 6
@@ -965,8 +1076,13 @@ building, its build item is dropped rather than executed anyway.
 
 ### v1.4+: Advanced Features (Community-Driven)
 - Dialogue formatting with automatic punctuation and breaks
-- Pluralization of entire phrases (not just nouns)
-- Subjunctive mood and hypotheticals
+- Pluralization of entire phrases (not just nouns) — partly overtaken by Phase 8 item 6:
+  the *compound noun* half of this is a defect today (§1.10, "attorney generals"), not a
+  future feature. What remains here is pluralizing an arbitrary phrase, which is not the
+  same problem
+- ~~Subjunctive mood and hypotheticals~~ — **superseded by Phase 8 item 2**, which
+  found the crate does not merely lack the subjunctive: it rewrites `were` to `was`
+  in both persons and offers no way to opt out
 - Register and dialect specialization (formal vs. informal, archaic, etc.) via context system from v1.1
   — the overlap with [Phase 6 item 3](DONE.md#phase-6--v130--internationalization-foundations) is now
   settled: T-V pronoun selection (`du`/`Sie`, `tu`/`vous`) rides the addressee's **own declared
