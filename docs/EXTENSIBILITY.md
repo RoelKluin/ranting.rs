@@ -886,7 +886,10 @@ spec on `$var` is not re-applied to it; a fork that wants padding pads its own o
 parsing, the inverse direction, and does not route here either.
 
 **English is untouched.** The default returns `None`, which keeps `rant_convert_numbers` for `#var`
-and the argument's own `Display` for `$var`.
+and the argument's own `Display` for `$var`. One detail a replacing fork should know: for a
+negative `#var` the English string arrives with its sign spelled as a word (`-1` is
+`"minus one"`, since `rant_convert_numbers` alone writes the non-word `"negativeone"`), all in
+the one string a returned `Some` replaces whole.
 
 **Wrappers.** `Box<T>` forwards to its inner value; `Many` forwards only when it holds exactly one
 item, as in §2.4/§2.6/§2.7; `Maybe(Some(x))` forwards to `x`, `Maybe(None)` declines.

@@ -1008,8 +1008,9 @@ literal template").
    agree in gender in Spanish and Arabic, so an `ord` variant of `#` handed to
    `inflect_numeral_custom` (which already carries `NumeralStyle` and a real `count`)
    gives `ranting_es`/`ranting_ar` something to override, against the never-exercised
-   surface §4.1 records. Note `english_numbers::convert_no_fmt`'s behavior on negatives
-   while here — see item 6's §1.9.
+   surface §4.1 records. `english_numbers::convert_no_fmt`'s behavior on negatives is
+   already guarded (item 6's §1.9), but its unhyphenated "twentyone" is not — an
+   ordinal speller inherits that spelling question.
 5. **Adverb derivation** — quick→quickly, happy→happily, is in-place word inflection of
    exactly the kind the crate already does for degree (`!`/`!!`), and has no channel.
    Lowest priority of the five: the adjective slot is post-noun only, so the sentence
@@ -1034,6 +1035,12 @@ literal template").
      to fix at runtime — what is missing is a compile-time diagnostic, which the macro
      has the string to produce (**not breaking**)
    - §1.9 a negative `#var` spells "negativeone" (**not breaking**; upstream, guard it)
+     — ✅ **done 2026-08-15**: a private `spell_count` in `src/lib.rs` spells the
+     magnitude and prefixes `"minus "`, inside the one string the numeral hook may
+     still replace wholesale. "minus twentyone", not "minus twenty-one" — upstream
+     spells positive 21 as "twentyone" and non-negative output is unchanged.
+     `i64::MIN`'s pre-existing upstream panic is deliberately left as it was.
+     Pinned by `tests/ranting/numeral.rs`
 
 **Non-goals, with the decision they cite**
 - **Relative and interrogative pronoun case** (who/whom/whose). The case machinery

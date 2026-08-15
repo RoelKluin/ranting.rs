@@ -46,8 +46,25 @@ pub use answerable::Answerable;
 pub use collections::{Many, Maybe};
 pub use narration::{NarrationContext, Person, Register, Tense};
 
+// Upstream's speller, re-exported raw: it spells a negative as one unhyphenated run
+// ("negativeone"). `spell_count` below is what `#var` actually renders through.
 #[doc(hidden)]
 pub use english_numbers::convert_no_fmt as rant_convert_numbers;
+
+/// Spell a `#var` count in English words, writing the sign as a separate word.
+///
+/// `english_numbers` renders a negative as a single run — `-1` comes back as the non-word
+/// "negativeone" — so the magnitude is spelled and "minus " prefixed instead. The result is
+/// still one string, which is what `inflect_numeral_custom` is contracted to replace wholesale.
+fn spell_count(count: i64) -> String {
+    match count.checked_neg() {
+        // `i64::MIN` has no representable magnitude. Upstream panics on it (it takes `abs()`
+        // internally), and did before this guard existed; leaving the call in place keeps that
+        // pre-existing failure exactly as it was rather than inventing an output shape for it.
+        Some(magnitude) if count < 0 => format!("minus {}", rant_convert_numbers(magnitude)),
+        _ => rant_convert_numbers(count),
+    }
+}
 
 // required for ranting_derive
 #[doc(hidden)]
@@ -505,10 +522,11 @@ where
         "+" => true,
         "-" => false,
         // `#var`'s count is baked by the macro, so number agreement is decided from the
-        // number itself rather than from the rendered word. That is exactly equivalent for
-        // English -- `rant_convert_numbers` spells only 1 as "one" (-1 is "negativeone") --
-        // and it is what keeps a non-English `inflect_numeral_custom` from flipping
-        // agreement: the hook renders *after* this, and its output is never sniffed.
+        // number itself and never from the rendered word. That is what keeps a non-English
+        // `inflect_numeral_custom` from flipping agreement -- the hook renders *after* this,
+        // and its output is never sniffed -- and it is also why `spell_count`'s "minus one"
+        // agrees plural ("minus one degrees"), which sniffing the spelled form would get
+        // wrong now that the negative spelling contains the word "one".
         "#" => count != Some(1),
         _ => {
             let s = nr.trim_start();
@@ -705,7 +723,7 @@ where
         // `#var` is spelled here rather than by the macro, so the hook can replace the
         // speller wholesale; `$var` arrives already rendered, `:fmt` spec applied.
         let english = match kind {
-            NumeralKind::Words => count.map_or_else(String::new, rant_convert_numbers),
+            NumeralKind::Words => count.map_or_else(String::new, spell_count),
             NumeralKind::Digits => nr.clone(),
         };
         // `$var`'s count is not baked (its argument needn't be an integer at all), so it is
@@ -2424,7 +2442,9 @@ pub trait Ranting: std::fmt::Display {
     /// * `numeral` - The number as English renders it, i.e. what is used if this returns `None`:
     ///   the spelled-out word for [`NumeralStyle::Words`], or the already-formatted digits
     ///   (`:fmt` spec applied) for [`NumeralStyle::Digits`]. A digit-mapping fork can transcribe
-    ///   this directly; a fork that spells numbers wants `count` instead.
+    ///   this directly; a fork that spells numbers wants `count` instead. A negative count
+    ///   arrives with its sign spelled as a word — `-1` is `"minus one"` — in this one string,
+    ///   which a returned `Some` replaces whole, sign included.
     /// * `count` - The number itself, when it is available. Always `Some` for
     ///   [`NumeralStyle::Words`], where the macro bakes the same `as i64` cast it always applied
     ///   before spelling. For [`NumeralStyle::Digits`] it is recovered by parsing `numeral`, so

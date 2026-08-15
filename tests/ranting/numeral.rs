@@ -9,7 +9,8 @@
 // digits.
 //
 // `#var` is therefore spelled at *runtime* now, from a count the macro bakes,
-// with `rant_convert_numbers` as the fallback — so English output is unchanged
+// with `spell_count` (`rant_convert_numbers` plus a sign guard) as the fallback
+// — so English output is unchanged for non-negative counts
 // (the guards at the bottom of this file assert that) while
 // `inflect_numeral_custom` can replace the speller wholesale. `$var` still
 // arrives pre-rendered with its `:fmt` spec applied, and the hook gets that
@@ -343,4 +344,43 @@ fn english_numeral_verb_and_article_agreement_is_unchanged() {
         say!("I have {#0 boot}, {$1 sock}", 3, 4),
         "I have three boots, 4 socks"
     );
+}
+
+// A negative `#var` used to spell one unhyphenated non-word — `english_numbers`
+// renders -1 as "negativeone" (`docs/architecture-review-2026-08-15.md` §1.9).
+// The sign is now a word of its own and the magnitude is spelled exactly as the
+// positive count is: 21 renders "twentyone" (pinned above), so -21 renders
+// "minus twentyone" — the fix is the sign, not upstream's hyphenation.
+#[test]
+fn a_negative_words_numeral_spells_the_sign_as_a_word() {
+    let boot = Noun::new("boot", "it");
+    assert_eq!(say!("I see {#0 boot}", -1), "I see minus one boots");
+    assert_eq!(say!("I see {#0 boot}", -21), "I see minus twentyone boots");
+    // Zero is not negative and is untouched.
+    assert_eq!(say!("I see {#0 boot}", 0), "I see zero boots");
+    // The plural on "minus one boots" is deliberate — agreement is decided from
+    // the count (`-1 != Some(1)`), never from the spelled form, and English says
+    // "minus one degrees". Do not "fix" it by sniffing the word.
+    assert_eq!(say!("I see {#0 boot}", 1), "I see one boot");
+    // The leading space still belongs to `NumeralSpec::leading_space`: the sign
+    // word is spliced inside the numeral, so nothing before or after it moves.
+    assert_eq!(
+        say!("I see {a #0 boot}", -3),
+        "I see some minus three boots"
+    );
+    assert_eq!(say!("{#0 boot}", -1), "minus one Boots");
+}
+
+#[test]
+fn a_negative_numeral_reaches_the_hook_as_one_replaceable_string() {
+    let stol = RussianNoun::new("стол", "стола", "masculine");
+    // -1 is not one of the counts the fixture special-cases, so it echoes the
+    // string it was handed: the sign word arrives inside the numeral, not pushed
+    // separately, which is what keeps the hook able to replace it wholesale.
+    assert_eq!(say!("есть {#0 1}", -1, stol), "есть minus one стола");
+    // A hook that *does* replace it keeps its own rendering intact.
+    assert_eq!(say!("есть {#0 1}", 2, stol), "есть два стола");
+    // Digits are untouched by the sign guard — `$var` is its argument's own
+    // `Display` output, negative sign included.
+    assert_eq!(say!("есть {$0 1}", -1, stol), "есть -१ стола");
 }

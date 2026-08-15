@@ -190,13 +190,39 @@ rejects other malformed placeholders, so a bare `-ing`/`-ed` word in a verb slot
 marker is detectable there. Not breaking — a warning, or an error behind the existing compile-time
 guard path.
 
-### 1.9 A negative `#var` spells "negativeone" — not breaking
+### 1.9 A negative `#var` spells "negativeone" — ✅ **FIXED 2026-08-15**
 
-`src/lib.rs:509` already carries the comment: `rant_convert_numbers` spells only 1 as "one", and
+`src/lib.rs:509` already carried the comment: `rant_convert_numbers` spells only 1 as "one", and
 `-1` comes back as "negativeone", a single unhyphenated non-word. It is upstream
 (`english_numbers::convert_no_fmt`) rather than ours, and no caller is likely to have pinned it,
-so guarding it (reject, or render digits) is not a byte-identity break in any realistic sense.
-Recorded here so it stops being only a source comment.
+so guarding it is not a byte-identity break in any realistic sense.
+
+**Fixed** in `ranting`'s own code rather than upstream, by a private `spell_count` helper that
+`#var` renders through: for a negative count it spells the *magnitude* and prefixes `"minus "`, so
+`-1` is "minus one" and `-21` is "minus twentyone". Three things about the shape:
+
+- The sign word is built into the **same string** the numeral hook is handed, never pushed into
+  `res` separately, so `inflect_numeral_custom`'s replace-wholesale contract and
+  `NumeralSpec::leading_space` are both untouched. Pinned from the hook side by
+  `numeral::a_negative_numeral_reaches_the_hook_as_one_replaceable_string`.
+- **"minus twentyone", not "minus twenty-one"**, because `convert_no_fmt` runs with
+  `Formatting::none()` and already renders positive 21 as "twentyone" — pinned since Phase 6 by
+  `numeral::english_words_numerals_are_unchanged`. Hyphenating the negative alone would make the
+  two signs disagree; hyphenating both is an output change to non-negative counts, which this fix
+  deliberately is not. Upstream's missing hyphen/space in *any* multi-word cardinal is a separate,
+  unfiled, non-breaking-to-record observation.
+- `i64::MIN` is **unchanged**: its magnitude is not representable, upstream panics on it (it takes
+  `abs()` internally) and did so before this guard, so `spell_count`'s `checked_neg` falls through
+  to the same upstream call rather than inventing an output shape for an input that never worked.
+
+`{$var}` (digits) is not routed through the helper — its argument's own `Display` already writes
+the sign. Tests: `numeral::a_negative_words_numeral_spells_the_sign_as_a_word`.
+
+The fix also invalidated the *premise* of the `as_pl` comment at `src/lib.rs:509`, which cited
+"negativeone" as the reason deciding agreement from the count is equivalent to sniffing the
+rendered word. It no longer is — "minus one" contains "one" — so the comment now states that
+agreement is decided from the count and never from the spelling. `-1` renders "minus one boots",
+which is correct English ("minus one degrees") and is asserted deliberately.
 
 ### 1.10 Space-separated compound nouns pluralize on the tail — breaking to fix
 

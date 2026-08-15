@@ -34,6 +34,27 @@
 
 ### Fixed
 
+- **A negative `#var` spelled the non-word "negativeone".**
+  `say!("I see {#0 boot}", -1)` rendered `"I see negativeone boots"`
+  (`docs/architecture-review-2026-08-15.md` §1.9, ROADMAP.md Phase 8 item 6):
+  `english_numbers::convert_no_fmt` writes a negative as one unbroken run. The
+  sign is now a word of its own — `-1` is `"minus one"`, `-21` is
+  `"minus twentyone"` — spelled by a guard in `ranting`'s own code rather than
+  upstream. Non-negative counts are byte-identical, so this is not a breaking
+  change. Three notes:
+  - The magnitude keeps upstream's spelling exactly: positive 21 renders
+    `"twentyone"` today, so the negative is `"minus twentyone"` and not
+    `"minus twenty-one"` — hyphenating would change what non-negative counts
+    render.
+  - `"minus "` is part of the single numeral string handed to
+    `inflect_numeral_custom`, so the hook still replaces the whole numeral
+    wholesale and `NumeralSpec::leading_space` is untouched.
+  - `i64::MIN` is unchanged: its magnitude is not representable and upstream
+    already panicked on it.
+  - Agreement is unaffected — it is decided from the count, never from the
+    spelled word, so `-1` still takes the plural (`"minus one boots"`, as in
+    "minus one degrees").
+
 - **`{?$n noun}` left a stray space.** `say!("I see {?$0 boot}", 2)` rendered
   `"I see  boots"` (ROADMAP.md Phase 7 item 13). A hidden numeral sits between
   two separators — its own leading one and the noun's — and with nothing
