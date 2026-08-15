@@ -72,22 +72,30 @@ pub fn ask(input: TokenStream1) -> TokenStream1 {
     tokens.into()
 }
 
-/// heed!(template, input) matches `input` against `template` — literal
-/// words plus `{name}` (single token), `{name...}` (greedy, until the next
-/// literal or end of input), and `{$name}` (digits, parsed to u64) captures
-/// — returning `None` on no match, or the captured value(s) on match: bare
-/// for 0/1 captures, a tuple for 2+, matching say!()'s positional style.
+/// `heed!(template, input)` matches input text against a template of literal words and
+/// captures — the inverse of what `say!()` does.
 ///
-/// Whitespace is the only word boundary heed!() knows, permanently: every
-/// literal/capture boundary must be whitespace in the input. This is
-/// script-agnostic rather than ASCII-only — `heed!("取る {item}", "取る 剣")`
-/// captures `"剣"` — but continuous-script input written without spaces
-/// (`"剣を取る"`) simply returns `None` rather than being split by guesswork.
-/// Capture such a run whole (`heed!("{clause}", "剣を取る")`) and segment it
-/// with a real tokenizer. A punctuation-only literal is the one exemption: it
-/// abuts what precedes it, in any script (`"{item}、 取る"` matches `"剣、 取る"`).
-/// `ask!()` and `#[derive(Heed)]` share this compiler and behave identically.
-/// See README.md and ROADMAP.md Phase 6 item 9.
+/// | Capture | Matches | Yields |
+/// |---|---|---|
+/// | `{name}` | one whitespace-delimited token | `String` |
+/// | `{name...}` | everything up to the next literal, or the end of the input | `String` |
+/// | `{$name}` | digits | `u64` |
+///
+/// It returns the captured values on a match and nothing on a failure to match. The shape
+/// follows `say!()`'s positional style: a bare value for none or one capture, a tuple for two
+/// or more, all wrapped in an `Option`.
+///
+/// # Whitespace is the only word boundary
+///
+/// Permanently, and in every script: each boundary between a literal and a capture must be
+/// whitespace in the input. So `heed!("取る {item}", "取る 剣")` captures `"剣"` exactly as its
+/// English equivalent would, while `"剣を取る"` — a run written without spaces — matches
+/// nothing rather than being split by guesswork. Capture such a run whole, with
+/// `heed!("{clause}", "剣を取る")`, and hand it to a real tokenizer. Punctuation-only literals
+/// are the one exemption: they abut what precedes them, in any script, so `` {item}、 取る ``
+/// matches `"剣、 取る"`.
+///
+/// `ask!()` and `#[derive(Heed)]` compile their templates with this same grammar.
 #[proc_macro]
 pub fn heed(input: TokenStream1) -> TokenStream1 {
     let output = parse_macro_input!(input as heed::Heed);
@@ -290,7 +298,7 @@ pub fn ref_ranting_trait(input: TokenStream1) -> TokenStream1 {
 }
 
 /// `ask!(speaker, audience, template, input)`. Reuses `heed!()`'s template
-/// compiler (Phase 5, ROADMAP.md): `template`/`input` follow exactly
+/// compiler: `template` and `input` follow exactly
 /// `heed!()`'s own grammar and matching semantics, but the resulting
 /// captures are forwarded into `audience`'s `Answerable::answer` instead of
 /// being returned directly.
@@ -455,10 +463,13 @@ pub fn inner_derive_ranting(input: TokenStream1) -> TokenStream1 {
     ranting_q(options, is_enum, &input.ident).into()
 }
 
-/// `#[derive(Heed)]` — generates `fn heed(input: &str) -> Option<Self>` from a
-/// `#[heed(template = "...")]` attribute, reusing `heed!()`'s own template
-/// compiler. Every capture in the template must have a same-named field
-/// (String for `{name}`/`{name...}`, `u64` for `{$name}`), and vice versa.
+/// Give a struct a `#[heed(template = "...")]` attribute and it gains
+/// `fn heed(input: &str) -> Option<Self>`, filling its fields from what the template captures.
+///
+/// The template is `heed!()`'s, with the same grammar. Each capture must have a field of the
+/// same name and the matching type — `String` for `{name}` and `{name...}`, `u64` for
+/// `{$name}` — and each field must have a capture. A field without one, or a capture without a
+/// field, is a compile error rather than a silently empty value.
 #[proc_macro_derive(Heed, attributes(heed))]
 pub fn derive_heed(input: TokenStream1) -> TokenStream1 {
     let input = parse_macro_input!(input);

@@ -73,15 +73,14 @@ pub enum Register {
 
 /// Narration settings, threaded through `say_with!()`.
 ///
-/// **Per call, not per story.** These are usually set once for a story, and
-/// the docs used to say "story-wide" — which read as a constraint the type
-/// imposes rather than a description of the common case, and cost something
-/// real: ROADMAP.md Phase 7 item 3 nearly concluded that Japanese keigo was
-/// the wrong fit for `register`, because politeness varies per *addressee*
-/// within one scene. It varies freely: construct a different context per
-/// utterance. `ranting_ja/tests/japanese.rs`'s
-/// `register_can_vary_per_utterance_within_one_scene` is two contexts in one
-/// scene. (ROADMAP.md Phase 7 item 13.)
+/// **Per call, not per story.** These are usually set once for a story, but a context is cheap
+/// (`Copy`) and construct-per-utterance is normal too — e.g. `register` varies freely per
+/// *addressee* within one scene for Japanese keigo. See
+/// `ranting_ja/tests/japanese.rs::register_can_vary_per_utterance_within_one_scene` for two
+/// contexts in one scene.
+//
+// Earlier revisions of this doc said "story-wide," which read as a constraint the type imposes
+// rather than a description of the common case (ROADMAP.md Phase 7 items 3 and 13).
 ///
 /// Carries a tense override and a narration-person (viewpoint) override,
 /// both resolved internally by this crate (see `resolve_viewpoint` and

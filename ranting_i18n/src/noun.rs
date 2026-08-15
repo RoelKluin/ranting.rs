@@ -220,7 +220,7 @@ impl Ranting for GermanNoun {
             // does not model; let them fall through rather than mistranslate.
             _ => return None,
         };
-        Some(uc_1st_if(form, uc))
+        Some(capitalize_if(form, uc))
     }
 
     fn inflect_pronoun_custom(
@@ -250,7 +250,7 @@ impl Ranting for GermanNoun {
             // occurs here.
             PronounCase::Reflexive => "sich",
         };
-        Some(uc_1st_if(word, uc))
+        Some(capitalize_if(word, uc))
     }
 
     fn inflect_adjective_custom(
@@ -271,7 +271,7 @@ impl Ranting for GermanNoun {
         // The ending is fully determined; the *position* is not reachable (README hole 4).
         let case = self.case_for(case);
         let ending = adjective_ending(self.definiteness, case, class.as_str(), as_plural);
-        Some(uc_1st_if(&format!("{adjective}{ending}"), uc))
+        Some(capitalize_if(&format!("{adjective}{ending}"), uc))
     }
 
     fn inflect_numeral_custom(
@@ -325,7 +325,7 @@ impl Ranting for GermanNoun {
             ("an", "das") => "ans",
             _ => return None,
         };
-        Some(uc_1st_if(fused, uc))
+        Some(capitalize_if(fused, uc))
     }
 
     fn inflect_verb_custom(
@@ -337,7 +337,7 @@ impl Ranting for GermanNoun {
         uc: bool,
     ) -> Option<String> {
         let person = Person::from_subject(subject, as_plural);
-        lexicon::conjugate(verb, person).map(|form| uc_1st_if(form, uc))
+        lexicon::conjugate(verb, person).map(|form| capitalize_if(form, uc))
     }
 
     fn capitalize(
@@ -351,7 +351,7 @@ impl Ranting for GermanNoun {
             // German capitalizes nouns wherever they stand. `inflect`/`name` already return them
             // capitalized, so this only has to promise not to undo it.
             OrthographyRole::Noun => word.to_string(),
-            _ => uc_1st_if(word, uc),
+            _ => capitalize_if(word, uc),
         }
     }
 }

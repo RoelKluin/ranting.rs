@@ -7,25 +7,22 @@ use crate::Ranting;
 
 /// Implemented by anything that can be the audience of an `ask!()` call.
 ///
-/// `Captures` mirrors `heed!()`'s own capture-count convention: `()` for a
-/// zero-capture template, a bare `String` for one capture, or a tuple of
-/// `String`s for two or more. Unlike `heed!()`, a `{$name}` numeric capture
-/// is *not* auto-converted to `u64` here — `Captures` is always `String`
-/// (or a tuple of `String`s), since this is a trait method with one fixed
-/// signature regardless of which template a particular `ask!()` call site
-/// used to reach it. Parse what you need inside `answer()`.
+/// The associated type [`Captures`](Self::Captures) mirrors what `heed!()` returns: the unit
+/// type for a template that captures nothing, a bare string for one capture, a tuple for two or
+/// more. Numeric captures are the one difference — a `{$name}` arrives here as a string rather
+/// than a `u64`, because the trait has one signature for every template that reaches it. Parse
+/// what you need inside answer.
 ///
-/// `Captures` being an associated type means a given implementor supports
-/// exactly one capture arity everywhere it's used as an `ask!()` audience —
-/// a type that needs to answer differently-shaped questions needs a
-/// different approach (e.g. `Captures = Vec<String>`, giving up compile-time
-/// arity checking).
+/// Being an associated type, that shape is fixed per implementor: one audience answers
+/// questions of one arity. An audience that must field differently shaped questions needs a
+/// shape wide enough for all of them — `Vec<String>`, say — giving up the arity check the
+/// compiler would otherwise do.
 pub trait Answerable {
-    /// The capture shape every `ask!()` call site targeting this type must
-    /// use — see the trait-level docs for why this is fixed per type.
+    /// The capture shape every `ask!()` call site targeting this audience must use — see the
+    /// trait docs for why it is fixed per type.
     type Captures;
 
-    /// Produce a response to `speaker`'s question, given the captures
-    /// `ask!()` parsed out of the input text.
+    /// Produce a response to the speaker's question, given the captures `ask!()` parsed out of
+    /// the input text.
     fn answer(&self, speaker: &dyn Ranting, captures: Self::Captures) -> String;
 }

@@ -71,7 +71,7 @@ fn get_namefn_for(mut opt: RantingOptions, is_enum: bool) -> TokenStream {
             "$" => {
                 return parse_quote! {
                     fn name(&self, uc: bool) -> String {
-                        ranting::uc_1st_if(self.name.as_str(), uc)
+                        ranting::capitalize_if(self.name.as_str(), uc)
                     }
                 };
             }
@@ -154,7 +154,7 @@ fn get_plurality_fns(opt: &RantingOptions) -> TokenStream {
                     if as_plural {
                         // Try irregular plural lookup first
                         if let Some(plural) = ranting::inflect_noun_irregular(&name, true) {
-                            ranting::uc_1st_if(&plural, uc)
+                            ranting::capitalize_if(&plural, uc)
                         } else {
                             // Fall back to the regular rules. They apply English
                             // orthography only while both attributes are at their
@@ -165,7 +165,7 @@ fn get_plurality_fns(opt: &RantingOptions) -> TokenStream {
                     } else {
                         // Try irregular singular lookup first
                         if let Some(singular) = ranting::inflect_noun_irregular(&name, false) {
-                            ranting::uc_1st_if(&singular, uc)
+                            ranting::capitalize_if(&singular, uc)
                         } else {
                             ranting::inflect_noun_regular(&name, false, #singular_end, #plural_end)
                         }
@@ -191,7 +191,7 @@ fn get_plurality_fns(opt: &RantingOptions) -> TokenStream {
                     if as_plural {
                         // Try irregular plural lookup first
                         if let Some(plural) = ranting::inflect_noun_irregular(&name, true) {
-                            ranting::uc_1st_if(&plural, uc)
+                            ranting::capitalize_if(&plural, uc)
                         } else {
                             // See the `subject = "$"` branch above: same rules,
                             // same attribute-defaults contract.
@@ -200,7 +200,7 @@ fn get_plurality_fns(opt: &RantingOptions) -> TokenStream {
                     } else {
                         // Try irregular singular lookup first
                         if let Some(singular) = ranting::inflect_noun_irregular(&name, false) {
-                            ranting::uc_1st_if(&singular, uc)
+                            ranting::capitalize_if(&singular, uc)
                         } else {
                             ranting::inflect_noun_regular(&name, false, #singular_end, #plural_end)
                         }

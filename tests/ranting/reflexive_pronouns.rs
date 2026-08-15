@@ -111,7 +111,7 @@ impl fmt::Display for Dignitary {
 
 impl Ranting for Dignitary {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("dignitary", uc)
+        capitalize_if("dignitary", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -130,9 +130,9 @@ impl Ranting for Dignitary {
         _count: Option<PlaceholderCount>,
     ) -> String {
         if to_plural {
-            uc_1st_if("dignitaries", uc)
+            capitalize_if("dignitaries", uc)
         } else {
-            uc_1st_if("dignitary", uc)
+            capitalize_if("dignitary", uc)
         }
     }
 
@@ -150,7 +150,7 @@ impl Ranting for Dignitary {
         uc: bool,
     ) -> Option<String> {
         if subject == "you" && case == PronounCase::Reflexive {
-            return Some(uc_1st_if("their own royal person", uc));
+            return Some(capitalize_if("their own royal person", uc));
         }
         None
     }

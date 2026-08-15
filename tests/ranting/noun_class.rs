@@ -37,7 +37,7 @@ impl fmt::Display for GermanNoun {
 
 impl Ranting for GermanNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if(self.word, uc)
+        capitalize_if(self.word, uc)
     }
     fn subjective(&self) -> &str {
         "it"
@@ -52,7 +52,7 @@ impl Ranting for GermanNoun {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(self.word, uc)
+        capitalize_if(self.word, uc)
     }
     fn skip_article(&self) -> bool {
         false
@@ -86,7 +86,7 @@ impl Ranting for GermanNoun {
             // No class declared: nothing to decline on, so let English through.
             _ => return None,
         };
-        Some(uc_1st_if(form, uc))
+        Some(capitalize_if(form, uc))
     }
 
     fn inflect_pronoun_custom(
@@ -102,7 +102,7 @@ impl Ranting for GermanNoun {
         // article rather than collapsing to an English-style pronoun; see
         // tests/ranting/grammatical_case.rs for the same override and why the
         // `{the =noun}` form needs it.
-        Some(uc_1st_if(self.word, uc))
+        Some(capitalize_if(self.word, uc))
     }
 }
 
@@ -153,7 +153,7 @@ fn the_pronoun_hook_receives_the_class_too() {
     }
     impl Ranting for Probe {
         fn name(&self, uc: bool) -> String {
-            uc_1st_if("Katze", uc)
+            capitalize_if("Katze", uc)
         }
         fn subjective(&self) -> &str {
             "she"
@@ -168,7 +168,7 @@ fn the_pronoun_hook_receives_the_class_too() {
             _case: GrammaticalCase,
             _count: Option<PlaceholderCount>,
         ) -> String {
-            uc_1st_if("Katze", uc)
+            capitalize_if("Katze", uc)
         }
         fn skip_article(&self) -> bool {
             false
@@ -210,7 +210,7 @@ fn a_noun_that_declares_no_class_reports_unset() {
     }
     impl Ranting for Probe {
         fn name(&self, uc: bool) -> String {
-            uc_1st_if("dog", uc)
+            capitalize_if("dog", uc)
         }
         fn subjective(&self) -> &str {
             "it"
@@ -225,7 +225,7 @@ fn a_noun_that_declares_no_class_reports_unset() {
             _case: GrammaticalCase,
             _count: Option<PlaceholderCount>,
         ) -> String {
-            uc_1st_if("dog", uc)
+            capitalize_if("dog", uc)
         }
         fn skip_article(&self) -> bool {
             false

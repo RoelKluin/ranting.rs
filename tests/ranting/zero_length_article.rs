@@ -42,7 +42,7 @@ impl Ranting for Hund {
         _count: Option<PlaceholderCount>,
     ) -> String {
         let word = if to_plural { "Hunde" } else { "Hund" };
-        uc_1st_if(word, uc)
+        capitalize_if(word, uc)
     }
     fn skip_article(&self) -> bool {
         false
@@ -59,9 +59,9 @@ impl Ranting for Hund {
     ) -> Option<String> {
         match article {
             "a" if as_plural => Some(String::new()),
-            "a" => Some(uc_1st_if("ein", uc)),
-            "the" if as_plural => Some(uc_1st_if("die", uc)),
-            "the" => Some(uc_1st_if("der", uc)),
+            "a" => Some(capitalize_if("ein", uc)),
+            "the" if as_plural => Some(capitalize_if("die", uc)),
+            "the" => Some(capitalize_if("der", uc)),
             _ => None,
         }
     }
@@ -166,7 +166,7 @@ impl fmt::Display for NoArticleNoun {
 
 impl Ranting for NoArticleNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("Alaska", uc)
+        capitalize_if("Alaska", uc)
     }
     fn subjective(&self) -> &str {
         "it"
@@ -181,7 +181,7 @@ impl Ranting for NoArticleNoun {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if("Alaska", uc)
+        capitalize_if("Alaska", uc)
     }
     fn skip_article(&self) -> bool {
         true

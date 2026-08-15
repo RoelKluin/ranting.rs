@@ -25,7 +25,7 @@ impl fmt::Display for ArNoun {
 
 impl Ranting for ArNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("kitab", uc)
+        capitalize_if("kitab", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -47,12 +47,12 @@ impl Ranting for ArNoun {
         // `to_plural`: `{$n kitab}` with `n = 2` is plural agreement in English terms, so a fork
         // that read only `to_plural` would render `kutub` here, which is the defect item 11 fixed.
         if count.map(|c| c.value) == Some(2) {
-            return uc_1st_if("kitaban", uc);
+            return capitalize_if("kitaban", uc);
         }
         if to_plural {
-            uc_1st_if("kutub", uc)
+            capitalize_if("kutub", uc)
         } else {
-            uc_1st_if("kitab", uc)
+            capitalize_if("kitab", uc)
         }
     }
 
@@ -97,7 +97,7 @@ impl fmt::Display for CountProbe {
 
 impl Ranting for CountProbe {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("thing", uc)
+        capitalize_if("thing", uc)
     }
     fn subjective(&self) -> &str {
         "it"

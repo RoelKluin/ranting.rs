@@ -21,7 +21,7 @@ impl fmt::Display for PirateNoun {
 
 impl Ranting for PirateNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("pirate", uc)
+        capitalize_if("pirate", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -40,9 +40,9 @@ impl Ranting for PirateNoun {
         _count: Option<PlaceholderCount>,
     ) -> String {
         if to_plural {
-            uc_1st_if("pirates", uc)
+            capitalize_if("pirates", uc)
         } else {
-            uc_1st_if("pirate", uc)
+            capitalize_if("pirate", uc)
         }
     }
 
@@ -59,7 +59,7 @@ impl Ranting for PirateNoun {
         uc: bool,
     ) -> Option<String> {
         match verb {
-            "be" | "is" | "am" | "are" => Some(uc_1st_if("be", uc)),
+            "be" | "is" | "am" | "are" => Some(capitalize_if("be", uc)),
             _ => None,
         }
     }
@@ -109,7 +109,7 @@ fn inflect_verb_custom_with_context(
     ctx: Option<&NarrationContext>,
 ) -> Option<String> {
     match (verb, ctx.and_then(|c| c.register)) {
-        ("greet", Some(Register::Formal)) => Some(uc_1st_if("bows before", uc)),
+        ("greet", Some(Register::Formal)) => Some(capitalize_if("bows before", uc)),
         _ => self.inflect_verb_custom(subject, verb, as_plural, count, uc),
     }
 }
@@ -140,7 +140,7 @@ fn inflect_verb_custom(
 - `verb` (&str): The verb to inflect (e.g., "be", "have", "walk")
 - `as_plural` (bool): Whether to conjugate for plural form
 - `count` (`Option<PlaceholderCount>`): The placeholder's own `#var`/`$var` numeral, when it has one; `None` for a bare placeholder (ROADMAP.md Phase 6 item 14)
-- `uc` (bool): Whether to uppercase the first character (handle contractions with `uc_1st_if`)
+- `uc` (bool): Whether to uppercase the first character (handle contractions with `capitalize_if`)
 
 **Return Values:**
 - `Some(String)`: A custom verb form (used by the macro)
@@ -158,9 +158,9 @@ fn inflect_verb_custom(
     uc: bool,
 ) -> Option<String> {
     match verb {
-        "be" | "is" | "am" | "are" => Some(uc_1st_if("be", uc)),
-        "have" | "has" => Some(uc_1st_if("have", uc)),
-        "do" | "does" => Some(uc_1st_if("do", uc)),
+        "be" | "is" | "am" | "are" => Some(capitalize_if("be", uc)),
+        "have" | "has" => Some(capitalize_if("have", uc)),
+        "do" | "does" => Some(capitalize_if("do", uc)),
         _ => None,  // Fall back to English for other verbs
     }
 }
@@ -222,7 +222,7 @@ fn inflect_pronoun_custom(
 ) -> Option<String> {
     if subject == "you" && case == PronounCase::Subjective {
         // Formal French uses "vous" for plural "you"
-        return Some(uc_1st_if("vous", uc));
+        return Some(capitalize_if("vous", uc));
     }
     None  // Fall back to English for other pronouns
 }
@@ -300,7 +300,7 @@ fn inflect_article_custom(
             } else {
                 if as_plural { "los" } else { "el" }
             };
-            Some(uc_1st_if(form, uc))
+            Some(capitalize_if(form, uc))
         }
         _ => None,  // Fall back to English for a/an/some
     }
@@ -390,7 +390,7 @@ fn inflect_article_custom(
         (false, false, false) => "un",  (false, false, true) => "una",
         (false, true, false) => "unos", (false, true, true) => "unas",
     };
-    Some(uc_1st_if(form, uc))
+    Some(capitalize_if(form, uc))
 }
 ```
 
@@ -506,7 +506,7 @@ fn inflect_article_custom(
         ("neuter", _) => "das",
         _ => return None,   // no class declared: let English through
     };
-    Some(uc_1st_if(form, uc))
+    Some(capitalize_if(form, uc))
 }
 ```
 
@@ -576,7 +576,7 @@ fn inflect_adjective_custom(
     if as_plural {
         form.push('s');
     }
-    Some(uc_1st_if(&form, uc))
+    Some(capitalize_if(&form, uc))
 }
 ```
 
@@ -595,7 +595,7 @@ adjective placement is word order, which item 1 established stays with the calle
 
 **`uc` is yours to apply.** As with the article and pronoun hooks, the caller's
 uppercase-first-character pass runs only on the fallback path, so a custom form should call
-`uc_1st_if` itself.
+`capitalize_if` itself.
 
 **Wrappers.** `Box<T>` forwards to its inner value; `Many`/`Maybe` forward only when they hold
 exactly one item, and otherwise decline (there is no single entity whose gender could agree).
@@ -634,7 +634,7 @@ fn capitalize_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) 
 
 Unlike every other hook on this page this returns a `String`, not an `Option<String>` — it *is*
 the fallback, not a chance to decline one, which is why it isn't named `_custom`. Its default is
-exactly `uc_1st_if(word, uc)`, so overriding nothing leaves `say!()`'s output byte-identical.
+exactly `capitalize_if(word, uc)`, so overriding nothing leaves `say!()`'s output byte-identical.
 
 **Why it exists.** Sentence-start uppercasing is an English orthographic assumption that used to be
 compiled into `ranting` at every call site. German capitalizes every noun wherever it stands;
@@ -682,8 +682,8 @@ ASCII regression guard.
 ```rust
 fn capitalize(&self, word: &str, role: OrthographyRole, uc: bool, _sentence_start: bool) -> String {
     match role {
-        OrthographyRole::Noun => uc_1st_if(word, true),  // German: always
-        _ => uc_1st_if(word, uc),                        // everything else: as English
+        OrthographyRole::Noun => capitalize_if(word, true),  // German: always
+        _ => capitalize_if(word, uc),                        // everything else: as English
     }
 }
 ```
@@ -697,7 +697,7 @@ including a caseless-script no-op and a Turkish `capitalize_with_context` keyed 
 **The one asymmetry: `OrthographyRole::Noun` gets `uc: false`.** Four of the five roles hand the
 hook an uncapitalized word and a truthful `uc`. The noun's name does not: it has already been
 through `inflect()`, which takes `uc` itself and is user-implementable, so English capitalization
-is spent by the time the hook runs — and it is not simply `uc_1st_if`, since a derive-generated
+is spent by the time the hook runs — and it is not simply `capitalize_if`, since a derive-generated
 `name()` for `#[ranting(name = "designer")]` reads `uc == true` as "as written", not "force
 uppercase". Routing `uc` through the hook there would silently start capitalizing such names, so
 the call site passes `false` instead. An always-capitalize fork ignores `uc` and is unaffected; a
@@ -1402,9 +1402,9 @@ fn inflect(
 ) -> String {
     // كِتاب: singular kitāb, dual kitābān (exactly two), plural kutub (three or more).
     if count.map(|c| c.value) == Some(2) {
-        return uc_1st_if("kitaban", uc);
+        return capitalize_if("kitaban", uc);
     }
-    if to_plural { uc_1st_if("kutub", uc) } else { uc_1st_if("kitab", uc) }
+    if to_plural { capitalize_if("kutub", uc) } else { capitalize_if("kitab", uc) }
 }
 ```
 
@@ -1507,7 +1507,7 @@ impl Ranting for MyNoun {
     ) -> Option<String> {
         // Custom verb logic here
         match verb {
-            "be" => Some(uc_1st_if("am", uc)),
+            "be" => Some(capitalize_if("am", uc)),
             _ => None,
         }
     }
@@ -1540,7 +1540,7 @@ impl fmt::Display for PirateNoun {
 
 impl Ranting for PirateNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("pirate", uc)
+        capitalize_if("pirate", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -1559,9 +1559,9 @@ impl Ranting for PirateNoun {
         _count: Option<PlaceholderCount>,
     ) -> String {
         if to_plural {
-            uc_1st_if("pirates", uc)
+            capitalize_if("pirates", uc)
         } else {
-            uc_1st_if("pirate", uc)
+            capitalize_if("pirate", uc)
         }
     }
 
@@ -1578,9 +1578,9 @@ impl Ranting for PirateNoun {
         uc: bool,
     ) -> Option<String> {
         match verb {
-            "be" | "is" | "am" | "are" => Some(uc_1st_if("be", uc)),
-            "have" | "has" => Some(uc_1st_if("have", uc)),
-            "do" | "does" => Some(uc_1st_if("do", uc)),
+            "be" | "is" | "am" | "are" => Some(capitalize_if("be", uc)),
+            "have" | "has" => Some(capitalize_if("have", uc)),
+            "do" | "does" => Some(capitalize_if("do", uc)),
             _ => None,
         }
     }
@@ -1621,7 +1621,7 @@ impl fmt::Display for ScottishHighlander {
 
 impl Ranting for ScottishHighlander {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("highlander", uc)
+        capitalize_if("highlander", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -1640,9 +1640,9 @@ impl Ranting for ScottishHighlander {
         _count: Option<PlaceholderCount>,
     ) -> String {
         if to_plural {
-            uc_1st_if("highlanders", uc)
+            capitalize_if("highlanders", uc)
         } else {
-            uc_1st_if("highlander", uc)
+            capitalize_if("highlander", uc)
         }
     }
 
@@ -1659,7 +1659,7 @@ impl Ranting for ScottishHighlander {
         uc: bool,
     ) -> Option<String> {
         match verb {
-            "be" | "is" | "am" | "are" => Some(uc_1st_if("be", uc)),
+            "be" | "is" | "am" | "are" => Some(capitalize_if("be", uc)),
             _ => None,
         }
     }
@@ -1674,7 +1674,7 @@ impl Ranting for ScottishHighlander {
         uc: bool,
     ) -> Option<String> {
         if subject == "he" && case == PronounCase::Subjective {
-            return Some(uc_1st_if("he lad", uc));
+            return Some(capitalize_if("he lad", uc));
         }
         None
     }
@@ -1735,7 +1735,7 @@ impl fmt::Display for SpanishNoun {
 
 impl Ranting for SpanishNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if(self.singular, uc)
+        capitalize_if(self.singular, uc)
     }
 
     fn subjective(&self) -> &str {
@@ -1753,7 +1753,7 @@ impl Ranting for SpanishNoun {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(if to_plural { self.plural } else { self.singular }, uc)
+        capitalize_if(if to_plural { self.plural } else { self.singular }, uc)
     }
 
     fn skip_article(&self) -> bool {
@@ -1776,7 +1776,7 @@ impl Ranting for SpanishNoun {
             "be" => {
                 // Spanish "ser": "es" (singular) or "son" (plural)
                 let form = if as_plural { "son" } else { "es" };
-                Some(uc_1st_if(form, uc))
+                Some(capitalize_if(form, uc))
             }
             _ => None,
         }
@@ -1801,7 +1801,7 @@ impl Ranting for SpanishNoun {
                 (_, true) => "los",
                 (_, false) => "el",
             };
-            return Some(uc_1st_if(form, uc));
+            return Some(capitalize_if(form, uc));
         }
         None
     }
@@ -1835,7 +1835,7 @@ fn main() {
 
 1. **Partial customization is fine** — Return `None` for any inflection you don't customize. This immediately triggers English default behavior with zero overhead, avoiding code duplication.
 
-2. **Use `uc_1st_if()` for capitalization** — This helper function correctly handles both regular words and contractions (e.g., "'tis" → "'Tis"). Always use it when your custom method needs to apply uppercase logic.
+2. **Use `capitalize_if()` for capitalization** — This helper function correctly handles both regular words and contractions (e.g., "'tis" → "'Tis"). Always use it when your custom method needs to apply uppercase logic.
 
 3. **Test your overrides with integration tests** — Create tests similar to `tests/ranting/custom_inflection.rs` that exercise your custom methods with real `say!()` calls. Include edge cases like empty forms, contractions, and plural/singular transitions.
 

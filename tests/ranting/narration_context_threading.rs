@@ -25,7 +25,7 @@ impl fmt::Display for Courtier {
 
 impl Ranting for Courtier {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("courtier", uc)
+        capitalize_if("courtier", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -44,9 +44,9 @@ impl Ranting for Courtier {
         _count: Option<PlaceholderCount>,
     ) -> String {
         if to_plural {
-            uc_1st_if("courtiers", uc)
+            capitalize_if("courtiers", uc)
         } else {
-            uc_1st_if("courtier", uc)
+            capitalize_if("courtier", uc)
         }
     }
 
@@ -67,8 +67,8 @@ impl Ranting for Courtier {
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         match (verb, ctx.and_then(|c| c.register)) {
-            ("greet", Some(Register::Formal)) => Some(uc_1st_if("bows before", uc)),
-            ("greet", Some(Register::Casual)) => Some(uc_1st_if("waves at", uc)),
+            ("greet", Some(Register::Formal)) => Some(capitalize_if("bows before", uc)),
+            ("greet", Some(Register::Casual)) => Some(capitalize_if("waves at", uc)),
             _ => None,
         }
     }
@@ -114,7 +114,7 @@ impl fmt::Display for Innkeeper {
 
 impl Ranting for Innkeeper {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("innkeeper", uc)
+        capitalize_if("innkeeper", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -133,9 +133,9 @@ impl Ranting for Innkeeper {
         _count: Option<PlaceholderCount>,
     ) -> String {
         if to_plural {
-            uc_1st_if("innkeepers", uc)
+            capitalize_if("innkeepers", uc)
         } else {
-            uc_1st_if("innkeeper", uc)
+            capitalize_if("innkeeper", uc)
         }
     }
 
@@ -154,7 +154,7 @@ impl Ranting for Innkeeper {
         ctx: Option<&NarrationContext>,
     ) -> Option<String> {
         if case == PronounCase::Objective && ctx.and_then(|c| c.dialect) == Some("pirate") {
-            return Some(uc_1st_if("her ladyship", uc));
+            return Some(capitalize_if("her ladyship", uc));
         }
         // Falls back to the plain (non-context) hook for every other case,
         // proving the default `_with_context` delegation still runs when a
@@ -199,7 +199,7 @@ impl fmt::Display for Merchant {
 
 impl Ranting for Merchant {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("merchant", uc)
+        capitalize_if("merchant", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -218,9 +218,9 @@ impl Ranting for Merchant {
         _count: Option<PlaceholderCount>,
     ) -> String {
         if to_plural {
-            uc_1st_if("merchants", uc)
+            capitalize_if("merchants", uc)
         } else {
-            uc_1st_if("merchant", uc)
+            capitalize_if("merchant", uc)
         }
     }
 
@@ -245,7 +245,7 @@ impl Ranting for Merchant {
             } else {
                 "the honorable"
             };
-            return Some(uc_1st_if(form, uc));
+            return Some(capitalize_if(form, uc));
         }
         None
     }
@@ -297,7 +297,7 @@ impl fmt::Display for ContextHookSentinel {
 
 impl Ranting for ContextHookSentinel {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("sentinel", uc)
+        capitalize_if("sentinel", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -315,7 +315,7 @@ impl Ranting for ContextHookSentinel {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if("sentinel", uc)
+        capitalize_if("sentinel", uc)
     }
 
     fn skip_article(&self) -> bool {

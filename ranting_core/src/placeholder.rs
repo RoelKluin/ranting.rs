@@ -2,7 +2,8 @@
 //! Typed placeholder-spec types shared between `ranting_derive` (which bakes
 //! them, as compile-time-constant literal expressions, from `say!()`/
 //! `say_with!()` template parsing) and `ranting` (which consumes them at
-//! runtime in `handle_placeholder`/`handle_placeholder_with_context`).
+//! runtime in `handle_placeholder`/`handle_placeholder_with_context`). `ranting` re-exports
+//! them so macro-generated code can name them; nothing here is meant to be written by hand.
 //!
 //! ROADMAP.md Phase 4 item 3: replaces the old `caps: [&str; 5]` array and
 //! the `"~TENSE~MARKER:WORD"` / `"~DEGREE~WORD[:TRAILING]"` string sentinels

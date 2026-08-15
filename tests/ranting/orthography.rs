@@ -1,12 +1,12 @@
 // (c) Roel Kluin 2026 MIT
 // Orthography & capitalization hook (ROADMAP.md Phase 6 item 6).
 //
-// `uc_1st_if` and the sentence-start-uppercase default are English orthographic
+// `capitalize_if` and the sentence-start-uppercase default are English orthographic
 // assumptions: German capitalizes every noun wherever it stands, Japanese/Chinese/
 // Arabic/Hebrew have no letter case at all so `uc` is meaningless, and Turkish
 // needs `i`→`İ` which `char::to_uppercase` gets wrong for a Turkish locale.
 // `Ranting::capitalize`/`capitalize_with_context` is the single place those
-// decisions are now made; its default is exactly `uc_1st_if(word, uc)`, so English
+// decisions are now made; its default is exactly `capitalize_if(word, uc)`, so English
 // output is unchanged unless a fork overrides it.
 use ranting::*;
 use ranting_derive::{derive_ranting, say_with};
@@ -67,7 +67,7 @@ impl Ranting for Hund {
         if article != "the" {
             return None;
         }
-        Some(uc_1st_if(
+        Some(capitalize_if(
             match case {
                 GrammaticalCase::Objective => "den",
                 _ => "der",
@@ -86,8 +86,8 @@ impl Ranting for Hund {
         _sentence_start: bool,
     ) -> String {
         match role {
-            OrthographyRole::Noun => uc_1st_if(word, true),
-            _ => uc_1st_if(word, uc),
+            OrthographyRole::Noun => capitalize_if(word, true),
+            _ => capitalize_if(word, uc),
         }
     }
 }
@@ -198,7 +198,7 @@ impl Ranting for Neko {
 
 #[test]
 fn caseless_language_hook_suppresses_sentence_start_uppercase() {
-    // Article and verb both sit on fallback paths that would call `uc_1st_if`.
+    // Article and verb both sit on fallback paths that would call `capitalize_if`.
     // (Verbs are written in the plural in a placeholder and inflect from there.)
     assert_eq!(say!("{a 0 are} here.", Neko), "a neko is here.");
     // Pronoun path, likewise.
@@ -224,7 +224,7 @@ impl fmt::Display for Probe {
 
 impl Ranting for Probe {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("thing", uc)
+        capitalize_if("thing", uc)
     }
     fn subjective(&self) -> &str {
         "it"
@@ -239,7 +239,7 @@ impl Ranting for Probe {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(if to_plural { "things" } else { "thing" }, uc)
+        capitalize_if(if to_plural { "things" } else { "thing" }, uc)
     }
     fn skip_article(&self) -> bool {
         false
@@ -253,7 +253,7 @@ impl Ranting for Probe {
         _sentence_start: bool,
     ) -> String {
         SEEN.with(|s| s.borrow_mut().push((role, word.to_string(), uc)));
-        uc_1st_if(word, uc)
+        capitalize_if(word, uc)
     }
 }
 
@@ -325,7 +325,7 @@ impl fmt::Display for ProbeWithCustomArticle {
 
 impl Ranting for ProbeWithCustomArticle {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("thing", uc)
+        capitalize_if("thing", uc)
     }
     fn subjective(&self) -> &str {
         "it"
@@ -340,7 +340,7 @@ impl Ranting for ProbeWithCustomArticle {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(if to_plural { "things" } else { "thing" }, uc)
+        capitalize_if(if to_plural { "things" } else { "thing" }, uc)
     }
     fn skip_article(&self) -> bool {
         false
@@ -356,7 +356,7 @@ impl Ranting for ProbeWithCustomArticle {
         _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
-        Some(uc_1st_if("yon", uc))
+        Some(capitalize_if("yon", uc))
     }
 
     fn capitalize(
@@ -367,7 +367,7 @@ impl Ranting for ProbeWithCustomArticle {
         _sentence_start: bool,
     ) -> String {
         SEEN.with(|s| s.borrow_mut().push((role, word.to_string(), uc)));
-        uc_1st_if(word, uc)
+        capitalize_if(word, uc)
     }
 }
 
@@ -532,7 +532,7 @@ impl fmt::Display for SentenceProbe {
 
 impl Ranting for SentenceProbe {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("thing", uc)
+        capitalize_if("thing", uc)
     }
     fn subjective(&self) -> &str {
         "it"
@@ -547,7 +547,7 @@ impl Ranting for SentenceProbe {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(if to_plural { "things" } else { "thing" }, uc)
+        capitalize_if(if to_plural { "things" } else { "thing" }, uc)
     }
     fn skip_article(&self) -> bool {
         false
@@ -561,7 +561,7 @@ impl Ranting for SentenceProbe {
         sentence_start: bool,
     ) -> String {
         SENTENCE_SEEN.with(|s| s.borrow_mut().push((uc, sentence_start)));
-        uc_1st_if(word, uc)
+        capitalize_if(word, uc)
     }
 }
 

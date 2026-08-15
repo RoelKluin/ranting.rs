@@ -85,7 +85,7 @@ impl fmt::Display for ArabicNoun {
 
 impl Ranting for ArabicNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if(self.form(self.plural, None), uc)
+        capitalize_if(self.form(self.plural, None), uc)
     }
 
     fn subjective(&self) -> &str {
@@ -114,7 +114,7 @@ impl Ranting for ArabicNoun {
         // could only choose between two forms, so `{$n kitab}` with `n = 2` rendered the plural
         // `كتب` while every hook that *agrees* with this noun could already see the count and
         // render the dual. `_case` is ignored: Arabic's case endings are a separate hole (3).
-        uc_1st_if(self.form(to_plural, count.map(|c| c.value)), uc)
+        capitalize_if(self.form(to_plural, count.map(|c| c.value)), uc)
     }
 
     fn skip_article(&self) -> bool {
@@ -222,7 +222,7 @@ impl Ranting for ArabicNoun {
             }
             PronounCase::Reflexive => "نفسه",
         };
-        Some(uc_1st_if(word, uc))
+        Some(capitalize_if(word, uc))
     }
 
     fn inflect_verb_custom(
@@ -237,7 +237,7 @@ impl Ranting for ArabicNoun {
         // sufficient here before item 11, while the noun beside it was not. That asymmetry is
         // what the Arabic spike found.
         let person = Person::from_subject_and_count(subject, as_plural, count.map(|c| c.value));
-        lexicon::conjugate(verb, person).map(|form| uc_1st_if(form, uc))
+        lexicon::conjugate(verb, person).map(|form| capitalize_if(form, uc))
     }
 
     fn inflect_numeral_custom(

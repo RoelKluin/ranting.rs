@@ -62,7 +62,7 @@ impl fmt::Display for FrenchNoun {
 
 impl Ranting for FrenchNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if(self.word(), uc)
+        capitalize_if(self.word(), uc)
     }
     fn subjective(&self) -> &str {
         if self.is_plural { "they" } else { "it" }
@@ -77,7 +77,7 @@ impl Ranting for FrenchNoun {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(
+        capitalize_if(
             if to_plural {
                 self.plural
             } else {
@@ -112,7 +112,7 @@ impl Ranting for FrenchNoun {
             ("the", _, false) => "le",
             _ => return None,
         };
-        Some(uc_1st_if(form, uc))
+        Some(capitalize_if(form, uc))
     }
 
     fn inflect_pronoun_custom(
@@ -126,7 +126,7 @@ impl Ranting for FrenchNoun {
     ) -> Option<String> {
         // As in tests/ranting/noun_class.rs: keep showing the noun's own name
         // after the article instead of collapsing to an English pronoun.
-        Some(uc_1st_if(self.word(), uc))
+        Some(capitalize_if(self.word(), uc))
     }
 
     fn inflect_adjective_custom(
@@ -163,7 +163,7 @@ impl Ranting for FrenchNoun {
                 format!("{determiner} plus {form}")
             }
         };
-        Some(uc_1st_if(&form, uc))
+        Some(capitalize_if(&form, uc))
     }
 }
 
@@ -233,7 +233,7 @@ fn the_hook_receives_the_written_adjective_and_the_agreement_inputs() {
     }
     impl Ranting for Probe {
         fn name(&self, uc: bool) -> String {
-            uc_1st_if("chat", uc)
+            capitalize_if("chat", uc)
         }
         fn subjective(&self) -> &str {
             "it"
@@ -248,7 +248,7 @@ fn the_hook_receives_the_written_adjective_and_the_agreement_inputs() {
             _case: GrammaticalCase,
             _count: Option<PlaceholderCount>,
         ) -> String {
-            uc_1st_if("chat", uc)
+            capitalize_if("chat", uc)
         }
         fn skip_article(&self) -> bool {
             true
@@ -329,7 +329,7 @@ fn the_with_context_hook_is_the_one_called() {
     }
     impl Ranting for Probe {
         fn name(&self, uc: bool) -> String {
-            uc_1st_if("chose", uc)
+            capitalize_if("chose", uc)
         }
         fn subjective(&self) -> &str {
             "it"
@@ -344,7 +344,7 @@ fn the_with_context_hook_is_the_one_called() {
             _case: GrammaticalCase,
             _count: Option<PlaceholderCount>,
         ) -> String {
-            uc_1st_if("chose", uc)
+            capitalize_if("chose", uc)
         }
         fn skip_article(&self) -> bool {
             true
@@ -365,7 +365,7 @@ fn the_with_context_hook_is_the_one_called() {
                 Some(Register::Formal) => format!("fort {adjective}"),
                 _ => adjective.to_string(),
             };
-            Some(uc_1st_if(&form, uc))
+            Some(capitalize_if(&form, uc))
         }
     }
 

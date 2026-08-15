@@ -67,6 +67,7 @@ immutable once uploaded.)
 | `.claude/rules/extension-hooks.md` | adding, renaming or re-signing any `_custom` / `_with_context` hook, or touching `Many`/`Maybe`/`Box` delegation |
 | `.claude/rules/pluralization.md` | changing `src/language/plurals.rs`, `data/irregular_plurals.txt`, `inflect_noun_regular`, or the `singular_end`/`plural_end` attributes |
 | `.claude/rules/heed-input-parsing.md` | touching `heed!()`, `#[derive(Heed)]`, `ask!()` or their shared template compiler |
+| `.claude/rules/rustdoc-style.md` | writing or editing any `///`/`//!` doc comment or doctest (sweeps of existing docs go through the `rustdoc-janitor` skill) |
 
 ## Invariants that hold everywhere
 

@@ -93,7 +93,7 @@ impl fmt::Display for SpanishPerson {
 
 impl Ranting for SpanishPerson {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if(self.subject, uc)
+        capitalize_if(self.subject, uc)
     }
 
     fn subjective(&self) -> &str {
@@ -113,7 +113,7 @@ impl Ranting for SpanishPerson {
     ) -> String {
         // Personal pronouns don't decline by case here — `subjective()`/`objective()`/etc.
         // already cover case via the pronoun hook, same as `ranting_i18n::GermanPerson`.
-        uc_1st_if(self.subject, uc)
+        capitalize_if(self.subject, uc)
     }
 
     fn skip_article(&self) -> bool {
@@ -135,7 +135,7 @@ impl Ranting for SpanishPerson {
             PronounCase::PossessiveDeterminer | PronounCase::PossessivePronoun => self.possessive(),
             PronounCase::Reflexive => self.reflexive(),
         };
-        Some(uc_1st_if(word, uc))
+        Some(capitalize_if(word, uc))
     }
 
     fn inflect_verb_custom(
@@ -147,6 +147,6 @@ impl Ranting for SpanishPerson {
         uc: bool,
     ) -> Option<String> {
         let person = Person::from_subject(subject, as_plural);
-        lexicon::conjugate(verb, person).map(|form| uc_1st_if(form, uc))
+        lexicon::conjugate(verb, person).map(|form| capitalize_if(form, uc))
     }
 }

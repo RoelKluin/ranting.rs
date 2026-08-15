@@ -44,7 +44,7 @@ impl fmt::Display for SpanishNoun {
 
 impl Ranting for SpanishNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if(self.singular, uc)
+        capitalize_if(self.singular, uc)
     }
     fn subjective(&self) -> &str {
         if self.feminine { "she" } else { "he" }
@@ -59,7 +59,7 @@ impl Ranting for SpanishNoun {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(
+        capitalize_if(
             if to_plural {
                 self.plural
             } else {
@@ -101,7 +101,7 @@ impl Ranting for SpanishNoun {
             (false, true, false) => "unos",
             (false, true, true) => "unas",
         };
-        Some(uc_1st_if(form, uc))
+        Some(capitalize_if(form, uc))
     }
 }
 

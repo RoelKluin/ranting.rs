@@ -210,7 +210,7 @@ there for languages whose adjectives agree with their noun in gender, number
 and case: `un chat noir` / `une robe noire` / `des chats noirs`. The hook
 receives the adjective **as written**, since the compile-time English form is
 not reversible back into it; on `None` that English form is emitted, `uc`
-included (a custom form applies `uc_1st_if` itself).
+included (a custom form applies `capitalize_if` itself).
 
 There is no positive-degree variant because there is no positive-degree
 marker: an unmarked post-noun word is parsed as a verb, so a fork whose
@@ -265,7 +265,7 @@ fn capitalize_with_context(/* the same, plus */ ctx: Option<&NarrationContext>) 
 
 `capitalize` returns a `String`, not an `Option<String>`: it *is* the fallback,
 not a chance to decline one, which is why it isn't named `_custom`. Its default
-is exactly `uc_1st_if(word, uc)` — the call every one of those sites used to
+is exactly `capitalize_if(word, uc)` — the call every one of those sites used to
 make directly — so English output is unchanged unless you override it.
 
 It exists because sentence-start uppercasing is an English assumption: German
