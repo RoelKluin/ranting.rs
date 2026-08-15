@@ -189,6 +189,16 @@ fn spelled_numerals_agree_like_the_indefinite_article_at_one() {
 }
 
 #[test]
+fn sentence_initial_numeral_takes_the_capital_not_the_noun() {
+    // The main crate's engine spends a sentence-initial placeholder's capital on the
+    // spelled numeral rather than the noun (docs/architecture-review-2026-08-15.md
+    // §1.11); the same fix German's `spelled_numerals_agree_like_an_article_at_one`
+    // pins, exercised here against a hook that returns `Some` rather than falling
+    // through to English.
+    assert_eq!(say!("{#0 1}.", 1, SpanishNoun::gato()), "Un gato.");
+}
+
+#[test]
 fn a_numeral_outside_the_closed_range_falls_through_to_english() {
     assert_eq!(
         say!("Veo {#0 1}.", 40, SpanishNoun::gato()),

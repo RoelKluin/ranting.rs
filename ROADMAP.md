@@ -1069,6 +1069,15 @@ literal template").
      `$var` should drop the `uc` rather than pass it on. `inflect_numeral_custom`'s
      doc at `src/lib.rs:2454` states the current behavior as policy and has to change
      with it
+     — ✅ **done 2026-08-15**: capitalization stays on the crate side of the hook
+     (no new `uc` parameter) — the `hidden: false` numeral branch in
+     `handle_placeholder_impl` now spends `uc` on the rendered numeral itself when
+     `uc && sentence_start && !rendered.is_empty()`, capitalizing a spelled `#var`
+     and dropping `uc` outright for a digit `$var`. Gated on `sentence_start` (not
+     `uc` alone) so a mid-sentence forced-uppercase placeholder (`` {^#n item} ``)
+     is untouched, and only on the `hidden: false` branch so a hidden numeral
+     (`` {?$n item} ``) still lets `uc` fall through to the noun as before. See
+     CHANGELOG.md's Changed (breaking) entry and `tests/ranting/numeral.rs`.
    - §1.12 a negative `#var` count agrees plural — "minus one items", from
      `as_pl = count != Some(1)`. **Recorded as a maintainer's call, not scheduled**:
      the plural is right for measures ("minus one degrees") and wrong for countables,

@@ -103,6 +103,36 @@
   - See `tests/ranting/regular_plurals.rs` and
     `src/language/plurals.rs`'s own tests.
 
+- **A sentence-initial numeral now takes the placeholder's capital, instead of
+  the noun several words later.** `say!("{#n item} fell.", n = 2)` used to
+  render `"two Items fell."`; it now renders `"Two items fell."`.
+  `say!("{$n item} fell.", n = 2)` used to render `"2 Items fell."`; it now
+  renders `"2 items fell."` (`docs/architecture-review-2026-08-15.md` §1.11,
+  ROADMAP.md Phase 8 item 6). **This changes `say!()`'s rendered output for any
+  sentence-initial `#var`/`$var` placeholder with no preceding article or
+  verb** — the case CLAUDE.md's byte-identity invariant requires calling out
+  explicitly. A placeholder with a preceding article (`` {the #n item} ``) or
+  not at sentence start is unaffected.
+  - The two channels differ, so the fix does too: a spelled `#var` is a word
+    and can be capitalized (`capitalize_if`), so it now claims the capital and
+    stops it reaching the noun; a digit `$var` can't be capitalized, so the
+    capital is dropped outright rather than carried on.
+  - `inflect_numeral_custom` still takes no `uc` parameter — capitalization
+    stays entirely on the crate side, applied to whatever the hook returns (or
+    to the English fallback), rather than delegated to the hook. Its own doc
+    is corrected to say so; it used to cite "the crate never capitalizes the
+    numeral" as the reason for the missing parameter, which was the bug
+    described as policy.
+  - Gated on `uc && sentence_start`, not `uc` alone, so a mid-sentence
+    forced-uppercase placeholder (`` {^#n item} ``, the same shape
+    `.claude/rules/extension-hooks.md` gives for `` {The 0} ``) is
+    byte-identical to before.
+  - `ranting_i18n`'s `spelled_numerals_agree_like_an_article_at_one` test
+    pinned the identical pre-fix shape for German (`"ein Hund"`) and is
+    updated to `"Ein Hund"`, since it is a property of the shared engine, not
+    a per-language gap.
+  - See `tests/ranting/numeral.rs`.
+
 ### Fixed
 
 - **A negative `#var` spelled the non-word "negativeone".**

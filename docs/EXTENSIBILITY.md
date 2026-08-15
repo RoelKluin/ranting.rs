@@ -875,10 +875,13 @@ compared the rendering against the literal English `"one"`, which would have mad
 plural. That was the prerequisite ROADMAP.md item 8 called out, and it is fixed rather than
 documented-around.)
 
-**No `uc` parameter.** `handle_placeholder` never capitalizes the numeral — a placeholder that
-starts a sentence spends its `uc` on the article, verb or noun — so there is nothing for the hook
-to decide. Note also that a returned string replaces the rendering outright, so a `:fmt` width/fill
-spec on `$var` is not re-applied to it; a fork that wants padding pads its own output.
+**No `uc` parameter.** Capitalization stays entirely on the crate side of this hook, applied to
+whatever it returns (or to the English fallback) rather than delegated to it. A sentence-initial
+placeholder with nothing else before the numeral spends its `uc` there: spelled-out (`#var`) gets
+capitalized (`"Two items fell."`), digits (`$var`) simply drop it, since a digit can't be
+capitalized (`"2 items fell."`, not `"2 Items fell."`). Note also that a returned string replaces
+the rendering outright, so a `:fmt` width/fill spec on `$var` is not re-applied to it; a fork that
+wants padding pads its own output.
 
 **When it is not called.** A placeholder with no `#var`/`$var` marker, and a hidden one
 (`` {?$n boots} ``, where the number governs agreement but is not written) — the same

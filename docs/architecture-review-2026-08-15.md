@@ -276,7 +276,7 @@ differential oracle for this rule and was deliberately left splitting on `-` onl
 change to the `compound-head-plural`/`regular-plural-rules` findings, since the corpus these docs
 are scanned from contains no space-separated instance of the fixture words.
 
-### 1.11 A sentence-initial numeral spends the placeholder's `uc` on the noun — breaking to fix
+### 1.11 A sentence-initial numeral spends the placeholder's `uc` on the noun — ✅ **FIXED 2026-08-15**
 
 Found 2026-08-15 while spot-checking §1.9's fix; not caused by it, and it predates the whole
 grammar review. When a placeholder starts a sentence, `handle_placeholder` capitalizes the first
@@ -305,6 +305,37 @@ Two different fixes, because the two channels differ:
   along. "2 items fell." is correct English and "2 Items fell." is not.
 
 Breaking either way, and the hook's doc has to change with it.
+
+**Fixed** on the crate side of the hook rather than by adding a `uc` parameter to it: giving
+`inflect_numeral_custom` a `uc` parameter would have meant re-signing a hook four falsifier crates
+already override (`ranting_i18n`, `ranting_es`, `ranting_ar`, `ranting_ja`), for a decision the
+crate can make without their input — whether a spelled word or a digit was written is known before
+the hook runs, so the crate applies the capital to whatever the hook returns (or to the English
+fallback) rather than delegating the decision to it. The `hidden: false` numeral branch in
+`handle_placeholder_impl` now capitalizes the rendered numeral, or drops `uc` outright, exactly
+when `uc && sentence_start && !rendered.is_empty()`:
+
+- `#var` gets `capitalize_if(&rendered, true)` — "Two items fell.".
+- `$var` is left as rendered, with `uc` simply consumed — "2 items fell.".
+
+Two things about the gate:
+
+- **`sentence_start`, not `uc` alone.** `` {^#n item} `` forces `uc == true` mid-sentence
+  (`.claude/rules/extension-hooks.md`'s `` {The 0} `` shape), and that case must stay
+  byte-identical — the numeral is not capitalized and the capital still falls through to the noun,
+  exactly as before this fix. Pinned by
+  `numeral::mid_sentence_forced_uc_numeral_is_byte_identical`.
+- **`hidden: false` only.** A hidden numeral (`` {?$n item} ``) renders nothing, so it cannot claim
+  the capital either way; `uc` still falls through to whatever comes next, unchanged.
+
+`inflect_numeral_custom`'s own doc at `src/lib.rs` no longer states "the crate never capitalizes
+the numeral" as policy — it now says capitalization stays on the crate side of the hook, and why.
+`ranting_i18n`'s `spelled_numerals_agree_like_an_article_at_one` test asserted the identical
+pre-fix shape for German (`"ein Hund"`) and is updated to `"Ein Hund"`; `ranting_es/README.md`'s
+"Also observed, not holes" bullet documenting the same shape for Spanish is corrected rather than
+left stale. Neither Arabic nor Japanese has a comparable test to update: both render numerals and
+nouns in scripts with no case distinction, so `capitalize_if` is a no-op on their output either
+way. Tests: `tests/ranting/numeral.rs`.
 
 ### 1.12 A negative count agrees plural — recorded as a decision, not filed as a defect
 

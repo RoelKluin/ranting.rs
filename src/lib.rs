@@ -744,6 +744,21 @@ where
                 ctx,
             )
             .unwrap_or(english);
+        // A sentence-initial placeholder with no preceding article/verb still has `uc` to
+        // spend, and the numeral is the next thing that renders — so it claims the capital
+        // here instead of leaving it to fall through to the noun. The two channels differ:
+        // `#var` is a spelled word and can take it; `$var` is digits and can't, so the
+        // capital is simply dropped rather than carried on. Nothing claims it when the
+        // numeral itself renders empty (a hidden numeral, or a fork returning "").
+        let rendered = if uc && sentence_start && !rendered.is_empty() {
+            uc = false;
+            match kind {
+                NumeralKind::Words => capitalize_if(&rendered, true),
+                NumeralKind::Digits => rendered,
+            }
+        } else {
+            rendered
+        };
         if swallow_separator {
             swallow_separator = false;
         } else {
@@ -2451,11 +2466,16 @@ pub trait Ranting: std::fmt::Display {
     /// * `as_plural` - As for every hook, but decided *before* this hook runs, from the count
     ///   rather than from the rendered word, so a custom numeral can never flip it.
     ///
-    /// There is deliberately no `uc` parameter: `handle_placeholder` never capitalizes the
-    /// numeral (a placeholder that starts a sentence spends its `uc` on the article, verb or
-    /// noun), so there would be nothing for the hook to decide. Note also that a returned string
-    /// replaces the rendered numeral outright, so a `:fmt` width/fill spec on `$var` is *not*
-    /// re-applied to it — a fork that wants padding pads its own output.
+    /// There is deliberately no `uc` parameter: capitalization stays entirely on the crate side
+    /// of this hook, applied to whatever it returns (or to the English fallback) rather than
+    /// delegated to it. A sentence-initial placeholder with no preceding article or verb spends
+    /// its capital on the numeral — [`NumeralStyle::Words`] gets it capitalized
+    /// (`"Two items fell."`), [`NumeralStyle::Digits`] simply drops it, since a digit can't be
+    /// capitalized (`"2 items fell."`, not `"2 Items fell."`). A fork's returned string is
+    /// capitalized the same way an unmodified English one would be, so it never needs its own
+    /// case logic for this. Note also that a returned string replaces the rendered numeral
+    /// outright, so a `:fmt` width/fill spec on `$var` is *not* re-applied to it — a fork that
+    /// wants padding pads its own output.
     ///
     /// Not called at all when nothing numeric renders: a placeholder without a `#var`/`$var`
     /// marker, or with a hidden one (`` {?$n nouns} ``, where the number governs agreement but is

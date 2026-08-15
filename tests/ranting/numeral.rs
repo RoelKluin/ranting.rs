@@ -300,8 +300,6 @@ fn english_words_numerals_are_unchanged() {
     assert_eq!(say!("I see {#0 boot}", 0), "I see zero boots");
     assert_eq!(say!("I see {#0 boot}", 21), "I see twentyone boots");
     assert_eq!(say!("I see {a #0 boot}", 3), "I see some three boots");
-    // Sentence-initial: `uc` is spent on the noun, never on the numeral.
-    assert_eq!(say!("{#0 boot}", 1), "one Boot");
 }
 
 #[test]
@@ -311,7 +309,9 @@ fn english_digit_numerals_are_unchanged() {
     assert_eq!(say!("I see {$0 boot}", 2), "I see 2 boots");
     assert_eq!(say!("I see {$0 boot}", 1.0), "I see 1 boot");
     assert_eq!(say!("I see {$0 boot:>4}", 2), "I see    2 boots");
-    assert_eq!(say!("{$0 boot's} laces", 2), "2 Boots' laces");
+    // Sentence-initial: a digit can't be capitalized, so `uc` is dropped rather
+    // than carried on to the noun (docs/architecture-review-2026-08-15.md §1.11).
+    assert_eq!(say!("{$0 boot's} laces", 2), "2 boots' laces");
     // A hidden number renders nothing, and leaves no space behind either.
     // Until ROADMAP.md Phase 7 item 13 it left the noun's own leading space
     // next to the literal's — "I see " + " boots" — which this file *pinned*
@@ -368,7 +368,8 @@ fn a_negative_words_numeral_spells_the_sign_as_a_word() {
         say!("I see {a #0 boot}", -3),
         "I see some minus three boots"
     );
-    assert_eq!(say!("{#0 boot}", -1), "minus one Boots");
+    // Sentence-initial: the spelled numeral, sign included, takes the capital.
+    assert_eq!(say!("{#0 boot}", -1), "Minus one boots");
 }
 
 #[test]
@@ -383,4 +384,42 @@ fn a_negative_numeral_reaches_the_hook_as_one_replaceable_string() {
     // Digits are untouched by the sign guard — `$var` is its argument's own
     // `Display` output, negative sign included.
     assert_eq!(say!("есть {$0 1}", -1, stol), "есть -१ стола");
+}
+
+// -----------------------------------------------------------------
+// docs/architecture-review-2026-08-15.md §1.11: a sentence-initial numeral
+// with no preceding article used to spend the placeholder's `uc` on the
+// noun several words later instead of on itself. Fixed on the crate side of
+// `inflect_numeral_custom` (see that hook's own doc): a spelled `#var` takes
+// the capital, a digit `$var` simply drops it. An article, and any
+// placeholder not at sentence start, are unaffected.
+// -----------------------------------------------------------------
+
+#[test]
+fn sentence_initial_words_numeral_takes_the_capital() {
+    let item = Noun::new("item", "it");
+    assert_eq!(say!("{#0 item} fell.", 2), "Two items fell.");
+}
+
+#[test]
+fn sentence_initial_digits_numeral_drops_the_capital() {
+    let item = Noun::new("item", "it");
+    assert_eq!(say!("{$0 item} fell.", 2), "2 items fell.");
+}
+
+#[test]
+fn sentence_initial_numeral_with_an_article_is_unaffected() {
+    let item = Noun::new("item", "it");
+    assert_eq!(say!("{the #0 item} fell.", 2), "The two items fell.");
+}
+
+#[test]
+fn mid_sentence_forced_uc_numeral_is_byte_identical() {
+    // `^` forces `uc == true` with `sentence_start == false` -- the same shape
+    // `.claude/rules/extension-hooks.md` gives for `{The 0}`. The fix gates on
+    // `uc && sentence_start`, so this renders exactly as it did before the
+    // fix: the numeral is not capitalized, and whatever is left claims the
+    // capital -- here, the noun.
+    let item = Noun::new("item", "it");
+    assert_eq!(say!("I see {^#0 item}.", 2), "I see two Items.");
 }
