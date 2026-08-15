@@ -1027,7 +1027,7 @@ where
     match post_spec {
         PostSpec::None => {}
         PostSpec::PossessiveS => {
-            res.push_str(adapt_possesive_s(noun, as_pl));
+            res.push_str(adapt_possesive_s(as_pl));
         }
         PostSpec::Verb(raw) => {
             // Same last-word-conjugated / leading-words-verbatim split as before this
@@ -1041,7 +1041,7 @@ where
             if !word.is_empty() {
                 match word {
                     "'" | "'s" => {
-                        res.push_str(adapt_possesive_s(noun, as_pl));
+                        res.push_str(adapt_possesive_s(as_pl));
                     }
                     v => {
                         let verb = conjugate_verb(
@@ -1511,17 +1511,8 @@ impl Noun {
 /// # }
 /// ```
 // a combined plural may require some tricks: "The star and cross' design was pattented by Bob."
-fn adapt_possesive_s(noun: &dyn Ranting, asked_plural: bool) -> &str {
-    if asked_plural && !is_name(noun) {
-        "'"
-    } else {
-        "'s"
-    }
-}
-fn is_name(noun: &dyn Ranting) -> bool {
-    noun.name(false)
-        .trim_start_matches('\'')
-        .starts_with(|c: char| c.is_uppercase())
+fn adapt_possesive_s(asked_plural: bool) -> &'static str {
+    if asked_plural { "'" } else { "'s" }
 }
 
 /// Pronoun grammatical case for customization via inflect_pronoun_custom()

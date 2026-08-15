@@ -1028,6 +1028,11 @@ literal template").
      (**breaking**; bare present only, tense-marked forms are already correct)
    - §1.7 plural proper names get `'s` — "the Joneses's", because `is_name` looks at
      the first character and nothing else (**breaking**; smallest of the six)
+     — ✅ **done 2026-08-15**: `adapt_possesive_s` no longer consults `is_name` at
+     all — the bare apostrophe now fires whenever the noun is plural, name or not,
+     and `'s` otherwise, so `"Myles's"` (a singular name) is unaffected. `is_name`
+     was deleted as dead code. See CHANGELOG.md's Changed (breaking) entry and
+     `tests/ranting/possessive_apostrophe.rs`.
    - §1.10 space-separated compound nouns pluralize on the tail — "attorney generals",
      where the hyphenated spelling is already correct (**breaking**; the head-detection
      lists exist, the risk to bound is ordinary modifier + head)

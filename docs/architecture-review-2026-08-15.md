@@ -161,7 +161,7 @@ Not previously recorded anywhere: absent from ROADMAP.md, DONE.md, both earlier 
 `failures/`. The fix is contained (split at the first space, conjugate the head, re-append the
 remainder) but it changes rendered output for existing templates, hence breaking.
 
-### 1.7 Plural proper names get `'s` instead of a bare apostrophe — breaking to fix
+### 1.7 Plural proper names get `'s` instead of a bare apostrophe — ✅ **FIXED 2026-08-15**
 
 `src/lib.rs:1496`. `adapt_possesive_s` picks the bare `'` only when the noun is plural *and* not a
 name, and `is_name` (`:1503`) decides "name" by looking at nothing but the first character:
@@ -174,6 +174,15 @@ So `` {the Joneses'} `` renders "the Joneses's". The exemption is correct for a 
 ending in `s` (Myles's, which the doctest at `:1490` pins) but it fires on any capitalized noun
 regardless of number, and plural proper names take the bare apostrophe like any other plural.
 Smallest and most mechanical of the six; still an output change.
+
+**Fixed** by deleting `is_name` outright: `adapt_possesive_s` now picks the bare apostrophe
+whenever the noun is plural, full stop, and `'s` otherwise — the same rule already applied to
+plural common nouns, now applied uniformly regardless of capitalization. The singular branch was
+always reached independently of `is_name` (a singular noun took `'s` before this change too), so
+`"Myles's"` is unaffected and the doctest above `adapt_possesive_s` still pins it byte-for-byte.
+Breaking, recorded in CHANGELOG.md under Changed (breaking); new coverage in
+`tests/ranting/possessive_apostrophe.rs` (plural proper name, singular name ending in `s`, plural
+common noun).
 
 ### 1.8 A bare participle after a subject marker renders ungrammatically, and is pinned
 

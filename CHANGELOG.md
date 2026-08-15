@@ -32,6 +32,26 @@
     supplied none, never overriding an explicit numeral.
   - See `docs/EXTENSIBILITY.md` §2.16 and `tests/ranting/third_number.rs`.
 
+- **A plural proper name now takes the bare possessive apostrophe instead of
+  `'s`.** `say!("{the 0's} house", joneses)` on a `Noun` named `"Joneses"` with
+  subject `"they"` used to render `"the Joneses's house"`; it now renders
+  `"the Joneses' house"` (`docs/architecture-review-2026-08-15.md` §1.7,
+  ROADMAP.md Phase 8 item 6). **This changes `say!()`'s rendered output for
+  every plural proper name run through `{noun's}`/`{noun'}`** — the one case
+  CLAUDE.md's byte-identity invariant requires calling out explicitly.
+  - `adapt_possesive_s` used to pick `'s` for any capitalized noun regardless
+    of number (`is_name`, keyed off the first character alone), which is only
+    correct for a *singular* name ending in `s`. It now picks the bare
+    apostrophe whenever the noun is plural — matching the same rule already
+    applied to plural common nouns — and `'s` otherwise, with no name check at
+    all.
+  - `"Myles's"` (a singular name ending in `s`) is unaffected: singular nouns
+    always took `'s` before this change, independent of `is_name`, and still
+    do. Pinned by the doctest above `adapt_possesive_s` in `src/lib.rs` and by
+    `tests/ranting/possessive_apostrophe.rs`.
+  - See `tests/ranting/possessive_apostrophe.rs` for the plural-proper-name,
+    singular-name-ending-in-`s`, and plural-common-noun cases side by side.
+
 ### Fixed
 
 - **A negative `#var` spelled the non-word "negativeone".**
