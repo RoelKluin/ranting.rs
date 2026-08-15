@@ -1106,6 +1106,23 @@ literal template").
    literal text anyway. Scoped here to be *decided*, possibly declined — it may be a
    channel that exists and is rarely reachable, which is the same shape as
    `ranting_i18n`'s prenominal-adjective hole.
+
+   **DECLINED (2026-08-15 spike — decided, no code change)** — design spike at
+   `docs/superpowers/specs/2026-08-15-adverb-derivation.md`. The reachability
+   inventory found the shape *adjacent to* the prenominal hole but terminal where
+   that one was a loss: the reachable positions carry no runtime value rather than
+   the valuable channel being unreachable. Every grammatical adverb position is
+   either literal-text by construction (sentence-initial; clause-final after an
+   in-placeholder verb, which the single post slot means no marker could share) or
+   expressible today with the adverb as literal text and agreement intact —
+   mid-position via `{=w} quickly {?w run}` → "She quickly runs.", verified against
+   the built crate. The derived form is a compile-time constant from a compile-time
+   literal, invariant in English and in all four falsifiers' languages, so a marker
+   (spending a scarce character), a tenth hook pair (born never-overridden) and a
+   degree-family graft are each rejected in the spike. The `-ly` orthographic rules
+   and their irregular-table audit (good→well, public→publicly, the flat-adverb
+   pairs spelling can't decide) are recorded there should a runtime-variable source
+   word or an agreeing-adverb language ever re-open this on new evidence.
 6. **The recorded defects** — `docs/architecture-review-2026-08-15.md` §§1.5-1.12,
    each verified against the source: seven defects plus one agreement question left
    as a maintainer's call (§1.12). Five change rendered English and are therefore
