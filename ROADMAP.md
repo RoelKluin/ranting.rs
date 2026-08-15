@@ -992,6 +992,20 @@ literal template").
    call. Retires the "Subjunctive mood and hypotheticals" bullet from
    *v1.4+: Advanced Features* below, which named the gap without knowing the crate
    actively overwrites it.
+
+   **PROPOSED (2026-08-15, not decided, not implemented)** — design spike at
+   `docs/superpowers/specs/2026-08-15-verbatim-verb-marker.md` recommends the
+   verbatim-marker shape: a new post-noun marker character (shortlisted `;`/`|`/
+   `&`/`/`, tiebreak favors `;`) baked as a new `PostSpec::Verbatim(&'static str)`
+   variant that bypasses person/number agreement for the marked word, e.g.
+   `{=i ;were}` → `"I were"`. The spike rejects the `NarrationContext` mood-flag
+   shape outright (mood is per-clause; `NarrationContext` is per call, and one
+   `say_with!()` invocation can mix clauses of different mood). It leaves two
+   things for a maintainer to actually decide, since the sigil grammar is Locked
+   and this spike does not change any code: the exact character, and whether
+   `PostSpec::Verbatim` bypasses `inflect_verb_custom_with_context` entirely or
+   still calls it with a "don't touch" signal (the latter is a hook-signature
+   break). Until one is chosen and implemented, §1.5 stays open.
 3. **Agreeing quantifiers, and the mass/count distinction** — `ArticleOrSo` stops at
    a/an/some/the/these/those, so *no*, *every*, *each*, *either*, *much*/*many* and
    *less*/*fewer* have no channel and a quantified noun phrase is hand-assembled.
