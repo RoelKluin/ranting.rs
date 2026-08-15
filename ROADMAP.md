@@ -1045,6 +1045,12 @@ literal template").
    - §1.10 space-separated compound nouns pluralize on the tail — "attorney generals",
      where the hyphenated spelling is already correct (**breaking**; the head-detection
      lists exist, the risk to bound is ordinary modifier + head)
+     — ✅ **done 2026-08-15**: `compound_plural` now also splits on a single space, gated
+     behind the same closed `PREPOSITIONS`/`POSTPOSED_ADJECTIVES` lists the hyphenated
+     form already used, rebuilding with whichever separator the input used. "red house",
+     "post office" and "fire engine" are pinned as still tail-pluralizing. See
+     CHANGELOG.md's Changed (breaking) entry, `src/language/plurals.rs`'s own tests, and
+     `tests/ranting/regular_plurals.rs`.
    - §1.8 `{=0 walking}` → "She walking", silently, and is *pinned* as a test. Nothing
      to fix at runtime — what is missing is a compile-time diagnostic, which the macro
      has the string to produce (**not breaking**)

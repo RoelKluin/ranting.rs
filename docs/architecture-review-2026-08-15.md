@@ -246,7 +246,7 @@ rendered word. It no longer is — "minus one" contains "one" — so the comment
 agreement is decided from the count and never from the spelling. `-1` renders "minus one boots",
 which is correct English ("minus one degrees") and is asserted deliberately.
 
-### 1.10 Space-separated compound nouns pluralize on the tail — breaking to fix
+### 1.10 Space-separated compound nouns pluralize on the tail — ✅ **FIXED 2026-08-15**
 
 `src/language/plurals.rs:121`, `compound_plural` opens with `word.split('-')` and returns `None`
 for anything without a hyphen, so head-first compounds written with hyphens work — `mother-in-law`
@@ -262,6 +262,19 @@ since a space-separated noun phrase in a placeholder is far more likely to be an
 modifier + head (`red house` → "red houses", correct today) than a postposed-head compound. The
 closed lists bound that risk, and bounding it is the design question the fix has to answer. See
 `.claude/rules/pluralization.md` point 6 — adding a rule means auditing what it now gets wrong.
+
+**Fixed** by widening `compound_plural` to also split on a single space, behind the same closed
+`PREPOSITIONS`/`POSTPOSED_ADJECTIVES` lists the hyphenated form already used, rebuilding with
+whichever separator the input used (a space stays a space, a hyphen stays a hyphen). Audited
+against the risk named above: `"red house"`, `"post office"` and `"fire engine"` all still return
+`None` from `compound_plural` (second word not in either list) and fall through to
+`regular_plural`'s tail pluralization, unchanged. Breaking, recorded in CHANGELOG.md under Changed
+(breaking); new coverage in `src/language/plurals.rs`'s own tests and
+`tests/ranting/regular_plurals.rs`. `ranting_gaps/src/english.rs::compound_plural` is the
+differential oracle for this rule and was deliberately left splitting on `-` only, per
+`.claude/rules/crate-layout.md`; re-running the `ranting-gaps` binary after this fix produced no
+change to the `compound-head-plural`/`regular-plural-rules` findings, since the corpus these docs
+are scanned from contains no space-separated instance of the fixture words.
 
 ### 1.11 A sentence-initial numeral spends the placeholder's `uc` on the noun — breaking to fix
 

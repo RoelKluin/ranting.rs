@@ -67,6 +67,31 @@ fn hyphenated_compounds_pluralize_their_head() {
     assert_eq!(say!("{,+0}", shirt), "t-shirts");
 }
 
+/// docs/architecture-review-2026-08-15.md §1.10: the space-separated spelling of a head-first
+/// compound must pluralize its head exactly like the hyphenated spelling does.
+#[test]
+fn space_separated_compounds_pluralize_their_head() {
+    let officer = Noun::new("attorney general", "it");
+    assert_eq!(say!("{,+0}", officer), "attorneys general");
+
+    let tribunal = Noun::new("court martial", "it");
+    assert_eq!(say!("{,+0}", tribunal), "courts martial");
+}
+
+/// The risk the closed lists exist to bound: an ordinary modifier + head phrase must keep
+/// pluralizing on the tail, not the first word.
+#[test]
+fn ordinary_modifier_head_phrases_still_pluralize_on_the_tail() {
+    for (singular, plural) in [
+        ("red house", "red houses"),
+        ("post office", "post offices"),
+        ("fire engine", "fire engines"),
+    ] {
+        let noun = Noun::new(singular, "it");
+        assert_eq!(say!("{,+0}", noun), plural, "plural of {singular}");
+    }
+}
+
 /// The compatibility contract: a struct that declares `plural_end` has stated its own rule, and
 /// keeps the literal strip-and-append it always got. Without this, an impl using `plural_end` as
 /// an escape hatch -- including a non-English one -- would silently acquire English orthography.

@@ -80,6 +80,29 @@
   - See `tests/ranting/verb_tense.rs` ("pick up", "stick to", "get by", and a
     single-word control, each in first, second and third person).
 
+- **A space-separated head-first compound noun now pluralizes on its head, not
+  its tail.** `say!("{,+0}", Noun::new("attorney general", "it"))` used to
+  render `"attorney generals"`, and `"court martial"` rendered
+  `"court martials"` (`docs/architecture-review-2026-08-15.md` §1.10,
+  ROADMAP.md Phase 8 item 6); they now render `"attorneys general"` and
+  `"courts martial"`, matching the hyphenated spellings `attorney-general` and
+  `court-martial`, which were already correct. **This changes `say!()`'s
+  rendered output for any space-separated noun whose second word is in the
+  closed `PREPOSITIONS`/`POSTPOSED_ADJECTIVES` list** in
+  `src/language/plurals.rs::compound_plural` — the case CLAUDE.md's
+  byte-identity invariant requires calling out explicitly.
+  - `compound_plural` used to split on `-` only and return `None` for anything
+    without a hyphen, so a head-first compound written with a space fell
+    through to `regular_plural` and pluralized its last word like an ordinary
+    noun. It now also splits on a single space, gated behind the same closed
+    lists the hyphenated form already used — an ordinary modifier + head
+    phrase (`"red house"` → `"red houses"`, `"post office"` →
+    `"post offices"`, `"fire engine"` → `"fire engines"`) is far more common
+    than a postposed-head compound written with a space, so the split only
+    fires when the second word is a known preposition or postposed adjective.
+  - See `tests/ranting/regular_plurals.rs` and
+    `src/language/plurals.rs`'s own tests.
+
 ### Fixed
 
 - **A negative `#var` spelled the non-word "negativeone".**
