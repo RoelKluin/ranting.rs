@@ -1026,6 +1026,31 @@ literal template").
    surface §4.1 records. `english_numbers::convert_no_fmt`'s behavior on negatives is
    already guarded (item 6's §1.9), but its unhyphenated "twentyone" is not — an
    ordinal speller inherits that spelling question.
+
+   **PROPOSED (2026-08-15, not decided, not implemented)** — design spike at
+   `docs/superpowers/specs/2026-08-15-ordinal-numerals.md` recommends a doubled
+   numeral marker, `` {the ##n attempt} ``, baked as a new `NumeralKind::Ordinal`
+   and mirrored into a new public `NumeralStyle::Ordinal` carrying the same real
+   `count: Option<i64>` the cardinal channel already carries. `##` cannot parse
+   today (`match_nr` requires `\w` after `#`), so no existing template changes.
+   The spike states plainly that the enum is public, re-exported and not
+   `#[non_exhaustive]`, so the variant is a **major-version break**: all four
+   falsifiers match it exhaustively with no wildcard and would stop compiling,
+   as would any downstream `match`; `#[non_exhaustive]` is itself breaking and
+   trades the error for a silently-swallowing `_` arm. Agreement decouples —
+   `as_pl` falls through to `noun.is_plural()` ("the third attempt", not
+   "attempts") while the count still flows, which is what Spanish/Arabic ordinal
+   gender agreement needs. Rejected: a standalone free character (spends one of
+   eight for a variant of an existing marker) and a `:fmt`-style `ord` suffix
+   (structurally impossible — `PH_START` splits `:fmt` off before `PH_EXT`).
+   Three things are left for a maintainer to decide, since the sigil grammar is
+   Locked and this spike does not change any code: whether the digit ordinal
+   (`$$var` → `"3rd"`) is taken in the *same* break rather than a later second
+   one; whether the stringly-typed `plurality` dispatch is retyped alongside it
+   (four of the ten change sites exist only because it is a `&str`, and two of
+   those fail silently — `` {##n attempt} `` would otherwise render a cardinal,
+   and agree plural); and whether `nr` gains a one-repetition restriction while
+   its alternation is widened.
 5. **Adverb derivation** — quick→quickly, happy→happily, is in-place word inflection of
    exactly the kind the crate already does for degree (`!`/`!!`), and has no channel.
    Lowest priority of the five: the adjective slot is post-noun only, so the sentence
