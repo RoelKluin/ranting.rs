@@ -17,7 +17,7 @@
 
 use crate::{
     AdjectiveDegree, GrammaticalCase, NarrationContext, NounClass, NumeralStyle, OrthographyRole,
-    PlaceholderCount, PronounCase, Ranting, uc_1st_if,
+    PlaceholderCount, PronounCase, Ranting, capitalize_if,
 };
 use std::fmt;
 
@@ -51,7 +51,7 @@ use std::fmt;
 /// assert_eq!(say!("{=solo are} ready."), "She is ready.".to_string());
 ///
 /// let none: Many<Noun> = Many(vec![]);
-/// assert_eq!(say!("There {=none are} no items."), "There they are no items.".to_string());
+/// assert_eq!(say!("{=none are} out of stock."), "They are out of stock.".to_string());
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Many<T: Ranting>(pub Vec<T>);
@@ -70,11 +70,11 @@ impl<T: Ranting> Many<T> {
         let mut names: Vec<String> = self.0.iter().map(|item| item.name(false)).collect();
         match names.len() {
             0 => String::new(),
-            1 => uc_1st_if(&names.remove(0), uc),
+            1 => capitalize_if(&names.remove(0), uc),
             _ => {
                 let last = names.pop().expect("len > 1 checked above");
                 let joined = format!("{} and {}", names.join(", "), last);
-                uc_1st_if(&joined, uc)
+                capitalize_if(&joined, uc)
             }
         }
     }
@@ -178,7 +178,7 @@ impl<T: Ranting> Ranting for Many<T> {
         // uppercase-first-char-only join tests assert.
         match self.0.len() {
             1 => self.0[0].capitalize(word, role, uc, sentence_start),
-            _ => uc_1st_if(word, uc),
+            _ => capitalize_if(word, uc),
         }
     }
 
@@ -192,7 +192,7 @@ impl<T: Ranting> Ranting for Many<T> {
     ) -> String {
         match self.0.len() {
             1 => self.0[0].capitalize_with_context(word, role, uc, sentence_start, ctx),
-            _ => uc_1st_if(word, uc),
+            _ => capitalize_if(word, uc),
         }
     }
 
@@ -566,7 +566,7 @@ impl<T: Ranting> Ranting for Many<T> {
 /// assert_eq!(say!("{=some are} here."), "They are here.".to_string());
 ///
 /// let none: Maybe<Noun> = Maybe(None);
-/// assert_eq!(say!("There {=none are} nothing."), "There it is nothing.".to_string());
+/// assert_eq!(say!("{=none are} out of stock."), "It is out of stock.".to_string());
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Maybe<T: Ranting>(pub Option<T>);
@@ -653,7 +653,7 @@ impl<T: Ranting> Ranting for Maybe<T> {
         // rather than an unconditional empty string.
         match &self.0 {
             Some(item) => item.capitalize(word, role, uc, sentence_start),
-            None => uc_1st_if(word, uc),
+            None => capitalize_if(word, uc),
         }
     }
 
@@ -667,7 +667,7 @@ impl<T: Ranting> Ranting for Maybe<T> {
     ) -> String {
         match &self.0 {
             Some(item) => item.capitalize_with_context(word, role, uc, sentence_start, ctx),
-            None => uc_1st_if(word, uc),
+            None => capitalize_if(word, uc),
         }
     }
 

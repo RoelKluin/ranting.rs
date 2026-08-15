@@ -23,7 +23,7 @@ impl fmt::Display for GermanNoun {
 
 impl Ranting for GermanNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("Mann", uc)
+        capitalize_if("Mann", uc)
     }
     fn subjective(&self) -> &str {
         "he"
@@ -38,7 +38,7 @@ impl Ranting for GermanNoun {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if("Mann", uc)
+        capitalize_if("Mann", uc)
     }
     fn skip_article(&self) -> bool {
         false
@@ -61,7 +61,7 @@ impl Ranting for GermanNoun {
             GrammaticalCase::Objective => "den",
             _ => "der",
         };
-        Some(uc_1st_if(form, uc))
+        Some(capitalize_if(form, uc))
     }
 
     fn inflect_pronoun_custom(
@@ -75,7 +75,7 @@ impl Ranting for GermanNoun {
     ) -> Option<String> {
         // A case-declining fork typically keeps showing the noun's own name
         // here rather than collapsing to an English-style pronoun.
-        Some(uc_1st_if("Mann", uc))
+        Some(capitalize_if("Mann", uc))
     }
 }
 
@@ -101,7 +101,7 @@ fn bare_placeholder_with_no_case_marker_reports_name_case() {
     }
     impl Ranting for Probe {
         fn name(&self, uc: bool) -> String {
-            uc_1st_if("dog", uc)
+            capitalize_if("dog", uc)
         }
         fn subjective(&self) -> &str {
             "it"
@@ -116,7 +116,7 @@ fn bare_placeholder_with_no_case_marker_reports_name_case() {
             _case: GrammaticalCase,
             _count: Option<PlaceholderCount>,
         ) -> String {
-            uc_1st_if("dog", uc)
+            capitalize_if("dog", uc)
         }
         fn skip_article(&self) -> bool {
             false

@@ -16,7 +16,7 @@ impl fmt::Display for PirateNoun {
 
 impl Ranting for PirateNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("pirate", uc)
+        capitalize_if("pirate", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -35,9 +35,9 @@ impl Ranting for PirateNoun {
         _count: Option<PlaceholderCount>,
     ) -> String {
         if to_plural {
-            uc_1st_if("pirates", uc)
+            capitalize_if("pirates", uc)
         } else {
-            uc_1st_if("pirate", uc)
+            capitalize_if("pirate", uc)
         }
     }
 
@@ -54,9 +54,9 @@ impl Ranting for PirateNoun {
         uc: bool,
     ) -> Option<String> {
         match verb {
-            "be" | "is" | "am" | "are" => Some(uc_1st_if("be", uc)),
-            "have" | "has" => Some(uc_1st_if("have", uc)),
-            "do" | "does" => Some(uc_1st_if("do", uc)),
+            "be" | "is" | "am" | "are" => Some(capitalize_if("be", uc)),
+            "have" | "has" => Some(capitalize_if("have", uc)),
+            "do" | "does" => Some(capitalize_if("do", uc)),
             _ => None,
         }
     }
@@ -91,7 +91,7 @@ impl fmt::Display for PirateCaptain {
 
 impl Ranting for PirateCaptain {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("captain", uc)
+        capitalize_if("captain", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -110,9 +110,9 @@ impl Ranting for PirateCaptain {
         _count: Option<PlaceholderCount>,
     ) -> String {
         if to_plural {
-            uc_1st_if("captains", uc)
+            capitalize_if("captains", uc)
         } else {
-            uc_1st_if("captain", uc)
+            capitalize_if("captain", uc)
         }
     }
 
@@ -129,9 +129,9 @@ impl Ranting for PirateCaptain {
         uc: bool,
     ) -> Option<String> {
         match verb {
-            "be" | "is" | "am" | "are" => Some(uc_1st_if("be", uc)),
-            "have" | "has" => Some(uc_1st_if("have", uc)),
-            "do" | "does" => Some(uc_1st_if("do", uc)),
+            "be" | "is" | "am" | "are" => Some(capitalize_if("be", uc)),
+            "have" | "has" => Some(capitalize_if("have", uc)),
+            "do" | "does" => Some(capitalize_if("do", uc)),
             _ => None,
         }
     }
@@ -177,7 +177,7 @@ impl fmt::Display for Dignitary {
 
 impl Ranting for Dignitary {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("dignitary", uc)
+        capitalize_if("dignitary", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -196,9 +196,9 @@ impl Ranting for Dignitary {
         _count: Option<PlaceholderCount>,
     ) -> String {
         if to_plural {
-            uc_1st_if("dignitaries", uc)
+            capitalize_if("dignitaries", uc)
         } else {
-            uc_1st_if("dignitary", uc)
+            capitalize_if("dignitary", uc)
         }
     }
 
@@ -216,7 +216,7 @@ impl Ranting for Dignitary {
         uc: bool,
     ) -> Option<String> {
         if subject == "you" && case == PronounCase::Objective {
-            return Some(uc_1st_if("your majesty", uc));
+            return Some(capitalize_if("your majesty", uc));
         }
         None
     }
@@ -261,7 +261,7 @@ impl fmt::Display for SpanishFeminine {
 
 impl Ranting for SpanishFeminine {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("cosa", uc)
+        capitalize_if("cosa", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -280,9 +280,9 @@ impl Ranting for SpanishFeminine {
         _count: Option<PlaceholderCount>,
     ) -> String {
         if to_plural {
-            uc_1st_if("cosas", uc)
+            capitalize_if("cosas", uc)
         } else {
-            uc_1st_if("cosa", uc)
+            capitalize_if("cosa", uc)
         }
     }
 
@@ -302,7 +302,7 @@ impl Ranting for SpanishFeminine {
     ) -> Option<String> {
         if article == "the" {
             let form = if as_plural { "las" } else { "la" };
-            return Some(uc_1st_if(form, uc));
+            return Some(capitalize_if(form, uc));
         }
         None
     }
@@ -346,7 +346,7 @@ impl fmt::Display for ScottishHighlander {
 
 impl Ranting for ScottishHighlander {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("highlander", uc)
+        capitalize_if("highlander", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -365,9 +365,9 @@ impl Ranting for ScottishHighlander {
         _count: Option<PlaceholderCount>,
     ) -> String {
         if to_plural {
-            uc_1st_if("highlanders", uc)
+            capitalize_if("highlanders", uc)
         } else {
-            uc_1st_if("highlander", uc)
+            capitalize_if("highlander", uc)
         }
     }
 
@@ -384,7 +384,7 @@ impl Ranting for ScottishHighlander {
         uc: bool,
     ) -> Option<String> {
         match verb {
-            "be" | "is" | "am" | "are" => Some(uc_1st_if("be", uc)),
+            "be" | "is" | "am" | "are" => Some(capitalize_if("be", uc)),
             _ => None,
         }
     }
@@ -399,7 +399,7 @@ impl Ranting for ScottishHighlander {
         uc: bool,
     ) -> Option<String> {
         if subject == "he" && case == PronounCase::Subjective {
-            return Some(uc_1st_if("he lad", uc));
+            return Some(capitalize_if("he lad", uc));
         }
         None
     }
@@ -430,7 +430,7 @@ impl fmt::Display for PlainNoun {
 
 impl Ranting for PlainNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("thing", uc)
+        capitalize_if("thing", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -449,9 +449,9 @@ impl Ranting for PlainNoun {
         _count: Option<PlaceholderCount>,
     ) -> String {
         if to_plural {
-            uc_1st_if("things", uc)
+            capitalize_if("things", uc)
         } else {
-            uc_1st_if("thing", uc)
+            capitalize_if("thing", uc)
         }
     }
 
@@ -489,7 +489,7 @@ impl fmt::Display for Sentinel {
 
 impl Ranting for Sentinel {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("sentinel", uc)
+        capitalize_if("sentinel", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -507,7 +507,7 @@ impl Ranting for Sentinel {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if("sentinel", uc)
+        capitalize_if("sentinel", uc)
     }
 
     fn skip_article(&self) -> bool {
@@ -579,7 +579,7 @@ impl fmt::Display for SpanishNoun {
 
 impl Ranting for SpanishNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if(self.singular, uc)
+        capitalize_if(self.singular, uc)
     }
 
     fn subjective(&self) -> &str {
@@ -597,7 +597,7 @@ impl Ranting for SpanishNoun {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(
+        capitalize_if(
             if to_plural {
                 self.plural
             } else {
@@ -625,7 +625,7 @@ impl Ranting for SpanishNoun {
     ) -> Option<String> {
         match verb {
             // Spanish "ser": "es" (singular) or "son" (plural)
-            "be" => Some(uc_1st_if(if as_plural { "son" } else { "es" }, uc)),
+            "be" => Some(capitalize_if(if as_plural { "son" } else { "es" }, uc)),
             _ => None,
         }
     }
@@ -649,7 +649,7 @@ impl Ranting for SpanishNoun {
                 (_, true) => "los",
                 (_, false) => "el",
             };
-            return Some(uc_1st_if(form, uc));
+            return Some(capitalize_if(form, uc));
         }
         None
     }

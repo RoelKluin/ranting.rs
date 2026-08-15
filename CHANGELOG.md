@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Deprecated
+
+- **`uc_1st_if` is renamed `capitalize_if`.** The old name broke Rust naming
+  conventions twice over — an unexplained `uc` abbreviation and a numeral inside
+  the identifier — and did not share a vocabulary with the
+  `Ranting::capitalize` hook it is the default for. `uc_1st_if` remains as a
+  `#[deprecated]` alias that forwards to the new name, so nothing downstream
+  breaks; it will be removed in 2.0. Every call site in this repo, the four
+  falsifier crates included, and `docs/EXTENSIBILITY.md` now use
+  `capitalize_if`. Behavior is identical.
+
 ### Changed (breaking)
 
 - **`Ranting::inflect` takes a fifth parameter,

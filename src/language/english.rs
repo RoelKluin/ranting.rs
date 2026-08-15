@@ -1,8 +1,8 @@
 // (c) Roel Kluin 2022 MIT
 //!
 //! Functions used by [Ranting](../ranting_derive/index.html) trait placeholders.
+use crate::capitalize_if;
 use crate::is_subjective_plural;
-use crate::uc_1st_if;
 use ranting_core::grammar::SubjectPronoun;
 use std::str::FromStr;
 use strum_macros::EnumString;
@@ -109,30 +109,30 @@ pub(crate) fn inflect_verb(subject: &str, verb: &str, as_plural: bool, uc: bool)
             {
                 s = form;
             }
-            uc_1st_if(s, uc) + ext
+            capitalize_if(s, uc) + ext
         }
         "he" | "she" | "it" => {
             if let Ok(verb_enum) = IrregularPluralVerb::from_str(s) {
                 if let Some(form) = verb_enum.third_person() {
-                    return uc_1st_if(form, uc) + ext;
+                    return capitalize_if(form, uc) + ext;
                 }
                 // Modal verb not in irregular table — return unchanged
-                uc_1st_if(s, uc) + ext
+                capitalize_if(s, uc) + ext
             } else if super::verb::detect_tense(s) != super::verb::Tense::Present {
                 // Verb is past or continuous (e.g., "walked", "running") — return as-is
-                uc_1st_if(s, uc) + ext
+                capitalize_if(s, uc) + ext
             } else if s.ends_with(['s', 'o', 'x']) || s.ends_with("ch") || s.ends_with("sh") {
-                uc_1st_if(s, uc) + "es"
+                capitalize_if(s, uc) + "es"
             } else if let Some(p) = s
                 .strip_suffix('y')
                 .filter(|p| !p.ends_with(['a', 'e', 'u', 'o']))
             {
-                uc_1st_if(p, uc) + "ies"
+                capitalize_if(p, uc) + "ies"
             } else {
-                uc_1st_if(s, uc) + "s"
+                capitalize_if(s, uc) + "s"
             }
         }
-        _ => uc_1st_if(s, uc) + ext,
+        _ => capitalize_if(s, uc) + ext,
     }
 }
 
@@ -156,7 +156,7 @@ pub(crate) fn adapt_article(
         } else {
             t.singular_demonstrative().unwrap_or(s)
         };
-        uc_1st_if(art, uc) + ws
+        capitalize_if(art, uc) + ws
     }
 }
 
@@ -265,21 +265,21 @@ fn pronoun_forms(subject: SubjectPronoun) -> PronounForms {
 pub(crate) fn inflect_adjective(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
     let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).unwrap_or(SubjectPronoun::It));
-    uc_1st_if(forms.adjective, uc)
+    capitalize_if(forms.adjective, uc)
 }
 
 /// singular-/pluralize subjective with as to_plural and set uc to capitalize first character
 pub(crate) fn inflect_subjective(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
     let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).unwrap_or(SubjectPronoun::It));
-    uc_1st_if(forms.subjective, uc)
+    capitalize_if(forms.subjective, uc)
 }
 
 /// Inflect objective pronoun as to_plural indicates. The first character capitalized with uc set.
 pub(crate) fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
     let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).unwrap_or(SubjectPronoun::It));
-    uc_1st_if(forms.objective, uc)
+    capitalize_if(forms.objective, uc)
 }
 
 /// Inflect possesive pronoun as to_plural indicates. The first character capitalized with uc set.
@@ -303,7 +303,7 @@ pub(crate) fn inflect_objective(subject: &str, to_plural: bool, uc: bool) -> Str
 pub fn inflect_possessive(subject: &str, to_plural: bool, uc: bool) -> String {
     let pluralized = pluralize_pronoun(subject, to_plural);
     let forms = pronoun_forms(SubjectPronoun::from_str(pluralized).unwrap_or(SubjectPronoun::It));
-    uc_1st_if(forms.possessive, uc)
+    capitalize_if(forms.possessive, uc)
 }
 
 /// Inflect reflexive pronoun (myself, yourself, himself, herself, itself, thyself,
@@ -336,14 +336,14 @@ pub fn inflect_reflexive(subject: &str, to_plural: bool, uc: bool) -> String {
     } else {
         pronoun_forms(SubjectPronoun::from_str(pluralized).unwrap_or(SubjectPronoun::It)).reflexive
     };
-    uc_1st_if(reflexive, uc)
+    capitalize_if(reflexive, uc)
 }
 
 /// Look up singular/plural form in irregular noun table.
 /// Returns the inflected form if found in table, or None to trigger fallback to regular rules.
 /// Lookup is case-insensitive; the result already carries `noun_form`'s own case pattern
 /// (all-caps/title-case/lowercase, via `plurals::apply_case`) — the caller only needs to
-/// layer sentence-position capitalization on top via `uc_1st_if`.
+/// layer sentence-position capitalization on top via `capitalize_if`.
 pub fn inflect_noun_irregular(noun_form: &str, to_plural: bool) -> Option<String> {
     if to_plural {
         super::plurals::get_plural(noun_form)
@@ -362,7 +362,7 @@ pub fn inflect_noun_irregular(noun_form: &str, to_plural: bool) -> Option<String
 ///
 /// **Which path runs is decided by whether those attributes were *written*, and that is the
 /// compatibility contract.** Both absent (`None`): the noun goes through English's regular
-/// orthographic rules — see [`plurals::regular_plural`](super::plurals) — so `{+fly}` renders
+/// orthographic rules, so `{+fly}` renders
 /// `"flies"` where it used to render `"flys"`. Either one written: the struct has stated a rule
 /// of its own, and that statement wins — it gets the literal strip-and-append, with the
 /// unwritten half defaulting to `""`/`"s"`. That is what keeps a non-English impl relying on

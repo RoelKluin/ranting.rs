@@ -73,7 +73,7 @@ impl fmt::Display for SpanishNoun {
 
 impl Ranting for SpanishNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if(self.form(self.plural), uc)
+        capitalize_if(self.form(self.plural), uc)
     }
 
     fn subjective(&self) -> &str {
@@ -100,7 +100,7 @@ impl Ranting for SpanishNoun {
         _count: Option<PlaceholderCount>,
     ) -> String {
         // No case to honor here — see the struct doc comment and the README's "no case hole".
-        uc_1st_if(self.form(to_plural), uc)
+        capitalize_if(self.form(to_plural), uc)
     }
 
     fn skip_article(&self) -> bool {
@@ -140,7 +140,7 @@ impl Ranting for SpanishNoun {
             // does not model — same stance `ranting_i18n::GermanNoun` takes.
             _ => return None,
         };
-        Some(uc_1st_if(form, uc))
+        Some(capitalize_if(form, uc))
     }
 
     fn inflect_pronoun_custom(
@@ -176,7 +176,7 @@ impl Ranting for SpanishNoun {
             // Third-person reflexive is `se` for every gender and number here.
             PronounCase::Reflexive => "se",
         };
-        Some(uc_1st_if(word, uc))
+        Some(capitalize_if(word, uc))
     }
 
     fn inflect_adjective_custom(
@@ -194,7 +194,7 @@ impl Ranting for SpanishNoun {
         // `docs/EXTENSIBILITY.md` §2.5's note that a agreement-only fork writes `!` for the
         // plain/positive case too.
         let feminine = class.as_str() == FEMININE;
-        lexicon::adjective_form(adjective, feminine, as_plural).map(|form| uc_1st_if(&form, uc))
+        lexicon::adjective_form(adjective, feminine, as_plural).map(|form| capitalize_if(&form, uc))
     }
 
     fn inflect_numeral_custom(
@@ -242,7 +242,7 @@ impl Ranting for SpanishNoun {
             ("a", "el") => "al",
             _ => return None,
         };
-        Some(uc_1st_if(fused, uc))
+        Some(capitalize_if(fused, uc))
     }
 
     fn inflect_verb_custom(
@@ -254,7 +254,7 @@ impl Ranting for SpanishNoun {
         uc: bool,
     ) -> Option<String> {
         let person = Person::from_subject(subject, as_plural);
-        lexicon::conjugate(verb, person).map(|form| uc_1st_if(form, uc))
+        lexicon::conjugate(verb, person).map(|form| capitalize_if(form, uc))
     }
 
     // `capitalize` is deliberately *not* overridden. Spanish has nothing like German's

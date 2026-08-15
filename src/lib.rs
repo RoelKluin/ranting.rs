@@ -1,6 +1,11 @@
 // (c) Roel Kluin 2022 MIT
 //!
-//! Functions to handle [Ranting](https://docs.rs/ranting_derive/0.2.1/ranting_derive/) trait placeholders.
+//! Format sentences whose articles, verbs and pronouns agree with the nouns in them.
+//!
+//! [`say!`] works like `format!()`, but a placeholder may also carry an article, a verb, an
+//! adjective or a pronoun case. Each is inflected to agree with the [`Ranting`] value the
+//! placeholder names, so one template renders correctly for a singular or plural subject,
+//! and for any set of pronouns.
 //!
 //! ## Gender-Neutral Pronouns
 //!
@@ -61,15 +66,10 @@ use ranting_core::placeholder::{
 };
 use std::str::FromStr;
 
-/// Typed placeholder-spec types (`PlaceholderSpec`, `CaseKind`, `PostSpec`,
-/// `TenseMarker`) that `ranting_derive` bakes at compile time and
-/// `handle_placeholder`/`handle_placeholder_with_context` consume at
-/// runtime. Not part of the stable public API surface in the usual sense --
-/// exposed so macro-generated code (which only has a `ranting::` path to
-/// work with) can name these types -- but not `#[doc(hidden)]` either,
-/// since understanding this module explains the `say!()`/`say_with!()`
-/// macro <-> runtime seam for anyone extending the grammar (see
-/// `.claude/rules/crate-layout.md`'s "Macro flow" section).
+// Undocumented here on purpose: a `///` on the re-export renders above the module's own doc
+// rather than replacing it, so the reader would read a summary twice. Deliberately not
+// `#[doc(hidden)]` either — the module is the clearest description of the macro-to-runtime seam
+// for anyone extending the grammar. See `.claude/rules/crate-layout.md`'s "Macro flow" section.
 pub use ranting_core::placeholder;
 
 #[doc(hidden)]
@@ -78,82 +78,94 @@ pub use heed::HeedMatcher;
 // TODO: make this a feature:
 //pub(crate) use strum_macros;
 
-/// Expands to `Ok(say!(...))` — a plain expression, not a hidden `return`.
-/// Callers that want early-return behavior write `return ack!(...)` themselves;
-/// the macro can also be used anywhere an expression is valid (e.g. bound to a
-/// `let`, or as the tail expression of a block).
+/// Like `say!()`, but yields `Ok(String)` rather than a `String`.
+///
+/// It is an ordinary expression: bind it to a `let`, end a block with it, or write
+/// `return ack!(...)` to return early.
 ///
 /// # Examples
 ///
 /// ```rust
-/// # use ranting::{Noun, ack, Ranting};
-/// fn question(harr: Noun, friends: Noun, lad: Noun) -> Result<String, String> {
-///     return ack!("{harr shall} {+=friends do} with {the drunken *lad}?");
+/// # use ranting::{Noun, ack};
+/// fn confirm(parcel: Noun) -> Result<String, String> {
+///     ack!("{The parcel arrive} tomorrow.")
 /// }
 ///
-/// # fn main() {
-/// let harr = Noun::new("what", "it");
-/// let friends = Noun::new("crew", "we");
-/// let lad = Noun::new("sailor", "he");
-///
 /// assert_eq!(
-///     question(harr, friends, lad),
-///     Ok("What shall we do with the drunken sailor?".to_string())
+///     confirm(Noun::new("parcel", "it")),
+///     Ok("The parcel arrives tomorrow.".to_string())
 /// );
-/// # }
+/// assert_eq!(
+///     confirm(Noun::new("parcels", "they")),
+///     Ok("The parcels arrive tomorrow.".to_string())
+/// );
 /// ```
 pub use ranting_derive::ack;
 
-/// Expands to `Err(say!(...))` — a plain expression, not a hidden `return`.
-/// Callers that want early-return behavior write `return nay!(...)` themselves;
-/// the macro can also be used anywhere an expression is valid (e.g. bound to a
-/// `let`, or as the tail expression of a block).
+/// Like `say!()`, but yields `Err(String)` rather than a `String`.
+///
+/// It is an ordinary expression: bind it to a `let`, end a block with it, or write
+/// `return nay!(...)` to return early.
 ///
 /// # Examples
 ///
 /// ```rust
-/// # use ranting::{Noun, nay, Ranting};
-/// fn home(p: Noun) -> Result<String, String> {
-///     return nay!("{=p can't} get in {`p} house.");
+/// # use ranting::{Noun, nay};
+/// fn check_out(reader: Noun, copies_left: u32) -> Result<String, String> {
+///     if copies_left == 0 {
+///         return nay!("{`reader} loan can't start: every copy is out.");
+///     }
+///     Ok("Enjoy the book!".to_string())
 /// }
 ///
-/// # fn main() {
 /// assert_eq!(
-///     home(Noun::new("Jo", "she")),
-///     Err("She can't get in her house.".to_string())
+///     check_out(Noun::new("Jo", "she"), 0),
+///     Err("Her loan can't start: every copy is out.".to_string())
 /// );
-/// # }
+/// assert_eq!(check_out(Noun::new("Jo", "she"), 3), Ok("Enjoy the book!".to_string()));
 /// ```
 pub use ranting_derive::nay;
 
-/// Functions like `format!()` for normal placeholders, but allows extended placeholders including
-/// e.g. articles or verbs beside a Noun or a variable with the Ranting trait. These are inflected
-/// accordingly, and adjustable by punctuation prefixes.
+/// Formats like `format!()`, but a placeholder may hold more than a value: an article, a verb,
+/// an adjective or a numeral written beside the name is inflected to agree with it. Markers
+/// written before the name — `+` and `-` for number, `` ` ``, `@` and `~` for pronoun case,
+/// `<`, `=` and `>` for tense, among others — select which form is rendered.
 ///
 /// # Examples
 ///
+/// The article and the verb agree with the noun, so one template covers both numbers:
+///
 /// ```rust
-/// # use ranting::{Noun, say, Ranting};
+/// # use ranting::{Noun, say};
+/// let ship = Noun::new("ship", "she");
+/// assert_eq!(say!("{The ship sail} at dawn."), "The ship sails at dawn.".to_string());
+/// assert_eq!(say!("{The +ship sail} at dawn."), "The ships sail at dawn.".to_string());
+/// ```
+///
+/// A marker before the name picks the pronoun case: `=` subject, `@` object, `` ` ``
+/// possessive determiner, `~` possessive pronoun. All of them follow the noun's own subject:
+///
+/// ```rust
+/// # use ranting::{Noun, say};
 /// fn inflect(with: Noun) -> String {
 ///     let n = Noun::new("noun", "it");
 ///     say!("{some n} with {0} {?n inflect} as {=0}, {@0}, {`0} and {~0}.", with)
 /// }
 ///
-/// # fn main() {
-///
-/// assert_eq!(["I", "you", "he", "she", "it", "we", "they"]
+/// let sentences: Vec<String> = ["I", "you", "he", "she", "it", "we", "they"]
 ///     .iter()
 ///     .map(|s| inflect(Noun::new(format!("subject {s}").as_str(), s)))
-///     .collect::<String>(),
-///     "A noun with subject I inflects as I, me, my and mine.\
-///     A noun with subject you inflects as you, you, your and yours.\
-///     A noun with subject he inflects as he, him, his and his.\
-///     A noun with subject she inflects as she, her, her and hers.\
-///     A noun with subject it inflects as it, it, its and its.\
-///     A noun with subject we inflects as we, us, our and ours.\
-///     A noun with subject they inflects as they, them, their and theirs."
-///     .to_string());
-/// # }
+///     .collect();
+///
+/// assert_eq!(sentences, [
+///     "A noun with subject I inflects as I, me, my and mine.",
+///     "A noun with subject you inflects as you, you, your and yours.",
+///     "A noun with subject he inflects as he, him, his and his.",
+///     "A noun with subject she inflects as she, her, her and hers.",
+///     "A noun with subject it inflects as it, it, its and its.",
+///     "A noun with subject we inflects as we, us, our and ours.",
+///     "A noun with subject they inflects as they, them, their and theirs.",
+/// ]);
 /// ```
 ///
 /// # Gender-Neutral Pronouns (Singular They)
@@ -174,12 +186,10 @@ pub use ranting_derive::nay;
 /// ```
 pub use ranting_derive::say;
 
-/// Like `say!()`, but takes a [`NarrationContext`] as its first argument and
-/// calls `handle_placeholder_with_context()` — placeholders with tense markers
-/// (`<`,`=`,`>`,`<=`,`%`,`<%`) bake the uninflected base verb rather than a
-/// compile-time-conjugated form, so `context.tense` can override it at
-/// runtime. Without an override, `say_with!()` reproduces `say!()`'s output
-/// exactly. See `ranting_derive::say_with`.
+/// Like `say!()`, but takes a [`NarrationContext`] as its first argument: a placeholder's
+/// tense marker becomes a default that the context can override at runtime, so one template
+/// can be told in the past or the future. Without an override the output is identical to
+/// `say!()`'s.
 ///
 /// # Examples
 ///
@@ -197,29 +207,20 @@ pub use ranting_derive::say;
 /// ```
 pub use ranting_derive::say_with;
 
-/// heed!(template, input) — scanf-like input parsing; see `ranting_derive::heed`.
+// The four re-exports below carry no doc of their own on purpose: rustdoc renders the
+// re-export's `///` *above* the macro's own doc, so a summary here is read twice.
 pub use ranting_derive::heed;
 
-/// `#[derive(Heed)]` — v2 of `heed!()`: put `#[heed(template = "...")]` on a
-/// struct with named fields (`String` for `{name}`/`{name...}`, `u64` for
-/// `{$name}`) and it gains `fn heed(input: &str) -> Option<Self>`, built on
-/// the same template compiler as `heed!()`. See `ranting_derive::Heed`.
 pub use ranting_derive::Heed;
 
-/// ask!(speaker, audience, template, input) — parses `input` against `template`
-/// like `heed!()`, then forwards the captures to `audience`'s [`Answerable::answer`],
-/// returning `Option<String>` (`None` on no match). See `ranting_derive::ask`.
 pub use ranting_derive::ask;
 
-/// Attribute macro that derives the `Ranting` trait implementation and enables
-/// inflection within `say!()` placeholders — `#[derive_ranting]` plus
-/// `#[ranting(...)]` on a struct or enum. See `ranting_derive::derive_ranting`.
 pub use ranting_derive::derive_ranting;
 
-/// If you want to implement Ranting on a `Box<&dyn Trait>` where Trait has Ranting
+/// Implements [`Ranting`] for a `Box<&dyn Trait>`, given a trait that requires [`Ranting`].
 pub use ranting_derive::boxed_ranting_trait;
 
-/// If you want to implement Ranting on a `&'_ dyn Trait` where Trait has Ranting
+/// Implements [`Ranting`] for a `&'_ dyn Trait`, given a trait that requires [`Ranting`].
 pub use ranting_derive::ref_ranting_trait;
 
 /// How to render a noun's article at one call site — bundled to keep
@@ -600,7 +601,7 @@ where
             // A possessive noun phrase built from the noun's own name ("Jane's"), hence
             // OrthographyRole::Noun rather than a role of its own — and, as at the name site
             // below, pre-capitalized with `uc` already spent, so the hook is passed `false`.
-            let poss_phrase = uc_1st_if(pre, uc);
+            let poss_phrase = capitalize_if(pre, uc);
             res.push_str(&noun.capitalize_with_context(
                 &poss_phrase,
                 OrthographyRole::Noun,
@@ -872,7 +873,7 @@ where
                 }
                 // The only site that does *not* hand the hook an uncapitalized word: `inflect()`
                 // takes `uc` itself and is user-implementable, so English capitalization is already
-                // resolved here — and it is not the same as `uc_1st_if`, since a derive-generated
+                // resolved here — and it is not the same as `capitalize_if`, since a derive-generated
                 // `name()` for `#[ranting(name = "designer")]` reads `uc == true` as "as written",
                 // not "force uppercase". Hence `false`: the hook must not apply it a second time.
                 // A fork that capitalizes nouns unconditionally (German) ignores the flag anyway.
@@ -1205,8 +1206,20 @@ pub fn handle_tense_marker(subject: &str, marker: &str, verb: &str) -> String {
     }
 }
 
-/// upper cases first character if uc is true, or second in a contraction.
-pub fn uc_1st_if(s: &str, uc: bool) -> String {
+/// Uppercase a word's first character when `uc` is set, and return it unchanged otherwise.
+///
+/// A leading apostrophe is skipped, so a contraction capitalizes the letter a reader expects:
+/// `'tis` becomes `'Tis`, not `'tis`. This is what [`Ranting::capitalize`] does by default, and
+/// what a custom hook should call when it wants English's own behavior for a form it built
+/// itself.
+///
+/// ```rust
+/// # use ranting::capitalize_if;
+/// assert_eq!(capitalize_if("dog", true), "Dog");
+/// assert_eq!(capitalize_if("dog", false), "dog");
+/// assert_eq!(capitalize_if("'tis", true), "'Tis");
+/// ```
+pub fn capitalize_if(s: &str, uc: bool) -> String {
     if uc {
         let mut c = s.chars();
         c.next()
@@ -1226,6 +1239,12 @@ pub fn uc_1st_if(s: &str, uc: bool) -> String {
     }
 }
 
+/// Renamed to [`capitalize_if`].
+#[deprecated(since = "1.4.0", note = "renamed to `capitalize_if`")]
+pub fn uc_1st_if(s: &str, uc: bool) -> String {
+    capitalize_if(s, uc)
+}
+
 fn split_at_find_start(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
     s.find(fun).map(|u| s.split_at(u))
 }
@@ -1242,8 +1261,24 @@ fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
     })
 }
 
-/// Has the Ranting trait. Often you may want to `#[derive(Ranting)]` and sometimes override some
-/// of the trait functions.
+/// A name together with the subject pronoun that goes with it — the ready-made [`Ranting`]
+/// value, for text that isn't backed by a type of your own.
+///
+/// ```rust
+/// # use ranting::{Noun, say};
+/// let cat = Noun::new("cat", "she");
+/// assert_eq!(
+///     say!("{The cat} lost {`cat} collar."),
+///     "The cat lost her collar.".to_string()
+/// );
+/// assert_eq!(
+///     say!("{The +cat} lost {+`cat} collars."),
+///     "The cats lost their collars.".to_string()
+/// );
+/// ```
+///
+/// For a type of your own, `#[derive_ranting]` gives it the same placeholder support directly,
+/// and lets you override individual [`Ranting`] methods.
 #[derive(ranting_derive::Ranting)]
 // By setting name and subject to "$", these must come from the struct.
 #[ranting(
@@ -1334,17 +1369,34 @@ impl std::fmt::Display for InvalidSubjectError {
 impl std::error::Error for InvalidSubjectError {}
 
 impl Noun {
-    /// Construct a `Noun`, panicking if `subject` isn't a recognized subject
-    /// pronoun. Kept for backward compatibility with existing call sites;
-    /// prefer [`Noun::try_new`] when `subject` isn't a compile-time literal
-    /// you already know is valid.
+    /// Construct a noun from a name and one of the recognized subject pronouns: "I", "you",
+    /// "thou", "he", "she", "it", "we", "ye" or "they".
+    ///
+    /// Panics on any other subject. Use [`Noun::try_new`] when the subject comes from input or
+    /// configuration rather than from a literal you wrote.
+    ///
+    /// ```rust
+    /// # use ranting::{Noun, say};
+    /// let alex = Noun::new("Alex", "they");
+    /// assert_eq!(say!("{=alex are} here."), "They are here.".to_string());
+    /// ```
+    //
+    // Kept alongside `try_new`, which arrived later, for backward compatibility with existing
+    // call sites.
     pub fn new(name: &str, subject: &str) -> Self {
         Self::try_new(name, subject).expect("not a subject")
     }
 
-    /// Fallible constructor: returns `Err(InvalidSubjectError)` instead of
-    /// panicking when `subject` isn't one of the recognized subject pronouns,
-    /// so invalid input can be handled instead of aborting the program.
+    /// Construct a noun, reporting an unrecognized subject pronoun as an
+    /// [`InvalidSubjectError`] rather than panicking the way [`Noun::new`] does.
+    ///
+    /// ```rust
+    /// # use ranting::Noun;
+    /// assert!(Noun::try_new("Alex", "they").is_ok());
+    ///
+    /// let refused = Noun::try_new("Alex", "xe").err().unwrap();
+    /// assert_eq!(refused.to_string(), "\"xe\" is not a valid subject pronoun");
+    /// ```
     pub fn try_new(name: &str, subject: &str) -> Result<Self, InvalidSubjectError> {
         let subject = SubjectPronoun::from_str(subject)
             .map_err(|_| InvalidSubjectError(subject.to_string()))?;
@@ -1641,40 +1693,24 @@ impl From<placeholder::NumeralKind> for NumeralStyle {
     }
 }
 
-/// The numeral value backing a placeholder occurrence, when it has one — the count channel owed
-/// by ROADMAP.md Phase 6 item 4 and closed by item 14. Threaded into five of the six `_custom`
-/// hook pairs by item 14 (see the "which hooks" note below), then extended by Phase 7 items 11,
-/// 12 and 26 to `Ranting::inflect`, `elide_numeral_custom` and `inflect_preposition_custom` —
-/// seven of the crate's eight `_custom`/`_with_context` hook pairs carry it today, plus `inflect`
-/// itself. `None` for a placeholder with no numeral at all
-/// (`` {noun} ``, `` {+noun} ``, `` {-noun} ``).
+/// The numeral value backing a placeholder occurrence, when it has one. `None` for a placeholder
+/// with no numeral at all (`` {noun} ``, `` {+noun} ``, `` {-noun} ``).
+///
+/// Passed to most `_custom`/`_with_context` hooks (and to [`Ranting::inflect`]) so a fork can
+/// agree in number/case without re-parsing the template. The exception is
+/// `inflect_numeral_custom`/`_with_context`, which already receives its own `count: Option<i64>`
+/// plus the rendered numeral string, so a second count parameter there would be redundant.
 ///
 /// # Why a struct and not a bare `i64`
-/// `handle_placeholder_impl`'s own `as_pl` computation (`src/lib.rs:429-443`) already treats
-/// `1.0` differently from `1` — English `1.0 inches` takes plural agreement, `1 inch` does not —
-/// which means visible fraction digits are already load-bearing information the crate computes
-/// and then discards. A bare `i64` would lose that distinction a second time, for every fork that
-/// wants to reproduce it (e.g. CLDR's `one`/`other` split cares whether `1.0` was written with a
-/// visible fraction). `fraction_digits` carries exactly that: the count of digits actually
-/// rendered after a decimal point, `0` for a plain integer. This is Open Question 1 of
-/// `docs/superpowers/specs/2026-08-13-number-categories.md`, resolved in favor of the struct.
-///
-/// # Which hooks carry it, and which doesn't
-/// Added to `inflect_verb_custom`, `inflect_pronoun_custom`, `inflect_article_custom`,
-/// `elide_article_custom` and `inflect_adjective_custom` (and their five `_with_context` twins) —
-/// the five hook pairs that previously had *no* numeral signal at all. **Not** added to
-/// `inflect_numeral_custom`/`_with_context`: that hook already receives its own `count:
-/// Option<i64>` plus the rendered `numeral: &str` string itself, from which visible fraction
-/// digits are directly readable (`numeral.split('.').nth(1).map_or(0, str::len)` for the
-/// `NumeralStyle::Digits` case) — a second, differently-typed count parameter there would be
-/// redundant. This is Open Question 2 of the spike, resolved as "the five hooks with no numeral
-/// signal get the new channel; the one hook with richer numeral signal already does not."
-///
-/// Phase 7 later gave the same channel to three more sites that item 14 hadn't touched:
-/// `Ranting::inflect` (item 11 — the one count-less call that renders the counted noun itself),
-/// `elide_numeral_custom` (item 12), and `inflect_preposition_custom` (item 26, designed with the
-/// parameter from the start). `inflect_numeral_custom` remains the sole holdout, for the same
-/// reason given above.
+/// English marks `1.0 inches` as plural but `1 inch` as singular, so whether a visible fraction
+/// was written is load-bearing (CLDR's `one`/`other` split cares about this too). `fraction_digits`
+/// carries exactly that: the count of digits actually rendered after a decimal point, `0` for a
+/// plain integer.
+// History: the count channel owed by ROADMAP.md Phase 6 item 4, closed by item 14 for five hook
+// pairs, then extended by Phase 7 items 11, 12 and 26 to `Ranting::inflect`,
+// `elide_numeral_custom` and `inflect_preposition_custom`. See
+// `docs/superpowers/specs/2026-08-13-number-categories.md` Open Questions 1 and 2 for the design
+// rationale behind the struct shape and the `inflect_numeral_custom` exception.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct PlaceholderCount {
     /// The integer value of the placeholder's numeral (`{$n noun}`/`{#n noun}`).
@@ -1699,8 +1735,12 @@ impl From<placeholder::CaseKind> for GrammaticalCase {
     }
 }
 
-/// The trait required for a struct or enum to function as a noun in a placeholder, derived with `#[derive_ranting]`.
-/// Functions are used in `say!()` placeholders replacements.
+/// What a struct or enum must provide to be usable as a noun in a placeholder.
+///
+/// `#[derive_ranting]` implements it from the `#[ranting(...)]` attributes, which is the usual
+/// way in. Implement it by hand, or override individual methods, when the entity's name or
+/// pronouns are decided at runtime — or when the text isn't English, in which case the
+/// `_custom` hooks below are where a language's own rules go.
 ///
 /// # Examples
 ///
@@ -1732,9 +1772,10 @@ impl From<placeholder::CaseKind> for GrammaticalCase {
 /// # }
 /// ```
 ///
-/// Using singular they for an individual with gender-neutral pronouns (the runnable copy of
-/// `ranting_derive::derive_ranting`'s own doc example, which can't compile standalone there --
-/// see CLAUDE.md's "Testing conventions"):
+/// Using singular they for an individual with gender-neutral pronouns:
+//
+// The runnable copy of `derive_ranting`'s own doc example, which can't compile standalone in a
+// proc-macro crate -- see CLAUDE.md's "Testing conventions".
 ///
 /// ```
 /// # use ranting::*;
@@ -1751,8 +1792,20 @@ impl From<placeholder::CaseKind> for GrammaticalCase {
 /// );
 /// # }
 /// ```
-// By overriding functions one can adapt default behavior, which affects the
-// [placeholder](https://docs.rs/ranting_derive/0.2.1/ranting_derive/) behavior.
+///
+/// # Parameters the hooks share
+///
+/// The `_custom` hooks below take the same few arguments, meaning the same thing in each. Their
+/// own docs note only what is particular to them.
+///
+/// | Parameter | What it is |
+/// |---|---|
+/// | `class` | The entity's own noun class, or [`NounClass::UNSET`] when it declares none. Lets an implementation choose a form from the entity rather than guess from its spelling. |
+/// | `case` | The grammatical role the placeholder's case marker wrote, as a [`GrammaticalCase`]. A bare `` {the noun} `` reports [`Name`](GrammaticalCase::Name), English having nothing more specific to report. |
+/// | `count` | The placeholder's own numeral, as a [`PlaceholderCount`], and `None` when it wrote none — which is not the same as a count of one. |
+/// | `as_plural` | Whether to render the plural *agreement* form; see [`is_plural`](Self::is_plural) for what that does and does not promise. |
+/// | `uc` | Whether English would uppercase the first character. The caller applies it on the fallback path only, so a custom form must apply it itself — [`capitalize_if`] does that. |
+// By overriding functions one can adapt default behavior, which affects placeholder rendering.
 //
 // ## Derive Attributes
 //
@@ -1769,42 +1822,52 @@ impl From<placeholder::CaseKind> for GrammaticalCase {
 // - `uc`: Whether name should always start uppercase (default: false)
 // - `no_article`: Whether to skip articles (default: false)
 pub trait Ranting: std::fmt::Display {
-    /// return the name, which is struct name or the `#{ranting(name = "..")]` value, or self.name
-    /// if the name attribute was set to "$"
+    /// The entity's display name, with its first character uppercased when `uc` is set.
+    ///
+    /// Derived from `#[ranting(name = "...")]`, or from the struct's own name when that
+    /// attribute is absent.
     fn name(&self, uc: bool) -> String;
-    /// return the subject: "it" or the `#{ranting(subject = "..")]` value; self.subject if "$".
+
+    /// The entity's subject pronoun: "I", "you", "thou", "he", "she", "it", "we", "ye" or
+    /// "they". Every other pronoun a placeholder renders is inflected from this one.
+    ///
+    /// Derived from `#[ranting(subject = "...")]`, defaulting to "it".
     fn subjective(&self) -> &str;
-    /// return if plural (the subject, or if you, the `#{ranting(plural_you = "true/false")]` value,
-    /// default false
-    // if the subject can be "you" in both forms, you may want to override the function.
+
+    /// Whether the entity is plural, which decides the agreement form of every verb and
+    /// pronoun rendered beside it.
+    ///
+    /// The subject pronoun answers this on its own, except for "you" — write
+    /// `#[ranting(plural_you = true)]` for a "you" that addresses several.
     fn is_plural(&self) -> bool;
-    /// return the singular or plural form as configured, starting with capital if uc is set.
-    /// use `#{ranting(singular_end = "..", plural_end = "..")]` if not plural = singular + "s"
+
+    /// The name in the number the placeholder asked for, uppercased when `uc` is set.
+    ///
+    /// English spelling rules apply unless the entity declares its own suffixes with
+    /// `#[ranting(singular_end = "...", plural_end = "...")]`.
     // if name can change this should be overridden to lookup each singular_end and plural_end:
     ///
-    /// `case` is the placeholder's own grammatical role — the same [`GrammaticalCase`] handed to
-    /// [`inflect_article_custom`](Self::inflect_article_custom) — added by ROADMAP.md Phase 6
-    /// item 14 because English never declines a noun by case but German does (dative plural `den
-    /// Hunden`, genitive `des Hauses`): before this, an implementation had no way to honor the
-    /// placeholder's own case marker (`` {the =noun} `` vs. `` {the @noun} ``) inside `inflect`
-    /// itself, and had to carry case entity-side only. English implementations ignore it. See
-    /// `ranting_i18n`'s `GermanNoun::inflect` (hole 2 in `ranting_i18n/README.md`) for a worked
-    /// example that declines by both `self`'s own entity-carried case override *and*, when there
-    /// is none, this parameter.
+    /// English implementations can ignore `case` and `count`; both are here for languages that
+    /// decline or count the noun itself.
     ///
-    /// `count` is the placeholder's own numeral, when it wrote one — the same
-    /// [`PlaceholderCount`] item 14 gave the five agreeing hook pairs, added by ROADMAP.md Phase 7
-    /// item 11 because `inflect` renders *the counted noun itself* and was the one call item 14
-    /// did not widen. Without it, a language with a third morphological number could agree in that
-    /// number everywhere except on the noun: Arabic `{$n kitab}` with `n = 2` gave every hook that
-    /// agrees with the noun `PlaceholderCount { value: 2, .. }` and gave the noun the plural
-    /// `kutub` rather than the dual `kitābān` — grammatical-looking output, wrong in one word.
-    /// `to_plural` alone cannot express it, and widening `to_plural` to an enum would break every
-    /// existing implementation's match. `None` means the placeholder wrote no numeral, which is
-    /// *not* the same as a count of one. English implementations ignore it; CLDR plural categories
-    /// stay deliberately out of the crate (see
-    /// `docs/superpowers/specs/2026-08-13-number-categories.md`) — this hands a fork the raw
-    /// count and lets it decide.
+    /// `case` is the placeholder's own grammatical role — the same [`GrammaticalCase`] handed to
+    /// [`inflect_article_custom`](Self::inflect_article_custom) — so a declining language can
+    /// honor the case marker the template wrote (`` {the =noun} `` vs. `` {the @noun} ``) on the
+    /// noun as well as on its article: German's dative plural `den Hunden`, genitive `des Hauses`.
+    ///
+    /// `count` is the placeholder's own numeral, when it wrote one, and `None` when it wrote
+    /// none — which is *not* the same as a count of one. A language with a third morphological
+    /// number needs it: Arabic `{$n kitab}` with `n = 2` must render the dual `kitābān`, and
+    /// `to_plural` alone can only ask for the plural `kutub`. Plural categories are deliberately
+    /// left to the implementation; this hands over the raw count rather than a bucketed one.
+    //
+    // `case` arrived with ROADMAP.md Phase 6 item 14, `count` with Phase 7 item 11 — item 14 had
+    // widened the five agreeing hook pairs but not `inflect`, the one call that renders the
+    // counted noun, so a fork could agree in a third number everywhere except on the noun.
+    // `to_plural` was not widened to an enum because that breaks every existing `match`. CLDR
+    // categories stay out of the crate: docs/superpowers/specs/2026-08-13-number-categories.md.
+    // `ranting_i18n`'s `GermanNoun::inflect` is the worked `case` example, declining by `self`'s
+    // own entity-carried override first and this parameter second.
     fn inflect(
         &self,
         to_plural: bool,
@@ -1812,8 +1875,11 @@ pub trait Ranting: std::fmt::Display {
         case: GrammaticalCase,
         count: Option<PlaceholderCount>,
     ) -> String;
-    /// If an article is only required when emphasizing, set `#{ranting(no_article = "true")]`,
-    /// and this function will return accordingly (used by placeholders).
+    /// Whether a placeholder should render no article for this entity — true for names,
+    /// languages, meals and sports, which take one only for emphasis.
+    ///
+    /// Set it with `#[ranting(no_article = true)]`. A `!` in the placeholder's article slot
+    /// overrides it and renders the article anyway.
     // examples: Names, languages, elements, food grains, meals (unless particular), sports.
     // if name can change and sometimes goes without article (e.g. a sport) lookup & override:
     fn skip_article(&self) -> bool;
@@ -1836,17 +1902,13 @@ pub trait Ranting: std::fmt::Display {
     /// [`NarrationContext::narration_person`](crate::NarrationContext) viewpoint overrides —
     /// consulted by `say_with!()`'s viewpoint resolution before anything else, so overriding
     /// this is enough to make a non-English first-person label (`ich`, `wir`, …) participate
-    /// in viewpoint retelling. Defaults to exactly today's English behavior,
-    /// [`ranting_core::grammar::is_first_person_subject`] (`subject == "I" || subject == "we"`),
-    /// so English output and English-only implementations are unaffected by this hook existing.
+    /// in viewpoint retelling. The default is English's own rule, `subject == "I" || subject ==
+    /// "we"`.
     ///
     /// `subject` is a parameter rather than read off `self.subjective()` for the same reason
-    /// `inflect_verb_custom` takes an explicit `subject` — wrapper types (`Many`, `Maybe`, `Box`)
-    /// delegate a hook call to an inner value, and the caller — not the callee — decides which
-    /// entity's declared subject is in play.
-    ///
-    /// See ROADMAP.md Phase 6 item 16 and
-    /// `docs/superpowers/specs/2026-08-13-pronoun-inventory.md`'s open question 1.
+    /// `inflect_verb_custom` takes an explicit `subject`: wrapper types ([`Many`], [`Maybe`],
+    /// `Box`) delegate a hook call to an inner value, and the caller — not the callee — decides
+    /// which entity's declared subject is in play.
     fn is_first_person_subject_custom(&self, subject: &str) -> bool {
         ranting_core::grammar::is_first_person_subject(subject)
     }
@@ -1893,8 +1955,7 @@ pub trait Ranting: std::fmt::Display {
     ///
     /// `ctx` is a parameter, not something read off `self` — an entity's own `subject` stays a
     /// property of the entity, while tense/viewpoint/register/dialect are settings of the
-    /// telling, which may differ per `say_with!()` call
-    /// that vary per `say_with!()` call, not per noun.
+    /// telling, which may differ per `say_with!()` call rather than per noun.
     ///
     /// # Examples
     /// ```ignore
@@ -1908,7 +1969,7 @@ pub trait Ranting: std::fmt::Display {
     ///     ctx: Option<&NarrationContext>,
     /// ) -> Option<String> {
     ///     match (verb, ctx.and_then(|c| c.register)) {
-    ///         ("be", Some(Register::Formal)) => Some(uc_1st_if("shall be", uc)),
+    ///         ("be", Some(Register::Formal)) => Some(capitalize_if("shall be", uc)),
     ///         _ => self.inflect_verb_custom(subject, verb, as_plural, count, uc),
     ///     }
     /// }
@@ -1931,23 +1992,18 @@ pub trait Ranting: std::fmt::Display {
     /// # Arguments
     /// * `subject` - Subject pronoun (e.g., "I", "he", "they")
     /// * `case` - Which pronoun form: Subjective, Objective, PossessiveDeterminer, or PossessivePronoun
-    /// * `class` - The noun's own lexical gender / noun class (see [`NounClass`]), or
-    ///   [`NounClass::UNSET`] when it declares none. Lets a fork pick a gendered pronoun from the
-    ///   entity instead of guessing from its display string.
-    /// * `as_plural` - Whether to pluralize
-    /// * `count` - The placeholder's own numeral value, when it has one (see [`PlaceholderCount`]);
-    ///   `None` for a bare `` {noun} ``/`` {+noun} ``/`` {-noun} ``. Verb agreement in Arabic and
-    ///   Slavic is number-sensitive beyond singular/plural, which is why this hook carries it too,
-    ///   not only the article/adjective ones.
-    /// * `uc` - Whether to uppercase first character
+    /// * `class` - Lets a gendered pronoun be picked from the entity rather than guessed from
+    ///   its display string.
+    /// * `as_plural`, `count`, `uc` - As for every hook; pronoun agreement in Arabic and Slavic
+    ///   is number-sensitive beyond singular/plural, which is why this one carries `count` too.
     ///
     /// # Examples
     /// ```ignore
     /// fn inflect_pronoun_custom(&self, subject: &str, case: PronounCase, class: NounClass, as_plural: bool, count: Option<PlaceholderCount>, uc: bool) -> Option<String> {
     ///     match (case, class.as_str()) {
     ///         // German: a neuter noun is "es", whatever English pronoun it was declared with.
-    ///         (PronounCase::Subjective, "neuter") => Some(uc_1st_if("es", uc)),
-    ///         (PronounCase::Subjective, "feminine") => Some(uc_1st_if("sie", uc)),
+    ///         (PronounCase::Subjective, "neuter") => Some(capitalize_if("es", uc)),
+    ///         (PronounCase::Subjective, "feminine") => Some(capitalize_if("sie", uc)),
     ///         _ => None,  // Fall back to English
     ///     }
     /// }
@@ -1995,14 +2051,10 @@ pub trait Ranting: std::fmt::Display {
     ///   English gives nothing more specific to report). Lets a case-declining language's fork
     ///   pick e.g. German `der`/`den`/`dem` correctly when the template annotates the noun's
     ///   role explicitly (`` {the =noun} `` vs `` {the @noun} ``).
-    /// * `class` - The noun's own lexical gender / noun class (see [`NounClass`]), or
-    ///   [`NounClass::UNSET`] when it declares none. Together with `case` this is what makes
-    ///   `der`/`die`/`das` reachable from the entity alone, with no gender table keyed by
-    ///   `noun_singular` — which would break on homographs, names, and runtime-built nouns.
-    /// * `as_plural` - Whether the noun is plural
-    /// * `count` - The placeholder's own numeral value, when it has one (see [`PlaceholderCount`]);
-    ///   `None` for a bare `` {the noun} ``/`` {the +noun} ``/`` {the -noun} ``.
-    /// * `uc` - Whether to uppercase first character
+    /// * `class` - Together with `case`, what makes `der`/`die`/`das` reachable from the entity
+    ///   alone. A gender table keyed by `noun_singular` instead would break on homographs,
+    ///   names, and nouns built at runtime.
+    /// * `case`, `as_plural`, `count`, `uc` - As for every hook.
     ///
     /// # Examples
     /// ```ignore
@@ -2017,7 +2069,7 @@ pub trait Ranting: std::fmt::Display {
     ///                 ("feminine", _) => "die",
     ///                 _ => "das",
     ///             };
-    ///             Some(uc_1st_if(form, uc))
+    ///             Some(capitalize_if(form, uc))
     ///         }
     ///         _ => None,  // Fall back to English for a/an/some
     ///     }
@@ -2089,16 +2141,14 @@ pub trait Ranting: std::fmt::Display {
     ///   for the same reason as `article`: `uc` has already been reset to `false` by the splice
     ///   point.
     ///
-    /// # Not reachable from here
+    /// # Not this hook's job
     /// Preposition-article fusion across a placeholder boundary (French `de` + `le` → `du`,
-    /// Italian `di` + `il` → `del`) is *not* expressible from this hook: the preposition lives in
-    /// the template's literal text, outside the placeholder, and this hook's span starts at the
-    /// article. That gap now has its own hook,
-    /// [`inflect_preposition_custom`](Self::inflect_preposition_custom) (ROADMAP.md Phase 6 item
-    /// 26) — called first, at the same post-assembly point, and skipping this hook's own call
-    /// when it fires, since the article it would have elided against no longer exists. A hidden
-    /// noun (`` {?the noun} ``) still renders nothing to elide against, so neither hook is called
-    /// there. See ROADMAP.md Phase 6 item 7.
+    /// Italian `di` + `il` → `del`) is not expressible here: the preposition lives in the
+    /// template's literal text, outside the placeholder, and this hook's span starts at the
+    /// article. Use [`inflect_preposition_custom`](Self::inflect_preposition_custom) instead —
+    /// it runs first, at the same post-assembly point, and when it fires this hook is skipped,
+    /// the article it would have elided against being gone. Neither hook is called for a hidden
+    /// noun (`` {?the noun} ``), which renders nothing to elide against.
     ///
     /// # Examples
     /// ```ignore
@@ -2153,11 +2203,9 @@ pub trait Ranting: std::fmt::Display {
     /// output. Returning `Some` replaces **all three**; returning `None` — the default, and every
     /// case English needs — leaves them exactly as rendered.
     ///
-    /// ROADMAP.md Phase 7 item 12, and it exists because a fork found the asymmetry: `ranting_ja`
-    /// writes 「一匹の猫」 with no space anywhere, and the numeral-noun separator was pushed by
-    /// `handle_placeholder` and offered to no hook, while the article-noun separator had had a
-    /// hook since Phase 6 item 7. `一匹の 猫` was the best a fork could do, with **no** workaround
-    /// — unlike a missing distinction, a wrong character is simply in the output.
+    /// A language that writes a counter phrase and its noun as one run needs this: Japanese
+    /// 「一匹の猫」 has no space anywhere, and without the hook the separator is in the output
+    /// with no way to remove it.
     ///
     /// Called first of the three post-assembly splices — ahead of preposition fusion and article
     /// elision — because `[preposition][article][numeral][noun]` makes the numeral-noun boundary
@@ -2209,13 +2257,10 @@ pub trait Ranting: std::fmt::Display {
     /// Fuse a literal preposition, written in the template immediately before a placeholder, with
     /// the article that placeholder renders.
     ///
-    /// This is the hook [`elide_article_custom`](Self::elide_article_custom)'s own docs name as
-    /// unreachable: German `zu` + `dem` → `zum`, Spanish `de` + `el` → `del`. The preposition is
-    /// template *literal* text sitting outside the placeholder's `{...}`, so no hook confined to
-    /// the placeholder's own assembled span could ever see it — reaching it needed
-    /// `ranting_derive`'s `parse_str_params` to capture that literal word and forward it as data
-    /// (`PlaceholderSpec::preposition`) instead of baking it as inert text. See ROADMAP.md Phase 6
-    /// item 26 and `docs/superpowers/specs/2026-08-13-preposition-fusion.md`.
+    /// German `zu` + `dem` → `zum`, Spanish `de` + `el` → `del`. The preposition is literal
+    /// template text outside the placeholder's `{...}`, which is why
+    /// [`elide_article_custom`](Self::elide_article_custom) cannot reach it: the macro captures
+    /// that word and forwards it here as data rather than baking it as inert text.
     ///
     /// Called at the same post-assembly point as `elide_article_custom`, and *before* it: if this
     /// hook returns `Some`, the preposition and the article it consumed are both replaced and
@@ -2305,17 +2350,8 @@ pub trait Ranting: std::fmt::Display {
     ///   the base.
     /// * `degree` - Which marker was written, `!` or `!!` (see [`AdjectiveDegree`], including why
     ///   there is no positive-degree variant).
-    /// * `case` - The noun's own grammatical role from its case marker, as for
-    ///   [`inflect_article_custom`](Self::inflect_article_custom); a bare `` {a chat !noir} ``
-    ///   reports [`GrammaticalCase::Name`].
-    /// * `class` - The noun's lexical gender / noun class (see [`NounClass`]), or
-    ///   [`NounClass::UNSET`]. Together with `as_plural` this is the agreement input.
-    /// * `as_plural` - Whether the noun renders plural here (see [`Ranting::is_plural`] for what
-    ///   this bool does and does not promise: plural *agreement*, not a referent count).
-    /// * `count` - The placeholder's own numeral value, when it has one (see [`PlaceholderCount`]);
-    ///   `None` for a bare `` {a chat !noir} `` with no `#var`/`$var` marker.
-    /// * `uc` - Whether to uppercase the first character. Applied by the caller only on the
-    ///   fallback path, so a custom form must apply it itself — [`uc_1st_if`] does that.
+    /// * `case`, `class`, `as_plural`, `count`, `uc` - As for every hook; `class` and
+    ///   `as_plural` together are the agreement input an adjective usually needs.
     ///
     /// # Examples
     /// ```ignore
@@ -2337,7 +2373,7 @@ pub trait Ranting: std::fmt::Display {
     ///     if as_plural {
     ///         form.push('s');
     ///     }
-    ///     Some(uc_1st_if(&form, uc))
+    ///     Some(capitalize_if(&form, uc))
     /// }
     /// ```
     #[allow(clippy::too_many_arguments)]
@@ -2394,18 +2430,13 @@ pub trait Ranting: std::fmt::Display {
     ///   before spelling. For [`NumeralStyle::Digits`] it is recovered by parsing `numeral`, so
     ///   it is `None` whenever that isn't a plain integer — a float, a width-padded or otherwise
     ///   formatted number, or a non-numeric `Display` argument. This count is *local to the
-    ///   numeral*: it does not discharge the count channel still owed on the `as_plural` hooks
-    ///   (ROADMAP.md Phase 6 item 4), which is about number *categories* (dual, paucal) on the
-    ///   noun, article and verb.
+    ///   numeral*: agreement in a number category (dual, paucal) on the noun, article and verb
+    ///   is what the other hooks' own `count` parameter is for.
     /// * `style` - Which of `#var`/`$var` was written (see [`NumeralStyle`]).
-    /// * `case` - The noun's own grammatical role from its case marker, as for
-    ///   [`inflect_article_custom`](Self::inflect_article_custom). Russian declines the numeral
-    ///   with it.
-    /// * `class` - The noun's lexical gender / noun class (see [`NounClass`]), or
-    ///   [`NounClass::UNSET`] — the `два`/`две` agreement input.
-    /// * `as_plural` - Whether the noun renders plural here (see [`Ranting::is_plural`] for what
-    ///   this bool does and does not promise). Note this is *decided before* this hook runs, from
-    ///   the count rather than from the rendered word, so a custom numeral can never flip it.
+    /// * `case`, `class` - As for every hook. Russian declines the numeral by case, and picks
+    ///   `два` or `две` by class.
+    /// * `as_plural` - As for every hook, but decided *before* this hook runs, from the count
+    ///   rather than from the rendered word, so a custom numeral can never flip it.
     ///
     /// There is deliberately no `uc` parameter: `handle_placeholder` never capitalizes the
     /// numeral (a placeholder that starts a sentence spends its `uc` on the article, verb or
@@ -2481,10 +2512,9 @@ pub trait Ranting: std::fmt::Display {
     /// Apply orthographic capitalization to one rendered piece of a placeholder.
     ///
     /// Unlike the `inflect_*_custom` hooks this returns a `String`, not an `Option`: it *is* the
-    /// fallback, not a chance to decline one. It is called on every fallback path in
-    /// `handle_placeholder` that used to call [`uc_1st_if`] (or an inline uppercase-first-char
-    /// block) directly, and its default is exactly that call — so overriding nothing leaves
-    /// `say!()`'s output byte-identical.
+    /// fallback, not a chance to decline one. It is called on every piece a placeholder renders
+    /// through English's own rules, and its default is exactly [`capitalize_if`], so overriding
+    /// nothing leaves `say!()`'s output unchanged.
     ///
     /// It exists because sentence-start uppercasing is an English orthographic assumption baked
     /// into the crate. German capitalizes every noun regardless of sentence position; Japanese,
@@ -2507,21 +2537,16 @@ pub trait Ranting: std::fmt::Display {
     /// * `role` - Which part of the placeholder this is (see [`OrthographyRole`]), so a fork can
     ///   capitalize nouns always and everything else only sentence-initially.
     /// * `uc` - What English would do: uppercase the first character.
-    /// * `sentence_start` - Whether `ranting_core::grammar::PH_START` matched this placeholder as
-    ///   sentence-initial (ROADMAP.md Phase 6 item 17), independent of `uc`. `uc` conflates
-    ///   "sentence-initial" with "forced uppercase by a `^`/`,` marker or an uppercase pre-text
-    ///   word", so a placeholder mid-sentence after `` {,noun} `` or `` {The noun} `` can have
-    ///   `uc == true` and `sentence_start == false`. This is the raw signal alone — useful for a
-    ///   caseless-script fork that still wants to know sentence boundaries for its own
-    ///   punctuation, or for a downstream word-reordering layer (see
-    ///   `docs/superpowers/specs/2026-08-13-word-order-feasibility.md`, open question 2, which
-    ///   this parameter closes) — most forks that only care about letter case can ignore it and
-    ///   use `uc` exactly as before.
+    /// * `sentence_start` - Whether the placeholder is sentence-initial, independent of `uc`.
+    ///   The two differ because `uc` also means "forced uppercase by a `^`/`,` marker or an
+    ///   uppercase pre-text word": mid-sentence, `` {The noun} `` has `uc == true` and
+    ///   `sentence_start == false`. Ignore it if you only care about letter case; it is here for
+    ///   a caseless-script fork that still needs sentence boundaries for its own punctuation.
     ///
     /// One exception to "`word` arrives uncapitalized": at [`OrthographyRole::Noun`] the name has
     /// already been through [`inflect`](Self::inflect), which takes `uc` itself and is
     /// user-implementable, so English capitalization is spent by then and `uc` is reported as
-    /// `false`. (It is also not simply [`uc_1st_if`]: a derive-generated `name()` for
+    /// `false`. (It is also not simply [`capitalize_if`]: a derive-generated `name()` for
     /// `#[ranting(name = "designer")]` reads `uc == true` as "as written", not "force
     /// uppercase".) An always-capitalize fork ignores `uc` and is unaffected; a fork that needs
     /// *position-sensitive* noun casing overrides `name`/`inflect` instead. `sentence_start` is
@@ -2533,8 +2558,8 @@ pub trait Ranting: std::fmt::Display {
     ///     // German: nouns are capitalized wherever they stand, everything else only
     ///     // sentence-initially.
     ///     match role {
-    ///         OrthographyRole::Noun => uc_1st_if(word, true),
-    ///         _ => uc_1st_if(word, uc),
+    ///         OrthographyRole::Noun => capitalize_if(word, true),
+    ///         _ => capitalize_if(word, uc),
     ///     }
     /// }
     /// ```
@@ -2545,7 +2570,7 @@ pub trait Ranting: std::fmt::Display {
         uc: bool,
         _sentence_start: bool,
     ) -> String {
-        uc_1st_if(word, uc)
+        capitalize_if(word, uc)
     }
 
     /// Like [`capitalize`](Self::capitalize), but also receives the

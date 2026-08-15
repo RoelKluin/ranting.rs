@@ -34,7 +34,7 @@ impl fmt::Display for Mann {
 
 impl Ranting for Mann {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("Mann", uc)
+        capitalize_if("Mann", uc)
     }
     fn subjective(&self) -> &str {
         "he"
@@ -49,7 +49,7 @@ impl Ranting for Mann {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if("Mann", uc)
+        capitalize_if("Mann", uc)
     }
     fn skip_article(&self) -> bool {
         false
@@ -73,7 +73,7 @@ impl Ranting for Mann {
             GrammaticalCase::Objective => "den",
             _ => "der",
         };
-        Some(uc_1st_if(form, uc))
+        Some(capitalize_if(form, uc))
     }
 
     fn inflect_pronoun_custom(
@@ -93,7 +93,7 @@ impl Ranting for Mann {
             PronounCase::PossessiveDeterminer | PronounCase::PossessivePronoun => "sein",
             PronounCase::Reflexive => "sich",
         };
-        Some(uc_1st_if(word, uc))
+        Some(capitalize_if(word, uc))
     }
 }
 
@@ -137,7 +137,7 @@ fn fused_marker_reaches_inflects_own_case_parameter_too() {
     }
     impl Ranting for Probe {
         fn name(&self, uc: bool) -> String {
-            uc_1st_if("dog", uc)
+            capitalize_if("dog", uc)
         }
         fn subjective(&self) -> &str {
             "it"
@@ -153,7 +153,7 @@ fn fused_marker_reaches_inflects_own_case_parameter_too() {
             _count: Option<PlaceholderCount>,
         ) -> String {
             SEEN_INFLECT_CASE.with(|s| s.borrow_mut().push(case));
-            uc_1st_if("dog", uc)
+            capitalize_if("dog", uc)
         }
         fn skip_article(&self) -> bool {
             false

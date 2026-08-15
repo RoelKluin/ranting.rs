@@ -19,8 +19,8 @@ fn many_empty_is_plural_they_and_skips_article() {
     assert_eq!(none.name(false), "");
     assert!(none.skip_article());
     assert_eq!(
-        say!("There {=none are} no items."),
-        "There they are no items.".to_string()
+        say!("{=none are} out of stock."),
+        "They are out of stock.".to_string()
     );
     assert_eq!(say!("Items: {none}."), "Items: .".to_string());
 }
@@ -74,8 +74,8 @@ fn maybe_none_is_empty_and_skips_article() {
     assert_eq!(none.name(false), "");
     assert!(none.skip_article());
     assert_eq!(
-        say!("There {=none are} nothing."),
-        "There it is nothing.".to_string()
+        say!("{=none are} out of stock."),
+        "It is out of stock.".to_string()
     );
     assert_eq!(say!("Name: {none}."), "Name: .".to_string());
 }
@@ -139,7 +139,7 @@ impl std::fmt::Display for PirateNoun {
 
 impl Ranting for PirateNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("swab", uc)
+        capitalize_if("swab", uc)
     }
 
     fn subjective(&self) -> &str {
@@ -158,9 +158,9 @@ impl Ranting for PirateNoun {
         _count: Option<PlaceholderCount>,
     ) -> String {
         if to_plural {
-            uc_1st_if("swabs", uc)
+            capitalize_if("swabs", uc)
         } else {
-            uc_1st_if("swab", uc)
+            capitalize_if("swab", uc)
         }
     }
 
@@ -177,7 +177,7 @@ impl Ranting for PirateNoun {
         uc: bool,
     ) -> Option<String> {
         match verb {
-            "be" | "is" | "am" | "are" => Some(uc_1st_if("be", uc)),
+            "be" | "is" | "am" | "are" => Some(capitalize_if("be", uc)),
             _ => None,
         }
     }
@@ -192,7 +192,7 @@ impl Ranting for PirateNoun {
         uc: bool,
     ) -> Option<String> {
         if subject == "he" && case == PronounCase::Subjective {
-            Some(uc_1st_if("arr", uc))
+            Some(capitalize_if("arr", uc))
         } else {
             None
         }

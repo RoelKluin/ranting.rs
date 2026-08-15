@@ -67,7 +67,7 @@ impl fmt::Display for FrenchNoun {
 
 impl Ranting for FrenchNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if(self.word, uc)
+        capitalize_if(self.word, uc)
     }
     fn subjective(&self) -> &str {
         "it"
@@ -82,7 +82,7 @@ impl Ranting for FrenchNoun {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(if to_plural { self.plural } else { self.word }, uc)
+        capitalize_if(if to_plural { self.plural } else { self.word }, uc)
     }
     fn skip_article(&self) -> bool {
         false
@@ -111,7 +111,7 @@ impl Ranting for FrenchNoun {
             (false, "feminine") => "la",
             (false, _) => "le",
         };
-        Some(uc_1st_if(form, uc))
+        Some(capitalize_if(form, uc))
     }
 
     /// …and here it has been. `le`/`la` + vowel or mute h → `l'`, no space.
@@ -195,7 +195,7 @@ impl fmt::Display for ItalianNoun {
 
 impl Ranting for ItalianNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if(self.0, uc)
+        capitalize_if(self.0, uc)
     }
     fn subjective(&self) -> &str {
         "it"
@@ -210,7 +210,7 @@ impl Ranting for ItalianNoun {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(self.0, uc)
+        capitalize_if(self.0, uc)
     }
     fn skip_article(&self) -> bool {
         false
@@ -226,7 +226,7 @@ impl Ranting for ItalianNoun {
         _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
-        (article == "the").then(|| uc_1st_if("il", uc))
+        (article == "the").then(|| capitalize_if("il", uc))
     }
 
     /// `il` → `l'` before a vowel, `lo` before s+consonant, z, gn, ps.
@@ -296,7 +296,7 @@ impl fmt::Display for Probe {
 
 impl Ranting for Probe {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("chien", uc)
+        capitalize_if("chien", uc)
     }
     fn subjective(&self) -> &str {
         "it"
@@ -311,7 +311,7 @@ impl Ranting for Probe {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(if to_plural { "chiens" } else { "chien" }, uc)
+        capitalize_if(if to_plural { "chiens" } else { "chien" }, uc)
     }
     fn skip_article(&self) -> bool {
         false

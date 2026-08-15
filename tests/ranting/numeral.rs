@@ -44,7 +44,7 @@ impl fmt::Display for RussianNoun {
 
 impl Ranting for RussianNoun {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if(self.singular, uc)
+        capitalize_if(self.singular, uc)
     }
     fn subjective(&self) -> &str {
         "it"
@@ -59,7 +59,7 @@ impl Ranting for RussianNoun {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(
+        capitalize_if(
             if to_plural {
                 self.plural
             } else {
@@ -198,7 +198,7 @@ impl fmt::Display for LocalizedCount {
 
 impl Ranting for LocalizedCount {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("item", uc)
+        capitalize_if("item", uc)
     }
     fn subjective(&self) -> &str {
         "it"
@@ -213,7 +213,7 @@ impl Ranting for LocalizedCount {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(if to_plural { "items" } else { "item" }, uc)
+        capitalize_if(if to_plural { "items" } else { "item" }, uc)
     }
     fn skip_article(&self) -> bool {
         true

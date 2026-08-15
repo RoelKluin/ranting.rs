@@ -25,7 +25,7 @@ impl fmt::Display for CountProbe {
 
 impl Ranting for CountProbe {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("probe", uc)
+        capitalize_if("probe", uc)
     }
     fn subjective(&self) -> &str {
         "they"
@@ -40,7 +40,7 @@ impl Ranting for CountProbe {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(if to_plural { "probes" } else { "probe" }, uc)
+        capitalize_if(if to_plural { "probes" } else { "probe" }, uc)
     }
     fn skip_article(&self) -> bool {
         false
@@ -57,7 +57,7 @@ impl Ranting for CountProbe {
             Some(c) => format!("arrive[{}]", c.value),
             None => "arrive[none]".to_string(),
         };
-        Some(uc_1st_if(&word, uc))
+        Some(capitalize_if(&word, uc))
     }
 }
 

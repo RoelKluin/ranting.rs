@@ -21,7 +21,7 @@ impl fmt::Display for GermanNarrator {
 
 impl Ranting for GermanNarrator {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if(self.name, uc)
+        capitalize_if(self.name, uc)
     }
     fn subjective(&self) -> &str {
         self.subject
@@ -36,7 +36,7 @@ impl Ranting for GermanNarrator {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(self.name, uc)
+        capitalize_if(self.name, uc)
     }
     fn skip_article(&self) -> bool {
         true
@@ -63,7 +63,7 @@ impl fmt::Display for UnhookedGermanNarrator {
 
 impl Ranting for UnhookedGermanNarrator {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if(self.name, uc)
+        capitalize_if(self.name, uc)
     }
     fn subjective(&self) -> &str {
         self.subject
@@ -78,7 +78,7 @@ impl Ranting for UnhookedGermanNarrator {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(self.name, uc)
+        capitalize_if(self.name, uc)
     }
     fn skip_article(&self) -> bool {
         true

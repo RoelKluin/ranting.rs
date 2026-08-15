@@ -30,7 +30,7 @@ impl fmt::Display for GermanHaus {
 
 impl Ranting for GermanHaus {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("Haus", uc)
+        capitalize_if("Haus", uc)
     }
     fn subjective(&self) -> &str {
         "it"
@@ -45,7 +45,7 @@ impl Ranting for GermanHaus {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if("Haus", uc)
+        capitalize_if("Haus", uc)
     }
     fn skip_article(&self) -> bool {
         false
@@ -61,7 +61,7 @@ impl Ranting for GermanHaus {
         _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
-        (article == "the").then(|| uc_1st_if("dem", uc))
+        (article == "the").then(|| capitalize_if("dem", uc))
     }
 
     /// `zu` + `dem` -> `zum`, `in` + `dem` -> `im`, `an` + `dem` -> `am`. Any
@@ -120,7 +120,7 @@ impl fmt::Display for SpanishGato {
 
 impl Ranting for SpanishGato {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("gato", uc)
+        capitalize_if("gato", uc)
     }
     fn subjective(&self) -> &str {
         "it"
@@ -135,7 +135,7 @@ impl Ranting for SpanishGato {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if("gato", uc)
+        capitalize_if("gato", uc)
     }
     fn skip_article(&self) -> bool {
         false
@@ -151,7 +151,7 @@ impl Ranting for SpanishGato {
         _count: Option<PlaceholderCount>,
         uc: bool,
     ) -> Option<String> {
-        (article == "the").then(|| uc_1st_if("el", uc))
+        (article == "the").then(|| capitalize_if("el", uc))
     }
 
     fn inflect_preposition_custom(
@@ -232,7 +232,7 @@ impl fmt::Display for Probe {
 
 impl Ranting for Probe {
     fn name(&self, uc: bool) -> String {
-        uc_1st_if("chien", uc)
+        capitalize_if("chien", uc)
     }
     fn subjective(&self) -> &str {
         "it"
@@ -247,7 +247,7 @@ impl Ranting for Probe {
         _case: GrammaticalCase,
         _count: Option<PlaceholderCount>,
     ) -> String {
-        uc_1st_if(if to_plural { "chiens" } else { "chien" }, uc)
+        capitalize_if(if to_plural { "chiens" } else { "chien" }, uc)
     }
     fn skip_article(&self) -> bool {
         false
