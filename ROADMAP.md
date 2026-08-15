@@ -1033,6 +1033,38 @@ literal template").
    can pick *much* over *many*. (b) is what makes (a) correct rather than merely
    available. Zero-count idiom ("there are **no** items") is expressible today via
    `` {?#n +items} `` but is undiscoverable; (a) is also its ergonomic fix.
+
+   **PROPOSED (2026-08-15, not decided, not implemented)** — design spike at
+   `docs/superpowers/specs/2026-08-15-quantifier-determiners.md`. For (a) it
+   recommends six word/pair variants (`no`, `every`↔`all`, `each`,
+   `either`/`neither`, `much`/`many`, `less`/`fewer`) on the existing
+   `ArticleKind`/`ArticleOrSo` pair — no sibling type, which would duplicate
+   `get_article_or_so`'s whole hook-offer protocol — with new arms that offer
+   every word to `inflect_article_custom_with_context` carrying the identical
+   `GrammaticalCase`/`NounClass`/`count` signals the article arms pass today,
+   so forks override quantifiers with zero new hook surface. For (b) it
+   recommends a defaulted `Ranting::is_mass() -> bool` trait method declared
+   via `#[ranting(mass)]` (the `gender`→`noun_class()` mechanism exactly) plus
+   `Noun::with_mass()`, and rejects encoding mass in `NounClass` (orthogonal
+   axes: *das Wasser* is neuter *and* mass). Ordering: (b) first —
+   `much`/`many` and `less`/`fewer` select on countability and are
+   unimplementable before it. The spike also corrects this item's idiom
+   spelling: `` {?#n +items} `` does not parse (`?` is legal only before `$`,
+   and `?#n` plus `+` would double-occupy the `nr` slot); the working idiom is
+   `` {are no ?$n item} `` ("There are no items." / "There is no item.",
+   verified), with `no` as an inert extra pre word and the hidden numeral
+   carrying agreement. Recorded hazards, verified against the built crate:
+   `{no $n item}` at `n = 1` renders "Noes 1 item" today (the open-pass word
+   falls through to the pre-noun *verb* path), and `{Some info}` on a singular
+   renders "An information" (`adapt_article` discards `some` for a/an), so
+   mass-`some` is unreachable even inside the current vocabulary. Left for a
+   maintainer, since the sigil grammar is Locked, (a) reserves new pre-slot
+   words (the same reservation class `the`/`some`/the modals already occupy,
+   but a reparse for same-named variables all the same) and `ArticleKind` is
+   nominally public: the word list's cut line, the mass-`AAnSome` rendering
+   (`some` vs. elision), error-vs-override for `{each +item}`-style marker
+   contradictions, and the enum's semver posture (`#[non_exhaustive]`
+   recommended against).
 4. **Ordinals** — `#var` spells cardinals only, so "the **third** attempt" cannot come
    out of a placeholder. Pure word-form inflection with no word movement, i.e. squarely
    inside the boundary. Cheapest of the five and it has a second constituency: ordinals
