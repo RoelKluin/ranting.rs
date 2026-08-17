@@ -4,7 +4,13 @@ ranting_derive/tags
 tags
 .aider*
 .worktrees/
-.claude/
+# .claude/ holds local session state (worktrees/, settings.local.json,
+# scheduled_tasks.lock) that must stay untracked, but .claude/rules/ is
+# checked-in project documentation (see CLAUDE.md's "Task-specific rules"
+# table) — it was accidentally caught by the blanket ignore below and had
+# never actually been in git history until this fix.
+.claude/*
+!.claude/rules/
 .repo-map/
 tasks_done.txt
 .cargo-home/
