@@ -15,6 +15,10 @@ pub(super) enum ArticleOrSo {
     A,
     These,
     Those,
+    // ROADMAP.md Phase 8 item 3: `every`/`all` swap the same way `these`/`those` swap to
+    // `this`/`that` -- see `singular_demonstrative` below.
+    #[strum(serialize = "every", serialize = "all")]
+    EveryAll,
 }
 
 #[deny(clippy::wildcard_enum_match_arm)]
@@ -25,6 +29,7 @@ impl ArticleOrSo {
             ArticleOrSo::A => "some",
             ArticleOrSo::These => "these",
             ArticleOrSo::Those => "those",
+            ArticleOrSo::EveryAll => "all",
         }
     }
 
@@ -33,6 +38,7 @@ impl ArticleOrSo {
         match self {
             ArticleOrSo::These => Some("this"),
             ArticleOrSo::Those => Some("that"),
+            ArticleOrSo::EveryAll => Some("every"),
             ArticleOrSo::The | ArticleOrSo::A => None,
         }
     }

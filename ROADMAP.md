@@ -1115,6 +1115,60 @@ literal template").
    error-vs-override behavior for marker contradictions are left to whoever
    implements it, resolved consistently with the spike's stated rationale rather
    than re-litigated. Ready for an implementation task; not yet started.
+
+   ✅ **LANDED (2026-08-17).** Both halves, in the recommended order. Part (b):
+   `Ranting::is_mass() -> bool` (defaulted `false`, the `skip_article()` shape),
+   declared via `#[ranting(mass)]` or `Noun::with_mass()`; `Many`/`Maybe`/`Box`/
+   `&dyn Trait` delegate it the same rule `noun_class()` uses. Part (a): `ArticleKind`
+   gains `No`/`EveryAll`/`Each`/`EitherNeither`/`MuchMany`/`LessFewer`, each reaching
+   `inflect_article_custom_with_context` through a new `get_article_or_so` arm with the
+   unchanged case/class/count/uc/ctx signal set; `ArticleOrSo` gains one new variant
+   (`EveryAll`, reusing the `these`/`those` → `this`/`that` swap machinery for
+   `every`↔`all`) since `no`/`each`/`either`/`neither` render invariant text and
+   `much`/`many`/`less`/`fewer` select on `is_mass()` rather than through
+   `ArticleOrSo` at all. `ArticleKind` is not `#[non_exhaustive]`, per the spike.
+
+   The three sub-decisions the spike left open, resolved and recorded here per this
+   item's own instruction not to leave them implicit in code alone:
+   1. **Word-list cut line**: exactly the six named pairs. `both`, a bare `all`
+      keyword beyond `every`'s pair, `such`, `enough`, `several`, `most` and `any`
+      are still out — `any` interacts with polarity and needs its own look, per the
+      spike's own recommendation.
+   2. **Mass-`AAnSome` rendering**: `some`, not elision — a mass noun's singular
+      `` {a 0} ``/`` {an 0} ``/`` {some 0} `` all render "Some …" instead of guessing
+      a/an. Elision was rejected for the reason the spike gave: that story belongs to
+      `skip_article`/`no_article`, not to a mass-noun-only special case in the
+      `AAnSome` arm.
+   3. **`{each +item}`-style marker contradictions**: compile error, naming the
+      quantifier, baked at the same site `ranting_derive` already bakes a written `-`
+      marker. A `#`/`$`-numeral's own plurality is left untouched — the runtime count
+      decides agreement there, and there is no *static* contradiction to catch.
+
+   One hazard neither the spike nor this item's own text anticipated, found while
+   implementing: reserving `no` (and the other nine words) as an independent
+   top-level `pre` atom broke the zero-count idiom, `` {are no ?$n item} `` —
+   `star_candidates`' greedy "more repetitions first" search started preferring a
+   second, competing repetition starting at `no` over the correct single-repetition
+   "are no " capture, silently dropping "are"/"is" from the output. Fixed by adding
+   the same ten words to `ranting_core::ph_ext`'s `match_nested_article_candidates`
+   (the modal's "nested article" matcher `` {do the thing} ``-shaped chains already
+   use), which lets the correct single-repetition interpretation win the
+   depth-first search before the competing one is ever explored. Exactly the "a new
+   alternative in a repeated group is not local to that alternative" trap
+   `.claude/rules/placeholder-grammar.md` already names. Both hazards this item's
+   PROPOSED section recorded against the built crate are fixed and pinned:
+   `` {no $n item} `` at `n = 1` now renders "No 1 item" (was "Noes 1 item"), and
+   `` {Some info} ``/`` {a info} ``/`` {an info} `` on a mass-declared noun now
+   render "Some information" (was "An information").
+
+   See CHANGELOG.md's Unreleased `### Added`/`### Changed (breaking)` entries. Tests:
+   `tests/ranting/mass_count.rs` (part (b): trait default, derive attribute,
+   `Noun::with_mass`, wrapper delegation, the `some`-vs-a/an fix, hook-first-offer),
+   `tests/ranting/quantifier_determiners.rs` (part (a): all six words singular and
+   plural, the zero-count idiom, hook-first-offer, pre-existing-article
+   byte-identity), and `ranting_derive/src/lib.rs`'s `tests` module (the
+   `+`-contradiction compile error and the numeral-untouched case — no trybuild
+   harness in this repo, same arrangement as the verbatim-marker tests).
 4. **Ordinals** — `#var` spells cardinals only, so "the **third** attempt" cannot come
    out of a placeholder. Pure word-form inflection with no word movement, i.e. squarely
    inside the boundary. Cheapest of the five and it has a second constituency: ordinals

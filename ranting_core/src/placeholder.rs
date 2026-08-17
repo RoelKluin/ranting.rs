@@ -300,6 +300,28 @@ pub enum ArticleKind {
     AAnSome,
     /// `these` or `those`.
     TheseThose,
+    /// `no` -- number-transparent (ROADMAP.md Phase 8 item 3): renders itself
+    /// unchanged on both singular and plural agreement, unlike every other
+    /// variant here.
+    No,
+    /// `every` or `all` -- swaps to the suppletive plural on plural agreement
+    /// (`every` -> `all`), the same mechanism [`TheseThose`](Self::TheseThose)
+    /// uses for `this`/`that`.
+    EveryAll,
+    /// `each` -- forces singular agreement, baked at compile time
+    /// (`ranting_derive`'s `article_kind_tokens`) exactly as a written `-`
+    /// marker does.
+    Each,
+    /// `either` or `neither` -- forces singular agreement, same shape as
+    /// [`Each`](Self::Each).
+    EitherNeither,
+    /// `much` or `many` -- picked by [`Ranting::is_mass`](../trait.Ranting.html)
+    /// (`much` for a mass noun, `many` for a count noun), not by number
+    /// agreement.
+    MuchMany,
+    /// `less` or `fewer` -- same mass/count selection as
+    /// [`MuchMany`](Self::MuchMany).
+    LessFewer,
     /// Not a recognized article keyword -- render as a verb, or (for a
     /// possessive-substituted word) as the runtime-substituted text as-is.
     Other,
@@ -341,6 +363,12 @@ impl ArticleKind {
             b"the" => ArticleKind::The,
             b"a" | b"an" | b"some" => ArticleKind::AAnSome,
             b"these" | b"those" => ArticleKind::TheseThose,
+            b"no" => ArticleKind::No,
+            b"every" | b"all" => ArticleKind::EveryAll,
+            b"each" => ArticleKind::Each,
+            b"either" | b"neither" => ArticleKind::EitherNeither,
+            b"much" | b"many" => ArticleKind::MuchMany,
+            b"less" | b"fewer" => ArticleKind::LessFewer,
             _ => ArticleKind::Other,
         }
     }
@@ -372,6 +400,21 @@ mod article_kind_tests {
     fn classifies_non_keyword_as_other() {
         assert_eq!(ArticleKind::classify("can"), ArticleKind::Other);
         assert_eq!(ArticleKind::classify(""), ArticleKind::Other);
+    }
+
+    /// ROADMAP.md Phase 8 item 3: the six agreeing-quantifier word/pairs.
+    #[test]
+    fn classifies_quantifiers() {
+        assert_eq!(ArticleKind::classify("no"), ArticleKind::No);
+        assert_eq!(ArticleKind::classify("every"), ArticleKind::EveryAll);
+        assert_eq!(ArticleKind::classify("all"), ArticleKind::EveryAll);
+        assert_eq!(ArticleKind::classify("each"), ArticleKind::Each);
+        assert_eq!(ArticleKind::classify("either"), ArticleKind::EitherNeither);
+        assert_eq!(ArticleKind::classify("neither"), ArticleKind::EitherNeither);
+        assert_eq!(ArticleKind::classify("much"), ArticleKind::MuchMany);
+        assert_eq!(ArticleKind::classify("many"), ArticleKind::MuchMany);
+        assert_eq!(ArticleKind::classify("less"), ArticleKind::LessFewer);
+        assert_eq!(ArticleKind::classify("fewer"), ArticleKind::LessFewer);
     }
 
     #[test]

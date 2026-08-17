@@ -347,7 +347,20 @@ where
                 // `uc` is applied once, by the hook, on the assembled article: adapt_article()
                 // may pick either its own form or the a/an passed in, so capitalizing before it
                 // ran would mean capitalizing a form that gets discarded.
-                let a_or_an = get_a_or_an(&singular);
+                //
+                // ROADMAP.md Phase 8 item 3: a mass noun's singular renders the unstressed
+                // `some` instead of a guessed a/an -- `some` is already in the closed
+                // vocabulary (`ArticleOrSo::A` covers `a`/`an`/`some`), so this substitutes it
+                // for whichever of the three the template wrote; `adapt_article`'s `t ==
+                // ArticleOrSo::A => s` arm then keeps it verbatim, exactly as it already does
+                // for a written `some` on a non-mass noun. Elision was the other option the
+                // design spike weighed and rejected: that story belongs to `skip_article`/
+                // `no_article`, not to a mass-noun-only special case here.
+                let a_or_an = if noun.is_mass() && !as_pl {
+                    "some"
+                } else {
+                    get_a_or_an(&singular)
+                };
                 let article = ranting::adapt_article(a_or_an, article_form, space, as_pl, false);
                 Some(noun.capitalize_with_context(
                     &article,
@@ -383,6 +396,104 @@ where
                     sentence_start,
                     ctx,
                 ))
+            }
+        }
+        // ROADMAP.md Phase 8 item 3: `no` is number-transparent -- it renders itself
+        // unchanged on both singular and plural agreement, so unlike every other arm here it
+        // needs no `adapt_article`/`ArticleOrSo` table at all, only a real `ArticleKind` so it
+        // stops reaching the pre-noun *verb* path (`{no $n item}` at `n = 1` used to render
+        // "Noes 1 item"; see docs/superpowers/specs/2026-08-15-quantifier-determiners.md).
+        // `each`/`either`/`neither` render the same way -- also invariant text, since their
+        // number behavior (forcing the singular) is baked into `as_pl` at compile time by
+        // `ranting_derive`'s `article_kind_tokens`, not expressed by swapping the word itself.
+        ArticleKind::No | ArticleKind::Each | ArticleKind::EitherNeither => {
+            let singular = noun.name(false);
+            if let Some(custom) = noun.inflect_article_custom_with_context(
+                article_form,
+                &singular,
+                case,
+                class,
+                as_pl,
+                count,
+                uc,
+                ctx,
+            ) {
+                Some(custom + space)
+            } else {
+                Some(
+                    noun.capitalize_with_context(
+                        article_form,
+                        OrthographyRole::Article,
+                        uc,
+                        sentence_start,
+                        ctx,
+                    ) + space,
+                )
+            }
+        }
+        // `every` swaps to the suppletive plural `all` on plural agreement -- the same
+        // `these`/`those` -> `this`/`that` mechanism above, pointed at one more pair.
+        ArticleKind::EveryAll => {
+            let singular = noun.name(false);
+            if let Some(custom) = noun.inflect_article_custom_with_context(
+                article_form,
+                &singular,
+                case,
+                class,
+                as_pl,
+                count,
+                uc,
+                ctx,
+            ) {
+                Some(custom + space)
+            } else {
+                let article =
+                    ranting::adapt_article(article_form, article_form, space, as_pl, false);
+                Some(noun.capitalize_with_context(
+                    &article,
+                    OrthographyRole::Article,
+                    uc,
+                    sentence_start,
+                    ctx,
+                ))
+            }
+        }
+        // `much`/`many` and `less`/`fewer` select on `is_mass()`, not on `as_pl` -- the
+        // concrete reason part (a) had to wait for part (b): without a mass/count flag the
+        // only proxy is number agreement, which guesses wrong on exactly the nouns these
+        // words exist for ("much items"/"many information"-class errors). Bypasses
+        // `adapt_article`/`ArticleOrSo` entirely, since that table's only selection axis is
+        // `as_pl`.
+        ArticleKind::MuchMany | ArticleKind::LessFewer => {
+            let singular = noun.name(false);
+            if let Some(custom) = noun.inflect_article_custom_with_context(
+                article_form,
+                &singular,
+                case,
+                class,
+                as_pl,
+                count,
+                uc,
+                ctx,
+            ) {
+                Some(custom + space)
+            } else {
+                let word = match (kind, noun.is_mass()) {
+                    (ArticleKind::MuchMany, true) => "much",
+                    (ArticleKind::MuchMany, false) => "many",
+                    (ArticleKind::LessFewer, true) => "less",
+                    (ArticleKind::LessFewer, false) => "fewer",
+                    _ => unreachable!("kind is MuchMany or LessFewer, checked by the outer match"),
+                };
+                Some(
+                    noun.capitalize_with_context(
+                        word,
+                        OrthographyRole::Article,
+                        uc,
+                        sentence_start,
+                        ctx,
+                    ) + space,
+                )
             }
         }
         // Not one of English's article keywords -- a possessive-substitution sentinel, a
@@ -1391,7 +1502,8 @@ fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
     subject = "$",
     gender = "$",
     singular_end = "$",
-    plural_end = "$"
+    plural_end = "$",
+    mass = "$"
 )]
 pub struct Noun {
     pub(crate) name: String,
@@ -1417,6 +1529,12 @@ pub struct Noun {
     // attribute accept both field shapes.
     pub(crate) singular_end: Option<String>,
     pub(crate) plural_end: Option<String>,
+    // ROADMAP.md Phase 8 item 3. Plain `bool`, `false` unless `with_mass()` is called: `Noun`
+    // has no attributes to declare, the same reason `gender`/`singular_end`/`plural_end` are
+    // runtime fields here, and mass is a bare flag with no "unset" state to represent (unlike
+    // `singular_end`/`plural_end`, which need `Option` to distinguish "declared empty" from
+    // "no rule declared" -- mass has only two states to begin with).
+    pub(crate) mass: bool,
 }
 
 /// How the derive macro reads a `#[ranting(singular_end = "$")]` / `#[ranting(plural_end =
@@ -1511,6 +1629,7 @@ impl Noun {
             gender: NounClass::UNSET,
             singular_end: None,
             plural_end: None,
+            mass: false,
         })
     }
 
@@ -1574,6 +1693,24 @@ impl Noun {
     /// ```
     pub fn with_singular_end(mut self, singular_end: &str) -> Self {
         self.singular_end = Some(singular_end.to_string());
+        self
+    }
+
+    /// Declare this noun a mass noun ("information", "water") rather than a count noun,
+    /// consuming and returning it so it chains off [`new`](Self::new)/[`try_new`](Self::try_new).
+    /// Both constructors leave it `false`, which is what every noun that never calls this keeps.
+    ///
+    /// See [`Ranting::is_mass`] for what changes once it's set.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use ranting::*;
+    /// # use ranting_derive::say;
+    /// let info = Noun::new("information", "it").with_mass();
+    /// assert_eq!(say!("{a info}"), "Some information".to_string());
+    /// ```
+    pub fn with_mass(mut self) -> Self {
+        self.mass = true;
         self
     }
 }
@@ -1992,6 +2129,20 @@ pub trait Ranting: std::fmt::Display {
     /// the display string. See [`NounClass`] for why the label is open-ended.
     fn noun_class(&self) -> NounClass {
         NounClass::UNSET
+    }
+
+    /// Whether the entity is a mass noun ("information", "water") rather than a count noun
+    /// ("item", "boot") -- orthogonal to [`NounClass`]: a word can be both, since many languages
+    /// have a lexical gender for their mass nouns too (German *das Wasser* is neuter and mass).
+    ///
+    /// `false` by default, so no existing entity's rendering changes. Set it with
+    /// `#[ranting(mass)]`, or on a [`Noun`] with [`Noun::with_mass`]. `ranting` reads it in
+    /// exactly two places: the `a`/`an`/`some` article slot renders `some` on a mass noun's
+    /// singular instead of guessing `a`/`an` (`` {a 0} `` on "information" would otherwise render
+    /// "An information"), and the `much`/`many` and `less`/`fewer` quantifier pairs pick their
+    /// mass-noun member.
+    fn is_mass(&self) -> bool {
+        false
     }
 
     /// Whether `subject` counts as first-person (the narrator) for

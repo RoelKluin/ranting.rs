@@ -66,6 +66,52 @@
 
 ### Changed (breaking)
 
+- **`pre`'s closed article vocabulary gains ten more reserved words: `no`, `every`, `all`,
+  `each`, `either`, `neither`, `much`, `many`, `less`, `fewer`** (ROADMAP.md Phase 8 item 3,
+  `docs/superpowers/specs/2026-08-15-quantifier-determiners.md`). Six new `ArticleKind`
+  variants — `No`, `EveryAll`, `Each`, `EitherNeither`, `MuchMany`, `LessFewer` — reach
+  `inflect_article_custom_with_context` through new `get_article_or_so` arms carrying the
+  identical `GrammaticalCase`/`NounClass`/`count`/`uc`/`ctx` signal set the pre-existing article
+  arms already pass, so a fork overrides a quantifier with zero new hook surface. **This is the
+  same reservation class `the`/`some`/the fourteen modal words already occupy**: a placeholder
+  whose only variable named one of these ten words (`{no ...}` reading `no` as a noun) now
+  reparses as the quantifier instead — the same hazard a variable named `some` or `the` already
+  carries, not a new kind of one.
+  - `` {no item} ``-shaped templates that used to be `E0425` (no vocabulary slot for `no`) now
+    compile. `` {no +item} ``/`` {no $n item} `` (the pre-existing open-pass accident) render
+    differently: plural spellings are byte-identical ("No items"), but the singular spelling
+    changes from **"Noes 1 item"** to **"No 1 item"** — a defect fix
+    (`docs/superpowers/specs/2026-08-15-quantifier-determiners.md` recorded the "no" falling
+    through to the pre-noun *verb* path and getting conjugated), but formally an output change
+    for input that already compiled, so it is called out here rather than folded into
+    byte-identity.
+  - Resolving the word list's cut line (left open by the spike): ship exactly the six named
+    pairs now; `both`, `all`-as-a-keyword-beyond-`every`'s-pair, `such`, `enough`, `several`,
+    `most` and `any` stay out — `any` in particular interacts with polarity and needs its own
+    look, per the spike's own recommendation.
+  - `much`/`many` and `less`/`fewer` select on `Ranting::is_mass()` (see `### Added` below), not
+    on number agreement — landing them required the mass/count flag to exist first, since the
+    only available proxy before it (`as_pl`) guesses wrong on exactly the nouns these words exist
+    for.
+  - `each`/`either`/`neither` force singular agreement, baked at compile time by
+    `ranting_derive`'s `article_kind_tokens` exactly as a written `-` marker would be. A written
+    `+` directly contradicts that and is now a **compile error** naming the quantifier
+    (`` {each +item} ``) — the repo's "don't silently guess" stance, the same one a doubled `;`
+    verbatim marker or a tense/degree conflict already takes. A `#`/`$`-numeral's own plurality is
+    left untouched by this bake: the runtime count decides agreement there, and there is no
+    *static* contradiction for the macro to catch.
+  - `` {are no ?$n item} `` (the zero-count idiom already documented in ROADMAP.md item 3, and the
+    idiom-spelling correction the spike made: `` {?#n +items} `` never parsed) keeps rendering
+    "There are no items."/"There is no item." exactly as before — but only because
+    `ranting_core::ph_ext`'s `match_nested_article_candidates` (the modal's "nested article"
+    matcher, already used for `` {do the thing} ``-shaped chains) gained the same ten words.
+    Without that, reserving `no` as an independent top-level `pre` atom made `star_candidates`'
+    greedy "more repetitions first" search prefer a second, competing repetition starting at
+    `no` over the correct single-repetition "are no " capture — silently dropping "are"/"is"
+    from the output. Exactly the "a new alternative in a repeated group is not local to that
+    alternative" trap `.claude/rules/placeholder-grammar.md` already names for the
+    language-modularity change; caught here before release, not after.
+
 - **`Ranting::inflect` takes a fifth parameter,
   `count: Option<PlaceholderCount>`** (ROADMAP.md Phase 7 item 11). Every
   hand-written `Ranting` impl must add it; derive-generated impls are
@@ -278,6 +324,24 @@
   not called for a hidden numeral. English output is unchanged — the default
   returns `None`. First and only user: `ranting_ar`'s sibling `ranting_ja`.
 
+- **`Ranting::is_mass() -> bool`, declared via `#[ranting(mass)]` or `Noun::with_mass()`**
+  (ROADMAP.md Phase 8 item 3, part (b)). Defaulted `false`, so no existing type's rendering
+  changes. Orthogonal to `NounClass` by design — a word can be both mass and gendered (German
+  *das Wasser* is neuter and mass) — so `ranting` never folds it into the class label.
+  `ranting` itself reads it in exactly two places: the `a`/`an`/`some` article slot renders the
+  unstressed `some` on a mass noun's singular instead of guessing `a`/`an` from the noun's first
+  letter/sound (`` {a 0} `` on "information" used to render **"An information"**; now renders
+  "Some information" for any noun declaring itself mass — mass-`some` was previously unreachable
+  even though the word was already in the vocabulary, since `adapt_article` discarded it in favor
+  of the computed a/an), and the new `much`/`many`/`less`/`fewer` quantifier pair (see
+  `### Changed (breaking)` above) picks its mass-noun member. `#[ranting(mass)]` mirrors
+  `gender`'s attribute-present-or-not contract but is bare-boolean-shaped like `no_article`
+  rather than string-shaped like `gender`, since there is no open-ended label to carry; a
+  private `MassAttr` type in `ranting_derive` gives it both the bare-word shape (`bool`'s own
+  `FromMeta`) and `gender`'s `"$"` field-read sentinel, which is what lets `Noun` (which has no
+  attribute value of its own to declare) read a real `mass: bool` field via
+  `#[ranting(mass = "$")]` and offer `Noun::with_mass()`. `Many`/`Maybe`/`Box`/`&dyn Trait`
+  delegate it the same one-item-or-single-value rule `noun_class()` already uses.
 - `ranting::inflect_noun_regular`, the public entry point derive-generated
   `inflect()` impls use once the irregular table misses. Its `singular_end`/
   `plural_end` parameters are `Option<&str>`, `None` meaning "no rule declared".

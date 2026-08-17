@@ -279,6 +279,47 @@ fn match_a4(rest: &str) -> Option<usize> {
     }
 }
 
+/// One of the six agreeing-quantifier word/pairs (ROADMAP.md Phase 8 item 3), matched the
+/// same case-insensitive-first-letter, fixed-suffix shape `match_a3` uses for `\??[tT]he`:
+/// an optional leading `?`, one letter matched case-insensitively, then the rest of `word`
+/// matched literally (lowercase only, like `he` in `match_a3` or `ome` in `match_a2`).
+fn match_quantifier_word(rest: &str, word: &str) -> Option<usize> {
+    let mut len = 0;
+    let mut r = rest;
+    if let Some(stripped) = r.strip_prefix('?') {
+        len += 1;
+        r = stripped;
+    }
+    let mut chars = word.chars();
+    let first = chars.next().expect("quantifier word must not be empty");
+    let c0 = r.chars().next()?;
+    if !c0.eq_ignore_ascii_case(&first) {
+        return None;
+    }
+    let suffix = chars.as_str();
+    let r = &r[c0.len_utf8()..];
+    if r.starts_with(suffix) {
+        Some(len + c0.len_utf8() + suffix.len())
+    } else {
+        None
+    }
+}
+
+/// `\??[nN]o|\??[eE]very|\??[aA]ll|\??[eE]ach|\??[eE]ither|\??[nN]either|\??[mM]uch|
+/// \??[mM]any|\??[lL]ess|\??[fF]ewer` -- tries each of the six word/pairs in turn. None of
+/// them share a leading letter with each other's fixed suffix (`no`/`neither` both start
+/// `n` but diverge at the second character), so returning the first match is safe -- unlike
+/// `match_nested_article_candidates`, which must return every candidate because `the` is a
+/// true prefix of `these`/`those`.
+fn match_quantifier(rest: &str) -> Option<usize> {
+    const QUANTIFIER_WORDS: &[&str] = &[
+        "no", "every", "all", "each", "either", "neither", "much", "many", "less", "fewer",
+    ];
+    QUANTIFIER_WORDS
+        .iter()
+        .find_map(|word| match_quantifier_word(rest, word))
+}
+
 /// `` `[\w-]+ `` -- a backtick followed by one or more word/hyphen chars.
 fn match_backtick(rest: &str) -> Option<usize> {
     let r = rest.strip_prefix('`')?;
@@ -332,6 +373,23 @@ fn match_nested_article_candidates(rest: &str) -> Vec<usize> {
     }
     if rest.starts_with("these") || rest.starts_with("those") {
         out.push(5);
+    }
+    // ROADMAP.md Phase 8 item 3: the six quantifier word/pairs, offered here too -- not just as
+    // pre's top-level first atom -- so a modal-chained placeholder like `{are no ?$0 item}`
+    // still captures "are no " as ONE repetition, exactly as "do the thing" already does via
+    // the "the" row above. Without this, `star_candidates`' greedy "more repetitions first"
+    // search finds a second, competing top-level repetition starting at "no" (now that
+    // `pre_one_rep`'s top-level matchers recognize it too) and explores *that* first, which
+    // wins the parse and silently drops "are"/"is" -- the exact "a new alternative in a
+    // repeated group is not local to that alternative" trap `placeholder-grammar.md` names.
+    // No leading `?` here, same as `the`/`th[eo]se` just above (unlike `a`/`an`/`some`).
+    const NESTED_QUANTIFIER_WORDS: &[&str] = &[
+        "no", "every", "all", "each", "either", "neither", "much", "many", "less", "fewer",
+    ];
+    for word in NESTED_QUANTIFIER_WORDS {
+        if rest.starts_with(word) {
+            out.push(word.len());
+        }
     }
     if let Some(len) = match_backtick(rest) {
         out.push(len);
@@ -512,7 +570,14 @@ fn pre_one_rep(s: &str, pos: usize, pre_words: PreWords) -> Vec<usize> {
         }
         return out;
     }
-    for matcher in [match_a1, match_a2, match_a3, match_a4, match_backtick] {
+    for matcher in [
+        match_a1,
+        match_a2,
+        match_a3,
+        match_a4,
+        match_quantifier,
+        match_backtick,
+    ] {
         if let Some(len) = matcher(rest) {
             out.extend(finish_pre_candidates(s, pos + len));
         }
@@ -952,6 +1017,19 @@ mod tests {
             "The item",
             "these items",
             "those items",
+            // ROADMAP.md Phase 8 item 3: the six agreeing-quantifier word/pairs.
+            "no item",
+            "no items",
+            "?no item",
+            "every item",
+            "all items",
+            "each item",
+            "either item",
+            "neither item",
+            "much stuff",
+            "many items",
+            "less stuff",
+            "fewer items",
             "`person book",
             "`who's",
             "haven't =who",
@@ -1065,6 +1143,8 @@ mod tests {
             uc in proptest::option::of(proptest::sample::select(vec![',', '^'])),
             pre_word in proptest::option::of(proptest::sample::select(vec![
                 "a", "an", "?a", "?an", "some", "?some", "the", "The", "these", "Those",
+                "no", "?no", "every", "All", "each", "either", "neither", "much", "many",
+                "less", "fewer",
                 "`ref", "can", "can't", "may", "will", "are", "aren't", "do", "don't",
                 "could", "couldn't", "do the", "do a", "will `x",
             ])),

@@ -9,6 +9,43 @@ fn string_it() -> String {
     String::from("it")
 }
 
+/// `#[ranting(mass)]`'s value shape. Bare (`#[ranting(mass)]`) and `= bool` mean a literal
+/// override, the same `bool`-field shape `no_article` uses; `= "$"` additionally reads the
+/// value from the struct's own `mass: bool` field at runtime -- the same sentinel `gender`/
+/// `singular_end`/`plural_end` use, needed because `ranting::Noun` (this crate's own `Ranting`
+/// impl) has no attribute value to declare and must be able to say "mass" per-instance via
+/// `Noun::with_mass()`. Not a plain `bool` field, unlike `no_article`, because a bare `bool`
+/// can't also carry the `"$"` sentinel.
+#[derive(Default)]
+pub(crate) enum MassAttr {
+    /// The attribute was never written: no override is generated, and the trait's own `false`
+    /// default applies.
+    #[default]
+    Unset,
+    /// `#[ranting(mass)]` or `#[ranting(mass = true)]`/`= false`.
+    Literal(bool),
+    /// `#[ranting(mass = "$")]`: the struct has a `mass: bool` field.
+    Field,
+}
+
+impl darling::FromMeta for MassAttr {
+    fn from_word() -> darling::Result<Self> {
+        Ok(MassAttr::Literal(true))
+    }
+
+    fn from_bool(value: bool) -> darling::Result<Self> {
+        Ok(MassAttr::Literal(value))
+    }
+
+    fn from_string(value: &str) -> darling::Result<Self> {
+        if value == "$" {
+            Ok(MassAttr::Field)
+        } else {
+            Err(darling::Error::unknown_value(value))
+        }
+    }
+}
+
 #[derive(FromDeriveInput, Default)]
 #[darling(default, attributes(ranting))]
 pub(crate) struct RantingOptions {
@@ -61,6 +98,11 @@ pub(crate) struct RantingOptions {
     // If true, `skip_article()` returns true in the Ranting impl.
     // Default: false (articles are displayed).
     pub(crate) no_article: bool,
+
+    // Whether the entity is a mass noun ("information", "water") rather than a count noun.
+    // If true, `is_mass()` returns true in the Ranting impl. Orthogonal to `gender`.
+    // Default: unset (no override generated; the trait's own `false` default applies).
+    pub(crate) mass: MassAttr,
 }
 
 fn get_namefn_for(mut opt: RantingOptions, is_enum: bool) -> TokenStream {
@@ -231,12 +273,33 @@ fn get_noun_class_fn(opt: &RantingOptions) -> TokenStream {
     }
 }
 
+/// The `is_mass()` override for `#[ranting(mass)]`, or nothing at all when the attribute is
+/// absent -- same conditional-emission contract as [`get_noun_class_fn`]: an unset `mass` must
+/// leave the generated impl relying on the trait's own `false` default rather than emitting an
+/// equivalent method.
+fn get_is_mass_fn(opt: &RantingOptions) -> TokenStream {
+    match &opt.mass {
+        MassAttr::Unset => TokenStream::new(),
+        MassAttr::Literal(value) => parse_quote! {
+            fn is_mass(&self) -> bool {
+                #value
+            }
+        },
+        MassAttr::Field => parse_quote! {
+            fn is_mass(&self) -> bool {
+                self.mass
+            }
+        },
+    }
+}
+
 /// An abstract thing, which may be a person and have a gender
 pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> TokenStream {
     // TODO: span of attribute?
 
     let plurality_action: TokenStream = get_plurality_fns(&opt);
     let noun_class_fn: TokenStream = get_noun_class_fn(&opt);
+    let is_mass_fn: TokenStream = get_is_mass_fn(&opt);
 
     let no_article = opt.no_article.to_owned();
     let name_fn_q = get_namefn_for(opt, is_enum);
@@ -259,6 +322,7 @@ pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> To
             #no_article
         }
         #noun_class_fn
+        #is_mass_fn
     };
     parse_quote! {
         impl Ranting for #ident {

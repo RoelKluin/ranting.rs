@@ -281,6 +281,9 @@ fn ref_expr_ranting_trait(ref_expr: TokenStream) -> TokenStream {
             fn noun_class(&self) -> ranting::NounClass {
                 (**self).noun_class()
             }
+            fn is_mass(&self) -> bool {
+                (**self).is_mass()
+            }
         }
     }
 }
@@ -1065,6 +1068,13 @@ fn handle_param(
                 "the" => quote!(The),
                 "a" | "an" | "some" => quote!(AAnSome),
                 "these" | "those" => quote!(TheseThose),
+                // ROADMAP.md Phase 8 item 3: the six agreeing-quantifier word/pairs.
+                "no" => quote!(No),
+                "every" | "all" => quote!(EveryAll),
+                "each" => quote!(Each),
+                "either" | "neither" => quote!(EitherNeither),
+                "much" | "many" => quote!(MuchMany),
+                "less" | "fewer" => quote!(LessFewer),
                 _ => quote!(Other),
             }
         };
@@ -1076,6 +1086,29 @@ fn handle_param(
     let (pre_first_word, pre_rest) = split_at_find_start(pre_string.as_str(), char::is_whitespace)
         .unwrap_or((pre_string.as_str(), ""));
     let pre_kind_q = article_kind_tokens(&pre_first_word.to_lowercase());
+    // ROADMAP.md Phase 8 item 3: `each`/`either`/`neither` force singular agreement, baked
+    // here exactly as a written `-` marker would be -- no runtime machinery needed, since
+    // `pre`'s first word is already classified at compile time just above. A written `+`
+    // directly contradicts that and is a compile error (the repo's "don't silently guess"
+    // stance, same as a doubled `;` verbatim marker); `#`/`$`-numeral plurality is left
+    // untouched, since the actual runtime count then decides agreement and there is no
+    // static contradiction to catch.
+    let pre_first_lower = pre_first_word.to_lowercase();
+    let pre_first_trimmed = pre_first_lower.trim_start_matches(['!', '?']);
+    let forces_singular = matches!(pre_first_trimmed, "each" | "either" | "neither");
+    let plurality = if forces_singular && plurality == "+" {
+        return Err((
+            nr_s,
+            nr_e,
+            format!(
+                "quantifier `{pre_first_trimmed}` forces singular agreement; `+` contradicts it"
+            ),
+        ));
+    } else if forces_singular && plurality.is_empty() {
+        "-"
+    } else {
+        plurality
+    };
     let pre_chained_kind_q = if pre_string.contains('`') {
         // has_possesive: the runtime's chained (second) get_article_or_so call is
         // never reached in this case (see ArticleKind's docs), so this value is
@@ -1335,5 +1368,45 @@ mod tests {
                 "`{word}` should be accepted in an unmarked verb slot"
             );
         }
+    }
+
+    /// ROADMAP.md Phase 8 item 3: `each`/`either`/`neither` force singular agreement, baked
+    /// here exactly as a written `-` marker would be -- confirmed by checking the baked
+    /// `plurality` field renders `"-"` even for an unmarked placeholder.
+    #[test]
+    fn quantifiers_that_force_singular_bake_a_minus_marker() {
+        for word in ["each", "either", "neither"] {
+            let out = classify_post(&format!("{word} item")).expect("valid placeholder");
+            assert!(
+                out.contains("plurality : \"-\""),
+                "expected plurality baked to \"-\" for `{word}`, got: {out}"
+            );
+        }
+    }
+
+    /// A written `+` directly contradicts a quantifier that forces the singular -- a compile
+    /// error, not a silent pick of one meaning over the other (the repo's "don't silently guess"
+    /// stance, the same one the verbatim-marker conflict above takes).
+    #[test]
+    fn quantifiers_that_force_singular_reject_a_contradicting_plus_marker() {
+        for word in ["each", "either", "neither"] {
+            let err = classify_post(&format!("{word} +item"))
+                .expect_err("`+` on a singular-forcing quantifier must be a compile error");
+            assert!(
+                err.contains(word) && err.contains("singular"),
+                "message should name the quantifier and the rule, got: {err}"
+            );
+        }
+    }
+
+    /// `#`/`$`-numeral plurality is left untouched by the singular-forcing bake: the actual
+    /// runtime count decides agreement, and there is no *static* contradiction to catch.
+    #[test]
+    fn quantifiers_that_force_singular_leave_a_numeral_untouched() {
+        let out = classify_post("each $n item").expect("valid placeholder");
+        assert!(
+            !out.contains("plurality : \"-\""),
+            "a numeral's own plurality marker should not be overwritten, got: {out}"
+        );
     }
 }

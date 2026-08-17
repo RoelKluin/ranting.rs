@@ -130,14 +130,24 @@ pub enum DemonstrativePronoun {
 /// ROADMAP.md Phase 8 item 2: `post`'s marker class also takes `;`, the verbatim-verb escape
 /// hatch (`{=i ;were}` -> "I were") -- baked as `PostSpec::Verbatim` rather than a `TenseMarker`
 /// variant, since it means "apply no conjugation at all". See `.claude/rules/placeholder-grammar.md`.
+///
+/// ROADMAP.md Phase 8 item 3: `pre`'s first-atom alternation also takes the six agreeing
+/// quantifier word/pairs (`no`, `every`/`all`, `each`, `either`/`neither`, `much`/`many`,
+/// `less`/`fewer`) alongside the articles, each with the same optional leading `?` the
+/// article words carry. `ph_ext::match_quantifier` mirrors this by hand; `ranting_derive`'s
+/// `article_kind_tokens` and `ArticleKind::classify` both gain the same six rows. See
+/// `.claude/rules/placeholder-grammar.md`.
 #[allow(dead_code)]
 pub static PH_EXT: &str = r"^(?x)
     (?P<uc>[,^])?+
     (?P<pre>(?:
-        \??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se|`[\w-]+|
+        \??[aA]n?|\??[sS]ome|\??[tT]he|[Tt]h[eo]se|
+        \??[nN]o|\??[eE]very|\??[aA]ll|\??[eE]ach|\??[eE]ither|\??[nN]either|
+        \??[mM]uch|\??[mM]any|\??[lL]ess|\??[fF]ewer|`[\w-]+|
         (?:[cC]an(?:'t)?|[mM]ay|(?:[sS]ha|[wW]i)ll|
         (?:(?:[aA]|[wW]e)re|[hH]a(?:d|ve)|[dD]o|(?:[cCwW]|[sS]h)ould|[mM](?:us|igh)t)(?:n't)?+)
-        (?:\s+(?:\??an?|\??some|\??the|th[eo]se|`[\w-]+))?
+        (?:\s+(?:\??an?|\??some|\??the|th[eo]se|
+        no|every|all|each|either|neither|much|many|less|fewer|`[\w-]+))?
     )(?:\s+[\w-]+)*?\s+)?+
     (?P<nr>[+-]|(?:\#|\??\$)\w+\s+)?+
     (?P<case>\*[`=@~%]|[`=@~*?%])?+
