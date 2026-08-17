@@ -33,3 +33,8 @@ tasks_done.txt
 # and an unrelated Inform 7 extensions library) — not part of the project.
 /docs/Ranting Cheatsheet Design.zip
 /examples/
+
+# Session handoff scratch notes (babysitting/overnight-loop state) — not repo
+# documentation; would otherwise get auto-staged by overnight_loop.sh's
+# STAGE_EXTENSIONS since it matches *.md.
+/mem.md

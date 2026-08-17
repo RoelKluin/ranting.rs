@@ -29,7 +29,9 @@ scheduled (12 and 13) all landed on 2026-08-14.
 plus five missing channels, from a grammarian's end-to-end review of the placeholder
 surface against complex-sentence English (2026-08-15). See its section below; the
 defect half is `docs/architecture-review-2026-08-15.md` §§1.5-1.12; §§1.6, 1.7 and 1.9
-landed on 2026-08-15.
+landed on 2026-08-15. Items 1-4's design spikes were ruled on 2026-08-17 (implement,
+in full, per each item's DECIDED block below); item 5 was declined 2026-08-15. None of
+items 1-4 are implemented yet.
 
 **Shipping today**:
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
@@ -997,6 +999,12 @@ literal template").
    silently renders a passive placeholder active); and whether all five land
    together (recommended) or the passive pair first. The sigil grammar is Locked,
    so nothing ships until a maintainer rules.
+
+   **DECIDED (2026-08-17, maintainer ruling — implement).** All five spellings
+   land together (`=%`, `<=%`, `>%`, `%=`, `<%=`), per the spike's recommendation.
+   `ctx.tense` × voice under `say_with!()` takes the tense-axis-only override —
+   the marker's voice is preserved, only tense moves. Ready for an implementation
+   task; not yet started.
 2. **A subjunctive escape hatch** *(fixes the one place the crate damages correct
    input)* — the defect is §1.5; the *feature* question is what the fix should be.
    Indicative-vs-subjunctive is a property of the clause (`if`, `wish`, mandative
@@ -1022,6 +1030,11 @@ literal template").
    `PostSpec::Verbatim` bypasses `inflect_verb_custom_with_context` entirely or
    still calls it with a "don't touch" signal (the latter is a hook-signature
    break). Until one is chosen and implemented, §1.5 stays open.
+
+   **DECIDED (2026-08-17, maintainer ruling — implement).** Character: `;`
+   (`{=i ;were}` → `"I were"`). `PostSpec::Verbatim` bypasses
+   `inflect_verb_custom_with_context` entirely — no hook-signature change.
+   Ready for an implementation task; not yet started. Closes §1.5 once landed.
 3. **Agreeing quantifiers, and the mass/count distinction** — `ArticleOrSo` stops at
    a/an/some/the/these/those, so *no*, *every*, *each*, *either*, *much*/*many* and
    *less*/*fewer* have no channel and a quantified noun phrase is hand-assembled.
@@ -1065,6 +1078,14 @@ literal template").
    (`some` vs. elision), error-vs-override for `{each +item}`-style marker
    contradictions, and the enum's semver posture (`#[non_exhaustive]`
    recommended against).
+
+   **DECIDED (2026-08-17, maintainer ruling — implement).** Adopt the spike's
+   full recommended package: (b) `is_mass()`/`#[ranting(mass)]`/`Noun::with_mass()`
+   first, then (a) the six quantifier word/pairs on `ArticleKind`/`ArticleOrSo`,
+   not `#[non_exhaustive]`. The word-list cut line, mass-`AAnSome` rendering, and
+   error-vs-override behavior for marker contradictions are left to whoever
+   implements it, resolved consistently with the spike's stated rationale rather
+   than re-litigated. Ready for an implementation task; not yet started.
 4. **Ordinals** — `#var` spells cardinals only, so "the **third** attempt" cannot come
    out of a placeholder. Pure word-form inflection with no word movement, i.e. squarely
    inside the boundary. Cheapest of the five and it has a second constituency: ordinals
@@ -1099,6 +1120,14 @@ literal template").
    those fail silently — `` {##n attempt} `` would otherwise render a cardinal,
    and agree plural); and whether `nr` gains a one-repetition restriction while
    its alternation is widened.
+
+   **DECIDED (2026-08-17, maintainer ruling — implement).** `$$var` → `"3rd"`
+   lands in the same break as `##var`. The stringly-typed `plurality` dispatch is
+   retyped alongside it, fixing the two silent-failure sites. `nr`'s alternation
+   gains a one-repetition restriction at the same time it's widened, mirroring
+   the open-pass `pre` precedent. Accepted as a major-version break; falsifiers'
+   exhaustive matches get fixed as part of the same work. Ready for an
+   implementation task; not yet started.
 5. **Adverb derivation** — quick→quickly, happy→happily, is in-place word inflection of
    exactly the kind the crate already does for degree (`!`/`!!`), and has no channel.
    Lowest priority of the five: the adjective slot is post-noun only, so the sentence
