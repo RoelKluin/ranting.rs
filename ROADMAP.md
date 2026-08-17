@@ -1394,6 +1394,27 @@ first, not by importance.*
    change implied unless the falsification actually finds a gap — this item is about turning an
    untested default into a tested one, in the same spirit as every other falsifier finding in
    this repo.
+
+   **PROPOSED (2026-08-17 spike — NOT implemented; maintainer decision needed)** — design spike
+   at `docs/superpowers/specs/2026-08-17-hook-falsification-depth.md`. Corrects §4.1's own count
+   in passing: `inflect_verb_custom_with_context` is already overridden, by `ranting_ja`
+   (commit `99562a36`, which landed before §4.1 was written), so only seven `_with_context`
+   twins remain never-overridden, not eight — nine total with `is_first_person_subject_custom`
+   is still right. Also finds the ROADMAP item's own register-change suggestion already done
+   (`ranting_ja/tests/japanese.rs::register_can_vary_per_utterance_within_one_scene`). Picks the
+   item's other candidate — a non-English first-person label exercising
+   `is_first_person_subject_custom`, in `ranting_i18n` via `GermanPerson::ICH`/`WIR`'s existing
+   `"ich"`/`"wir"` labels — and, using a throwaway uncommitted fixture run against the real crate
+   (not left in the tree), finds a genuine gap rather than a "default is sufficient" result:
+   overriding `is_first_person_subject_custom` alone is necessary but not sufficient for a
+   grammatically correct retelling, because `narration::resolve_viewpoint`'s rendered subject is
+   a hardcoded English word (`"they"`/`"you"`) with no German equivalent, so a fork's own
+   pronoun hook either silently drops the retelling (when it renders from `self` like the real
+   `GermanPerson::inflect_pronoun_custom` does) or leaks the English word into an otherwise-German
+   sentence (when unoverridden). Recommends a maintainer choose between accepting this as a
+   documented `ranting_i18n` hole versus a `NarrationContext`/`resolve_viewpoint` signature change
+   handing a fork the grammatical person itself rather than a pre-rendered English string — the
+   latter being out of scope for a falsifier-crate-only fix.
 2. **Negative-count agreement, now unblocked by `is_mass()`**
    (ROADMAP.md Phase 8 §1.12, `docs/architecture-review-2026-08-15.md` §1.12). Recorded at the
    time as "a maintainer's call, not scheduled" because the fix needed the mass/count split —
