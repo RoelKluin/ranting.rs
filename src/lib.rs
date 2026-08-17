@@ -1120,7 +1120,7 @@ where
                     // runtime context, falling back to the compile-time marker's
                     // default tense.
                     let (marker_str, base_form) = match narration_ctx.tense {
-                        Some(t) => narration::marker_and_form_for_tense(t, word),
+                        Some(t) => narration::marker_and_form_for_tense(t, word, marker),
                         None => (
                             marker.as_marker_str(),
                             narration::form_for_marker(marker.as_marker_str(), word),
@@ -1267,6 +1267,45 @@ pub fn handle_tense_marker(subject: &str, marker: &str, verb: &str) -> String {
             // Past perfect: subject + had + past participle
             let aux = conjugate_auxiliary(AuxiliaryVerb::Had, subject);
             format!("{} {}", aux, verb)
+        }
+        // ROADMAP.md Phase 8 item 1: the participle channel -- passive voice, future
+        // perfect, perfect progressive. Auxiliary agreement reuses IsAre/WasWere/HaveHas
+        // unchanged (docs/superpowers/specs/2026-08-15-participle-channel.md); "will
+        // have"/"had been"/"will be"/"will have been" are invariant across every person.
+        "=%" => {
+            // Present passive: subject + is/are/am + past participle
+            let aux = conjugate_auxiliary(AuxiliaryVerb::IsAre, subject);
+            format!("{} {}", aux, verb)
+        }
+        "<=%" => {
+            // Past passive: subject + was/were + past participle
+            let aux = conjugate_auxiliary(AuxiliaryVerb::WasWere, subject);
+            format!("{} {}", aux, verb)
+        }
+        ">%" => {
+            // Future perfect: subject + will have + past participle
+            format!("will have {}", verb)
+        }
+        "%=" => {
+            // Present perfect progressive: subject + has/have + been + gerund
+            let aux = conjugate_auxiliary(AuxiliaryVerb::HaveHas, subject);
+            format!("{} been {}", aux, verb)
+        }
+        "<%=" => {
+            // Past perfect progressive: subject + had been + gerund
+            format!("had been {}", verb)
+        }
+        // Internal-only marker strings: never baked by `handle_param` (`>=%`/`>%=` are not
+        // enumerated `tense_variant` spellings), only ever synthesized by
+        // `narration::marker_and_form_for_tense` when a `ctx.tense` override moves a
+        // passive/perfect-progressive placeholder to the future while preserving its voice.
+        ">=%" => {
+            // Future passive: subject + will be + past participle
+            format!("will be {}", verb)
+        }
+        ">%=" => {
+            // Future perfect progressive: subject + will have been + gerund
+            format!("will have been {}", verb)
         }
         _ => verb.to_string(),
     }

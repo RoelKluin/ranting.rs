@@ -1005,6 +1005,26 @@ literal template").
    `ctx.tense` × voice under `say_with!()` takes the tense-axis-only override —
    the marker's voice is preserved, only tense moves. Ready for an implementation
    task; not yet started.
+
+   ✅ **LANDED (2026-08-17).** Five new `TenseMarker` variants (`ranting_core::placeholder`):
+   `PresentPassive` (`=%`), `PastPassive` (`<=%`), `FuturePerfect` (`>%`),
+   `PresentPerfectProgressive` (`%=`), `PastPerfectProgressive` (`<%=`) — no grammar/parser
+   edit, since the `post` marker run already matched these spellings and `handle_param`'s `_`
+   arm was rejecting all five as "unrecognized tense marker" before this change. Compile-time
+   forms (`say!()`) via the existing `verb_conjugate::to_past_participle`/`to_continuous`;
+   runtime auxiliary composition (`handle_tense_marker`, `src/lib.rs`) reuses
+   `AuxiliaryVerb::IsAre`/`WasWere`/`HaveHas` unchanged, plus the invariant chains "will
+   have"/"had been"/"will be"/"will have been". `say_with!()`'s `ctx.tense` override
+   (`narration::marker_and_form_for_tense`) now takes the compile-time `TenseMarker` and moves
+   only the tense axis (present/past/future) for the three new construction families, preserving
+   voice/aspect — the six pre-existing markers keep their unchanged full-table override. `>=%`
+   (future passive) and `>%=` (future perfect progressive) are reachable only through that
+   override, never as a writable placeholder spelling — deliberately not enumerated in
+   `handle_param`'s `tense_variant` match, per the spike's scoping. Tests:
+   `tests/ranting/passive_voice.rs` (rendering, all-pronouns agreement, `say_with!()`
+   byte-identity, and the `ctx.tense`-preserves-voice cases) and
+   `ranting_derive/src/lib.rs`'s `tests` module (marker classification and the
+   not-writable-as-placeholder check for `>=%`/`>%=`).
 2. **A subjunctive escape hatch** *(fixes the one place the crate damages correct
    input)* — the defect is §1.5; the *feature* question is what the fix should be.
    Indicative-vs-subjunctive is a property of the clause (`if`, `wish`, mandative

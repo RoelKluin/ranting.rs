@@ -864,6 +864,12 @@ fn handle_param(
                         "<=" => verb_conjugate::to_continuous(base_word),
                         "%" => verb_conjugate::to_past_participle(base_word),
                         "<%" => verb_conjugate::to_past_participle(base_word),
+                        // ROADMAP.md Phase 8 item 1: the participle channel. Passive and
+                        // future-perfect main verbs are participles; perfect-progressive
+                        // main verbs are gerunds -- the auxiliary carries the
+                        // tense/voice, baked separately by `handle_tense_marker`.
+                        "=%" | "<=%" | ">%" => verb_conjugate::to_past_participle(base_word),
+                        "%=" | "<%=" => verb_conjugate::to_continuous(base_word),
                         _ => base_word.to_string(),
                     }
                 };
@@ -877,6 +883,16 @@ fn handle_param(
                     "<=" => quote!(PastContinuous),
                     "%" => quote!(PresentPerfect),
                     "<%" => quote!(PastPerfect),
+                    // ROADMAP.md Phase 8 item 1. `>=%` (future passive) and `>%=` (future
+                    // perfect progressive) are deliberately not enumerated here -- not
+                    // writable in a placeholder -- even though `narration::marker_and_form_for_tense`
+                    // synthesizes those exact marker strings internally under a `ctx.tense`
+                    // override; see docs/superpowers/specs/2026-08-15-participle-channel.md.
+                    "=%" => quote!(PresentPassive),
+                    "<=%" => quote!(PastPassive),
+                    ">%" => quote!(FuturePerfect),
+                    "%=" => quote!(PresentPerfectProgressive),
+                    "<%=" => quote!(PastPerfectProgressive),
                     _ => {
                         let post_span = post_span.unwrap();
                         return Err((
@@ -1179,6 +1195,43 @@ mod tests {
                 err.contains(';'),
                 "message should name the offending marker, got: {err}"
             );
+        }
+    }
+
+    /// ROADMAP.md Phase 8 item 1: the five composed participle-channel spellings classify
+    /// as `PostSpec::Tense` with the matching new `TenseMarker` variant. Before the arms
+    /// landed, every one of these fell into `handle_param`'s `_` arm ("unrecognized tense
+    /// marker") -- confirmed empirically at the time by running this test against the
+    /// pre-change source and observing `Err`, per CLAUDE.md's byte-identity requirement for
+    /// this change (a currently-unrecognized run becoming meaningful cannot alter any
+    /// existing template, since no existing template could compile with it).
+    #[test]
+    fn participle_channel_markers_classify_as_tense_postspec() {
+        let cases = [
+            ("who =%take", "PresentPassive"),
+            ("who <=%take", "PastPassive"),
+            ("who >%take", "FuturePerfect"),
+            ("who %=pick", "PresentPerfectProgressive"),
+            ("who <%=pick", "PastPerfectProgressive"),
+        ];
+        for (placeholder, variant) in cases {
+            let out = classify_post(placeholder).expect("valid placeholder");
+            assert!(
+                out.contains("PostSpec :: Tense") && out.contains(variant),
+                "expected a Tense PostSpec with marker {variant}, got: {out}"
+            );
+        }
+    }
+
+    /// The two internal-only marker strings `narration::marker_and_form_for_tense`
+    /// synthesizes under a `ctx.tense` override (`>=%` future passive, `>%=` future
+    /// perfect progressive) are deliberately never enumerated `tense_variant` spellings --
+    /// not writable in a placeholder, even though the family they belong to is.
+    #[test]
+    fn future_voice_spellings_are_not_writable_in_a_placeholder() {
+        for bad in ["who >=%take", "who >%=pick"] {
+            let err = classify_post(bad).expect_err("must not be a writable placeholder spelling");
+            assert!(err.contains("unrecognized tense marker"), "got: {err}");
         }
     }
 

@@ -1001,6 +1001,13 @@ mod tests {
             "who <=run",
             "who %run",
             "who <%run",
+            // Participle channel (ROADMAP.md Phase 8 item 1): composed spellings, already
+            // matched by the pre-existing `post` marker run -- no grammar/parser change.
+            "who =%take",
+            "who <=%take",
+            "who >%take",
+            "who %=pick",
+            "who <%=pick",
             "who !good",
             "who !!good",
             // Verbatim marker (ROADMAP.md Phase 8 item 2): `;` in the same `post` class as the
@@ -1074,6 +1081,7 @@ mod tests {
             post in proptest::option::of(proptest::sample::select(vec![
                 "'s", "'", " run", " =run", " <run", " !good", " !!good",
                 " don't run", " run away", " run away today", " ;were",
+                " =%take", " <=%take", " >%take", " %=pick", " <%=pick",
             ])),
         ) {
             let mut s = String::new();

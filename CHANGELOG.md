@@ -15,6 +15,21 @@
 
 ### Changed
 
+- **Five new composed post-noun tense markers add passive voice, future perfect and perfect
+  progressive: `=%` (present passive), `<=%` (past passive), `>%` (future perfect), `%=`
+  (present perfect progressive), `<%=` (past perfect progressive).** `say!("{The sword =%take}.")`
+  now renders "The sword is taken." — previously a compile error ("unrecognized tense marker"),
+  since the only markers reaching `verb_conjugate::to_past_participle` were `%`/`<%`. Closes
+  ROADMAP.md Phase 8 item 1 (`docs/superpowers/specs/2026-08-15-participle-channel.md`). Each
+  spelling composes already-taken `post` characters — no grammar/parser change, and every
+  existing template is byte-identical, since all five were compile errors before this change.
+  Baked as five new `ranting_core::placeholder::TenseMarker` variants; auxiliary agreement reuses
+  `AuxiliaryVerb::IsAre`/`WasWere`/`HaveHas` unchanged. Under `say_with!()`, a `NarrationContext`
+  `tense` override on one of these five moves only the tense axis (present/past/future) — the
+  marker's voice/aspect is preserved, so `{=%take}` overridden to `Tense::Past` renders "was
+  taken", never active "took"; the six pre-existing markers keep their unchanged full-table
+  override behavior.
+
 - **A new post-noun marker, `;`, renders a verb exactly as written, bypassing person/number
   agreement entirely.** `say!("If {=i were} rich, …")` still renders "If I was rich, …" —
   unchanged, since indicative `were` → `was` agreement is correct and stays pinned — but a

@@ -26,6 +26,7 @@ mod native_article_keyword;
 mod noun_class;
 mod numeral;
 mod orthography;
+mod passive_voice;
 mod possessive_apostrophe;
 mod preposition_fusion;
 mod property_based;

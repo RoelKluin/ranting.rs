@@ -76,7 +76,7 @@ impl CaseKind {
 }
 
 /// A tense marker attached to a post-noun verb (`<`, `=`, `>`, `<=`, `%`,
-/// `<%`).
+/// `<%`, `=%`, `<=%`, `>%`, `%=`, `<%=`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TenseMarker {
     /// `<` -- simple past, no auxiliary.
@@ -91,6 +91,18 @@ pub enum TenseMarker {
     PresentPerfect,
     /// `<%` -- past perfect ("had run").
     PastPerfect,
+    /// `=%` -- present passive ("is taken"). ROADMAP.md Phase 8 item 1.
+    PresentPassive,
+    /// `<=%` -- past passive ("was taken"). ROADMAP.md Phase 8 item 1.
+    PastPassive,
+    /// `>%` -- future perfect ("will have taken"). ROADMAP.md Phase 8 item 1.
+    FuturePerfect,
+    /// `%=` -- present perfect progressive ("has been picking"). ROADMAP.md
+    /// Phase 8 item 1.
+    PresentPerfectProgressive,
+    /// `<%=` -- past perfect progressive ("had been picking"). ROADMAP.md
+    /// Phase 8 item 1.
+    PastPerfectProgressive,
 }
 
 impl TenseMarker {
@@ -104,6 +116,11 @@ impl TenseMarker {
             b"<=" => Some(TenseMarker::PastContinuous),
             b"%" => Some(TenseMarker::PresentPerfect),
             b"<%" => Some(TenseMarker::PastPerfect),
+            b"=%" => Some(TenseMarker::PresentPassive),
+            b"<=%" => Some(TenseMarker::PastPassive),
+            b">%" => Some(TenseMarker::FuturePerfect),
+            b"%=" => Some(TenseMarker::PresentPerfectProgressive),
+            b"<%=" => Some(TenseMarker::PastPerfectProgressive),
             _ => None,
         }
     }
@@ -122,6 +139,11 @@ impl TenseMarker {
             TenseMarker::PastContinuous => "<=",
             TenseMarker::PresentPerfect => "%",
             TenseMarker::PastPerfect => "<%",
+            TenseMarker::PresentPassive => "=%",
+            TenseMarker::PastPassive => "<=%",
+            TenseMarker::FuturePerfect => ">%",
+            TenseMarker::PresentPerfectProgressive => "%=",
+            TenseMarker::PastPerfectProgressive => "<%=",
         }
     }
 }
