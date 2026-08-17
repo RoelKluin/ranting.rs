@@ -189,6 +189,18 @@ pub enum PostSpec {
         word: &'static str,
         trailing: &'static str,
     },
+    // ROADMAP.md Phase 8 item 2: the subjunctive escape hatch.
+    /// A `;`-marked verb: rendered exactly as written, with no
+    /// person/number agreement and no call to
+    /// `Ranting::inflect_verb_custom_with_context` at all -- the escape
+    /// hatch for a caller-written form no conjugator should touch, e.g. the
+    /// subjunctive `{=i ;were}` -> "I were". `trailing` is any words after
+    /// it, passed through unchanged like `Tense`/`Degree`'s.
+    Verbatim {
+        leading_space: &'static str,
+        word: &'static str,
+        trailing: &'static str,
+    },
 }
 
 /// Which numeral notation a placeholder's `#var`/`$var` marker asked for.

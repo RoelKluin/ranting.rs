@@ -15,6 +15,19 @@
 
 ### Changed
 
+- **A new post-noun marker, `;`, renders a verb exactly as written, bypassing person/number
+  agreement entirely.** `say!("If {=i were} rich, …")` still renders "If I was rich, …" —
+  unchanged, since indicative `were` → `was` agreement is correct and stays pinned — but a
+  caller who wants the subjunctive can now write `say!("If {=i ;were} rich, …")` to get
+  "If I were rich, …". Closes `docs/architecture-review-2026-08-15.md` §1.5 (ROADMAP.md Phase 8
+  item 2): mood is a property of the surrounding clause, not recoverable from the verb, so the
+  fix is an escape hatch rather than a smarter conjugator. Baked as a new
+  `ranting_core::placeholder::PostSpec::Verbatim` variant; `Ranting::inflect_verb_custom_with_context`
+  is never called for it. `;` is new grammar (parsed by both `PH_EXT` and `ph_ext::parse`, in
+  lockstep — `.claude/rules/placeholder-grammar.md`) but every existing template is
+  byte-identical, since it was previously a syntax error to write `;` inside a placeholder.
+  Combining `;` with a tense or degree marker, or repeating it, is a compile error.
+
 - **A bare `-ing` form in an unmarked verb slot is now a compile error instead
   of rendering ungrammatical text.** `say!("{=0 walking}")` used to compile and
   render `"She walking"` — the runtime correctly leaves a non-present form

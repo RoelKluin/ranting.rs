@@ -29,6 +29,22 @@
 //! - Possessive determiner: their
 //! - Possessive pronoun: theirs
 //!
+//! ## Verbatim verb marker
+//!
+//! A post-noun verb normally gets person/number agreement, which corrupts an
+//! already-correct subjunctive: `` {=i were} `` renders "I was", not "I were" — mood is
+//! a property of the surrounding clause (`if`, `wish`, ...), not of the verb, so a
+//! smarter conjugator can't fix it without breaking the indicative reading, which is far
+//! more common. Prefix the verb with `;` to render it exactly as written, with no
+//! agreement applied at all:
+//!
+//! ```rust
+//! # use ranting::{Noun, say};
+//! let i = Noun::new("person", "I");
+//! assert_eq!(say!("If {=i ;were} rich, I would travel.", i),
+//!     "If I were rich, I would travel.".to_string());
+//! ```
+//!
 //! ## Feature flags
 #![doc = document_features::document_features!()]
 
@@ -779,9 +795,9 @@ where
         PostSpec::Verb(raw) => {
             split_at_find_start(raw, |c: char| !c.is_whitespace()).map_or("", |(sp, _)| sp)
         }
-        PostSpec::Tense { leading_space, .. } | PostSpec::Degree { leading_space, .. } => {
-            leading_space
-        }
+        PostSpec::Tense { leading_space, .. }
+        | PostSpec::Degree { leading_space, .. }
+        | PostSpec::Verbatim { leading_space, .. } => leading_space,
     };
 
     if case != CaseKind::Hidden {
@@ -1180,6 +1196,21 @@ where
                     ctx,
                 ));
             }
+            if !trailing.is_empty() {
+                res.push(' ');
+                res.push_str(trailing);
+            }
+        }
+        PostSpec::Verbatim { word, trailing, .. } => {
+            // ROADMAP.md Phase 8 item 2: no `inflect_verb_custom_with_context` call at
+            // all -- the whole point of the marker is that nothing re-derives this word.
+            res.push_str(&noun.capitalize_with_context(
+                word,
+                OrthographyRole::Verb,
+                uc,
+                sentence_start,
+                ctx,
+            ));
             if !trailing.is_empty() {
                 res.push(' ');
                 res.push_str(trailing);

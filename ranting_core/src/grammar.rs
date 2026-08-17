@@ -126,6 +126,10 @@ pub enum DemonstrativePronoun {
 /// marker: `{the *=noun}` case-marks the placeholder exactly as `{the =noun}` would (the article
 /// hook still sees `GrammaticalCase::Subjective`) but keeps rendering the noun's own name instead
 /// of switching to a pronoun. See `ranting_core::placeholder::PlaceholderSpec::display_as_name`.
+///
+/// ROADMAP.md Phase 8 item 2: `post`'s marker class also takes `;`, the verbatim-verb escape
+/// hatch (`{=i ;were}` -> "I were") -- baked as `PostSpec::Verbatim` rather than a `TenseMarker`
+/// variant, since it means "apply no conjugation at all". See `.claude/rules/placeholder-grammar.md`.
 #[allow(dead_code)]
 pub static PH_EXT: &str = r"^(?x)
     (?P<uc>[,^])?+
@@ -138,7 +142,7 @@ pub static PH_EXT: &str = r"^(?x)
     (?P<nr>[+-]|(?:\#|\??\$)\w+\s+)?+
     (?P<case>\*[`=@~%]|[`=@~*?%])?+
     (?P<noun>[\w-]+)
-    (?P<post>\s+[<=>%!]*(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$";
+    (?P<post>\s+[<=>%!;]*(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$";
 
 /// An enum with pronouns in subjective form.
 #[derive(EnumString, Copy, Clone, Debug, strum_macros::EnumIter)]

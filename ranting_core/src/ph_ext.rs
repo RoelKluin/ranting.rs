@@ -664,7 +664,7 @@ fn token_valid(tok: &str, allow_apostrophe: bool) -> bool {
     }
 }
 
-/// `(?P<post>\s+[<=>%!]*(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$`
+/// `(?P<post>\s+[<=>%!;]*(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$`
 ///
 /// Returns the end offset on success -- always `s.len()` when it succeeds,
 /// since `post` is immediately followed by `$` in the source grammar.
@@ -681,7 +681,7 @@ fn match_post(s: &str, pos: usize) -> Option<usize> {
     let mut idx = ws_len;
     idx += rest[idx..]
         .chars()
-        .take_while(|c| matches!(c, '<' | '=' | '>' | '%' | '!'))
+        .take_while(|c| matches!(c, '<' | '=' | '>' | '%' | '!' | ';'))
         .map(char::len_utf8)
         .sum::<usize>();
     let body = &rest[idx..];
@@ -1003,6 +1003,12 @@ mod tests {
             "who <%run",
             "who !good",
             "who !!good",
+            // Verbatim marker (ROADMAP.md Phase 8 item 2): `;` in the same `post` class as the
+            // tense/degree markers above.
+            "i ;were",
+            "who ;;were",
+            "who <;were",
+            "who ;<were",
             "who do run",
             "who don't run",
             "who could have run",
@@ -1067,7 +1073,7 @@ mod tests {
             noun in proptest::sample::select(vec!["noun", "who", "item-thing", "x1"]),
             post in proptest::option::of(proptest::sample::select(vec![
                 "'s", "'", " run", " =run", " <run", " !good", " !!good",
-                " don't run", " run away", " run away today",
+                " don't run", " run away", " run away today", " ;were",
             ])),
         ) {
             let mut s = String::new();

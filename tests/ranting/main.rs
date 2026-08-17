@@ -40,6 +40,7 @@ mod runtime_viewpoint;
 mod script_segmentation;
 mod sentence_detection;
 mod singular_they;
+mod subjunctive_verbatim;
 mod third_number;
 mod tutorial;
 mod verb_tense;

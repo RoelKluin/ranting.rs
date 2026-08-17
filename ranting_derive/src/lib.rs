@@ -770,10 +770,10 @@ fn handle_param(
         quote!(ranting::placeholder::PostSpec::PossessiveS)
     } else {
         let post_trimmed = post.trim_start();
-        // Extract marker run: take all leading <, =, >, %, ! characters
+        // Extract marker run: take all leading <, =, >, %, !, ; characters
         let marker_end = post_trimmed
             .chars()
-            .take_while(|c| matches!(c, '<' | '=' | '>' | '%' | '!'))
+            .take_while(|c| matches!(c, '<' | '=' | '>' | '%' | '!' | ';'))
             .count();
 
         if marker_end == 0 || marker_end >= post_trimmed.len() {
@@ -831,6 +831,24 @@ fn handle_param(
                     post_span.start(),
                     post_span.end(),
                     "degree marker `!`/`!!` cannot be combined with tense markers".to_string(),
+                ));
+            } else if marker == ";" {
+                // ROADMAP.md Phase 8 item 2: the verbatim escape hatch. No agreement is
+                // resolved here or at runtime -- `base_word` is baked exactly as captured,
+                // and `handle_placeholder_impl` never calls
+                // `inflect_verb_custom_with_context` for `PostSpec::Verbatim`.
+                quote!(ranting::placeholder::PostSpec::Verbatim {
+                    leading_space: #leading_space,
+                    word: #base_word,
+                    trailing: #trailing,
+                })
+            } else if marker.contains(';') {
+                let post_span = post_span.unwrap();
+                return Err((
+                    post_span.start(),
+                    post_span.end(),
+                    "verbatim marker `;` cannot be combined with tense markers, and cannot repeat"
+                        .to_string(),
                 ));
             } else {
                 // say!() bakes the fully-conjugated form (as before); say_with!()
@@ -1112,7 +1130,57 @@ fn handle_param(
 
 #[cfg(test)]
 mod tests {
-    use super::{check_ident_path, check_unmarked_verb_slot};
+    use super::{Span, check_ident_path, check_unmarked_verb_slot, handle_param};
+    use std::collections::HashMap;
+
+    /// Drives `handle_param` directly against a `ph_ext`-parsed placeholder body, the same
+    /// approach `check_ident_path`/`check_unmarked_verb_slot` above use for diagnostics this
+    /// repo has no `trybuild` harness to compile-fail-test (`.claude/rules/placeholder-grammar.md`).
+    /// Returns the token stream of the baked `ranting::handle_placeholder(...)` call `handle_param`
+    /// pushes into `pos` on success (the classified `PostSpec` is embedded in there, not in the
+    /// replacement string `handle_param` itself returns).
+    fn classify_post(placeholder_body: &str) -> Result<String, String> {
+        let caps = ranting_core::ph_ext::parse(placeholder_body).expect("valid ph_ext body");
+        let mut pos = vec![];
+        handle_param(
+            &caps,
+            &HashMap::new(),
+            &mut pos,
+            false,
+            None,
+            "",
+            false,
+            Span::call_site(),
+        )
+        .map_err(|(_, _, msg)| msg)?;
+        Ok(quote::quote!(#(#pos)*).to_string())
+    }
+
+    /// ROADMAP.md Phase 8 item 2: `;` classifies as `PostSpec::Verbatim`, distinct from the
+    /// existing `PostSpec::Verb`/`Tense` shapes -- confirmed here by checking the baked-out
+    /// token stream names the right variant, since `handle_param` bakes tokens, not a value.
+    #[test]
+    fn verbatim_marker_classifies_as_verbatim_postspec() {
+        let out = classify_post("i ;were").expect("valid placeholder");
+        assert!(
+            out.contains("PostSpec :: Verbatim"),
+            "expected a Verbatim PostSpec, got: {out}"
+        );
+    }
+
+    /// Combining `;` with a real tense marker, or repeating it, is contradictory ("apply no
+    /// conjugation" and "conjugate to X") and must be a compile error, not a silent pick of one
+    /// meaning over the other -- the same stance the pre-existing tense/degree conflict takes.
+    #[test]
+    fn verbatim_marker_rejects_combination_with_tense_markers() {
+        for bad in ["who <;were", "who ;<were", "who ;;were"] {
+            let err = classify_post(bad).expect_err("combining `;` with other markers must error");
+            assert!(
+                err.contains(';'),
+                "message should name the offending marker, got: {err}"
+            );
+        }
+    }
 
     /// The guard's whole point: these used to reach `syn::Ident::new` and *panic*, which rustc
     /// reports as "proc macro panicked" with the caret on the entire `say!(...)` invocation and no

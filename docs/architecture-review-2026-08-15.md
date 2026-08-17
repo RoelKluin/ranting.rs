@@ -114,7 +114,7 @@ before it was recorded. **They are all English-output changes**, so each names w
 breaking under CLAUDE.md's byte-identity invariant — that is what decides which can ride a patch
 release and which cannot.
 
-### 1.5 The subjunctive `were` is rewritten to `was`, in both persons — breaking to fix
+### 1.5 The subjunctive `were` is rewritten to `was`, in both persons — ✅ **FIXED 2026-08-17**
 
 `src/language/english.rs`. `IrregularPluralVerb::Were` maps to `Some("was")` in **both**
 `first_person` (`:75`) and `third_person` (`:87`), unconditionally, so
@@ -137,6 +137,20 @@ subjunctive is *not* recoverable from the verb: it is a property of the clause (
 `as though`, mandative `demand that`), which lives in the caller's template, not in the
 placeholder. So the plausible shapes are an escape-hatch marker or a `NarrationContext` flag, not
 a smarter conjugator — see Phase 8 item 2.
+
+**Fixed** by ROADMAP.md Phase 8 item 2's verbatim-verb marker: a new post-noun `;` marker,
+`PostSpec::Verbatim { leading_space, word, trailing }`
+(`ranting_core::placeholder::PostSpec`), parsed by both `PH_EXT` (`ranting_core/src/grammar.rs`)
+and `ph_ext::match_post` (`ranting_core/src/ph_ext.rs`) in the same `post` character class as the
+tense/degree markers, and classified at compile time by `ranting_derive`'s `handle_param`.
+`{=i ;were}` renders "I were" — `handle_placeholder_impl` never calls
+`inflect_verb_custom_with_context` for `PostSpec::Verbatim`, so no person/number agreement (and
+no fork hook) ever touches the word; `{=i were}` (no `;`) is unaffected and still renders "I was",
+so this is additive, not breaking. Combining `;` with a tense or degree marker, or repeating it
+(`{who <;were}`, `{who ;;were}`), is a compile error rather than a silent pick of one meaning.
+Coverage: `tests/ranting/subjunctive_verbatim.rs` (rendering) and `ranting_derive/src/lib.rs`'s
+`tests` module (the marker-classification/error paths this repo has no `trybuild` harness to
+compile-fail-test — see `.claude/rules/placeholder-grammar.md`).
 
 ### 1.6 Phrasal and compound verbs take the third-person `-s` on the wrong word — ✅ **FIXED 2026-08-15**
 

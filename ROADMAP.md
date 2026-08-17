@@ -1034,7 +1034,16 @@ literal template").
    **DECIDED (2026-08-17, maintainer ruling — implement).** Character: `;`
    (`{=i ;were}` → `"I were"`). `PostSpec::Verbatim` bypasses
    `inflect_verb_custom_with_context` entirely — no hook-signature change.
-   Ready for an implementation task; not yet started. Closes §1.5 once landed.
+
+   ✅ **LANDED (2026-08-17).** `PostSpec::Verbatim { leading_space, word, trailing }`
+   (`ranting_core::placeholder`), parsed by `PH_EXT` and `ph_ext::match_post` in lockstep
+   and classified at compile time by `ranting_derive`'s `handle_param`; `handle_placeholder_impl`
+   renders it via `capitalize_with_context` alone, with no `inflect_verb_custom_with_context`
+   call. `{=i were}` (no `;`) is unchanged. `;` combined with a tense/degree marker, or repeated,
+   is a compile error. See CHANGELOG.md's Changed entry and
+   `docs/architecture-review-2026-08-15.md` §1.5, now fixed. Tests:
+   `tests/ranting/subjunctive_verbatim.rs` (rendering) and `ranting_derive/src/lib.rs`'s `tests`
+   module (marker-classification/error paths, no trybuild harness in this repo).
 3. **Agreeing quantifiers, and the mass/count distinction** — `ArticleOrSo` stops at
    a/an/some/the/these/those, so *no*, *every*, *each*, *either*, *much*/*many* and
    *less*/*fewer* have no channel and a quantified noun phrase is hand-assembled.
@@ -1154,11 +1163,17 @@ literal template").
    word or an agreeing-adverb language ever re-open this on new evidence.
 6. **The recorded defects** — `docs/architecture-review-2026-08-15.md` §§1.5-1.12,
    each verified against the source: seven defects plus one agreement question left
-   as a maintainer's call (§1.12). Five change rendered English and are therefore
-   **breaking** under the byte-identity invariant, so they want one release between
-   them rather than five:
+   as a maintainer's call (§1.12). Five were expected to change rendered English and
+   therefore be **breaking** under the byte-identity invariant, so they want one
+   release between them rather than five — §1.5 turned out to land additively
+   instead (an opt-in `;` marker, not a change to existing output), leaving four:
    - §1.5 subjunctive `were`→`was`, both persons, pinned by a regression test at
-     `english.rs:555` (**breaking**; the fix is item 2, the two are the same work)
+     `english.rs:555` (the fix is item 2, the two are the same work)
+     — ✅ **done 2026-08-17**: landed as item 2's `;` verbatim-verb marker, an
+     **additive** fix rather than the breaking change this bullet anticipated —
+     `{=i were}` (no `;`) keeps rendering "I was", pinned unchanged at
+     `english.rs:555`; only the new `{=i ;were}` spelling (a compile error before
+     this landed) escapes agreement. See item 2's own entry and CHANGELOG.md.
    - §1.6 phrasal verbs take third-person `-s` on the last word — "He pick ups"
      (**breaking**; bare present only, tense-marked forms are already correct)
      — ✅ **done 2026-08-15**: the real split was in `src/lib.rs`'s `PostSpec::Verb`
