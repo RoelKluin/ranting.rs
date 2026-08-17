@@ -1402,6 +1402,24 @@ first, not by importance.*
    for countables ("minus one item"). Candidate shape: gate the negative-count case on
    `self.is_mass()` the same way `AAnSome` and `MuchMany` already do. Smallest item on this list;
    no public API change anticipated.
+
+   **PROPOSED (2026-08-17 spike — NOT implemented; maintainer decision needed)** — design spike
+   at `docs/superpowers/specs/2026-08-17-negative-count-mass-agreement.md`. Confirms the defect
+   against the built crate and that `noun.is_mass()` is reachable at the `as_pl` call site
+   (`src/lib.rs:721`, no signature change needed), but finds "gate the whole arm on
+   `!self.is_mass()`" too broad — it would wrongly flip every mass-noun count, not just magnitude
+   one. Recommends narrowing to exactly `Some(-1)`: `Some(1) => false, Some(-1) => noun.is_mass(),
+   _ => true`, scoped to `Plurality::CardinalWords` (`#var`) only — `CardinalDigits` (`$var`) has
+   the same shape but is left explicitly out of scope. This **would break two existing pinned
+   assertions** in `tests/ranting/numeral.rs` (`"minus one boots"` → `"minus one boot"`, and the
+   `RussianNoun` fixture's plural genitive → singular), both currently pinned to the behavior this
+   item proposes to change — not incidental collateral. Also flags that reusing `is_mass()` here is
+   a proxy fit, not a clean one: "degree" (the review's own "minus one degrees" example) isn't a
+   mass noun for any other purpose, so getting that idiom would require mass-flagging it and
+   picking up `some`/`much`/`less` everywhere else in the same template too. Three questions left
+   for a maintainer's ruling: whether flipping the two pinned assertions is acceptable, whether
+   `is_mass()` is the right long-term discriminator given the "degree" tension, and whether
+   `CardinalDigits` should move in lockstep or stay out of scope.
 3. **Derive-generated `inflect()` against non-English input**
    (`docs/architecture-review-2026-08-14.md` §4.7, narrowed but still open per
    `.claude/rules/pluralization.md`'s "Blind spot worth knowing"). Both `ranting_i18n` and
