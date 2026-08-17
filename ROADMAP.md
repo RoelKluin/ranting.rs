@@ -949,7 +949,7 @@ building, its build item is dropped rather than executed anyway.
 
 ---
 
-## Phase 8 — English grammar depth (scoped 2026-08-15, not started)
+## Phase 8 — English grammar depth (scoped 2026-08-15, ✅ landed 2026-08-17 — v2.0.0)
 
 *Goal: Phases 6 and 7 spent four falsifier crates asking whether the hook surface
 carries enough signal for a **non-English** implementation. This phase asks the
@@ -961,10 +961,10 @@ input the caller wrote correctly (`docs/architecture-review-2026-08-15.md` §§1
 The defects are item 6; items 1-5 are the missing channels, ordered by how often a
 writer of ordinary prose hits them.*
 
-**No version number yet.** Items 1-3 each change what an existing template can render
-and item 6 changes what existing templates *do* render, so how this phase slices into
-releases depends on which items are taken — that is a decision for whoever schedules
-it, not a number to guess now.
+**Landed as v2.0.0.** Items 1-3 and 6 were each additive or English-preserving on their own
+(no version bump forced); item 4 (ordinals) is the one that broke `NumeralStyle`'s exhaustive
+match, so the whole phase's landing carries the major bump it required. Item 5 was declined
+(design spike only, no code change).
 
 **What this phase is not**: a re-opening of the word-order boundary. Two candidates
 the review raised are declined for that reason and are named under Non-goals below;
@@ -1372,6 +1372,66 @@ literal template").
 
 ---
 
+## Phase 9 — candidate list (scoped 2026-08-17, not decided, not started)
+
+*Goal: Phases 6-8 spent every falsifier crate and grammarian review adding surface. This phase
+proposes closing gaps already on record rather than adding a new one from scratch — every item
+below cites the doc where it was first found undone. Nothing here is decided; each item needs its
+own design spike (the Phase 8 pattern: PROPOSED → maintainer DECIDED → implementation task)
+before anything is queued. Ordered by how directly it's already scoped, cheapest/most-cited
+first, not by importance.*
+
+1. **Exercise the nine never-overridden hooks**
+   (`docs/architecture-review-2026-08-15.md` §4.1). The eight `_with_context` twins of the
+   eight `_custom` hook pairs, plus `is_first_person_subject_custom`, have never been
+   overridden by any of the four falsifier crates — every one of them is covered only by this
+   repo's own "reproduces the default" tests, never by a fork that needed different behavior
+   and got it. Candidate shape: extend one existing falsifier (`ranting_ja`'s `register` already
+   threads keigo level per §4.1's own framing, so a mid-story register *change* — different
+   politeness to two different addressees in one `say_with!()` sequence — is the most natural
+   next falsification) or add a first-person label other than `I`/`we` to a fork's lexicon to
+   exercise `is_first_person_subject_custom`. No `ranting`/`ranting_core`/`ranting_derive` code
+   change implied unless the falsification actually finds a gap — this item is about turning an
+   untested default into a tested one, in the same spirit as every other falsifier finding in
+   this repo.
+2. **Negative-count agreement, now unblocked by `is_mass()`**
+   (ROADMAP.md Phase 8 §1.12, `docs/architecture-review-2026-08-15.md` §1.12). Recorded at the
+   time as "a maintainer's call, not scheduled" because the fix needed the mass/count split —
+   Phase 8 item 3 landed that split 2026-08-17. `as_pl = count != Some(1)` still agrees plural for
+   every negative count ("minus one items"), right for measures ("minus one degrees") but wrong
+   for countables ("minus one item"). Candidate shape: gate the negative-count case on
+   `self.is_mass()` the same way `AAnSome` and `MuchMany` already do. Smallest item on this list;
+   no public API change anticipated.
+3. **Derive-generated `inflect()` against non-English input**
+   (`docs/architecture-review-2026-08-14.md` §4.7, narrowed but still open per
+   `.claude/rules/pluralization.md`'s "Blind spot worth knowing"). Both `ranting_i18n` and
+   `ranting_es` hand-write their `inflect()` implementations; nothing in this repo exercises the
+   *derive-generated* `inflect()` fallback a fork gets by default from `#[derive_ranting]` alone,
+   against genuinely non-English nouns. Candidate shape: either add a fifth, deliberately minimal
+   falsifier that leans on the derive default rather than a hand-written impl, or extend an
+   existing one's lexicon with entries that go through the default path instead of an override.
+   Falsifier-contract work, not a `ranting`-core change, unless it finds something.
+4. **Arbitrary-phrase pluralization** (`ROADMAP.md` — *Post-v1.2: Future Directions*, "Pluralization
+   of entire phrases"). Distinct from the compound-noun defect Phase 8 item 6 §1.10 already fixed
+   (that was single-noun compound heads); this is pluralizing a whole rendered phrase. Not yet
+   scoped at all — the first spike question is whether it's in bounds given the word-order
+   boundary (Key Architecture Decisions, "Word order lives in the literal template") before any
+   mechanism is proposed.
+5. **`ranting-if` (or similar) companion crate — Inform7-style object disambiguation**
+   (`ROADMAP.md` — *Post-v1.2: Future Directions*, proposed 2026-08-13, not scoped). Resolves
+   which candidate object free-text input refers to, using likelihood-weighted rules the way
+   Inform 7's `Understand` rulebook does. Builds on `Answerable` (Phase 5) and `heed!()`'s capture
+   parsing, but needs a candidate registry, a scoring mechanism, and rule-authoring syntax with no
+   home in `ranting` itself — `ask!()` targets one statically-known `audience` per call site, by
+   design. A new adjacent crate, not a `ranting` feature; largest and least-scoped item here.
+
+**Not carried forward from Phase 8's own leftovers** (cited, not re-litigated): the
+`ranting_i18n`/hole-3 dative-genitive gap and `GrammaticalCase`'s five-marker inventory are
+Locked (Key Architecture Decisions); §1.12's *choice* of gating on `is_mass()` rather than
+reopening the count/agreement design is assumed, not re-decided, by item 2 above.
+
+---
+
 ## Post-v1.2: Future Directions
 
 ### v1.3.0+: Beyond Phase 6
@@ -1383,23 +1443,14 @@ literal template").
   itself lands as Phase 6 item 10, one German reference lexicon whose job is to
   falsify the claim that items 1-9 are sufficient. Multi-language breadth
   (French, Spanish, Japanese, …) follows only after German proves the mechanism.
-- **`ranting-if` (or similar) Companion Crate — Inform7-style object disambiguation**
-  (proposed 2026-08-13, not scoped): resolves which candidate object among
-  several free-text input refers to, using "likely"/"unlikely"-weighted rules
-  the way Inform 7's `Understand` rulebook does (e.g. a "talk to" action being
-  far more likely to target a person in scope than a stone). Builds on
-  `ranting`'s `Answerable` trait (Phase 5) and `heed!()`'s capture parsing,
-  but needs a candidate registry, a scoring/priority mechanism, and rule
-  authoring syntax that have no home in `ranting` itself — `ask!()` only ever
-  targets one statically-known `audience` expression per call site, by design.
-  A natural fit for a `ranting`-adjacent crate rather than a `ranting` feature.
+- **`ranting-if` (or similar) Companion Crate — Inform7-style object disambiguation** — now a
+  Phase 9 candidate (item 5), not scoped further here.
 
 ### v1.4+: Advanced Features (Community-Driven)
 - Dialogue formatting with automatic punctuation and breaks
-- Pluralization of entire phrases (not just nouns) — partly overtaken by Phase 8 item 6:
-  the *compound noun* half of this is a defect today (§1.10, "attorney generals"), not a
-  future feature. What remains here is pluralizing an arbitrary phrase, which is not the
-  same problem
+- Pluralization of entire phrases (not just nouns) — the *compound noun* half was a defect,
+  fixed by Phase 8 item 6 §1.10 ("attorney generals"); what remains (pluralizing an arbitrary
+  rendered phrase) is now Phase 9 candidate item 4, not scoped further here.
 - ~~Subjunctive mood and hypotheticals~~ — **superseded by Phase 8 item 2**, which
   found the crate does not merely lack the subjunctive: it rewrites `were` to `was`
   in both persons and offers no way to opt out
