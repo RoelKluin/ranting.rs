@@ -188,6 +188,34 @@ fn spelled_numerals_agree_like_the_indefinite_article_at_one() {
     );
 }
 
+/// ROADMAP.md Phase 8 item 4's "second constituency": Spanish ordinals fully agree in gender,
+/// unlike the cardinals above, and `primero`/`tercero` apocopate before a masculine singular
+/// noun.
+#[test]
+fn ordinal_numerals_agree_in_gender_and_apocopate() {
+    assert_eq!(
+        say!("Veo {the ##0 1}.", 1, SpanishNoun::gato()),
+        "Veo el primer gato."
+    );
+    assert_eq!(
+        say!("Veo {the ##0 1}.", 1, SpanishNoun::casa()),
+        "Veo la primera casa."
+    );
+    assert_eq!(
+        say!("Veo {the ##0 1}.", 3, SpanishNoun::gato()),
+        "Veo el tercer gato."
+    );
+    assert_eq!(
+        say!("Veo {the ##0 1}.", 3, SpanishNoun::casa()),
+        "Veo la tercera casa."
+    );
+    // No apocope for a noun that isn't masculine-singular, and no apocope past `tercero`.
+    assert_eq!(
+        say!("Veo {the ##0 1}.", 2, SpanishNoun::gato()),
+        "Veo el segundo gato."
+    );
+}
+
 #[test]
 fn sentence_initial_numeral_takes_the_capital_not_the_noun() {
     // The main crate's engine spends a sentence-initial placeholder's capital on the

@@ -30,8 +30,8 @@ plus five missing channels, from a grammarian's end-to-end review of the placeho
 surface against complex-sentence English (2026-08-15). See its section below; the
 defect half is `docs/architecture-review-2026-08-15.md` §§1.5-1.12; §§1.6, 1.7 and 1.9
 landed on 2026-08-15. Items 1-4's design spikes were ruled on 2026-08-17 (implement,
-in full, per each item's DECIDED block below); item 5 was declined 2026-08-15. None of
-items 1-4 are implemented yet.
+in full, per each item's DECIDED block below); item 5 was declined 2026-08-15. Items
+1-4 all landed on 2026-08-17.
 
 **Shipping today**:
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
@@ -1211,6 +1211,46 @@ literal template").
    the open-pass `pre` precedent. Accepted as a major-version break; falsifiers'
    exhaustive matches get fixed as part of the same work. Ready for an
    implementation task; not yet started.
+
+   ✅ **LANDED (2026-08-17), v2.0.0.** Both markers landed together, per the ruling.
+   `##var` bakes `ranting_core::placeholder::NumeralKind::Ordinal`, mirrored into public
+   `ranting::NumeralStyle::Ordinal`; `$$var` bakes `NumeralKind::OrdinalDigits` /
+   `NumeralStyle::OrdinalDigits`. Both carry the same real `count: Option<i64>` the cardinal
+   channel does. `PH_EXT`'s `nr` group widened to
+   `` (?:\#\#?|\??\${1,2})\w+\s+ `` and `ph_ext::match_nr` mirrors it by hand; `nr` also gained
+   the one-repetition restriction in `ph_ext::parse_pass`, the same shape the open `pre` pass
+   already had, bringing `ph_ext::parse` back into parity with `PH_EXT`'s own single-alternation
+   `nr` group (`parity_fuzzed` covers the four new marker shapes).
+   `ranting_core::placeholder::PlaceholderSpec::plurality` is now the typed
+   `Plurality` enum (`Unmarked`/`Plus`/`Minus`/`CardinalWords`/`CardinalDigits`/`OrdinalWords`/
+   `OrdinalDigits`) rather than a `&'static str`, closing the spike's two silent-failure sites:
+   `##`'s `contains('#')` no longer collides with plain `#`, and an exact `"##"`/`"$$"` match
+   replaces the string comparisons that used to fall through to the cardinal-digits catch-all
+   arm. `as_pl` decouples from the ordinal's own count and falls through to `noun.is_plural()`
+   (`Plurality::OrdinalWords | Plurality::OrdinalDigits` share `Unmarked`'s arm); `placeholder_count`
+   still carries the real value through to `inflect_numeral_custom`. English rendering: `spell_ordinal`
+   (`src/lib.rs`) rewrites the spelled cardinal's last word (suppletive `one`/`two`/`three`,
+   stem-change `five`/`eight`/`nine`/`twelve`, `-y`→`-ieth`, else `+th`), inheriting
+   `english_numbers`' unhyphenated compound spelling verbatim (`"twentyone"` → `"twentyfirst"`,
+   not `"twenty-first"`); `ordinal_suffix` picks `$$var`'s digit suffix from the last *two*
+   digits, so 11-13 (and 111-113, ...) take `"th"` regardless of the last digit alone. Verified
+   against `ranting_es`/`ranting_ar`: `ranting_es::lexicon::ordinal` spells `1..=12` fully
+   agreeing in gender (`primero`/`primera`) and apocopating `primero`/`tercero` before a
+   masculine singular noun (`primer gato`); `ranting_ar::lexicon::ordinal` spells `1..=10`
+   agreeing *normally* with the noun's gender, unlike its cardinals' gender-polarity agreement —
+   the "second constituency" the item named, now exercised for real rather than only at cardinal
+   `1`. `ranting_i18n`/`ranting_ja` fall through to English for both new variants (a documented,
+   honest gap in each README, not a guess). All four falsifiers' `inflect_numeral_custom`
+   matches, previously exhaustive with no wildcard, now cover the two new `NumeralStyle`
+   variants explicitly — the major-version break's blast radius, exactly as the spike predicted.
+   `ranting`/`ranting_core`/`ranting_derive` bumped to `2.0.0` (version-locked). Tests:
+   `tests/ranting/ordinal_numerals.rs` (both markers at 1, 2, 3, 11-13, plus 21/100/101/111 for
+   the digit suffix and the unhyphenated-compound quirk; the agreement-decoupling case at a
+   singular- and a plural-declared noun; a custom hook spy confirming `count`/`style` arrive
+   correctly), `ranting_derive/src/lib.rs`'s `tests` module (compile-time classification, pinning
+   that `##`/`$$` are never misclassified as plain `#`/`$`), `ranting_es/tests/spanish.rs`'s
+   `ordinal_numerals_agree_in_gender_and_apocopate`, and
+   `ranting_ar/tests/arabic.rs`'s `ordinal_numerals_agree_normally_and_do_not_pluralize_the_noun`.
 5. **Adverb derivation** — quick→quickly, happy→happily, is in-place word inflection of
    exactly the kind the crate already does for degree (`!`/`!!`), and has no channel.
    Lowest priority of the five: the adjective slot is post-noun only, so the sentence

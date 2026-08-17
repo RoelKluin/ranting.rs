@@ -137,6 +137,15 @@ pub enum DemonstrativePronoun {
 /// article words carry. `ph_ext::match_quantifier` mirrors this by hand; `ranting_derive`'s
 /// `article_kind_tokens` and `ArticleKind::classify` both gain the same six rows. See
 /// `.claude/rules/placeholder-grammar.md`.
+///
+/// ROADMAP.md Phase 8 item 4: `nr`'s alternation also takes the doubled ordinal markers --
+/// `##var` (spelled, "third") and `$$var`/`?$$var` (digits with an English suffix, "3rd") --
+/// alongside the existing `#var`/`$var`/`?$var`. `ph_ext::match_nr` mirrors this by hand. `nr`
+/// is also newly restricted, in `ph_ext::parse_pass`, to exactly one repetition -- the same
+/// restriction the open `pre` pass already has above, and for the same reason: `nr` reaches the
+/// noun through the generic repeated-group search engine, which keeps only the *last*
+/// repetition, so an ill-formed template with two numeral-shaped runs before the noun would
+/// otherwise silently drop the first instead of failing to parse.
 #[allow(dead_code)]
 pub static PH_EXT: &str = r"^(?x)
     (?P<uc>[,^])?+
@@ -149,7 +158,7 @@ pub static PH_EXT: &str = r"^(?x)
         (?:\s+(?:\??an?|\??some|\??the|th[eo]se|
         no|every|all|each|either|neither|much|many|less|fewer|`[\w-]+))?
     )(?:\s+[\w-]+)*?\s+)?+
-    (?P<nr>[+-]|(?:\#|\??\$)\w+\s+)?+
+    (?P<nr>[+-]|(?:\#\#?|\??\${1,2})\w+\s+)?+
     (?P<case>\*[`=@~%]|[`=@~*?%])?+
     (?P<noun>[\w-]+)
     (?P<post>\s+[<=>%!;]*(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$";

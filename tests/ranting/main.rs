@@ -26,6 +26,7 @@ mod narration_context_threading;
 mod native_article_keyword;
 mod noun_class;
 mod numeral;
+mod ordinal_numerals;
 mod orthography;
 mod passive_voice;
 mod possessive_apostrophe;

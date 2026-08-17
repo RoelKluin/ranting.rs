@@ -204,13 +204,19 @@ impl Ranting for SpanishNoun {
         style: NumeralStyle,
         _case: GrammaticalCase,
         class: NounClass,
-        _as_plural: bool,
+        as_plural: bool,
     ) -> Option<String> {
         match style {
             // `#n`: spell it in Spanish, with `1` agreeing like the indefinite article.
             NumeralStyle::Words => lexicon::spell(count?, class.as_str(), self.entry.euphonic_el),
             // `$n`: Spanish writes the same digits as English, so nothing to do.
             NumeralStyle::Digits => None,
+            // `##n`: ROADMAP.md Phase 8 item 4's "second constituency" -- Spanish ordinals fully
+            // agree in gender (`primero`/`primera`) and apocopate before a masculine singular
+            // noun (`primer gato`), unlike the cardinals above.
+            NumeralStyle::Ordinal => lexicon::ordinal(count?, class.as_str(), as_plural),
+            // `$$n`: no Spanish digit-ordinal notation is modeled by this closed lexicon.
+            NumeralStyle::OrdinalDigits => None,
         }
     }
 

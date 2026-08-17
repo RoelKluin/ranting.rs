@@ -288,6 +288,11 @@ impl Ranting for GermanNoun {
             NumeralStyle::Words => lexicon::spell(count?, self.case_for(case), class.as_str()),
             // `$n`: German writes the same digits as English, so nothing to do.
             NumeralStyle::Digits => None,
+            // ROADMAP.md Phase 8 item 4: no German ordinal (`erste`/`zweite`/`dritte`, taking
+            // adjective-style case/gender endings this crate's closed lexicon doesn't model) or
+            // digit-ordinal notation is modeled here — falls through to English, honestly, the
+            // same way an out-of-range cardinal does.
+            NumeralStyle::Ordinal | NumeralStyle::OrdinalDigits => None,
         }
     }
 

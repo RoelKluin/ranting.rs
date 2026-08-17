@@ -82,6 +82,70 @@ fn spell_count(count: i64) -> String {
     }
 }
 
+/// Rewrite the last word of a spelled cardinal into its ordinal form ("three" -> "third",
+/// "twenty" -> "twentieth"). Applied to the whole string when it has no interior space (the
+/// common case, and also `english_numbers`' unhyphenated compounds like "twentyone", which this
+/// sees as one token ending in "one" -- see [`spell_ordinal`]'s docs for that inherited quirk).
+fn ordinalize_last_word(word: &str) -> String {
+    // Suppletive/stem-change forms first (checked as suffixes, not whole-word equality, so a
+    // compound like "twentyone" still rewrites to "twentyfirst"), then the `-y` -> `-ieth` rule,
+    // then the regular `+th` fallback ("fourth", "sixth", "hundredth").
+    if let Some(stem) = word.strip_suffix("one") {
+        format!("{stem}first")
+    } else if let Some(stem) = word.strip_suffix("two") {
+        format!("{stem}second")
+    } else if let Some(stem) = word.strip_suffix("three") {
+        format!("{stem}third")
+    } else if let Some(stem) = word.strip_suffix("five") {
+        format!("{stem}fifth")
+    } else if let Some(stem) = word.strip_suffix("eight") {
+        format!("{stem}eighth")
+    } else if let Some(stem) = word.strip_suffix("nine") {
+        format!("{stem}ninth")
+    } else if let Some(stem) = word.strip_suffix("twelve") {
+        format!("{stem}twelfth")
+    } else if let Some(stem) = word.strip_suffix('y') {
+        format!("{stem}ieth")
+    } else {
+        format!("{word}th")
+    }
+}
+
+/// Spell a `##var` count in English ordinal words ("three" -> "third").
+///
+/// Spells the cardinal via [`spell_count`], then rewrites its last word --
+/// see `docs/superpowers/specs/2026-08-15-ordinal-numerals.md`'s "The English rules" section for
+/// the full table. Inherits `spell_count`'s "minus " treatment of negatives verbatim ("minus
+/// three" -> "minus third"), which is not English anyone writes but is deterministic and
+/// non-panicking, same posture as the cardinal; a fork's `inflect_numeral_custom` hook may
+/// replace the whole string. Also inherits `english_numbers`' unhyphenated compound spelling
+/// ("twentyone", not "twenty-one"), which this function does not attempt to fix.
+fn spell_ordinal(count: i64) -> String {
+    let spelled = spell_count(count);
+    match spelled.rsplit_once(' ') {
+        Some((prefix, last)) => format!("{prefix} {}", ordinalize_last_word(last)),
+        None => ordinalize_last_word(&spelled),
+    }
+}
+
+/// The English ordinal suffix for `$$var`'s digit rendering ("3rd", "11th", "21st").
+///
+/// Checked against the *last two* digits, not the last one -- the teens exception: 11-13 (and
+/// 111-113, 211-213, ...) all take "th" regardless of their last digit.
+fn ordinal_suffix(n: i64) -> &'static str {
+    let last_two = n.unsigned_abs() % 100;
+    if (11..=13).contains(&last_two) {
+        "th"
+    } else {
+        match n.unsigned_abs() % 10 {
+            1 => "st",
+            2 => "nd",
+            3 => "rd",
+            _ => "th",
+        }
+    }
+}
+
 // required for ranting_derive
 #[doc(hidden)]
 pub use strum_macros as rant_strum_macros;
@@ -95,7 +159,7 @@ pub use language::english::{
 };
 pub use ranting_core::grammar::{SubjectPronoun, is_subject, is_subjective_plural};
 use ranting_core::placeholder::{
-    ArticleKind, CaseKind, NumeralKind, NumeralSpec, PlaceholderSpec, PostSpec,
+    ArticleKind, CaseKind, NumeralKind, NumeralSpec, PlaceholderSpec, Plurality, PostSpec,
 };
 use std::str::FromStr;
 
@@ -645,17 +709,22 @@ where
     let singular_post_verb = OF.is_match(pre); // e.g. "{a set of $ten are} still singular"
 
     let as_pl = match plurality {
-        "" => noun.is_plural(),
-        "+" => true,
-        "-" => false,
+        Plurality::Unmarked => noun.is_plural(),
+        Plurality::Plus => true,
+        Plurality::Minus => false,
         // `#var`'s count is baked by the macro, so number agreement is decided from the
         // number itself and never from the rendered word. That is what keeps a non-English
         // `inflect_numeral_custom` from flipping agreement -- the hook renders *after* this,
         // and its output is never sniffed -- and it is also why `spell_count`'s "minus one"
         // agrees plural ("minus one degrees"), which sniffing the spelled form would get
         // wrong now that the negative spelling contains the word "one".
-        "#" => count != Some(1),
-        _ => {
+        Plurality::CardinalWords => count != Some(1),
+        // ROADMAP.md Phase 8 item 4: agreement decouples from the ordinal itself -- "the third
+        // attempt" stays singular even though `count` is 3, an ordinal says *which* one, not
+        // *how many* -- so this falls through to the same rule `Unmarked` takes rather than
+        // reading `count`/`nr` at all.
+        Plurality::OrdinalWords | Plurality::OrdinalDigits => noun.is_plural(),
+        Plurality::CardinalDigits => {
             let s = nr.trim_start();
             s != "1" && s.split('.').next() != Some("1")
         }
@@ -664,13 +733,18 @@ where
     // above, but carries the numeral's value (and visible fraction digits) through to the five
     // `_custom` hooks that had no numeral signal at all, rather than collapsing it to a bool.
     // `None` for a bare `{noun}`/`{+noun}`/`{-noun}` -- there is no numeral to report.
+    //
+    // ROADMAP.md Phase 8 item 4: unlike `as_pl` above, an ordinal's `count` still flows through
+    // here exactly like its cardinal sibling's -- this is what Spanish/Arabic ordinal gender
+    // agreement needs from `inflect_numeral_custom`, even though the same count no longer
+    // decides `as_pl`.
     let placeholder_count: Option<PlaceholderCount> = match plurality {
-        "" | "+" | "-" => None,
-        "#" => count.map(|value| PlaceholderCount {
+        Plurality::Unmarked | Plurality::Plus | Plurality::Minus => None,
+        Plurality::CardinalWords | Plurality::OrdinalWords => count.map(|value| PlaceholderCount {
             value,
             fraction_digits: 0,
         }),
-        _ => {
+        Plurality::CardinalDigits | Plurality::OrdinalDigits => {
             let s = nr.trim_start();
             let mut parts = s.splitn(2, '.');
             let int_part = parts.next().unwrap_or("");
@@ -847,18 +921,34 @@ where
         hidden: false,
     }) = numeral
     {
-        // `#var` is spelled here rather than by the macro, so the hook can replace the
-        // speller wholesale; `$var` arrives already rendered, `:fmt` spec applied.
+        // `#var`/`##var` are spelled here rather than by the macro, so the hook can replace the
+        // speller wholesale; `$var`/`$$var` arrive already rendered as digits, `:fmt` spec
+        // applied. ROADMAP.md Phase 8 item 4: `##var`/`$$var` are the ordinal siblings, sharing
+        // the same real `count` the cardinal channel carries.
         let english = match kind {
             NumeralKind::Words => count.map_or_else(String::new, spell_count),
-            NumeralKind::Digits => nr.clone(),
+            NumeralKind::Ordinal => count.map_or_else(String::new, spell_ordinal),
+            NumeralKind::Digits | NumeralKind::OrdinalDigits => nr.clone(),
         };
-        // `$var`'s count is not baked (its argument needn't be an integer at all), so it is
-        // recovered from the rendered digits — `None` for a float, a width-padded or
+        // `$var`/`$$var`'s count is not baked (the argument needn't be an integer at all), so
+        // it is recovered from the rendered digits — `None` for a float, a width-padded or
         // otherwise formatted number, or a non-numeric `Display`.
         let count = match kind {
-            NumeralKind::Words => count,
-            NumeralKind::Digits => english.trim().parse::<i64>().ok(),
+            NumeralKind::Words | NumeralKind::Ordinal => count,
+            NumeralKind::Digits | NumeralKind::OrdinalDigits => english.trim().parse::<i64>().ok(),
+        };
+        // The English ordinal suffix ("3rd", "11th") is appended from the parsed `count` above
+        // rather than baked into `english` before that parse -- otherwise the parse would see
+        // "3rd" instead of "3" and always fail. A failed parse (a float, a padded value) leaves
+        // the digits unsuffixed, the same "count is None, agree from what we have" posture
+        // `$var` already takes.
+        let english = if kind == NumeralKind::OrdinalDigits {
+            match count {
+                Some(n) => format!("{english}{}", ordinal_suffix(n)),
+                None => english,
+            }
+        } else {
+            english
         };
         let rendered = noun
             .inflect_numeral_custom_with_context(
@@ -880,8 +970,8 @@ where
         let rendered = if uc && sentence_start && !rendered.is_empty() {
             uc = false;
             match kind {
-                NumeralKind::Words => capitalize_if(&rendered, true),
-                NumeralKind::Digits => rendered,
+                NumeralKind::Words | NumeralKind::Ordinal => capitalize_if(&rendered, true),
+                NumeralKind::Digits | NumeralKind::OrdinalDigits => rendered,
             }
         } else {
             rendered
@@ -1915,6 +2005,15 @@ pub enum NumeralStyle {
     /// `` {$n nouns} `` — the number in digits, the argument's own `Display` output with any
     /// `:fmt` spec applied. English: "2".
     Digits,
+    /// `` {##n attempt} `` — ROADMAP.md Phase 8 item 4: the ordinal, spelled out. English:
+    /// "third". Carries the same real `count` [`NumeralStyle::Words`] does, but — unlike
+    /// `Words` — does not itself decide the noun's number agreement: an ordinal says *which*
+    /// one, not *how many*, so `` {the ##n attempt} `` renders "the third attempt", never
+    /// "attempts".
+    Ordinal,
+    /// `` {$$n attempt} `` — the ordinal, as digits with an English suffix. English: "3rd".
+    /// Same agreement decoupling as [`NumeralStyle::Ordinal`].
+    OrdinalDigits,
 }
 
 impl From<placeholder::NumeralKind> for NumeralStyle {
@@ -1922,6 +2021,8 @@ impl From<placeholder::NumeralKind> for NumeralStyle {
         match kind {
             placeholder::NumeralKind::Words => NumeralStyle::Words,
             placeholder::NumeralKind::Digits => NumeralStyle::Digits,
+            placeholder::NumeralKind::Ordinal => NumeralStyle::Ordinal,
+            placeholder::NumeralKind::OrdinalDigits => NumeralStyle::OrdinalDigits,
         }
     }
 }
@@ -2728,6 +2829,8 @@ pub trait Ranting: std::fmt::Display {
     ///             '0'..='9' => char::from_u32(c as u32 - '0' as u32 + 0x966).unwrap_or(c),
     ///             other => other,
     ///         }).collect()),
+    ///         // Ordinals: keep the English rendering for this sketch.
+    ///         NumeralStyle::Ordinal | NumeralStyle::OrdinalDigits => None,
     ///     }
     /// }
     /// ```

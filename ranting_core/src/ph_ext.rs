@@ -664,7 +664,12 @@ fn star_candidates(
     out
 }
 
-/// `(?P<nr>[+-]|(?:\#|\??\$)\w+\s+)?+`
+/// `(?P<nr>[+-]|(?:\#\#?|\??\${1,2})\w+\s+)?+`
+///
+/// ROADMAP.md Phase 8 item 4: `#`/`$` each optionally double up (`##`, `$$`) for the ordinal
+/// forms, mirroring `PH_EXT`'s widened `nr` alternation by hand. `?` still prefixes `$`/`$$`
+/// only, never `#`/`##` -- there is no hidden ordinal-words form, same as there is no hidden
+/// cardinal-words form today.
 fn match_nr(s: &str, pos: usize) -> Option<usize> {
     let rest = &s[pos..];
     let c0 = rest.chars().next()?;
@@ -672,15 +677,27 @@ fn match_nr(s: &str, pos: usize) -> Option<usize> {
         return Some(pos + c0.len_utf8());
     }
     let mut idx = if c0 == '#' {
-        c0.len_utf8()
+        let mut i = c0.len_utf8();
+        if rest[i..].starts_with('#') {
+            i += 1;
+        }
+        i
     } else if c0 == '?' {
         let r = &rest[c0.len_utf8()..];
         if !r.starts_with('$') {
             return None;
         }
-        c0.len_utf8() + 1
+        let mut i = c0.len_utf8() + 1;
+        if rest[i..].starts_with('$') {
+            i += 1;
+        }
+        i
     } else if c0 == '$' {
-        c0.len_utf8()
+        let mut i = c0.len_utf8();
+        if rest[i..].starts_with('$') {
+            i += 1;
+        }
+        i
     } else {
         return None;
     };
@@ -824,6 +841,16 @@ fn parse_pass(s: &str, pre_words: PreWords) -> Result<PhExtMatch<'_>, PhExtError
                 continue;
             }
             for (nr_span, pos2) in star_candidates(s, pos1, nr_one_rep) {
+                // ROADMAP.md Phase 8 item 4: `nr` is restricted to exactly one repetition, the
+                // same restriction the open `pre` pass takes above and for the same reason --
+                // `star_candidates`' generic engine keeps only the *last* repetition, so two
+                // numeral-shaped runs before the noun would otherwise silently drop the first
+                // rather than fail to parse. `PH_EXT`'s own `nr` group is a single alternation
+                // choice, never a repeated one, so this also brings `ph_ext::parse` back into
+                // parity with the reference grammar rather than widening past it.
+                if nr_span.is_some_and(|(start, _)| start != pos1) {
+                    continue;
+                }
                 for (case_span, pos3) in star_candidates(s, pos2, case_one_rep) {
                     let noun_len = leading_word_or_hyphen_len(&s[pos3..]);
                     if noun_len == 0 {
@@ -1030,6 +1057,13 @@ mod tests {
             "many items",
             "less stuff",
             "fewer items",
+            // ROADMAP.md Phase 8 item 4: the doubled ordinal markers.
+            "#5 item",
+            "$5 item",
+            "?$5 item",
+            "##5 item",
+            "$$5 item",
+            "?$$5 item",
             "`person book",
             "`who's",
             "haven't =who",
@@ -1149,7 +1183,7 @@ mod tests {
                 "could", "couldn't", "do the", "do a", "will `x",
             ])),
             nr in proptest::option::of(proptest::sample::select(vec![
-                "+", "-", "#5 ", "$n ", "?$n ",
+                "+", "-", "#5 ", "$n ", "?$n ", "##5 ", "$$n ", "?$$n ",
             ])),
             // Includes the fused two-character forms from ROADMAP.md Phase 6 item 19 alongside
             // the original single-character markers, so the fuzzer actually exercises them

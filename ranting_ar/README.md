@@ -177,3 +177,8 @@ scheduled as ROADMAP.md Phase 7 item 12. Pinned by
 - **`inflect`'s `case` parameter is unread here**, for the same reason `ranting_es` leaves it
   unread: unvocalized Arabic does not write case endings, so there is nothing for the entity to
   select. A vocalized fork would read it and immediately hit hole 2.
+- **ROADMAP.md Phase 8 item 4's `##var` ordinal channel is the second constituency it was built
+  for.** `lexicon::ordinal` spells `1..=10` agreeing *normally* with the counted noun's gender
+  (أوّل/أولى "first", ثالث/ثالثة "third") — unlike `lexicon::spell`'s cardinal *polarity*
+  agreement, which reverses it. The digit-ordinal channel (`$$var`, English "3rd") has no Arabic
+  notation modeled by this closed lexicon and falls through to English.

@@ -112,6 +112,8 @@ impl Ranting for RussianNoun {
                     })
                     .collect(),
             ),
+            // Ordinals: not exercised by this hook -- see tests/ranting/ordinal_numerals.rs.
+            NumeralStyle::Ordinal | NumeralStyle::OrdinalDigits => None,
         }
     }
 }

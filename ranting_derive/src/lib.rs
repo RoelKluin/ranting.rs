@@ -973,8 +973,17 @@ fn handle_param(
             Ok(n) => n,
             Err(s) => return Err((nr_s, nr_e, s)),
         };
-        let kind = if plurality.contains('#') {
+        // ROADMAP.md Phase 8 item 4: `##var`/`$$var` are the ordinal siblings of `#var`/`$var`,
+        // sharing the same spelled-vs-digits split -- `plurality == "##"` is checked before the
+        // `contains('#')` fallback so an ordinal isn't misclassified as a plain cardinal, and
+        // exact `"$$"`/`"?$$"` checks (rather than `contains('$')`) so a plain `$var` isn't
+        // misclassified as an ordinal.
+        let kind = if plurality == "##" {
+            quote!(Ordinal)
+        } else if plurality.contains('#') {
             quote!(Words)
+        } else if plurality == "$$" || plurality == "?$$" {
+            quote!(OrdinalDigits)
         } else {
             quote!(Digits)
         };
@@ -983,7 +992,7 @@ fn handle_param(
             leading_space: #nr_space,
             hidden: #hidden,
         }));
-        if plurality == "#" {
+        if plurality.contains('#') {
             if !nr_fmt.is_empty() {
                 return Err((
                     nr_s,
@@ -994,6 +1003,8 @@ fn handle_param(
             // Words are spelled at *runtime* now, from this count, so that a numeral hook
             // can spell them in another language; `ranting::rant_convert_numbers` (the same
             // English speller as before) is the fallback there, so the output is unchanged.
+            // `##` takes the same path -- the ordinal is spelled at runtime too, from the
+            // identical count.
             count_expr = parse_quote!(Some(#nr_ph_expr as i64));
             parse_quote!(String::new())
         } else {
@@ -1002,7 +1013,7 @@ fn handle_param(
                 // rendered, so dropping it here is unobservable either way.
                 "{}".to_string()
             } else {
-                if plurality != "$" {
+                if plurality != "$" && plurality != "$$" {
                     return Err((
                         nr_s,
                         nr_e,
@@ -1109,6 +1120,20 @@ fn handle_param(
     } else {
         plurality
     };
+    // ROADMAP.md Phase 8 item 4: bake the classified marker as a typed
+    // `ranting::placeholder::Plurality` variant rather than the raw `&str` this used to
+    // interpolate directly -- see that enum's docs for why the `&str` was retyped in the same
+    // change that added the ordinal markers.
+    let plurality_variant = match plurality {
+        "" => quote!(Unmarked),
+        "+" => quote!(Plus),
+        "-" => quote!(Minus),
+        "##" => quote!(OrdinalWords),
+        "$$" | "?$$" => quote!(OrdinalDigits),
+        p if p.contains('#') => quote!(CardinalWords),
+        _ => quote!(CardinalDigits),
+    };
+    let plurality_expr = quote!(ranting::placeholder::Plurality::#plurality_variant);
     let pre_chained_kind_q = if pre_string.contains('`') {
         // has_possesive: the runtime's chained (second) get_article_or_so call is
         // never reached in this case (see ArticleKind's docs), so this value is
@@ -1153,7 +1178,7 @@ fn handle_param(
         pre: #pre_string,
         pre_kind: #pre_kind_q,
         pre_chained_kind: #pre_chained_kind_q,
-        plurality: #plurality,
+        plurality: #plurality_expr,
         numeral: #numeral_expr,
         noun_space: #noun_space,
         case: #case_expr,
@@ -1372,14 +1397,14 @@ mod tests {
 
     /// ROADMAP.md Phase 8 item 3: `each`/`either`/`neither` force singular agreement, baked
     /// here exactly as a written `-` marker would be -- confirmed by checking the baked
-    /// `plurality` field renders `"-"` even for an unmarked placeholder.
+    /// `plurality` field renders `Plurality::Minus` even for an unmarked placeholder.
     #[test]
     fn quantifiers_that_force_singular_bake_a_minus_marker() {
         for word in ["each", "either", "neither"] {
             let out = classify_post(&format!("{word} item")).expect("valid placeholder");
             assert!(
-                out.contains("plurality : \"-\""),
-                "expected plurality baked to \"-\" for `{word}`, got: {out}"
+                out.contains("plurality : ranting :: placeholder :: Plurality :: Minus"),
+                "expected plurality baked to Plurality::Minus for `{word}`, got: {out}"
             );
         }
     }
@@ -1405,8 +1430,44 @@ mod tests {
     fn quantifiers_that_force_singular_leave_a_numeral_untouched() {
         let out = classify_post("each $n item").expect("valid placeholder");
         assert!(
-            !out.contains("plurality : \"-\""),
+            !out.contains("plurality : ranting :: placeholder :: Plurality :: Minus"),
             "a numeral's own plurality marker should not be overwritten, got: {out}"
+        );
+    }
+
+    /// ROADMAP.md Phase 8 item 4: `##var` classifies as `NumeralKind::Ordinal` /
+    /// `Plurality::OrdinalWords`, distinct from plain `#var`'s `NumeralKind::Words` /
+    /// `Plurality::CardinalWords` -- the exact silent-failure site the design spike named
+    /// (`docs/superpowers/specs/2026-08-15-ordinal-numerals.md`'s cost table, site 3/5).
+    #[test]
+    fn doubled_hash_classifies_as_ordinal_words() {
+        let out = classify_post("##n attempt").expect("valid placeholder");
+        assert!(
+            out.contains("ranting :: placeholder :: NumeralKind :: Ordinal"),
+            "expected NumeralKind::Ordinal for `##n`, got: {out}"
+        );
+        assert!(
+            out.contains("plurality : ranting :: placeholder :: Plurality :: OrdinalWords"),
+            "expected Plurality::OrdinalWords for `##n`, got: {out}"
+        );
+        assert!(
+            !out.contains("NumeralKind :: Words"),
+            "a doubled `##` must not be misclassified as plain cardinal Words, got: {out}"
+        );
+    }
+
+    /// ROADMAP.md Phase 8 item 4: `$$var` classifies as `NumeralKind::OrdinalDigits` /
+    /// `Plurality::OrdinalDigits`, distinct from plain `$var`.
+    #[test]
+    fn doubled_dollar_classifies_as_ordinal_digits() {
+        let out = classify_post("$$n attempt").expect("valid placeholder");
+        assert!(
+            out.contains("ranting :: placeholder :: NumeralKind :: OrdinalDigits"),
+            "expected NumeralKind::OrdinalDigits for `$$n`, got: {out}"
+        );
+        assert!(
+            out.contains("plurality : ranting :: placeholder :: Plurality :: OrdinalDigits"),
+            "expected Plurality::OrdinalDigits for `$$n`, got: {out}"
         );
     }
 }

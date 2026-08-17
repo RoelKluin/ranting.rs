@@ -145,6 +145,12 @@ to be inside the placeholder at all.
   `an_unknown_verb_falls_through_to_english_rather_than_being_guessed`,
   `an_unknown_adjective_falls_through_to_the_english_degree_table`, and
   `a_numeral_outside_the_closed_range_falls_through_to_english` pin it.
+- **ROADMAP.md Phase 8 item 4's `##var` ordinal channel is the second constituency it was built
+  for.** `lexicon::ordinal` spells `1..=12` fully agreeing in gender (`primero`/`primera`) and
+  apocopating `primero`/`tercero` before a masculine singular noun (`primer gato`, `tercer gato`)
+  — genuinely load-bearing use of `class`, unlike the cardinals above, where it matters only at
+  `1`. The digit-ordinal channel (`$$var`, English "3rd") has no Spanish notation modeled by this
+  closed lexicon and falls through to English the same honest way an out-of-range cardinal does.
 - **A numeral placeholder with no preceding article spends its sentence-initial capital on the
   numeral, not the noun.** `inflect_numeral_custom` deliberately has no `uc` parameter — the main
   crate applies capitalization on the crate side, to whatever the hook returns, rather than

@@ -212,3 +212,41 @@ pub fn spell(count: i64, class: &str, euphonic_el: bool) -> Option<String> {
         _ => None,
     }
 }
+
+/// `primero`, `segundo`, `tercero`, … — the ordinals `1..=12`, masculine singular form.
+/// ROADMAP.md Phase 8 item 4's "second constituency": Spanish ordinals fully agree in gender
+/// (`primero`/`primera`), unlike its cardinals, which barely do ([`numeral_one`] is the whole of
+/// it). [`ordinal`] does the gender swap and the apocope.
+static ORDINALS: [&str; 13] = [
+    "cero",
+    "primero",
+    "segundo",
+    "tercero",
+    "cuarto",
+    "quinto",
+    "sexto",
+    "séptimo",
+    "octavo",
+    "noveno",
+    "décimo",
+    "undécimo",
+    "duodécimo",
+];
+
+/// Spell an ordinal in Spanish, or `None` outside the closed `0..=12` range.
+///
+/// Agrees in gender (`primero` → `primera`) and, for `primero`/`tercero` before a masculine
+/// singular noun, apocopates (`primer gato`, `tercer gato`, never `primero gato`) — a purely
+/// morphological choice fully determined by `class`/`plural` alone, with no post-assembly splice
+/// needed (`docs/superpowers/specs/2026-08-15-ordinal-numerals.md`'s "Spanish apocope" note).
+pub fn ordinal(count: i64, class: &str, plural: bool) -> Option<String> {
+    let word = *ORDINALS.get(usize::try_from(count).ok()?)?;
+    let feminine = class == FEMININE;
+    if !feminine && !plural && matches!(word, "primero" | "tercero") {
+        return Some(word.trim_end_matches('o').to_string());
+    }
+    if feminine {
+        return Some(format!("{}a", word.trim_end_matches('o')));
+    }
+    Some(word.to_string())
+}

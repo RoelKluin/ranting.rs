@@ -146,6 +146,11 @@ impl Ranting for JapaneseNoun {
             // `$n` asks for digits; Japanese writes the same digits, but the *counter* is still
             // obligatory, so this channel gets the same treatment.
             NumeralStyle::Digits => Some(format!("{counted}の")),
+            // ROADMAP.md Phase 8 item 4: Japanese ordinals (第n, "dai-n") are a different
+            // construction from the counter phrase above, not modeled by this closed lexicon —
+            // falls through to English, the same honest degradation this crate's README already
+            // records for the five hook pairs it doesn't implement.
+            NumeralStyle::Ordinal | NumeralStyle::OrdinalDigits => None,
         }
     }
 

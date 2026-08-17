@@ -241,6 +241,14 @@ pub enum NumeralKind {
     /// `$var` -- the number as the argument's own `Display` output, with
     /// any `:fmt` spec applied. ASCII digits in English.
     Digits,
+    /// `##var` -- ROADMAP.md Phase 8 item 4: the ordinal, spelled out
+    /// ("third"). Carries the same real `count` the cardinal `Words` channel
+    /// does, but does not itself decide the noun's number agreement -- an
+    /// ordinal says *which* one, not *how many*; see [`Plurality::OrdinalWords`].
+    Ordinal,
+    /// `$$var` -- the ordinal, as digits with an English suffix ("3rd").
+    /// Same agreement decoupling as [`NumeralKind::Ordinal`].
+    OrdinalDigits,
 }
 
 /// The numeral slot of a placeholder: which notation was asked for, and the
@@ -267,6 +275,43 @@ pub struct NumeralSpec {
     /// the same "nothing rendered, nothing to customize" gate a hidden noun
     /// gives `elide_article_custom`.
     pub hidden: bool,
+}
+
+/// Which agreement rule a placeholder's `+`/`-`/`#var`/`$var`/`##var`/`$$var` marker (or its
+/// absence) selects, baked by `ranting_derive` from the same `nr` capture [`NumeralSpec`] is
+/// built from. Replaces a `&'static str` that used to carry this classification as one of
+/// `""`/`"+"`/`"-"`/`"#"`/`"$"`/`"?$"` (ROADMAP.md Phase 8 item 4) -- retyped in the same change
+/// that added the ordinal markers because two of the four sites the old `&str` needed (an exact
+/// `==` here, a `contains` there) failed *silently* rather than refusing to compile: `"##"`
+/// contains `'#'`, so a `contains('#')` check could not tell a cardinal from an ordinal, and
+/// `"##"` is not `== "#"`, so an exact-match check could not tell "has a marker" from "has no
+/// marker" either -- see `docs/superpowers/specs/2026-08-15-ordinal-numerals.md`'s cost table,
+/// sites 3-6.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Plurality {
+    /// No `+`/`-`/`#var`/`$var`/`##var`/`$$var` marker written: agreement comes from the
+    /// entity's own declared plurality (`Ranting::is_plural`) -- the same read a bare `{noun}`
+    /// takes.
+    Unmarked,
+    /// `+` -- forced plural, regardless of the noun's own declared plurality.
+    Plus,
+    /// `-` -- forced singular.
+    Minus,
+    /// `#var` -- cardinal, spelled at runtime from the placeholder's `count`. Agreement:
+    /// `count != Some(1)`.
+    CardinalWords,
+    /// `$var` (visible or hidden, `?$var`) -- cardinal, rendered as the argument's own
+    /// `Display` output. Agreement is parsed back out of that rendered text.
+    CardinalDigits,
+    /// `##var` -- ROADMAP.md Phase 8 item 4: the ordinal, spelled ("the third attempt").
+    /// Agreement decouples from the marker itself and falls through to [`Plurality::Unmarked`]'s
+    /// rule (`noun.is_plural()`) -- an ordinal says *which* one, not *how many*, so "the third
+    /// attempt" stays singular even though `count` is 3. `count` still flows to
+    /// `inflect_numeral_custom`, which is what Spanish/Arabic ordinal gender agreement needs.
+    OrdinalWords,
+    /// `$$var` (visible or hidden, `?$$var`) -- the ordinal as digits with an English suffix
+    /// ("3rd"). Same agreement decoupling as [`Plurality::OrdinalWords`].
+    OrdinalDigits,
 }
 
 /// Which article keyword (if any) a word in the `pre` slot represents --
@@ -486,7 +531,7 @@ pub struct PlaceholderSpec {
     /// case-sensitive second call site; when the second call is never
     /// reached this is unobserved and its value doesn't matter.
     pub pre_chained_kind: ArticleKind,
-    pub plurality: &'static str,
+    pub plurality: Plurality,
     /// The numeral slot, or `None` when nothing numeric renders here (no
     /// `#var`/`$var` marker). A *hidden* one (`` {?$n noun} ``) is `Some` with
     /// [`NumeralSpec::hidden`] set -- the slot exists, the count is used for

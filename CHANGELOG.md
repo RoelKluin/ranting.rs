@@ -112,6 +112,42 @@
     alternative" trap `.claude/rules/placeholder-grammar.md` already names for the
     language-modularity change; caught here before release, not after.
 
+- **Two new numeral markers, `##var` (spelled ordinal, "third") and `$$var` (digit ordinal,
+  "3rd"), and `NumeralStyle`/`NumeralKind` each gain two new variants, `Ordinal`/`OrdinalDigits`,
+  for them.** `say!("This is {the ##n attempt}.", 3, attempt)` now renders "This is the third
+  attempt." — previously a compile error, since `match_nr` required a word character directly
+  after `#`/`$` and rejected a second one (ROADMAP.md Phase 8 item 4,
+  `docs/superpowers/specs/2026-08-15-ordinal-numerals.md`). Every existing template is
+  byte-identical: `##`/`$$` could not parse before this change. **`NumeralStyle` is public,
+  re-exported, and not `#[non_exhaustive]`, so this is a semver-major break** — every downstream
+  `match style { ... }` on it, with no wildcard arm, now needs the two new arms; all four
+  falsifier crates in this repo (`ranting_i18n`, `ranting_es`, `ranting_ar`, `ranting_ja`) needed
+  exactly that fix, which is what the falsifier contract is for.
+  - Agreement decouples from the ordinal itself: an ordinal says *which* one, not *how many*, so
+    `as_pl` falls through to `noun.is_plural()` — "the third attempt", never "attempts", no
+    matter how large the count. `placeholder_count` still carries the real value through to
+    `inflect_numeral_custom`, which is what gender-agreeing ordinals (Spanish, Arabic) need.
+  - `ranting_core::placeholder::PlaceholderSpec::plurality` is retyped from `&'static str` to a
+    new `Plurality` enum in the same change, closing two sites the design spike found that failed
+    *silently* rather than refusing to compile (a `contains('#')` check that could not tell `##`
+    from `#`, and an exact `== "#"` check that could not tell "cardinal" from "no marker at all").
+  - `##`/`$$` inherit the ordinal speller's English rules verbatim: suppletive `one`/`two`/`three`
+    → `first`/`second`/`third`, stem-change `five`/`eight`/`nine`/`twelve`, `-y` → `-ieth`,
+    otherwise `+th`; the digit suffix is chosen from the last *two* digits, so 11-13 (and
+    111-113, ...) take `"th"` regardless of the last digit alone. Both inherit
+    `english_numbers`' unhyphenated compound spelling verbatim ("twentyone", not "twenty-one").
+  - `nr`'s alternation gained a one-repetition restriction in the same change, mirroring the open
+    `pre` pass's existing one — `ph_ext::parse`'s generic repeated-group engine otherwise allows a
+    second numeral-shaped run to silently displace the first, the same trap that already bit the
+    open-pass `pre` widening.
+  - `ranting_es::lexicon::ordinal`/`ranting_ar::lexicon::ordinal` spell `##var` with real gender
+    agreement (Spanish additionally apocopating `primero`/`tercero` before a masculine singular
+    noun) — the "second constituency" the ROADMAP item named. `ranting_i18n`/`ranting_ja` fall
+    through to English for both new variants, an honest gap recorded in each README.
+  - `ranting`/`ranting_core`/`ranting_derive` bumped to `2.0.0` (version-locked, per CLAUDE.md).
+  - See `tests/ranting/ordinal_numerals.rs`, `ranting_es/tests/spanish.rs`, and
+    `ranting_ar/tests/arabic.rs`.
+
 - **`Ranting::inflect` takes a fifth parameter,
   `count: Option<PlaceholderCount>`** (ROADMAP.md Phase 7 item 11). Every
   hand-written `Ranting` impl must add it; derive-generated impls are

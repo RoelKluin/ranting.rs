@@ -241,3 +241,7 @@ form of the boundary, since no single placeholder can render a word that is in t
   crate's `name`/`inflect` already return them capitalized — so the override only has to promise
   not to undo it. The hook's real customers are Turkish `i`/`İ` and the caseless scripts, as its
   own documentation says.
+- **ROADMAP.md Phase 8 item 4's `##var`/`$$var` ordinal channels have no German form modeled
+  here.** German ordinals (`erste`/`zweite`/`dritte`, …) take the same adjective-style case/gender
+  endings this crate's closed lexicon doesn't model for real adjectives either — both fall through
+  to English the same honest way an out-of-range cardinal does.
