@@ -46,7 +46,6 @@ cd "$REPO_ROOT"
 
 TASKS_FILE="${TASKS_FILE:-tasks.txt}"
 DONE_FILE="${DONE_FILE:-tasks_done.txt}"
-LOCK_FILE="$TASKS_FILE.lock"
 # Per-repo, not a shared $HOME/logs: unqualified, every repo's loop on the
 # same machine interleaves into the same log/failures file and neither can be
 # trusted to describe one run. Kept outside the repo deliberately -- a log
@@ -56,6 +55,11 @@ LOG_DIR="${LOG_DIR:-$HOME/logs/$(basename "$REPO_ROOT")}"
 DATE_TAG="$(date +%F)"
 LOG_FILE="$LOG_DIR/$DATE_TAG.log"
 FAIL_FILE="$LOG_DIR/failures"
+# Outside the repo for the same reason as LOG_DIR above: it also ends in
+# ".lock", which STAGE_EXTENSIONS below recognizes (to allow staging real
+# dependency lockfiles like Cargo.lock) -- an in-repo tasks.txt.lock would
+# get git-added as a side effect of that and end up committed as bookkeeping.
+LOCK_FILE="$LOG_DIR/$(basename "$TASKS_FILE").lock"
 # Where declined untracked files get moved instead of left in the tree (see
 # quarantine_declined() below) -- leaving them in place would otherwise
 # permanently wedge every later invocation's clean-tree pre-flight check.
@@ -95,9 +99,16 @@ STAGE_EXTENSIONS="${STAGE_EXTENSIONS:-.rs .toml .md .txt .lock .sh .stderr .giti
 # returns and the gate passes, stages and commits. (Verified necessary: an
 # unrestricted `Bash(git *)` grant let a task self-commit its own scratch
 # files, bypassing every staging guard below.) EXTRA_ALLOWED_TOOLS defaults
-# to a cargo grant for the auto-detected gate; set it yourself alongside a
-# custom GATE_CMD.
-EXTRA_ALLOWED_TOOLS="${EXTRA_ALLOWED_TOOLS:-$([[ -z "$GATE_CMD" ]] && echo "Bash(cargo *)")}"
+# to a cargo grant for the auto-detected gate -- named subcommands only
+# (check/build/test/fmt/clippy: what a task needs to verify its own edit
+# compiles and passes the same checks the post-task gate below re-runs
+# independently), not a blanket `cargo *`, which would also hand a task
+# `cargo publish`/`add`/`remove`/`login`/`install`/arbitrary `cargo run` --
+# none of which a task doing a single queued fix has a legitimate reason to
+# need, and a broader grant only invites an unattended task to wander off
+# task exploring instead of doing the narrow thing it was queued for. Set
+# EXTRA_ALLOWED_TOOLS yourself alongside a custom GATE_CMD.
+EXTRA_ALLOWED_TOOLS="${EXTRA_ALLOWED_TOOLS:-$([[ -z "$GATE_CMD" ]] && echo "Bash(cargo check *) Bash(cargo build *) Bash(cargo test *) Bash(cargo fmt *) Bash(cargo clippy *)")}"
 ALLOWED_TOOLS="Read Edit Write Bash(git status *) Bash(git diff *) Bash(git log *) Bash(git show *) ${EXTRA_ALLOWED_TOOLS}"
 
 # --- Gate ---------------------------------------------------------------
@@ -207,7 +218,12 @@ if ! command -v flock >/dev/null 2>&1; then
   echo "flock is required but not installed." >&2
   exit 1
 fi
-LOCK_DIR="${LOCK_DIR:-$HOME/logs/.overnight_loop_locks}"
+# Off the shared claude-home volume deliberately: in claude-box, every repo's
+# container sees the same $REPO_ROOT ("/work"), so a REPO_KEY hashed from it
+# would collide across repos if LOCK_DIR lived on that shared volume. /tmp is
+# a per-repo volume in claude-box (claude-scratch-<slug>-<hash>), so this
+# naturally partitions by repo there; elsewhere it's just the host's /tmp.
+LOCK_DIR="${LOCK_DIR:-${TMPDIR:-/tmp}/.overnight_loop_locks}"
 mkdir -p "$LOCK_DIR"
 REPO_KEY="$(printf '%s' "$REPO_ROOT" | sha256sum | cut -c1-16)"
 RUN_LOCK_FILE="$LOCK_DIR/${REPO_KEY}.lock"
@@ -521,10 +537,21 @@ record_task_failure() {
   # one (deferred[]/requeue_task() below is what's supposed to own that).
   # Shield $TASKS_FILE's live queue state from the stash by saving and
   # restoring it around the call.
+  # $() strips trailing newlines, so a plain `printf '%s'` restore below
+  # would silently drop $TASKS_FILE's final newline -- harmless on its own,
+  # but the next requeue_task() append (a bare `>>`, no leading newline of
+  # its own) then lands directly after the last character of the previous
+  # line instead of on a new one, concatenating two task lines into one
+  # (confirmed: corrupted a real queue this way). Restore with the newline
+  # put back, unless the file was genuinely empty to begin with.
   local tasks_snapshot
   tasks_snapshot="$(cat "$TASKS_FILE" 2>/dev/null || true)"
   git stash push -m "failed: ${task:0:72}" >>"$LOG_FILE" 2>&1
-  printf '%s' "$tasks_snapshot" >"$TASKS_FILE"
+  if [[ -n "$tasks_snapshot" ]]; then
+    printf '%s\n' "$tasks_snapshot" >"$TASKS_FILE"
+  else
+    : >"$TASKS_FILE"
+  fi
   echo "FAILED: $task" >>"$FAIL_FILE"
   n_failed=$((n_failed + 1))
   echo "FAILED: $task" | tee -a "$LOG_FILE"
@@ -562,6 +589,11 @@ $task"
 
   pre_task_status="$(git status --porcelain -- .)"
 
+  # Inside a claude-box container, `claude` here resolves to the
+  # /usr/local/bin/claude shim (see that repo's claude-cwd-shim.sh), which
+  # redirects to CLAUDE_BOX_UNIQUE_WORKDIR before handing off to the real
+  # binary -- this loop's own git staging/commit and $REPO_ROOT-relative
+  # paths stay on /work throughout, unaffected. A no-op outside claude-box.
   set +e
   timeout -k "$TASK_KILL_AFTER" "$TASK_TIMEOUT" claude -p "$task_prompt" \
     --permission-mode acceptEdits \
