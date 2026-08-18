@@ -1474,6 +1474,17 @@ first, not by importance.*
    scoped at all — the first spike question is whether it's in bounds given the word-order
    boundary (Key Architecture Decisions, "Word order lives in the literal template") before any
    mechanism is proposed.
+
+   **PROPOSED (2026-08-18 spike — NOT implemented; maintainer decision needed)** — design spike
+   at `docs/superpowers/specs/2026-08-18-arbitrary-phrase-pluralization.md`. Finds the feature in
+   bounds: pluralization never needs to reorder words, only to choose which word(s) to re-inflect,
+   so the word-order boundary was never the actual obstacle. Splits "phrase" into three shapes —
+   a multi-word compound as one noun's own name (in bounds, needs at most a small optional
+   `plural_head_index()` hook to close what `compound_plural`'s closed lists can't reach), a
+   phrase already split across placeholders (in bounds, already works via existing agreement
+   hooks, nothing to build), and unstructured free text with no placeholders (out of bounds —
+   needs a POS/syntax capability outside this crate's stated design). Leaves the maintainer to
+   choose between the new hook and continuing to extend the closed lists case-by-case.
 5. **`ranting-if` (or similar) companion crate — Inform7-style object disambiguation**
    (`ROADMAP.md` — *Post-v1.2: Future Directions*, proposed 2026-08-13, not scoped). Resolves
    which candidate object free-text input refers to, using likelihood-weighted rules the way
