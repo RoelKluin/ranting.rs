@@ -1485,6 +1485,15 @@ first, not by importance.*
    hooks, nothing to build), and unstructured free text with no placeholders (out of bounds —
    needs a POS/syntax capability outside this crate's stated design). Leaves the maintainer to
    choose between the new hook and continuing to extend the closed lists case-by-case.
+
+   **DECIDED (2026-08-18, maintainer ruling -- do not add `plural_head_index()` now).** Keep
+   extending `PREPOSITIONS`/`POSTPOSED_ADJECTIVES` case-by-case as new compound-noun examples
+   surface, per the crate's existing, precedented strategy (`.claude/rules/pluralization.md`
+   point 6) -- the same discipline that governs every other addition to those lists. The hook is a
+   real, small piece of mechanism, but it is speculative capability for a case (`man Friday`) that
+   is illustrative, not an attested pain point anywhere in this repo's actual usage; adding it now
+   would be designing for a hypothetical rather than a need already in evidence. Revisit only if a
+   genuine open-vocabulary compound blocks a real caller.
 5. **`ranting-if` (or similar) companion crate — Inform7-style object disambiguation**
    (`ROADMAP.md` — *Post-v1.2: Future Directions*, proposed 2026-08-13, not scoped). Resolves
    which candidate object free-text input refers to, using likelihood-weighted rules the way
@@ -1504,6 +1513,16 @@ first, not by importance.*
    integration as disambiguation run *before* an unmodified `ask!()` call to resolve which
    concrete value plays `audience`, leaving `ask!()`'s one-audience-per-call-site design untouched.
    Leaves the maintainer to decide whether to build the slice at all.
+
+   **DECLINED (2026-08-18, maintainer ruling -- do not build).** Unlike every other Phase 9 item,
+   this is not closing a gap already found in `ranting`'s own signal-sufficiency -- it is a new
+   product surface (a disambiguation library) that happens to integrate with `ask!()`. The spike's
+   own framing concedes the full feature is "a small IF parser in its own right," and nothing about
+   `ranting`'s falsifier or dev-tool contracts requires this crate to exist. With no real caller and
+   no attested need yet for even the minimal match-count-scoring slice, building it now would be
+   speculative scope growth into a new domain -- the same "don't design for hypothetical future
+   requirements" discipline this repo already applies elsewhere. Revisit only if a concrete
+   IF-style consumer of `ranting` actually wants it.
 
 **Not carried forward from Phase 8's own leftovers** (cited, not re-litigated): the
 `ranting_i18n`/hole-3 dative-genitive gap and `GrammaticalCase`'s five-marker inventory are
