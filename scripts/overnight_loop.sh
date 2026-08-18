@@ -132,6 +132,19 @@ truncate_task_summary() {
   fi
 }
 
+# Commits the repo root's own staged changes with subject $1 and, when $2 is
+# non-empty, that as a separate body paragraph -- the git equivalent of
+# `git commit -m "$1" -m "$2"`, factored out so the one call site doesn't
+# have to branch on whether a body exists.
+commit_task_head() {
+  local subject="$1" body="${2:-}"
+  if [[ -n "$body" ]]; then
+    git commit -m "$subject" -m "$body" >>"$LOG_FILE" 2>&1
+  else
+    git commit -m "$subject" >>"$LOG_FILE" 2>&1
+  fi
+}
+
 # --- Gate ---------------------------------------------------------------
 
 # Directories to run the default cargo gate in: $REPO_ROOT itself and every
@@ -312,11 +325,15 @@ nested_dirty_repos() {
 }
 
 commit_nested_repos() {
-  local msg="$1" d
+  local msg="$1" body="${2:-}" d
   while IFS= read -r d; do
     [[ -z "$d" ]] && continue
     git -C "$d" add -A
-    git -C "$d" commit -m "$msg" >>"$LOG_FILE" 2>&1
+    if [[ -n "$body" ]]; then
+      git -C "$d" commit -m "$msg" -m "$body" >>"$LOG_FILE" 2>&1
+    else
+      git -C "$d" commit -m "$msg" >>"$LOG_FILE" 2>&1
+    fi
   done < <(nested_dirty_repos)
 }
 
@@ -655,7 +672,13 @@ $task"
   task_gate_dirs="$(gate_dirs)"
   if run_gate "$task_gate_dirs"; then
     task_summary="$(truncate_task_summary "$task")"
-    commit_nested_repos "auto: $task_summary"
+    # A truncated subject silently discarded the rest of the task text --
+    # nowhere else in the commit records it, since $DONE_FILE is gitignored.
+    # Carry the untruncated task as the commit body whenever the subject
+    # doesn't already say it in full.
+    task_body=""
+    [[ "$task_summary" != "$task" ]] && task_body="$task"
+    commit_nested_repos "auto: $task_summary" "$task_body"
     # $DONE_FILE is written *before* staging/committing, so the bookkeeping
     # entry rides along inside this task's own commit rather than being left
     # untracked afterward -- an untracked $DONE_FILE would trip the *next*
@@ -665,7 +688,7 @@ $task"
     # goes stale relative to git history.
     echo "$task" >>"$DONE_FILE"
     stage_task_changes "$task_gate_dirs"
-    if git commit -m "auto: $task_summary" >>"$LOG_FILE" 2>&1; then
+    if commit_task_head "auto: $task_summary" "$task_body"; then
       n_done=$((n_done + 1))
       echo "DONE: $task" | tee -a "$LOG_FILE"
     else
