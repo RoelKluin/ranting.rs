@@ -48,13 +48,21 @@ sorpresa más común, ver la primera fila.
 | `` ` `` | Determinante posesivo | ``say!("{`jane}")`` con `Noun::new("Jane","I")` | `"My"` |
 | `~` | Pronombre posesivo | ``say!("{~tarzan}")`` | `"His"` |
 | `%` | Reflexivo | `say!("{%alex} can decide that.")` con `alex = Noun::new("Alex","she")` | `"Herself can decide that."` |
-| `*` | Mostrar nombre, el verbo sigue concordando | `say!("{*tarzan who have} book")` | `"Tarzan who has book"` |
+| `*` | Mostrar nombre, el verbo sigue concordando | `say!("{*jeffersons who have} a book.")` con `jeffersons = Noun::new("The Jeffersons","they")` | `"The Jeffersons who have a book."` |
 | `*=`, `*@`, `` *` ``, `*~`, `*%` | Fusionado: marca el caso del placeholder como el marcador simple (así `inflect_article_custom` ve el `GrammaticalCase` real), pero sigue mostrando el **nombre** del sustantivo en lugar de cambiar a un pronombre | `say!("{the *=noun}")` | el artículo se renderiza con el caso correcto, se muestra el nombre |
 | `?` | Oculto — flexiona pero no se muestra | `say!("There {are no ?$n item}.")` con `n = 0i64` y un `Noun::new("item","it")` | `"There are no items."` |
 
 `?` se combina con otros marcadores, p. ej. `{?the noun}` oculta el sustantivo (y su artículo)
 mientras sigue impulsando la concordancia en el resto de la frase — ver el ejemplo de
 `no_article` en `README.md`.
+
+El texto tras un sustantivo con `*` (o sin marcador) siempre pasa por la conjugación verbal, y es
+su **primera** palabra la que se conjuga — `who` en `{*jeffersons who have}` solo permanece
+invariable porque el pronombre declarado de `jeffersons` es plural, lo que no cambia la ortografía
+de la palabra siguiente. Un sustantivo en tercera persona del singular conjugaría esa primera
+palabra (incorrectamente, ya que `who` no es un verbo real) — escribe `who`/`which`/`that` como
+texto literal de la frase tras dos placeholders separados, p. ej.
+`say!("{=jane}, {*jane}, who have a book.")` → `"I, Jane, who have a book."`.
 
 ## Artículos
 

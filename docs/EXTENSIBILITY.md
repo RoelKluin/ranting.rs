@@ -987,7 +987,7 @@ say!("Ich sehe {the *@0}.", hund); // "Ich sehe den Hund."
 **Why `*` and not a new marker character.** The placeholder marker set is a ✅ Locked
 architecture decision (see the Key Architecture Decisions table). `*` was already a case-marker-
 position character — previously synonymous with no marker at all (`CaseKind::Name`, used only to
-mark which word is the placeholder's Ranting element, e.g. `` {*jane who have} ``) — so fusing it
+mark which word is the placeholder's Ranting element, e.g. `` {*jeffersons who have} ``) — so fusing it
 with a real case marker reuses an existing character rather than adding one. Two build options
 were scored and rejected before landing on this:
 

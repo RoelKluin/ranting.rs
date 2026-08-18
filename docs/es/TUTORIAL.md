@@ -81,6 +81,7 @@ use ranting::*;
 let jane = Noun::new("Jane", "I");
 let tarzan = Noun::new("Tarzan", "he");
 let pat = Noun::new("Pat", "they");
+let jeffersons = Noun::new("The Jeffersons", "they");
 ```
 
 ### Sintaxis de los placeholders: mostrar pronombres
@@ -94,7 +95,7 @@ pronombre se muestra:
 | `@` | Objeto | `{@jane}` | `Me` |
 | `` ` `` | Determinante posesivo | `{`jane}` | `My` |
 | `~` | Pronombre posesivo | `{~jane}` | `Mine` |
-| `*` | Mostrar el nombre | `{*jane who have}` | `Jane who have` |
+| `*` | Mostrar el nombre | `{*jeffersons who have}` | `The Jeffersons who have` |
 | `*=`, `*@`, `` *` ``, `*~`, `*%` | Fusionado: marca el caso igual que el marcador simple (un `inflect_article_custom` personalizado ve el `GrammaticalCase` real), pero sigue mostrando el nombre del sustantivo en lugar de cambiar a un pronombre | `{the *=noun}` | el artículo se renderiza con el caso correcto, se muestra el nombre |
 
 Ejemplos verificados de `tests/ranting/tutorial.rs::section_2_first_say_pronouns`:
@@ -108,9 +109,18 @@ say!("{`jane}")        // "My"
 say!("{`tarzan}")      // "His"
 say!("{`pat}")         // "Their"
 
-say!("{*jane who have} book")   // "Jane who have book"
-say!("{*pat who have} book")    // "Pat who have book"
+say!("{*jeffersons who have} a book.")       // "The Jeffersons who have a book."
+say!("{=jane}, {*jane}, who have a book.")   // "I, Jane, who have a book."
 ```
+
+El texto posterior a un sustantivo con `*` (o sin marcador) sigue pasando por la conjugación
+verbal — su primera palabra se trata como el verbo (así, `say!("{*tarzan walk}")` da
+`"Tarzan walks"`). `who` no es sintaxis especial; aquí permanece invariable solo porque el
+pronombre declarado de `jeffersons` (`"they"`) es plural, lo que no cambia la ortografía de la
+palabra siguiente. Un sustantivo en tercera persona del singular sí conjugaría (incorrectamente)
+un `who` colocado justo después del marcador de caso, por lo que el ejemplo
+`{=jane}, {*jane}, who have a book.` coloca `who` en el texto literal de la propia frase, tras dos
+placeholders separados, en lugar de dentro del slot verbal de un único sustantivo.
 
 ### Argumentos posicionales
 

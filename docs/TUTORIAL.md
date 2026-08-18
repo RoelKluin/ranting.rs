@@ -68,6 +68,7 @@ use ranting::*;
 let jane = Noun::new("Jane", "I");
 let tarzan = Noun::new("Tarzan", "he");
 let pat = Noun::new("Pat", "they");
+let jeffersons = Noun::new("The Jeffersons", "they");
 ```
 
 ### Placeholder syntax: displaying pronouns
@@ -80,7 +81,7 @@ Placeholders in `say!()` use **case markers** to control what form of the pronou
 | `@` | Object | `{@jane}` | `Me` |
 | `` ` `` | Possessive determiner | `{`jane}` | `My` |
 | `~` | Possessive pronoun | `{~jane}` | `Mine` |
-| `*` | Display name | `{*jane who have}` | `Jane who have` |
+| `*` | Display name | `{*jeffersons who have}` | `The Jeffersons who have` |
 | `*=`, `*@`, `` *` ``, `*~`, `*%` | Fused: case-marks like the bare marker (a custom `inflect_article_custom` sees the real `GrammaticalCase`), but still displays the noun's name instead of switching to a pronoun | `{the *=noun}` | article rendered case-correctly, noun's name shown |
 
 Tested examples from `tests/ranting/tutorial.rs::section_2_first_say_pronouns`:
@@ -94,9 +95,17 @@ say!("{`jane}")        // "My"
 say!("{`tarzan}")      // "His"
 say!("{`pat}")         // "Their"
 
-say!("{*jane who have} book")   // "Jane who have book"
-say!("{*pat who have} book")    // "Pat who have book"
+say!("{*jeffersons who have} a book.")       // "The Jeffersons who have a book."
+say!("{=jane}, {*jane}, who have a book.")   // "I, Jane, who have a book."
 ```
+
+The trailing text after a `*` (or bare) noun still runs through verb conjugation — its first
+word is treated as the verb (so `say!("{*tarzan walk}")` gives `"Tarzan walks"`). `who` isn't
+special syntax; it only stays inert here because `jeffersons`'s own declared pronoun (`"they"`) is
+plural, which doesn't change a following word's spelling. A third-person-singular noun's `who`
+would itself get conjugated (wrongly) if placed right after the case marker, which is why the
+`{=jane}, {*jane}, who have a book.` example puts `who` in the sentence's own literal text
+instead, after two separate placeholders, rather than inside a single noun's verb slot.
 
 ### Positional arguments
 

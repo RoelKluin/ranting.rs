@@ -44,6 +44,7 @@ fn section_2_first_say_pronouns() {
     let jane = Noun::new("Jane", "I");
     let tarzan = Noun::new("Tarzan", "he");
     let pat = Noun::new("Pat", "they");
+    let jeffersons = Noun::new("The Jeffersons", "they");
 
     // Subject form (=): displays as the pronoun
     assert_eq!(say!("{=jane}"), "I");
@@ -55,9 +56,19 @@ fn section_2_first_say_pronouns() {
     assert_eq!(say!("{`tarzan}"), "His");
     assert_eq!(say!("{`pat}"), "Their");
 
-    // Display name only (*): leaves pronoun logic in place for verb agreement
-    assert_eq!(say!("{*jane who have} book"), "Jane who have book");
-    assert_eq!(say!("{*pat who have} book"), "Pat who have book");
+    // Display name only (*): leaves pronoun logic in place for verb agreement. `who` isn't
+    // special syntax -- it's the first word of the noun's own verb slot, so it only stays
+    // unconjugated here because `jeffersons`'s declared pronoun ("they") is plural. A
+    // two-placeholder sentence keeps `who` as literal text instead, for a noun whose pronoun
+    // ("I") would otherwise conjugate that first word.
+    assert_eq!(
+        say!("{*jeffersons who have} a book."),
+        "The Jeffersons who have a book."
+    );
+    assert_eq!(
+        say!("{=jane}, {*jane}, who have a book."),
+        "I, Jane, who have a book."
+    );
 }
 
 #[test]

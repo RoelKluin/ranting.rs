@@ -44,13 +44,20 @@ common surprise, see the first row.
 | `` ` `` | Possessive determiner | ``say!("{`jane}")`` with `Noun::new("Jane","I")` | `"My"` |
 | `~` | Possessive pronoun | ``say!("{~tarzan}")`` | `"His"` |
 | `%` | Reflexive | `say!("{%alex} can decide that.")` with `alex = Noun::new("Alex","she")` | `"Herself can decide that."` |
-| `*` | Display name, verb still agrees | `say!("{*tarzan who have} book")` | `"Tarzan who has book"` |
+| `*` | Display name, verb still agrees | `say!("{*jeffersons who have} a book.")` with `jeffersons = Noun::new("The Jeffersons","they")` | `"The Jeffersons who have a book."` |
 | `*=`, `*@`, `` *` ``, `*~`, `*%` | Fused: case-marks the placeholder like the bare marker (so `inflect_article_custom` sees the real `GrammaticalCase`), but still displays the noun's **name** rather than switching to a pronoun | `say!("{the *=noun}")` | renders the article case-correctly, name shown |
 | `?` | Hidden — inflects but isn't shown | `say!("There {are no ?$n item}.")` with `n = 0i64` and a `Noun::new("item","it")` | `"There are no items."` |
 
 `?` composes with other markers, e.g. `{?the noun}` hides the noun (and its
 article) while still driving agreement elsewhere in the sentence — see
 `README.md`'s `no_article` example.
+
+The text after a `*` (or bare) noun always runs through verb conjugation, and its **first** word
+is what gets conjugated — `who` in `{*jeffersons who have}` only stays unchanged because
+`jeffersons`'s declared pronoun is plural, which doesn't alter a following word's spelling. A
+third-person-singular noun would conjugate that first word instead (wrongly, since `who` isn't a
+real verb) — write `who`/`which`/`that` as literal sentence text after two separate placeholders
+instead, e.g. `say!("{=jane}, {*jane}, who have a book.")` → `"I, Jane, who have a book."`.
 
 ## Articles
 

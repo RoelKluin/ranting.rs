@@ -173,9 +173,15 @@ fn fused_marker_reaches_inflects_own_case_parameter_too() {
 fn bare_star_marker_is_unaffected() {
     // A bare `*` (no following case marker) is unchanged: still `CaseKind::Name`, still just
     // marks which word is the placeholder's Ranting element for verb agreement purposes -- the
-    // README's "{*jane who have}" pattern.
-    let jane = Noun::new("Jane", "I");
-    assert_eq!(say!("{*jane who have} book"), "Jane who have book");
+    // Cheatsheet's/Tutorial's "{*jeffersons who have}" pattern (docs/CHEATSHEET.md,
+    // docs/TUTORIAL.md section 2). Deliberately plural-declared: "who" is the noun's own verb
+    // slot's first word, not special syntax, so a third-person-singular noun would conjugate it
+    // instead of leaving it alone -- see docs/CHEATSHEET.md's note under the case-marker table.
+    let jeffersons = Noun::new("The Jeffersons", "they");
+    assert_eq!(
+        say!("{*jeffersons who have} a book."),
+        "The Jeffersons who have a book."
+    );
 }
 
 #[test]
