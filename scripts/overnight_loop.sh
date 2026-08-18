@@ -111,6 +111,27 @@ STAGE_EXTENSIONS="${STAGE_EXTENSIONS:-.rs .toml .md .txt .lock .sh .stderr .giti
 EXTRA_ALLOWED_TOOLS="${EXTRA_ALLOWED_TOOLS:-$([[ -z "$GATE_CMD" ]] && echo "Bash(cargo check *) Bash(cargo build *) Bash(cargo test *) Bash(cargo fmt *) Bash(cargo clippy *)")}"
 ALLOWED_TOOLS="Read Edit Write Bash(git status *) Bash(git diff *) Bash(git log *) Bash(git show *) ${EXTRA_ALLOWED_TOOLS}"
 
+# Commit/stash subjects embed a task's own text, which can run well past a
+# reasonable subject-line length. A bare `${task:0:72}` cuts wherever the
+# 72nd byte lands, mid-word as often as not (e.g. "...Phase 9 item 3, d" --
+# sliced out of "derive"). Back off to the last whitespace inside the limit
+# so the subject always ends on a word boundary; a single word longer than
+# the limit (no whitespace to back off to) still falls back to the hard cut.
+truncate_task_summary() {
+  local task="$1" limit=72 truncated trimmed
+  if [[ ${#task} -le $limit ]]; then
+    printf '%s' "$task"
+    return
+  fi
+  truncated="${task:0:$limit}"
+  trimmed="${truncated% *}"
+  if [[ -n "$trimmed" && "$trimmed" != "$truncated" ]]; then
+    printf '%s' "$trimmed"
+  else
+    printf '%s' "$truncated"
+  fi
+}
+
 # --- Gate ---------------------------------------------------------------
 
 # Directories to run the default cargo gate in: $REPO_ROOT itself and every
@@ -526,7 +547,7 @@ record_task_failure() {
   if [[ "${2:-}" != "skip-stage" ]]; then
     stage_task_changes "$dirs"
   fi
-  stash_nested_repos "failed: ${task:0:72}"
+  stash_nested_repos "failed: $(truncate_task_summary "$task")"
   # pop_task() already removed $task from $TASKS_FILE on disk, as an
   # uncommitted modification to an otherwise-tracked file, *before* claude -p
   # ran -- deliberately, so a concurrent --queue append is never lost. A
@@ -546,7 +567,7 @@ record_task_failure() {
   # put back, unless the file was genuinely empty to begin with.
   local tasks_snapshot
   tasks_snapshot="$(cat "$TASKS_FILE" 2>/dev/null || true)"
-  git stash push -m "failed: ${task:0:72}" >>"$LOG_FILE" 2>&1
+  git stash push -m "failed: $(truncate_task_summary "$task")" >>"$LOG_FILE" 2>&1
   if [[ -n "$tasks_snapshot" ]]; then
     printf '%s\n' "$tasks_snapshot" >"$TASKS_FILE"
   else
@@ -633,7 +654,8 @@ $task"
 
   task_gate_dirs="$(gate_dirs)"
   if run_gate "$task_gate_dirs"; then
-    commit_nested_repos "auto: ${task:0:72}"
+    task_summary="$(truncate_task_summary "$task")"
+    commit_nested_repos "auto: $task_summary"
     # $DONE_FILE is written *before* staging/committing, so the bookkeeping
     # entry rides along inside this task's own commit rather than being left
     # untracked afterward -- an untracked $DONE_FILE would trip the *next*
@@ -643,7 +665,7 @@ $task"
     # goes stale relative to git history.
     echo "$task" >>"$DONE_FILE"
     stage_task_changes "$task_gate_dirs"
-    if git commit -m "auto: ${task:0:72}" >>"$LOG_FILE" 2>&1; then
+    if git commit -m "auto: $task_summary" >>"$LOG_FILE" 2>&1; then
       n_done=$((n_done + 1))
       echo "DONE: $task" | tee -a "$LOG_FILE"
     else
