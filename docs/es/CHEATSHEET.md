@@ -47,10 +47,10 @@ sorpresa más común, ver la primera fila.
 | `@` | Objeto | `say!("{@0}", noun)` | `"her"` |
 | `` ` `` | Determinante posesivo | ``say!("{`jane}")`` con `Noun::new("Jane","I")` | `"My"` |
 | `~` | Pronombre posesivo | ``say!("{~tarzan}")`` | `"His"` |
-| `%` | Reflexivo | `say!("Only {^%alex} can decide that.")` con `alex = Noun::new("Alex","she")` | `"Only Herself can decide that."` |
+| `%` | Reflexivo | `say!("{%alex} can decide that.")` con `alex = Noun::new("Alex","she")` | `"Herself can decide that."` |
 | `*` | Mostrar nombre, el verbo sigue concordando | `say!("{*tarzan who have} book")` | `"Tarzan who has book"` |
 | `*=`, `*@`, `` *` ``, `*~`, `*%` | Fusionado: marca el caso del placeholder como el marcador simple (así `inflect_article_custom` ve el `GrammaticalCase` real), pero sigue mostrando el **nombre** del sustantivo en lugar de cambiar a un pronombre | `say!("{the *=noun}")` | el artículo se renderiza con el caso correcto, se muestra el nombre |
-| `?` | Oculto — flexiona pero no se muestra | `say!("{?=person are} here, but {=person} stays invisible above.")` | `"She is here, but she stays invisible above."` |
+| `?` | Oculto — flexiona pero no se muestra | `say!("There {are no ?$n item}.")` con `n = 0i64` y un `Noun::new("item","it")` | `"There are no items."` |
 
 `?` se combina con otros marcadores, p. ej. `{?the noun}` oculta el sustantivo (y su artículo)
 mientras sigue impulsando la concordancia en el resto de la frase — ver el ejemplo de
@@ -69,8 +69,8 @@ se convierten en `this`/`that` para un sustantivo singular.
 | `{the dogs}` | igual | `"The dog"` |
 | `{these dog}` | `Noun::new("dog","it")` (singular) | `"This dog"` |
 | `{those dog}` | igual | `"That dog"` |
-| `{these 0}` | `Noun::new("one","they")` (plural) | `"These one"` |
-| `{those 0}` | igual | `"Those one"` |
+| `{these 0}` | `Noun::new("cat","they")` (plural) | `"These cat"` |
+| `{those 0}` | igual | `"Those cat"` |
 
 Nota que el artículo se adapta a la pluralidad por sí solo, pero el nombre propio del sustantivo
 no — `{a dogs}` da `"Some dog"`, no `"Some dogs"`; añade `+` (ver abajo) para pluralizar también
@@ -95,7 +95,7 @@ automáticamente por defecto.
 
 | Placeholder | Contexto | Salida |
 |---|---|---|
-| `{,+0}` | `"The person is actually a {,+0}."` (plural irregular, minúscula forzada) | `"The person is actually a people."` |
+| `{,+0}` | `"The person is actually {,+0}."` (plural irregular, minúscula forzada) | `"The person is actually people."` |
 | `{^%alex}` | `"Only {^%alex} can decide that."` (mayúscula forzada a mitad de frase) | `"Only Herself can decide that."` |
 
 ## Tiempos verbales

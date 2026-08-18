@@ -43,10 +43,10 @@ common surprise, see the first row.
 | `@` | Object | `say!("{@0}", noun)` | `"her"` |
 | `` ` `` | Possessive determiner | ``say!("{`jane}")`` with `Noun::new("Jane","I")` | `"My"` |
 | `~` | Possessive pronoun | ``say!("{~tarzan}")`` | `"His"` |
-| `%` | Reflexive | `say!("Only {^%alex} can decide that.")` with `alex = Noun::new("Alex","she")` | `"Only Herself can decide that."` |
+| `%` | Reflexive | `say!("{%alex} can decide that.")` with `alex = Noun::new("Alex","she")` | `"Herself can decide that."` |
 | `*` | Display name, verb still agrees | `say!("{*tarzan who have} book")` | `"Tarzan who has book"` |
 | `*=`, `*@`, `` *` ``, `*~`, `*%` | Fused: case-marks the placeholder like the bare marker (so `inflect_article_custom` sees the real `GrammaticalCase`), but still displays the noun's **name** rather than switching to a pronoun | `say!("{the *=noun}")` | renders the article case-correctly, name shown |
-| `?` | Hidden — inflects but isn't shown | `say!("{?=person are} here, but {=person} stays invisible above.")` | `"She is here, but she stays invisible above."` |
+| `?` | Hidden — inflects but isn't shown | `say!("There {are no ?$n item}.")` with `n = 0i64` and a `Noun::new("item","it")` | `"There are no items."` |
 
 `?` composes with other markers, e.g. `{?the noun}` hides the noun (and its
 article) while still driving agreement elsewhere in the sentence — see
@@ -65,8 +65,8 @@ article) while still driving agreement elsewhere in the sentence — see
 | `{the dogs}` | same | `"The dog"` |
 | `{these dog}` | `Noun::new("dog","it")` (singular) | `"This dog"` |
 | `{those dog}` | same | `"That dog"` |
-| `{these 0}` | `Noun::new("one","they")` (plural) | `"These one"` |
-| `{those 0}` | same | `"Those one"` |
+| `{these 0}` | `Noun::new("cat","they")` (plural) | `"These cat"` |
+| `{those 0}` | same | `"Those cat"` |
 
 Note the article adapts to plurality on its own, but the noun's own displayed
 name does not — `{a dogs}` gives `"Some dog"`, not `"Some dogs"`; add `+` (see
@@ -91,7 +91,7 @@ default.
 
 | Placeholder | Context | Output |
 |---|---|---|
-| `{,+0}` | `"The person is actually a {,+0}."` (irregular plural, forced lowercase) | `"The person is actually a people."` |
+| `{,+0}` | `"The person is actually {,+0}."` (irregular plural, forced lowercase) | `"The person is actually people."` |
 | `{^%alex}` | `"Only {^%alex} can decide that."` (forced uppercase mid-sentence) | `"Only Herself can decide that."` |
 
 ## Verb tenses
