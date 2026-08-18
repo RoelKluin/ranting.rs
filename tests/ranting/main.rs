@@ -17,6 +17,7 @@ mod grammatical_case;
 mod heed;
 mod heed_derive;
 mod heed_dynamic;
+mod hidden_noun_spacing;
 #[cfg(feature = "inclusive-pronouns")]
 mod inclusive_language;
 mod irregular_plurals;

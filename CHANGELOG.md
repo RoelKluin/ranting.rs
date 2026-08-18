@@ -23,6 +23,21 @@
   `#[derive(Heed)]` has no runtime equivalent, since its generated struct is itself compile-time
   template knowledge.
 
+### Fixed
+
+- **A hidden noun (`?`) preceded by an explicit article within the same placeholder dropped both
+  surrounding separators.** `say!("{the ?jane !!good} in class.", jane)` rendered
+  `"Thebest in class."` instead of `"The best in class."` — both the space before the (invisible)
+  noun and the space after it were pushed only when the noun itself was visible. Fixes it in
+  `handle_placeholder_impl`: when hidden, push the noun's own leading space whenever something
+  actually follows within the placeholder, since that space already encodes "an article rendered
+  before this point" regardless of whether the noun itself is shown. This is what makes it
+  possible to introduce an entity by name once and then drive a superlative adjective or a verb
+  from a later, unnamed reference to it — `say!("{jane}, {the ?jane !!good} in class, {?jane
+  <%receive} a bad mark.", jane)` now renders `"Jane, the best in class, had received a bad
+  mark."`. A hidden noun with nothing after it at all (`{can ?w}`) is unaffected, and so is the
+  no-article case `docs/CHEATSHEET.md` already documents (`{?w !!good}` → `"Best in class"`).
+
 ## v2.0.0 — English Grammar Depth
 
 Phase 8's goal was the reverse of Phases 6-7's: those asked whether the hook surface carries

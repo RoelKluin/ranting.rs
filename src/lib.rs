@@ -1253,6 +1253,26 @@ where
         }
         res.push_str(post_leading_space);
         uc = false;
+    } else if !swallow_separator && !post_leading_space.is_empty() {
+        // The noun itself renders nothing, so `post_leading_space` (the gap between the noun
+        // and the post-noun text) is dropped -- there is nothing rendered yet for it to
+        // separate from. `noun_space` (the gap between a preceding article/pre-word and the
+        // noun) is different: the article itself already rendered into `res` before this
+        // point regardless of `case`, so if `noun_space` is non-empty, something real needs
+        // separating from what follows (`{the ?jane !!good}` used to render "Thebest";
+        // pushing `noun_space` here gives "the best"). When there's no preceding article,
+        // `noun_space` is empty and this is a no-op, matching the existing, correct
+        // `{?w !!good}` -> "Best in class" behavior.
+        //
+        // Gated on `post_leading_space` being non-empty (i.e. `post_spec` is not
+        // `None`/`PossessiveS`) so a hidden noun with nothing after it at all -- `{can ?w}`,
+        // `PostSpec::None` -- doesn't gain a stray trailing space with nothing to separate
+        // from what follows in the *next* placeholder or literal text.
+        //
+        // `uc` is deliberately left untouched here (unlike the visible branch above) -- the
+        // hidden noun contributes no capitalizable text, so a sentence-initial placeholder
+        // still needs `uc` to reach the post-noun verb/degree text that renders next.
+        res.push_str(noun_space);
     }
 
     match post_spec {
