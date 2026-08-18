@@ -96,16 +96,15 @@ say!("{`tarzan}")      // "His"
 say!("{`pat}")         // "Their"
 
 say!("{*jeffersons who have} a book.")       // "The Jeffersons who have a book."
-say!("{=jane}, {*jane}, who have a book.")   // "I, Jane, who have a book."
 ```
 
 The trailing text after a `*` (or bare) noun still runs through verb conjugation — its first
 word is treated as the verb (so `say!("{*tarzan walk}")` gives `"Tarzan walks"`). `who` isn't
 special syntax; it only stays inert here because `jeffersons`'s own declared pronoun (`"they"`) is
 plural, which doesn't change a following word's spelling. A third-person-singular noun's `who`
-would itself get conjugated (wrongly) if placed right after the case marker, which is why the
-`{=jane}, {*jane}, who have a book.` example puts `who` in the sentence's own literal text
-instead, after two separate placeholders, rather than inside a single noun's verb slot.
+would itself get conjugated (wrongly) if placed right after the case marker — there is currently
+no way to write an inert relative pronoun immediately after a noun's own case marker in one
+placeholder; keep `who`/`which`/`that` in the template's own literal text instead.
 
 ### Positional arguments
 

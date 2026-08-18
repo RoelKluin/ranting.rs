@@ -56,8 +56,9 @@ The text after a `*` (or bare) noun always runs through verb conjugation, and it
 is what gets conjugated — `who` in `{*jeffersons who have}` only stays unchanged because
 `jeffersons`'s declared pronoun is plural, which doesn't alter a following word's spelling. A
 third-person-singular noun would conjugate that first word instead (wrongly, since `who` isn't a
-real verb) — write `who`/`which`/`that` as literal sentence text after two separate placeholders
-instead, e.g. `say!("{=jane}, {*jane}, who have a book.")` → `"I, Jane, who have a book."`.
+real verb) — there is currently no way to write an inert relative pronoun right after a noun's
+own case marker in one placeholder; keep `who`/`which`/`that` in the template's own literal text
+instead.
 
 ## Articles
 

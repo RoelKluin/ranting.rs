@@ -60,9 +60,9 @@ El texto tras un sustantivo con `*` (o sin marcador) siempre pasa por la conjuga
 su **primera** palabra la que se conjuga — `who` en `{*jeffersons who have}` solo permanece
 invariable porque el pronombre declarado de `jeffersons` es plural, lo que no cambia la ortografía
 de la palabra siguiente. Un sustantivo en tercera persona del singular conjugaría esa primera
-palabra (incorrectamente, ya que `who` no es un verbo real) — escribe `who`/`which`/`that` como
-texto literal de la frase tras dos placeholders separados, p. ej.
-`say!("{=jane}, {*jane}, who have a book.")` → `"I, Jane, who have a book."`.
+palabra (incorrectamente, ya que `who` no es un verbo real) — actualmente no hay forma de escribir
+un pronombre relativo inerte justo después del marcador de caso de un sustantivo dentro de un
+mismo placeholder; mantén `who`/`which`/`that` en el texto literal de la plantilla en su lugar.
 
 ## Artículos
 

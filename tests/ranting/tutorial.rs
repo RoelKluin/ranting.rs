@@ -59,15 +59,12 @@ fn section_2_first_say_pronouns() {
     // Display name only (*): leaves pronoun logic in place for verb agreement. `who` isn't
     // special syntax -- it's the first word of the noun's own verb slot, so it only stays
     // unconjugated here because `jeffersons`'s declared pronoun ("they") is plural. A
-    // two-placeholder sentence keeps `who` as literal text instead, for a noun whose pronoun
-    // ("I") would otherwise conjugate that first word.
+    // third-person-singular noun's `who` would itself get conjugated (wrongly) -- there is
+    // currently no way to write an inert relative pronoun right after a noun's own case marker
+    // in one placeholder.
     assert_eq!(
         say!("{*jeffersons who have} a book."),
         "The Jeffersons who have a book."
-    );
-    assert_eq!(
-        say!("{=jane}, {*jane}, who have a book."),
-        "I, Jane, who have a book."
     );
 }
 

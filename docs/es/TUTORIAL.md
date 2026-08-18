@@ -110,7 +110,6 @@ say!("{`tarzan}")      // "His"
 say!("{`pat}")         // "Their"
 
 say!("{*jeffersons who have} a book.")       // "The Jeffersons who have a book."
-say!("{=jane}, {*jane}, who have a book.")   // "I, Jane, who have a book."
 ```
 
 El texto posterior a un sustantivo con `*` (o sin marcador) sigue pasando por la conjugación
@@ -118,9 +117,9 @@ verbal — su primera palabra se trata como el verbo (así, `say!("{*tarzan walk
 `"Tarzan walks"`). `who` no es sintaxis especial; aquí permanece invariable solo porque el
 pronombre declarado de `jeffersons` (`"they"`) es plural, lo que no cambia la ortografía de la
 palabra siguiente. Un sustantivo en tercera persona del singular sí conjugaría (incorrectamente)
-un `who` colocado justo después del marcador de caso, por lo que el ejemplo
-`{=jane}, {*jane}, who have a book.` coloca `who` en el texto literal de la propia frase, tras dos
-placeholders separados, en lugar de dentro del slot verbal de un único sustantivo.
+un `who` colocado justo después del marcador de caso — actualmente no hay forma de escribir un
+pronombre relativo inerte justo después del marcador de caso de un sustantivo dentro de un mismo
+placeholder; mantén `who`/`which`/`that` en el texto literal de la plantilla en su lugar.
 
 ### Argumentos posicionales
 
