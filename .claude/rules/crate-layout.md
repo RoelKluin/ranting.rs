@@ -96,6 +96,12 @@ is part of `ranting`'s public semver surface, even where `ranting` re-exports an
   `handle_placeholder`/`handle_placeholder_with_context` consume it at runtime.
 - `ranting_core::ph_ext` — hand-written recursive-descent parser for the placeholder internals
   (Phase 4 item 6), replacing what `PH_EXT` used to match.
+- `ranting_core::heed_template` (2026-08-18) — `heed!()`'s template compiler
+  (`compile_heed_template`, `HeedCapture`/`HeedCaptureKind`, `HeedTemplateError`), moved out of
+  `ranting_derive` so it can also be reached at runtime by `ranting::HeedMatcher::from_template` —
+  see `.claude/rules/heed-input-parsing.md`. Span-agnostic by design: errors carry byte ranges, not
+  `syn` spans, so the derive side converts them at its own call site rather than this module taking
+  a `proc-macro2`/`syn` dependency it would otherwise have no reason for.
 
 ## What stayed put, and why
 

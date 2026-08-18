@@ -1,8 +1,19 @@
 # Input parsing: `heed!()`, `#[derive(Heed)]`, `ask!()`
 
-Read before touching `ranting_derive/src/heed.rs`, `heed_derive.rs`, `src/heed.rs` or
-`src/answerable.rs`. All three surfaces share **one** template compiler
-(`heed::compile_heed_template`), so a change to it changes all three.
+Read before touching `ranting_core/src/heed_template.rs`, `ranting_derive/src/heed.rs`,
+`heed_derive.rs`, `src/heed.rs` or `src/answerable.rs`. All three surfaces share **one** template
+compiler (`ranting_core::heed_template::compile_heed_template`), so a change to it changes all
+three.
+
+**The compiler itself lives in `ranting_core`, not `ranting_derive`** (2026-08-18) — moved there
+so a runtime template (see `HeedMatcher::from_template` below) can reach the same algorithm a
+`proc-macro = true` crate cannot be depended on from `ranting`, and `ranting_derive` cannot depend
+on `ranting` without an illegal cycle. It is span-agnostic: `HeedTemplateError` carries byte
+ranges, not `syn` spans. `ranting_derive/src/heed.rs`'s `compile_heed_template(lit: &StrLit)` is
+now a thin wrapper — call the `ranting_core` function on the literal's text, then turn a
+`HeedTemplateError` into a spanned `syn::Error` via `slice.slice(err.range()).error(&err.to_string())`.
+`heed_derive.rs` and `ask!()` (`ranting_derive/src/lib.rs`) needed no changes; they already called
+through the wrapper.
 
 ## `heed!()`
 
@@ -25,6 +36,19 @@ captures with a **zero-width** gap between them are a **compile-time error** (am
 check fires on an empty raw gap, so `{a} {b}` (separated by whitespace) is fine and is pinned by
 `ranting_derive/src/heed.rs`'s `whitespace_separated_captures_are_allowed`. Return type is
 positional, like `say!()`: bare `Option<T>` for 0/1 captures, `Option<(T1, T2, ...)>` for 2+.
+
+**`heed!()` itself always needs its template as a string literal** — its typed return shape comes
+from reading the template's own text at compile time, which a template only known at runtime
+(read from a file, typed by a user, ...) cannot supply. `HeedMatcher::from_template(template: &str)
+-> Result<HeedMatcher, HeedTemplateError>` (`src/heed.rs`) is the runtime alternative: it calls the
+same `ranting_core::heed_template::compile_heed_template`, `Box::leak`s the owned pattern/names
+into the `'static` shape `HeedMatcher` already needs (documented as a deliberate one-time cost —
+build once, e.g. at startup from a vocabulary file, not in a hot loop), and every capture comes
+back as a plain `String` via `HeedMatcher::match_input`/`capture_names()` — never a typed tuple or
+`u64`, since that shape can't be derived without knowing the template at compile time. This is the
+same always-`String` compromise `ask!()`'s `Answerable::Captures` already makes, for the identical
+reason. `HeedMatcher` and `match_input` are no longer `#[doc(hidden)]` — `from_template` is a real,
+documented entry point now, not just `heed!()`'s own codegen detail.
 
 ## `#[derive(Heed)]`
 
@@ -81,3 +105,11 @@ no match, **without calling `answer()` at all**.
 
 Known limitation: `Captures` being per-type means one implementor supports exactly one capture
 arity everywhere it's used as an `ask!()` audience.
+
+`ask!()` needed no `from_template`-equivalent: its only job beyond `heed!()`'s own is forwarding
+captures to `Answerable::answer`, a plain public trait method, so a caller with a runtime template
+already reaches it via `HeedMatcher::from_template(&template)?.match_input(input)` plus a manual
+call, building `Self::Captures` from the returned `Vec<String>` by hand
+(`tests/ranting/heed_dynamic.rs::a_runtime_template_can_still_reach_answerable_by_hand`).
+`#[derive(Heed)]` has no runtime equivalent at all, and cannot — its generated struct fields *are*
+the compile-time template knowledge; there is no struct to generate from a `String` at runtime.

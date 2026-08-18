@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Added
+
+- **`HeedMatcher::from_template` compiles a `heed!()`-shaped template at runtime.** `heed!()`
+  itself still requires its template as a string literal — its typed return shape (`Option<T>`
+  for zero/one capture, `Option<(T1, T2, ...)>` for more, with `{$name}` parsed to `u64`) is
+  derived from the template's own text at compile time, which a template only known at runtime
+  (read from a file, typed by a user) cannot supply. `HeedMatcher::from_template(template: &str)
+  -> Result<HeedMatcher, HeedTemplateError>` exposes the same template compiler `heed!()` uses as
+  a runtime constructor instead: every capture comes back as a plain `String`, in the new
+  `HeedMatcher::capture_names()`'s order — the same always-`String` shape `ask!()`'s
+  `Answerable::Captures` already uses, and for the same reason. `HeedTemplateError` is a
+  structured, matchable error (`NestedCapture`/`UnterminatedBrace`/`InvalidIdentifier`/
+  `AmbiguousAdjacentCaptures`, each carrying the offending byte range) rather than the compile-time
+  `heed!()` diagnostic a runtime caller has no way to trigger. `HeedMatcher` and `match_input` are
+  no longer `#[doc(hidden)]`, since they are now a real, documented entry point rather than only an
+  implementation detail of `heed!()`'s generated code. `ask!()` needed no equivalent change: its
+  only job beyond `heed!()`'s is forwarding to `Answerable::answer`, a plain public trait method,
+  so a runtime template already reaches it via `HeedMatcher::from_template` plus a manual call.
+  `#[derive(Heed)]` has no runtime equivalent, since its generated struct is itself compile-time
+  template knowledge.
+
 ## v2.0.0 — English Grammar Depth
 
 Phase 8's goal was the reverse of Phases 6-7's: those asked whether the hook surface carries

@@ -11,10 +11,16 @@
 use regex::Regex;
 use std::sync::OnceLock;
 
+pub use ranting_core::heed_template::HeedTemplateError;
+
 /// Backs `heed!()`'s generated code. One `HeedMatcher` is emitted as a
 /// `static` at each `heed!()` call site; its regex is compiled once (via
 /// `OnceLock`) and reused across every call through that call site.
-#[doc(hidden)]
+///
+/// [`HeedMatcher::from_template`] builds the same type from a template that
+/// only exists at runtime — read from a file, typed by a user, or otherwise
+/// unavailable as a `heed!()` call's own string literal.
+#[derive(Debug)]
 pub struct HeedMatcher {
     pattern: &'static str,
     names: &'static [&'static str],
@@ -31,7 +37,51 @@ impl HeedMatcher {
         }
     }
 
-    #[doc(hidden)]
+    /// Compiles a `heed!()`-shaped template that is only known at runtime — from a config file,
+    /// user input, or anywhere else `heed!()`'s own compile-time string literal can't reach —
+    /// into a matcher with the same behavior as one `heed!()` itself would generate.
+    ///
+    /// `heed!()` cannot accept a runtime template directly: its return type (`Option<T>` for zero
+    /// or one capture, `Option<(T1, T2, ...)>` for more, with `{$name}` captures parsed to `u64`)
+    /// is derived from the template's own text at compile time, which a `String` only known at
+    /// runtime cannot supply. `from_template` is the honest alternative — every capture comes back
+    /// as a plain `String` in [`HeedMatcher::match_input`]'s existing, always-untyped order (see
+    /// [`HeedMatcher::capture_names`] to recover which name is which), the same shape `ask!()`'s
+    /// `Answerable::Captures` already uses for the same reason (`.claude/rules/heed-input-parsing.md`).
+    ///
+    /// The pattern and capture names are leaked once (`Box::leak`) to fit `HeedMatcher`'s existing
+    /// `'static` shape, the same shape a `heed!()` call site's own `static` gets for free from its
+    /// literal argument. This is a deliberate, one-time cost: build a `HeedMatcher` once — at
+    /// startup, from a vocabulary file — and reuse it, rather than calling `from_template` in a
+    /// hot loop.
+    ///
+    /// ```
+    /// # use ranting::HeedMatcher;
+    /// let template = String::from("take {item}"); // e.g. read from a file at runtime
+    /// let matcher = HeedMatcher::from_template(&template).expect("valid template");
+    /// assert_eq!(matcher.match_input("take sword"), Some(vec!["sword".to_string()]));
+    /// assert_eq!(matcher.capture_names(), &["item"]);
+    /// ```
+    pub fn from_template(template: &str) -> Result<Self, HeedTemplateError> {
+        let (pattern, captures) = ranting_core::heed_template::compile_heed_template(template)?;
+        let names: Vec<&'static str> = captures
+            .into_iter()
+            .map(|c| &*Box::leak(c.name.into_boxed_str()))
+            .collect();
+        Ok(Self::new(
+            Box::leak(pattern.into_boxed_str()),
+            Box::leak(names.into_boxed_slice()),
+        ))
+    }
+
+    /// The capture names this matcher was built with, in the same order
+    /// [`HeedMatcher::match_input`] returns their values.
+    pub fn capture_names(&self) -> &[&str] {
+        self.names
+    }
+
+    /// Matches `input` against this matcher's pattern, returning the captured values in
+    /// [`HeedMatcher::capture_names`]'s order, or `None` on no match.
     pub fn match_input(&self, input: impl AsRef<str>) -> Option<Vec<String>> {
         let re = self
             .re

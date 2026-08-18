@@ -16,6 +16,7 @@ mod first_person_hook;
 mod grammatical_case;
 mod heed;
 mod heed_derive;
+mod heed_dynamic;
 #[cfg(feature = "inclusive-pronouns")]
 mod inclusive_language;
 mod irregular_plurals;

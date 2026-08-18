@@ -15,6 +15,7 @@
 //! just because `ranting` re-exports a few of them.
 
 pub mod grammar;
+pub mod heed_template;
 pub mod ph_ext;
 pub mod placeholder;
 pub mod verb_conjugate;

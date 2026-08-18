@@ -169,8 +169,7 @@ use std::str::FromStr;
 // for anyone extending the grammar. See `.claude/rules/crate-layout.md`'s "Macro flow" section.
 pub use ranting_core::placeholder;
 
-#[doc(hidden)]
-pub use heed::HeedMatcher;
+pub use heed::{HeedMatcher, HeedTemplateError};
 
 // TODO: make this a feature:
 //pub(crate) use strum_macros;
