@@ -279,6 +279,47 @@ fn match_a4(rest: &str) -> Option<usize> {
     }
 }
 
+/// One of the six agreeing-quantifier word/pairs (ROADMAP.md Phase 8 item 3), matched the
+/// same case-insensitive-first-letter, fixed-suffix shape `match_a3` uses for `\??[tT]he`:
+/// an optional leading `?`, one letter matched case-insensitively, then the rest of `word`
+/// matched literally (lowercase only, like `he` in `match_a3` or `ome` in `match_a2`).
+fn match_quantifier_word(rest: &str, word: &str) -> Option<usize> {
+    let mut len = 0;
+    let mut r = rest;
+    if let Some(stripped) = r.strip_prefix('?') {
+        len += 1;
+        r = stripped;
+    }
+    let mut chars = word.chars();
+    let first = chars.next().expect("quantifier word must not be empty");
+    let c0 = r.chars().next()?;
+    if !c0.eq_ignore_ascii_case(&first) {
+        return None;
+    }
+    let suffix = chars.as_str();
+    let r = &r[c0.len_utf8()..];
+    if r.starts_with(suffix) {
+        Some(len + c0.len_utf8() + suffix.len())
+    } else {
+        None
+    }
+}
+
+/// `\??[nN]o|\??[eE]very|\??[aA]ll|\??[eE]ach|\??[eE]ither|\??[nN]either|\??[mM]uch|
+/// \??[mM]any|\??[lL]ess|\??[fF]ewer` -- tries each of the six word/pairs in turn. None of
+/// them share a leading letter with each other's fixed suffix (`no`/`neither` both start
+/// `n` but diverge at the second character), so returning the first match is safe -- unlike
+/// `match_nested_article_candidates`, which must return every candidate because `the` is a
+/// true prefix of `these`/`those`.
+fn match_quantifier(rest: &str) -> Option<usize> {
+    const QUANTIFIER_WORDS: &[&str] = &[
+        "no", "every", "all", "each", "either", "neither", "much", "many", "less", "fewer",
+    ];
+    QUANTIFIER_WORDS
+        .iter()
+        .find_map(|word| match_quantifier_word(rest, word))
+}
+
 /// `` `[\w-]+ `` -- a backtick followed by one or more word/hyphen chars.
 fn match_backtick(rest: &str) -> Option<usize> {
     let r = rest.strip_prefix('`')?;
@@ -332,6 +373,23 @@ fn match_nested_article_candidates(rest: &str) -> Vec<usize> {
     }
     if rest.starts_with("these") || rest.starts_with("those") {
         out.push(5);
+    }
+    // ROADMAP.md Phase 8 item 3: the six quantifier word/pairs, offered here too -- not just as
+    // pre's top-level first atom -- so a modal-chained placeholder like `{are no ?$0 item}`
+    // still captures "are no " as ONE repetition, exactly as "do the thing" already does via
+    // the "the" row above. Without this, `star_candidates`' greedy "more repetitions first"
+    // search finds a second, competing top-level repetition starting at "no" (now that
+    // `pre_one_rep`'s top-level matchers recognize it too) and explores *that* first, which
+    // wins the parse and silently drops "are"/"is" -- the exact "a new alternative in a
+    // repeated group is not local to that alternative" trap `placeholder-grammar.md` names.
+    // No leading `?` here, same as `the`/`th[eo]se` just above (unlike `a`/`an`/`some`).
+    const NESTED_QUANTIFIER_WORDS: &[&str] = &[
+        "no", "every", "all", "each", "either", "neither", "much", "many", "less", "fewer",
+    ];
+    for word in NESTED_QUANTIFIER_WORDS {
+        if rest.starts_with(word) {
+            out.push(word.len());
+        }
     }
     if let Some(len) = match_backtick(rest) {
         out.push(len);
@@ -512,7 +570,14 @@ fn pre_one_rep(s: &str, pos: usize, pre_words: PreWords) -> Vec<usize> {
         }
         return out;
     }
-    for matcher in [match_a1, match_a2, match_a3, match_a4, match_backtick] {
+    for matcher in [
+        match_a1,
+        match_a2,
+        match_a3,
+        match_a4,
+        match_quantifier,
+        match_backtick,
+    ] {
         if let Some(len) = matcher(rest) {
             out.extend(finish_pre_candidates(s, pos + len));
         }
@@ -599,7 +664,12 @@ fn star_candidates(
     out
 }
 
-/// `(?P<nr>[+-]|(?:\#|\??\$)\w+\s+)?+`
+/// `(?P<nr>[+-]|(?:\#\#?|\??\${1,2})\w+\s+)?+`
+///
+/// ROADMAP.md Phase 8 item 4: `#`/`$` each optionally double up (`##`, `$$`) for the ordinal
+/// forms, mirroring `PH_EXT`'s widened `nr` alternation by hand. `?` still prefixes `$`/`$$`
+/// only, never `#`/`##` -- there is no hidden ordinal-words form, same as there is no hidden
+/// cardinal-words form today.
 fn match_nr(s: &str, pos: usize) -> Option<usize> {
     let rest = &s[pos..];
     let c0 = rest.chars().next()?;
@@ -607,15 +677,27 @@ fn match_nr(s: &str, pos: usize) -> Option<usize> {
         return Some(pos + c0.len_utf8());
     }
     let mut idx = if c0 == '#' {
-        c0.len_utf8()
+        let mut i = c0.len_utf8();
+        if rest[i..].starts_with('#') {
+            i += 1;
+        }
+        i
     } else if c0 == '?' {
         let r = &rest[c0.len_utf8()..];
         if !r.starts_with('$') {
             return None;
         }
-        c0.len_utf8() + 1
+        let mut i = c0.len_utf8() + 1;
+        if rest[i..].starts_with('$') {
+            i += 1;
+        }
+        i
     } else if c0 == '$' {
-        c0.len_utf8()
+        let mut i = c0.len_utf8();
+        if rest[i..].starts_with('$') {
+            i += 1;
+        }
+        i
     } else {
         return None;
     };
@@ -664,7 +746,7 @@ fn token_valid(tok: &str, allow_apostrophe: bool) -> bool {
     }
 }
 
-/// `(?P<post>\s+[<=>%!]*(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$`
+/// `(?P<post>\s+[<=>%!;]*(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$`
 ///
 /// Returns the end offset on success -- always `s.len()` when it succeeds,
 /// since `post` is immediately followed by `$` in the source grammar.
@@ -681,7 +763,7 @@ fn match_post(s: &str, pos: usize) -> Option<usize> {
     let mut idx = ws_len;
     idx += rest[idx..]
         .chars()
-        .take_while(|c| matches!(c, '<' | '=' | '>' | '%' | '!'))
+        .take_while(|c| matches!(c, '<' | '=' | '>' | '%' | '!' | ';'))
         .map(char::len_utf8)
         .sum::<usize>();
     let body = &rest[idx..];
@@ -759,6 +841,16 @@ fn parse_pass(s: &str, pre_words: PreWords) -> Result<PhExtMatch<'_>, PhExtError
                 continue;
             }
             for (nr_span, pos2) in star_candidates(s, pos1, nr_one_rep) {
+                // ROADMAP.md Phase 8 item 4: `nr` is restricted to exactly one repetition, the
+                // same restriction the open `pre` pass takes above and for the same reason --
+                // `star_candidates`' generic engine keeps only the *last* repetition, so two
+                // numeral-shaped runs before the noun would otherwise silently drop the first
+                // rather than fail to parse. `PH_EXT`'s own `nr` group is a single alternation
+                // choice, never a repeated one, so this also brings `ph_ext::parse` back into
+                // parity with the reference grammar rather than widening past it.
+                if nr_span.is_some_and(|(start, _)| start != pos1) {
+                    continue;
+                }
                 for (case_span, pos3) in star_candidates(s, pos2, case_one_rep) {
                     let noun_len = leading_word_or_hyphen_len(&s[pos3..]);
                     if noun_len == 0 {
@@ -952,6 +1044,26 @@ mod tests {
             "The item",
             "these items",
             "those items",
+            // ROADMAP.md Phase 8 item 3: the six agreeing-quantifier word/pairs.
+            "no item",
+            "no items",
+            "?no item",
+            "every item",
+            "all items",
+            "each item",
+            "either item",
+            "neither item",
+            "much stuff",
+            "many items",
+            "less stuff",
+            "fewer items",
+            // ROADMAP.md Phase 8 item 4: the doubled ordinal markers.
+            "#5 item",
+            "$5 item",
+            "?$5 item",
+            "##5 item",
+            "$$5 item",
+            "?$$5 item",
             "`person book",
             "`who's",
             "haven't =who",
@@ -1001,8 +1113,21 @@ mod tests {
             "who <=run",
             "who %run",
             "who <%run",
+            // Participle channel (ROADMAP.md Phase 8 item 1): composed spellings, already
+            // matched by the pre-existing `post` marker run -- no grammar/parser change.
+            "who =%take",
+            "who <=%take",
+            "who >%take",
+            "who %=pick",
+            "who <%=pick",
             "who !good",
             "who !!good",
+            // Verbatim marker (ROADMAP.md Phase 8 item 2): `;` in the same `post` class as the
+            // tense/degree markers above.
+            "i ;were",
+            "who ;;were",
+            "who <;were",
+            "who ;<were",
             "who do run",
             "who don't run",
             "who could have run",
@@ -1052,11 +1177,13 @@ mod tests {
             uc in proptest::option::of(proptest::sample::select(vec![',', '^'])),
             pre_word in proptest::option::of(proptest::sample::select(vec![
                 "a", "an", "?a", "?an", "some", "?some", "the", "The", "these", "Those",
+                "no", "?no", "every", "All", "each", "either", "neither", "much", "many",
+                "less", "fewer",
                 "`ref", "can", "can't", "may", "will", "are", "aren't", "do", "don't",
                 "could", "couldn't", "do the", "do a", "will `x",
             ])),
             nr in proptest::option::of(proptest::sample::select(vec![
-                "+", "-", "#5 ", "$n ", "?$n ",
+                "+", "-", "#5 ", "$n ", "?$n ", "##5 ", "$$n ", "?$$n ",
             ])),
             // Includes the fused two-character forms from ROADMAP.md Phase 6 item 19 alongside
             // the original single-character markers, so the fuzzer actually exercises them
@@ -1067,7 +1194,8 @@ mod tests {
             noun in proptest::sample::select(vec!["noun", "who", "item-thing", "x1"]),
             post in proptest::option::of(proptest::sample::select(vec![
                 "'s", "'", " run", " =run", " <run", " !good", " !!good",
-                " don't run", " run away", " run away today",
+                " don't run", " run away", " run away today", " ;were",
+                " =%take", " <=%take", " >%take", " %=pick", " <%=pick",
             ])),
         ) {
             let mut s = String::new();

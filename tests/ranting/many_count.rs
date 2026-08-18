@@ -95,8 +95,10 @@ fn explicit_numeral_wins_over_many_own_length() {
     // the hook — `Many` only substitutes its own length when the placeholder
     // supplied no numeral (`count: None`) in the first place.
     let one = Many(vec![CountProbe]);
+    // Sentence-initial `$var`: `uc` is dropped at the digit rather than carried
+    // on to the pronoun (docs/architecture-review-2026-08-15.md §1.11).
     assert_eq!(
         say!("{$n =one arrive}.", n = 3),
-        "3 They arrive[3].".to_string()
+        "3 they arrive[3].".to_string()
     );
 }

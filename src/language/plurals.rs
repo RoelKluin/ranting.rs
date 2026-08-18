@@ -109,21 +109,37 @@ fn regular_plural_lowercase(lower: &str) -> String {
     format!("{lower}s")
 }
 
-/// The plural of a hyphenated compound, which pluralizes its **head** rather than its last
+/// The plural of a head-first compound, which pluralizes its **head** rather than its last
 /// element: `mother-in-law` → `mothers-in-law`, `passer-by` → `passers-by`, `court-martial` →
-/// `courts-martial`.
+/// `courts-martial` — and, space-separated, `attorney general` → `attorneys general`,
+/// `court martial` → `courts martial`.
 ///
 /// `None` when the compound has no identifiable head, which is the common case (`t-shirt`,
-/// `merry-go-round`): those pluralize on the tail like any other word, so the caller falls
-/// through to [`regular_plural`]. Note this is the one failure the `plural_end` attribute cannot
-/// work around even in principle — the `-s` belongs in the middle of the word, and `plural_end`
-/// can only append.
+/// `merry-go-round`, and any ordinary modifier + head phrase like `red house`): those pluralize
+/// on the tail like any other word, so the caller falls through to [`regular_plural`]. Note this
+/// is the one failure the `plural_end` attribute cannot work around even in principle — the `-s`
+/// belongs in the middle of the word, and `plural_end` can only append.
+///
+/// The separator is `-` or a single space, checked in that order — a word is only ever split on
+/// one of the two. Splitting on space is gated behind the same closed `PREPOSITIONS`/
+/// `POSTPOSED_ADJECTIVES` lists as the hyphenated form, on purpose: an ordinary modifier + head
+/// phrase (`red house`) is far more common than a postposed-head compound written with a space,
+/// so an ungated split would turn "red houses" into "reds house". See
+/// `.claude/rules/pluralization.md` point 6 and `docs/architecture-review-2026-08-15.md` §1.10.
 pub(crate) fn compound_plural(word: &str) -> Option<String> {
     const PREPOSITIONS: &[&str] = &["in", "of", "by", "at", "on", "to", "up"];
     // `court-martial` / `attorney-general`: a postposed adjective, head still first.
     const POSTPOSED_ADJECTIVES: &[&str] = &["martial", "general", "apparent", "designate"];
 
-    let parts: Vec<&str> = word.split('-').collect();
+    let sep = if word.contains('-') {
+        '-'
+    } else if word.contains(' ') {
+        ' '
+    } else {
+        return None;
+    };
+
+    let parts: Vec<&str> = word.split(sep).collect();
     if parts.len() < 2 {
         return None;
     }
@@ -134,7 +150,7 @@ pub(crate) fn compound_plural(word: &str) -> Option<String> {
     }
     let mut out = regular_plural(parts[0]);
     for part in &parts[1..] {
-        out.push('-');
+        out.push(sep);
         out.push_str(part);
     }
     Some(out)
@@ -326,6 +342,34 @@ mod tests {
         assert_eq!(compound_plural("t-shirt"), None);
         assert_eq!(compound_plural("merry-go-round"), None);
         assert_eq!(compound_plural("single"), None);
+    }
+
+    /// docs/architecture-review-2026-08-15.md §1.10: the space-separated spelling of a
+    /// preposition/postposed-adjective compound must pluralize its head exactly like the
+    /// hyphenated spelling does, keeping a space as the rejoin separator.
+    #[test]
+    fn space_separated_head_first_compounds_pluralize_their_head() {
+        assert_eq!(
+            compound_plural("attorney general").as_deref(),
+            Some("attorneys general")
+        );
+        assert_eq!(
+            compound_plural("court martial").as_deref(),
+            Some("courts martial")
+        );
+        assert_eq!(
+            compound_plural("mother in law").as_deref(),
+            Some("mothers in law")
+        );
+    }
+
+    /// The risk the closed lists exist to bound: an ordinary modifier + head phrase must keep
+    /// pluralizing on the tail, not the first word.
+    #[test]
+    fn ordinary_modifier_head_phrases_still_pluralize_on_the_tail() {
+        for phrase in ["red house", "post office", "fire engine"] {
+            assert_eq!(compound_plural(phrase), None);
+        }
     }
 
     /// Singularization was left alone, and this pins *why* rather than pinning it as correct:

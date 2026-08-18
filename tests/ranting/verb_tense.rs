@@ -61,27 +61,22 @@ fn test_irregular_past_other() {
     assert_eq!(say!("{=0 made}", Noun::new("person", "she")), "She made");
 }
 
+// `test_continuous_form_walking` and `test_continuous_form_other` used to live here, pinning
+// `say!("{=0 walking}")` -> "She walking" (and running/talking/playing likewise). That behavior
+// is now a *compile error*: a bare -ing form in an unmarked verb slot never gets an auxiliary,
+// so the template was a silent writer error rendering ungrammatical text
+// (docs/architecture-review-2026-08-15.md §1.8). The macro now rejects it and names the intended
+// spellings -- `{=0 walk}` for the present, `{=0 =walk}` for the progressive. There is no
+// trybuild harness, so the rejection is pinned by unit tests on `check_unmarked_verb_slot` in
+// `ranting_derive/src/lib.rs`; the test below pins what those intended spellings render.
 #[test]
-fn test_continuous_form_walking() {
-    // Continuous form "walking" should not get a spurious -s suffix
+fn test_continuous_intent_spellings_render_grammatically() {
     let she = Noun::new("person", "she");
-    assert_eq!(say!("{=0 walking}", she), "She walking");
-}
-
-#[test]
-fn test_continuous_form_other() {
-    // Other continuous forms should not get -s suffix
+    assert_eq!(say!("{=0 walk}", she), "She walks");
+    assert_eq!(say!("{=0 =walk}", she), "She is walking");
     assert_eq!(
-        say!("{=0 running}", Noun::new("person", "he")),
-        "He running"
-    );
-    assert_eq!(
-        say!("{=0 talking}", Noun::new("person", "it")),
-        "It talking"
-    );
-    assert_eq!(
-        say!("{=0 playing}", Noun::new("person", "she")),
-        "She playing"
+        say!("{=0 =run}", Noun::new("person", "he")),
+        "He is running"
     );
 }
 
@@ -442,4 +437,107 @@ fn tense_marker_perfect_mixed_sentence() {
     let person = Noun::new("Jordan", "she");
     let result = say!("{=0 %finish} {=0 <%start} before dinner.", person);
     assert_eq!(result, "She has finished she had started before dinner.");
+}
+
+// Regression for docs/architecture-review-2026-08-15.md §1.6 (ROADMAP.md
+// Phase 8 item 6): a phrasal/compound verb used to take the bare
+// third-person-singular -s on its *last* word instead of its head, because
+// which suffix branch fired was decided by the spelling of the particle, not
+// the verb — "pick up" -> "pick ups", "stick to" -> "stick toes", "get by"
+// -> "get bies". The fix conjugates the head word only and re-appends the
+// remainder unchanged.
+
+#[test]
+fn phrasal_verb_pick_up_third_person() {
+    assert_eq!(
+        say!("{=0 pick up} the sword.", Noun::new("person", "he")),
+        "He picks up the sword."
+    );
+    assert_eq!(
+        say!("{=0 pick up} the sword.", Noun::new("person", "she")),
+        "She picks up the sword."
+    );
+    assert_eq!(
+        say!("{=0 pick up} the sword.", Noun::new("thing", "it")),
+        "It picks up the sword."
+    );
+}
+
+#[test]
+fn phrasal_verb_stick_to_third_person() {
+    assert_eq!(
+        say!("{=0 stick to} the plan.", Noun::new("person", "he")),
+        "He sticks to the plan."
+    );
+    assert_eq!(
+        say!("{=0 stick to} the plan.", Noun::new("person", "she")),
+        "She sticks to the plan."
+    );
+    assert_eq!(
+        say!("{=0 stick to} the plan.", Noun::new("thing", "it")),
+        "It sticks to the plan."
+    );
+}
+
+#[test]
+fn phrasal_verb_get_by_third_person() {
+    assert_eq!(
+        say!("{=0 get by} on little.", Noun::new("person", "he")),
+        "He gets by on little."
+    );
+    assert_eq!(
+        say!("{=0 get by} on little.", Noun::new("person", "she")),
+        "She gets by on little."
+    );
+    assert_eq!(
+        say!("{=0 get by} on little.", Noun::new("thing", "it")),
+        "It gets by on little."
+    );
+}
+
+#[test]
+fn phrasal_verb_first_and_second_person_unchanged() {
+    // First and second person never add -s, so the phrasal verb must render
+    // exactly as written for both.
+    assert_eq!(
+        say!("{=0 pick up} the sword.", Noun::new("person", "I")),
+        "I pick up the sword."
+    );
+    assert_eq!(
+        say!("{=0 pick up} the sword.", Noun::new("person", "you")),
+        "You pick up the sword."
+    );
+    assert_eq!(
+        say!("{=0 stick to} the plan.", Noun::new("person", "we")),
+        "We stick to the plan."
+    );
+    assert_eq!(
+        say!("{=0 get by} on little.", Noun::new("people", "they")),
+        "They get by on little."
+    );
+}
+
+#[test]
+fn single_word_verb_control_unaffected() {
+    // Single-word verbs must stay byte-identical to before the head/tail split.
+    assert_eq!(
+        say!("{=0 walk} home.", Noun::new("person", "he")),
+        "He walks home."
+    );
+    assert_eq!(
+        say!("{=0 walk} home.", Noun::new("person", "she")),
+        "She walks home."
+    );
+    assert_eq!(
+        say!("{=0 walk} home.", Noun::new("thing", "it")),
+        "It walks home."
+    );
+    assert_eq!(
+        say!("{=0 walk} home.", Noun::new("person", "I")),
+        "I walk home."
+    );
+    assert_eq!(
+        say!("{=0 walk} home.", Noun::new("person", "you")),
+        "You walk home."
+    );
 }

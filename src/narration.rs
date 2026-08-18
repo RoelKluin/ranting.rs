@@ -7,6 +7,7 @@
 //! meaning exactly what they meant in v1.0.
 
 use crate::{Ranting, is_subjective_plural};
+use ranting_core::placeholder::TenseMarker;
 use ranting_core::verb_conjugate;
 
 /// One of the 7 tenses `say!()` supports via placeholder markers.
@@ -175,18 +176,96 @@ pub(crate) fn resolve_viewpoint<R: Ranting + ?Sized>(
     Some((rendered, is_subjective_plural(rendered)))
 }
 
-/// Map a `Tense` to the `~TENSE~` marker `handle_tense_marker` understands,
-/// plus the base verb conjugated for that tense (empty marker = present,
-/// handled by plain subject-verb agreement, no auxiliary).
-pub(crate) fn marker_and_form_for_tense(tense: Tense, base_verb: &str) -> (&'static str, String) {
+/// Which point on the tense axis a `Tense` value picks -- present, past or
+/// future -- independent of aspect (continuous/perfect). ROADMAP.md Phase 8
+/// item 1's `ctx.tense` override moves a passive/perfect-progressive
+/// placeholder along exactly this axis while keeping its voice/aspect fixed,
+/// so this collapses the 7-variant `Tense` down to the 3 buckets that
+/// classification needs; aspect information in the requested `Tense` (e.g.
+/// `PresentPerfect`'s "perfect") is discarded for those markers -- the
+/// compile-time marker's own aspect wins, not the override's. A bare
+/// `{=%take}` under `Tense::PresentPerfect` still renders "is taken", not
+/// "has been taken": the override only ever moves present/past/future.
+enum TenseAxis {
+    Present,
+    Past,
+    Future,
+}
+
+fn tense_axis(tense: Tense) -> TenseAxis {
     match tense {
-        Tense::Present => ("", base_verb.to_string()),
-        Tense::Past => ("<", verb_conjugate::to_past(base_verb)),
-        Tense::Future => (">", verb_conjugate::to_future(base_verb)),
-        Tense::PresentContinuous => ("=", verb_conjugate::to_continuous(base_verb)),
-        Tense::PastContinuous => ("<=", verb_conjugate::to_continuous(base_verb)),
-        Tense::PresentPerfect => ("%", verb_conjugate::to_past_participle(base_verb)),
-        Tense::PastPerfect => ("<%", verb_conjugate::to_past_participle(base_verb)),
+        Tense::Present | Tense::PresentContinuous | Tense::PresentPerfect => TenseAxis::Present,
+        Tense::Past | Tense::PastContinuous | Tense::PastPerfect => TenseAxis::Past,
+        Tense::Future => TenseAxis::Future,
+    }
+}
+
+/// Map a `Tense` to the marker string `handle_tense_marker` understands, plus
+/// the base verb conjugated for that tense (empty marker = present, handled
+/// by plain subject-verb agreement, no auxiliary).
+///
+/// `compile_time_marker` is the marker the placeholder was actually written
+/// with. For the six markers `say!()` has always supported (`Past` through
+/// `PastPerfect`), a `ctx.tense` override fully replaces it -- unchanged
+/// behavior, since none of those six carry voice. For the three
+/// participle-channel families added by ROADMAP.md Phase 8 item 1 (passive,
+/// future perfect, perfect progressive), the override moves only the tense
+/// axis (`tense_axis`, above); voice/aspect is preserved from
+/// `compile_time_marker`, per that item's DECIDED ruling -- a full-table
+/// override would silently strip voice (`{=%take}` + `Tense::Past` must
+/// render "was taken", not "took"). The future member of the passive and
+/// perfect-progressive families (`>=%`/`>%=`) has no enumerated placeholder
+/// spelling -- `handle_param` never bakes one -- but is a legitimate runtime
+/// destination for this override, so `handle_tense_marker` still carries an
+/// arm for it (see docs/superpowers/specs/2026-08-15-participle-channel.md).
+pub(crate) fn marker_and_form_for_tense(
+    tense: Tense,
+    base_verb: &str,
+    compile_time_marker: TenseMarker,
+) -> (&'static str, String) {
+    match compile_time_marker {
+        TenseMarker::Past
+        | TenseMarker::Continuous
+        | TenseMarker::Future
+        | TenseMarker::PastContinuous
+        | TenseMarker::PresentPerfect
+        | TenseMarker::PastPerfect => match tense {
+            Tense::Present => ("", base_verb.to_string()),
+            Tense::Past => ("<", verb_conjugate::to_past(base_verb)),
+            Tense::Future => (">", verb_conjugate::to_future(base_verb)),
+            Tense::PresentContinuous => ("=", verb_conjugate::to_continuous(base_verb)),
+            Tense::PastContinuous => ("<=", verb_conjugate::to_continuous(base_verb)),
+            Tense::PresentPerfect => ("%", verb_conjugate::to_past_participle(base_verb)),
+            Tense::PastPerfect => ("<%", verb_conjugate::to_past_participle(base_verb)),
+        },
+        TenseMarker::PresentPassive | TenseMarker::PastPassive => {
+            let form = verb_conjugate::to_past_participle(base_verb);
+            match tense_axis(tense) {
+                TenseAxis::Present => ("=%", form),
+                TenseAxis::Past => ("<=%", form),
+                TenseAxis::Future => (">=%", form),
+            }
+        }
+        TenseMarker::FuturePerfect => {
+            // The perfect family's present/past members are the pre-existing `%`/`<%`
+            // spellings -- reused here rather than duplicated, so a `>%` placeholder
+            // overridden to `Tense::Past` renders through the exact same marker string
+            // (and `handle_tense_marker` arm) a `%`/`<%` placeholder would.
+            let form = verb_conjugate::to_past_participle(base_verb);
+            match tense_axis(tense) {
+                TenseAxis::Present => ("%", form),
+                TenseAxis::Past => ("<%", form),
+                TenseAxis::Future => (">%", form),
+            }
+        }
+        TenseMarker::PresentPerfectProgressive | TenseMarker::PastPerfectProgressive => {
+            let form = verb_conjugate::to_continuous(base_verb);
+            match tense_axis(tense) {
+                TenseAxis::Present => ("%=", form),
+                TenseAxis::Past => ("<%=", form),
+                TenseAxis::Future => (">%=", form),
+            }
+        }
     }
 }
 
@@ -199,6 +278,9 @@ pub(crate) fn form_for_marker(marker: &str, base_verb: &str) -> String {
         "=" | "<=" => verb_conjugate::to_continuous(base_verb),
         ">" => verb_conjugate::to_future(base_verb),
         "%" | "<%" => verb_conjugate::to_past_participle(base_verb),
+        // ROADMAP.md Phase 8 item 1.
+        "=%" | "<=%" | ">%" => verb_conjugate::to_past_participle(base_verb),
+        "%=" | "<%=" => verb_conjugate::to_continuous(base_verb),
         _ => base_verb.to_string(),
     }
 }

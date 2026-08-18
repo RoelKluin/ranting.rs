@@ -203,3 +203,6 @@ a fork wanting five levels would use instead. What is unavailable is expressing 
   fork to rely on that, since the other three override the plain hooks instead.
 - **An unmodelled verb declines** to `ranting`'s own conjugation, visibly, rather than being
   silently mis-inflected — the same contract the other three forks use.
+- **ROADMAP.md Phase 8 item 4's `##var`/`$$var` ordinal channels have no Japanese form modeled
+  here.** 第n ("dai-n") is a different construction from the counter phrase `inflect_numeral_custom`
+  already builds above, so both new channels fall through to English rather than being guessed.

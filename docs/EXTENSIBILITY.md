@@ -875,10 +875,13 @@ compared the rendering against the literal English `"one"`, which would have mad
 plural. That was the prerequisite ROADMAP.md item 8 called out, and it is fixed rather than
 documented-around.)
 
-**No `uc` parameter.** `handle_placeholder` never capitalizes the numeral — a placeholder that
-starts a sentence spends its `uc` on the article, verb or noun — so there is nothing for the hook
-to decide. Note also that a returned string replaces the rendering outright, so a `:fmt` width/fill
-spec on `$var` is not re-applied to it; a fork that wants padding pads its own output.
+**No `uc` parameter.** Capitalization stays entirely on the crate side of this hook, applied to
+whatever it returns (or to the English fallback) rather than delegated to it. A sentence-initial
+placeholder with nothing else before the numeral spends its `uc` there: spelled-out (`#var`) gets
+capitalized (`"Two items fell."`), digits (`$var`) simply drop it, since a digit can't be
+capitalized (`"2 items fell."`, not `"2 Items fell."`). Note also that a returned string replaces
+the rendering outright, so a `:fmt` width/fill spec on `$var` is not re-applied to it; a fork that
+wants padding pads its own output.
 
 **When it is not called.** A placeholder with no `#var`/`$var` marker, and a hidden one
 (`` {?$n boots} ``, where the number governs agreement but is not written) — the same
@@ -886,7 +889,10 @@ spec on `$var` is not re-applied to it; a fork that wants padding pads its own o
 parsing, the inverse direction, and does not route here either.
 
 **English is untouched.** The default returns `None`, which keeps `rant_convert_numbers` for `#var`
-and the argument's own `Display` for `$var`.
+and the argument's own `Display` for `$var`. One detail a replacing fork should know: for a
+negative `#var` the English string arrives with its sign spelled as a word (`-1` is
+`"minus one"`, since `rant_convert_numbers` alone writes the non-word `"negativeone"`), all in
+the one string a returned `Some` replaces whole.
 
 **Wrappers.** `Box<T>` forwards to its inner value; `Many` forwards only when it holds exactly one
 item, as in §2.4/§2.6/§2.7; `Maybe(Some(x))` forwards to `x`, `Maybe(None)` declines.
@@ -1488,6 +1494,57 @@ text exactly as rendered.
 
 **Wrappers** behave exactly as §2.7's: `Box<T>` forwards, `Many` forwards only at one item,
 `Maybe(Some(x))` forwards and `Maybe(None)` declines.
+
+### 2.18 Agreeing Quantifiers and the Mass/Count Distinction (ROADMAP.md Phase 8 item 3)
+
+Two orthogonal additions that ship together because the second makes the first correct.
+
+**The mass/count flag.** `Ranting::is_mass(&self) -> bool` defaults to `false`, in the same shape
+`skip_article()` is: declare it with `#[ranting(mass)]`, or on a `Noun` with `Noun::with_mass()`.
+It is deliberately **not** folded into `NounClass` — a word can be both mass and gendered (German
+*das Wasser* is neuter and mass) — so `ranting` reads it in exactly two places: the `a`/`an`/`some`
+article slot, and the `much`/`many`/`less`/`fewer` quantifier pair below.
+
+```rust
+#[derive_ranting]
+#[ranting(name = "information", subject = "it", mass)]
+struct Info {}
+
+Noun::new("information", "it").with_mass()
+```
+
+Without a declared mass, `` {a 0} `` on "information" renders "An information" — `get_a_or_an`
+runs unconditionally. With it, the same placeholder renders "Some information": the unstressed
+mass article, already in the closed vocabulary, that a plain a/an guess could never reach.
+
+**Six quantifier word/pairs** join `the`/`a`/`an`/`some`/`these`/`those` in the `pre` slot's closed
+vocabulary, each reaching `inflect_article_custom_with_context` through a new `ArticleKind` arm
+with the identical `GrammaticalCase`/`NounClass`/`count`/`uc`/`ctx` signals the pre-existing
+article arms already carry — no new hook, no new parameter:
+
+| Word(s) | Singular | Plural | Selects on |
+|---|---|---|---|
+| `no` | "no item" | "no items" | nothing — renders itself unchanged |
+| `every` / `all` | "every item" | "all items" | number, the `these`/`those` → `this`/`that` swap |
+| `each` | "each item" | — | forces singular (baked at compile time) |
+| `either` / `neither` | "either item" | — | forces singular, same as `each` |
+| `much` / `many` | "much information" | "many items" | `is_mass()`, not number |
+| `less` / `fewer` | "less information" | "fewer items" | `is_mass()`, not number |
+
+A fork overrides any of them exactly as it would `the`: return `Some(word)` from
+`inflect_article_custom` for the article strings it recognizes (`"no"`, `"every"`, `"all"`, …) and
+`None` for the rest.
+
+**`each`/`either`/`neither` and the `+` marker.** These three force singular agreement at compile
+time — `` {each item} `` needs no `-` marker to render singular — so a written `+` directly
+contradicts that and is a compile error naming the quantifier, not a silent pick of one meaning
+over the other. A `` {each $n item} ``-shaped numeral is unaffected: the runtime count decides
+agreement there, and there is no *static* contradiction for the macro to catch.
+
+**English is untouched** for every placeholder that compiled before this item, with one named
+exception: `` {no $n item} `` at a singular count used to fall through to the pre-noun *verb* path
+and render "Noes 1 item" (an open-pass parsing accident); it now renders "No 1 item" through the
+real `ArticleKind::No` arm.
 
 ## Partial Customization
 

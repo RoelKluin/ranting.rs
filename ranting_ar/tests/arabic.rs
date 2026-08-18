@@ -191,6 +191,18 @@ fn spelled_numerals_take_the_opposite_gender_polarity() {
     assert_eq!(say!("{#0 1}", 2, ArabicNoun::taliba()), "اثنتان طالبتان");
 }
 
+/// ROADMAP.md Phase 8 item 4's "second constituency": Arabic ordinals agree *normally* with the
+/// counted noun's gender (unlike the cardinal polarity above), and — unlike a cardinal — the
+/// ordinal's count does not itself pluralize the noun: `ArabicNoun::kitab()`/`taliba()` are
+/// declared singular, and stay singular here no matter how large the count is.
+#[test]
+fn ordinal_numerals_agree_normally_and_do_not_pluralize_the_noun() {
+    assert_eq!(say!("{##0 1}", 1, ArabicNoun::kitab()), "أول كتاب");
+    assert_eq!(say!("{##0 1}", 3, ArabicNoun::kitab()), "ثالث كتاب");
+    assert_eq!(say!("{##0 1}", 1, ArabicNoun::taliba()), "أولى طالبة");
+    assert_eq!(say!("{##0 1}", 3, ArabicNoun::taliba()), "ثالثة طالبة");
+}
+
 // ------------------------------------------------------------------------ pronouns --
 
 #[test]

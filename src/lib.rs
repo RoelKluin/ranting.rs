@@ -29,6 +29,22 @@
 //! - Possessive determiner: their
 //! - Possessive pronoun: theirs
 //!
+//! ## Verbatim verb marker
+//!
+//! A post-noun verb normally gets person/number agreement, which corrupts an
+//! already-correct subjunctive: `` {=i were} `` renders "I was", not "I were" — mood is
+//! a property of the surrounding clause (`if`, `wish`, ...), not of the verb, so a
+//! smarter conjugator can't fix it without breaking the indicative reading, which is far
+//! more common. Prefix the verb with `;` to render it exactly as written, with no
+//! agreement applied at all:
+//!
+//! ```rust
+//! # use ranting::{Noun, say};
+//! let i = Noun::new("person", "I");
+//! assert_eq!(say!("If {=i ;were} rich, I would travel.", i),
+//!     "If I were rich, I would travel.".to_string());
+//! ```
+//!
 //! ## Feature flags
 #![doc = document_features::document_features!()]
 
@@ -46,8 +62,89 @@ pub use answerable::Answerable;
 pub use collections::{Many, Maybe};
 pub use narration::{NarrationContext, Person, Register, Tense};
 
+// Upstream's speller, re-exported raw: it spells a negative as one unhyphenated run
+// ("negativeone"). `spell_count` below is what `#var` actually renders through.
 #[doc(hidden)]
 pub use english_numbers::convert_no_fmt as rant_convert_numbers;
+
+/// Spell a `#var` count in English words, writing the sign as a separate word.
+///
+/// `english_numbers` renders a negative as a single run — `-1` comes back as the non-word
+/// "negativeone" — so the magnitude is spelled and "minus " prefixed instead. The result is
+/// still one string, which is what `inflect_numeral_custom` is contracted to replace wholesale.
+fn spell_count(count: i64) -> String {
+    match count.checked_neg() {
+        // `i64::MIN` has no representable magnitude. Upstream panics on it (it takes `abs()`
+        // internally), and did before this guard existed; leaving the call in place keeps that
+        // pre-existing failure exactly as it was rather than inventing an output shape for it.
+        Some(magnitude) if count < 0 => format!("minus {}", rant_convert_numbers(magnitude)),
+        _ => rant_convert_numbers(count),
+    }
+}
+
+/// Rewrite the last word of a spelled cardinal into its ordinal form ("three" -> "third",
+/// "twenty" -> "twentieth"). Applied to the whole string when it has no interior space (the
+/// common case, and also `english_numbers`' unhyphenated compounds like "twentyone", which this
+/// sees as one token ending in "one" -- see [`spell_ordinal`]'s docs for that inherited quirk).
+fn ordinalize_last_word(word: &str) -> String {
+    // Suppletive/stem-change forms first (checked as suffixes, not whole-word equality, so a
+    // compound like "twentyone" still rewrites to "twentyfirst"), then the `-y` -> `-ieth` rule,
+    // then the regular `+th` fallback ("fourth", "sixth", "hundredth").
+    if let Some(stem) = word.strip_suffix("one") {
+        format!("{stem}first")
+    } else if let Some(stem) = word.strip_suffix("two") {
+        format!("{stem}second")
+    } else if let Some(stem) = word.strip_suffix("three") {
+        format!("{stem}third")
+    } else if let Some(stem) = word.strip_suffix("five") {
+        format!("{stem}fifth")
+    } else if let Some(stem) = word.strip_suffix("eight") {
+        format!("{stem}eighth")
+    } else if let Some(stem) = word.strip_suffix("nine") {
+        format!("{stem}ninth")
+    } else if let Some(stem) = word.strip_suffix("twelve") {
+        format!("{stem}twelfth")
+    } else if let Some(stem) = word.strip_suffix('y') {
+        format!("{stem}ieth")
+    } else {
+        format!("{word}th")
+    }
+}
+
+/// Spell a `##var` count in English ordinal words ("three" -> "third").
+///
+/// Spells the cardinal via [`spell_count`], then rewrites its last word --
+/// see `docs/superpowers/specs/2026-08-15-ordinal-numerals.md`'s "The English rules" section for
+/// the full table. Inherits `spell_count`'s "minus " treatment of negatives verbatim ("minus
+/// three" -> "minus third"), which is not English anyone writes but is deterministic and
+/// non-panicking, same posture as the cardinal; a fork's `inflect_numeral_custom` hook may
+/// replace the whole string. Also inherits `english_numbers`' unhyphenated compound spelling
+/// ("twentyone", not "twenty-one"), which this function does not attempt to fix.
+fn spell_ordinal(count: i64) -> String {
+    let spelled = spell_count(count);
+    match spelled.rsplit_once(' ') {
+        Some((prefix, last)) => format!("{prefix} {}", ordinalize_last_word(last)),
+        None => ordinalize_last_word(&spelled),
+    }
+}
+
+/// The English ordinal suffix for `$$var`'s digit rendering ("3rd", "11th", "21st").
+///
+/// Checked against the *last two* digits, not the last one -- the teens exception: 11-13 (and
+/// 111-113, 211-213, ...) all take "th" regardless of their last digit.
+fn ordinal_suffix(n: i64) -> &'static str {
+    let last_two = n.unsigned_abs() % 100;
+    if (11..=13).contains(&last_two) {
+        "th"
+    } else {
+        match n.unsigned_abs() % 10 {
+            1 => "st",
+            2 => "nd",
+            3 => "rd",
+            _ => "th",
+        }
+    }
+}
 
 // required for ranting_derive
 #[doc(hidden)]
@@ -62,7 +159,7 @@ pub use language::english::{
 };
 pub use ranting_core::grammar::{SubjectPronoun, is_subject, is_subjective_plural};
 use ranting_core::placeholder::{
-    ArticleKind, CaseKind, NumeralKind, NumeralSpec, PlaceholderSpec, PostSpec,
+    ArticleKind, CaseKind, NumeralKind, NumeralSpec, PlaceholderSpec, Plurality, PostSpec,
 };
 use std::str::FromStr;
 
@@ -314,7 +411,20 @@ where
                 // `uc` is applied once, by the hook, on the assembled article: adapt_article()
                 // may pick either its own form or the a/an passed in, so capitalizing before it
                 // ran would mean capitalizing a form that gets discarded.
-                let a_or_an = get_a_or_an(&singular);
+                //
+                // ROADMAP.md Phase 8 item 3: a mass noun's singular renders the unstressed
+                // `some` instead of a guessed a/an -- `some` is already in the closed
+                // vocabulary (`ArticleOrSo::A` covers `a`/`an`/`some`), so this substitutes it
+                // for whichever of the three the template wrote; `adapt_article`'s `t ==
+                // ArticleOrSo::A => s` arm then keeps it verbatim, exactly as it already does
+                // for a written `some` on a non-mass noun. Elision was the other option the
+                // design spike weighed and rejected: that story belongs to `skip_article`/
+                // `no_article`, not to a mass-noun-only special case here.
+                let a_or_an = if noun.is_mass() && !as_pl {
+                    "some"
+                } else {
+                    get_a_or_an(&singular)
+                };
                 let article = ranting::adapt_article(a_or_an, article_form, space, as_pl, false);
                 Some(noun.capitalize_with_context(
                     &article,
@@ -350,6 +460,104 @@ where
                     sentence_start,
                     ctx,
                 ))
+            }
+        }
+        // ROADMAP.md Phase 8 item 3: `no` is number-transparent -- it renders itself
+        // unchanged on both singular and plural agreement, so unlike every other arm here it
+        // needs no `adapt_article`/`ArticleOrSo` table at all, only a real `ArticleKind` so it
+        // stops reaching the pre-noun *verb* path (`{no $n item}` at `n = 1` used to render
+        // "Noes 1 item"; see docs/superpowers/specs/2026-08-15-quantifier-determiners.md).
+        // `each`/`either`/`neither` render the same way -- also invariant text, since their
+        // number behavior (forcing the singular) is baked into `as_pl` at compile time by
+        // `ranting_derive`'s `article_kind_tokens`, not expressed by swapping the word itself.
+        ArticleKind::No | ArticleKind::Each | ArticleKind::EitherNeither => {
+            let singular = noun.name(false);
+            if let Some(custom) = noun.inflect_article_custom_with_context(
+                article_form,
+                &singular,
+                case,
+                class,
+                as_pl,
+                count,
+                uc,
+                ctx,
+            ) {
+                Some(custom + space)
+            } else {
+                Some(
+                    noun.capitalize_with_context(
+                        article_form,
+                        OrthographyRole::Article,
+                        uc,
+                        sentence_start,
+                        ctx,
+                    ) + space,
+                )
+            }
+        }
+        // `every` swaps to the suppletive plural `all` on plural agreement -- the same
+        // `these`/`those` -> `this`/`that` mechanism above, pointed at one more pair.
+        ArticleKind::EveryAll => {
+            let singular = noun.name(false);
+            if let Some(custom) = noun.inflect_article_custom_with_context(
+                article_form,
+                &singular,
+                case,
+                class,
+                as_pl,
+                count,
+                uc,
+                ctx,
+            ) {
+                Some(custom + space)
+            } else {
+                let article =
+                    ranting::adapt_article(article_form, article_form, space, as_pl, false);
+                Some(noun.capitalize_with_context(
+                    &article,
+                    OrthographyRole::Article,
+                    uc,
+                    sentence_start,
+                    ctx,
+                ))
+            }
+        }
+        // `much`/`many` and `less`/`fewer` select on `is_mass()`, not on `as_pl` -- the
+        // concrete reason part (a) had to wait for part (b): without a mass/count flag the
+        // only proxy is number agreement, which guesses wrong on exactly the nouns these
+        // words exist for ("much items"/"many information"-class errors). Bypasses
+        // `adapt_article`/`ArticleOrSo` entirely, since that table's only selection axis is
+        // `as_pl`.
+        ArticleKind::MuchMany | ArticleKind::LessFewer => {
+            let singular = noun.name(false);
+            if let Some(custom) = noun.inflect_article_custom_with_context(
+                article_form,
+                &singular,
+                case,
+                class,
+                as_pl,
+                count,
+                uc,
+                ctx,
+            ) {
+                Some(custom + space)
+            } else {
+                let word = match (kind, noun.is_mass()) {
+                    (ArticleKind::MuchMany, true) => "much",
+                    (ArticleKind::MuchMany, false) => "many",
+                    (ArticleKind::LessFewer, true) => "less",
+                    (ArticleKind::LessFewer, false) => "fewer",
+                    _ => unreachable!("kind is MuchMany or LessFewer, checked by the outer match"),
+                };
+                Some(
+                    noun.capitalize_with_context(
+                        word,
+                        OrthographyRole::Article,
+                        uc,
+                        sentence_start,
+                        ctx,
+                    ) + space,
+                )
             }
         }
         // Not one of English's article keywords -- a possessive-substitution sentinel, a
@@ -501,16 +709,22 @@ where
     let singular_post_verb = OF.is_match(pre); // e.g. "{a set of $ten are} still singular"
 
     let as_pl = match plurality {
-        "" => noun.is_plural(),
-        "+" => true,
-        "-" => false,
+        Plurality::Unmarked => noun.is_plural(),
+        Plurality::Plus => true,
+        Plurality::Minus => false,
         // `#var`'s count is baked by the macro, so number agreement is decided from the
-        // number itself rather than from the rendered word. That is exactly equivalent for
-        // English -- `rant_convert_numbers` spells only 1 as "one" (-1 is "negativeone") --
-        // and it is what keeps a non-English `inflect_numeral_custom` from flipping
-        // agreement: the hook renders *after* this, and its output is never sniffed.
-        "#" => count != Some(1),
-        _ => {
+        // number itself and never from the rendered word. That is what keeps a non-English
+        // `inflect_numeral_custom` from flipping agreement -- the hook renders *after* this,
+        // and its output is never sniffed -- and it is also why `spell_count`'s "minus one"
+        // agrees plural ("minus one degrees"), which sniffing the spelled form would get
+        // wrong now that the negative spelling contains the word "one".
+        Plurality::CardinalWords => count != Some(1),
+        // ROADMAP.md Phase 8 item 4: agreement decouples from the ordinal itself -- "the third
+        // attempt" stays singular even though `count` is 3, an ordinal says *which* one, not
+        // *how many* -- so this falls through to the same rule `Unmarked` takes rather than
+        // reading `count`/`nr` at all.
+        Plurality::OrdinalWords | Plurality::OrdinalDigits => noun.is_plural(),
+        Plurality::CardinalDigits => {
             let s = nr.trim_start();
             s != "1" && s.split('.').next() != Some("1")
         }
@@ -519,13 +733,18 @@ where
     // above, but carries the numeral's value (and visible fraction digits) through to the five
     // `_custom` hooks that had no numeral signal at all, rather than collapsing it to a bool.
     // `None` for a bare `{noun}`/`{+noun}`/`{-noun}` -- there is no numeral to report.
+    //
+    // ROADMAP.md Phase 8 item 4: unlike `as_pl` above, an ordinal's `count` still flows through
+    // here exactly like its cardinal sibling's -- this is what Spanish/Arabic ordinal gender
+    // agreement needs from `inflect_numeral_custom`, even though the same count no longer
+    // decides `as_pl`.
     let placeholder_count: Option<PlaceholderCount> = match plurality {
-        "" | "+" | "-" => None,
-        "#" => count.map(|value| PlaceholderCount {
+        Plurality::Unmarked | Plurality::Plus | Plurality::Minus => None,
+        Plurality::CardinalWords | Plurality::OrdinalWords => count.map(|value| PlaceholderCount {
             value,
             fraction_digits: 0,
         }),
-        _ => {
+        Plurality::CardinalDigits | Plurality::OrdinalDigits => {
             let s = nr.trim_start();
             let mut parts = s.splitn(2, '.');
             let int_part = parts.next().unwrap_or("");
@@ -702,18 +921,34 @@ where
         hidden: false,
     }) = numeral
     {
-        // `#var` is spelled here rather than by the macro, so the hook can replace the
-        // speller wholesale; `$var` arrives already rendered, `:fmt` spec applied.
+        // `#var`/`##var` are spelled here rather than by the macro, so the hook can replace the
+        // speller wholesale; `$var`/`$$var` arrive already rendered as digits, `:fmt` spec
+        // applied. ROADMAP.md Phase 8 item 4: `##var`/`$$var` are the ordinal siblings, sharing
+        // the same real `count` the cardinal channel carries.
         let english = match kind {
-            NumeralKind::Words => count.map_or_else(String::new, rant_convert_numbers),
-            NumeralKind::Digits => nr.clone(),
+            NumeralKind::Words => count.map_or_else(String::new, spell_count),
+            NumeralKind::Ordinal => count.map_or_else(String::new, spell_ordinal),
+            NumeralKind::Digits | NumeralKind::OrdinalDigits => nr.clone(),
         };
-        // `$var`'s count is not baked (its argument needn't be an integer at all), so it is
-        // recovered from the rendered digits — `None` for a float, a width-padded or
+        // `$var`/`$$var`'s count is not baked (the argument needn't be an integer at all), so
+        // it is recovered from the rendered digits — `None` for a float, a width-padded or
         // otherwise formatted number, or a non-numeric `Display`.
         let count = match kind {
-            NumeralKind::Words => count,
-            NumeralKind::Digits => english.trim().parse::<i64>().ok(),
+            NumeralKind::Words | NumeralKind::Ordinal => count,
+            NumeralKind::Digits | NumeralKind::OrdinalDigits => english.trim().parse::<i64>().ok(),
+        };
+        // The English ordinal suffix ("3rd", "11th") is appended from the parsed `count` above
+        // rather than baked into `english` before that parse -- otherwise the parse would see
+        // "3rd" instead of "3" and always fail. A failed parse (a float, a padded value) leaves
+        // the digits unsuffixed, the same "count is None, agree from what we have" posture
+        // `$var` already takes.
+        let english = if kind == NumeralKind::OrdinalDigits {
+            match count {
+                Some(n) => format!("{english}{}", ordinal_suffix(n)),
+                None => english,
+            }
+        } else {
+            english
         };
         let rendered = noun
             .inflect_numeral_custom_with_context(
@@ -726,6 +961,21 @@ where
                 ctx,
             )
             .unwrap_or(english);
+        // A sentence-initial placeholder with no preceding article/verb still has `uc` to
+        // spend, and the numeral is the next thing that renders — so it claims the capital
+        // here instead of leaving it to fall through to the noun. The two channels differ:
+        // `#var` is a spelled word and can take it; `$var` is digits and can't, so the
+        // capital is simply dropped rather than carried on. Nothing claims it when the
+        // numeral itself renders empty (a hidden numeral, or a fork returning "").
+        let rendered = if uc && sentence_start && !rendered.is_empty() {
+            uc = false;
+            match kind {
+                NumeralKind::Words | NumeralKind::Ordinal => capitalize_if(&rendered, true),
+                NumeralKind::Digits | NumeralKind::OrdinalDigits => rendered,
+            }
+        } else {
+            rendered
+        };
         if swallow_separator {
             swallow_separator = false;
         } else {
@@ -746,9 +996,9 @@ where
         PostSpec::Verb(raw) => {
             split_at_find_start(raw, |c: char| !c.is_whitespace()).map_or("", |(sp, _)| sp)
         }
-        PostSpec::Tense { leading_space, .. } | PostSpec::Degree { leading_space, .. } => {
-            leading_space
-        }
+        PostSpec::Tense { leading_space, .. }
+        | PostSpec::Degree { leading_space, .. }
+        | PostSpec::Verbatim { leading_space, .. } => leading_space,
     };
 
     if case != CaseKind::Hidden {
@@ -1009,21 +1259,22 @@ where
     match post_spec {
         PostSpec::None => {}
         PostSpec::PossessiveS => {
-            res.push_str(adapt_possesive_s(noun, as_pl));
+            res.push_str(adapt_possesive_s(as_pl));
         }
         PostSpec::Verb(raw) => {
-            // Same last-word-conjugated / leading-words-verbatim split as before this
-            // refactor: `PostSpec::Verb` still carries free multi-word text (see its
-            // doc comment), the macro never had a marker to split it on.
+            // A phrasal or compound verb ("pick up") conjugates on its head word;
+            // everything after the first word — including the separating whitespace
+            // — is carried through unchanged. (Until 2026-08-15 this split off the
+            // *last* word instead, which conjugated the particle rather than the verb —
+            // "pick up" -> "pick ups"; see docs/architecture-review-2026-08-15.md §1.6.)
             let rest =
                 split_at_find_start(raw, |c: char| !c.is_whitespace()).map_or(raw, |(_, r)| r);
-            let (etc2, word) =
-                split_at_find_end(rest, |c: char| c.is_whitespace()).unwrap_or(("", rest));
-            res.push_str(etc2);
+            let (word, trailing) =
+                split_at_find_start(rest, |c: char| c.is_whitespace()).unwrap_or((rest, ""));
             if !word.is_empty() {
                 match word {
                     "'" | "'s" => {
-                        res.push_str(adapt_possesive_s(noun, as_pl));
+                        res.push_str(adapt_possesive_s(as_pl));
                     }
                     v => {
                         let verb = conjugate_verb(
@@ -1039,6 +1290,7 @@ where
                         res.push_str(&verb);
                     }
                 }
+                res.push_str(trailing);
             }
         }
         PostSpec::Tense {
@@ -1069,7 +1321,7 @@ where
                     // runtime context, falling back to the compile-time marker's
                     // default tense.
                     let (marker_str, base_form) = match narration_ctx.tense {
-                        Some(t) => narration::marker_and_form_for_tense(t, word),
+                        Some(t) => narration::marker_and_form_for_tense(t, word, marker),
                         None => (
                             marker.as_marker_str(),
                             narration::form_for_marker(marker.as_marker_str(), word),
@@ -1150,6 +1402,21 @@ where
                 res.push_str(trailing);
             }
         }
+        PostSpec::Verbatim { word, trailing, .. } => {
+            // ROADMAP.md Phase 8 item 2: no `inflect_verb_custom_with_context` call at
+            // all -- the whole point of the marker is that nothing re-derives this word.
+            res.push_str(&noun.capitalize_with_context(
+                word,
+                OrthographyRole::Verb,
+                uc,
+                sentence_start,
+                ctx,
+            ));
+            if !trailing.is_empty() {
+                res.push(' ');
+                res.push_str(trailing);
+            }
+        }
     }
     res
 }
@@ -1201,6 +1468,45 @@ pub fn handle_tense_marker(subject: &str, marker: &str, verb: &str) -> String {
             // Past perfect: subject + had + past participle
             let aux = conjugate_auxiliary(AuxiliaryVerb::Had, subject);
             format!("{} {}", aux, verb)
+        }
+        // ROADMAP.md Phase 8 item 1: the participle channel -- passive voice, future
+        // perfect, perfect progressive. Auxiliary agreement reuses IsAre/WasWere/HaveHas
+        // unchanged (docs/superpowers/specs/2026-08-15-participle-channel.md); "will
+        // have"/"had been"/"will be"/"will have been" are invariant across every person.
+        "=%" => {
+            // Present passive: subject + is/are/am + past participle
+            let aux = conjugate_auxiliary(AuxiliaryVerb::IsAre, subject);
+            format!("{} {}", aux, verb)
+        }
+        "<=%" => {
+            // Past passive: subject + was/were + past participle
+            let aux = conjugate_auxiliary(AuxiliaryVerb::WasWere, subject);
+            format!("{} {}", aux, verb)
+        }
+        ">%" => {
+            // Future perfect: subject + will have + past participle
+            format!("will have {}", verb)
+        }
+        "%=" => {
+            // Present perfect progressive: subject + has/have + been + gerund
+            let aux = conjugate_auxiliary(AuxiliaryVerb::HaveHas, subject);
+            format!("{} been {}", aux, verb)
+        }
+        "<%=" => {
+            // Past perfect progressive: subject + had been + gerund
+            format!("had been {}", verb)
+        }
+        // Internal-only marker strings: never baked by `handle_param` (`>=%`/`>%=` are not
+        // enumerated `tense_variant` spellings), only ever synthesized by
+        // `narration::marker_and_form_for_tense` when a `ctx.tense` override moves a
+        // passive/perfect-progressive placeholder to the future while preserving its voice.
+        ">=%" => {
+            // Future passive: subject + will be + past participle
+            format!("will be {}", verb)
+        }
+        ">%=" => {
+            // Future perfect progressive: subject + will have been + gerund
+            format!("will have been {}", verb)
         }
         _ => verb.to_string(),
     }
@@ -1286,7 +1592,8 @@ fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
     subject = "$",
     gender = "$",
     singular_end = "$",
-    plural_end = "$"
+    plural_end = "$",
+    mass = "$"
 )]
 pub struct Noun {
     pub(crate) name: String,
@@ -1312,6 +1619,12 @@ pub struct Noun {
     // attribute accept both field shapes.
     pub(crate) singular_end: Option<String>,
     pub(crate) plural_end: Option<String>,
+    // ROADMAP.md Phase 8 item 3. Plain `bool`, `false` unless `with_mass()` is called: `Noun`
+    // has no attributes to declare, the same reason `gender`/`singular_end`/`plural_end` are
+    // runtime fields here, and mass is a bare flag with no "unset" state to represent (unlike
+    // `singular_end`/`plural_end`, which need `Option` to distinguish "declared empty" from
+    // "no rule declared" -- mass has only two states to begin with).
+    pub(crate) mass: bool,
 }
 
 /// How the derive macro reads a `#[ranting(singular_end = "$")]` / `#[ranting(plural_end =
@@ -1406,6 +1719,7 @@ impl Noun {
             gender: NounClass::UNSET,
             singular_end: None,
             plural_end: None,
+            mass: false,
         })
     }
 
@@ -1471,6 +1785,24 @@ impl Noun {
         self.singular_end = Some(singular_end.to_string());
         self
     }
+
+    /// Declare this noun a mass noun ("information", "water") rather than a count noun,
+    /// consuming and returning it so it chains off [`new`](Self::new)/[`try_new`](Self::try_new).
+    /// Both constructors leave it `false`, which is what every noun that never calls this keeps.
+    ///
+    /// See [`Ranting::is_mass`] for what changes once it's set.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use ranting::*;
+    /// # use ranting_derive::say;
+    /// let info = Noun::new("information", "it").with_mass();
+    /// assert_eq!(say!("{a info}"), "Some information".to_string());
+    /// ```
+    pub fn with_mass(mut self) -> Self {
+        self.mass = true;
+        self
+    }
 }
 
 /// convert to `'s` or `'` as appropriate for singular or plural of a noun.
@@ -1493,17 +1825,8 @@ impl Noun {
 /// # }
 /// ```
 // a combined plural may require some tricks: "The star and cross' design was pattented by Bob."
-fn adapt_possesive_s(noun: &dyn Ranting, asked_plural: bool) -> &str {
-    if asked_plural && !is_name(noun) {
-        "'"
-    } else {
-        "'s"
-    }
-}
-fn is_name(noun: &dyn Ranting) -> bool {
-    noun.name(false)
-        .trim_start_matches('\'')
-        .starts_with(|c: char| c.is_uppercase())
+fn adapt_possesive_s(asked_plural: bool) -> &'static str {
+    if asked_plural { "'" } else { "'s" }
 }
 
 /// Pronoun grammatical case for customization via inflect_pronoun_custom()
@@ -1682,6 +2005,15 @@ pub enum NumeralStyle {
     /// `` {$n nouns} `` — the number in digits, the argument's own `Display` output with any
     /// `:fmt` spec applied. English: "2".
     Digits,
+    /// `` {##n attempt} `` — ROADMAP.md Phase 8 item 4: the ordinal, spelled out. English:
+    /// "third". Carries the same real `count` [`NumeralStyle::Words`] does, but — unlike
+    /// `Words` — does not itself decide the noun's number agreement: an ordinal says *which*
+    /// one, not *how many*, so `` {the ##n attempt} `` renders "the third attempt", never
+    /// "attempts".
+    Ordinal,
+    /// `` {$$n attempt} `` — the ordinal, as digits with an English suffix. English: "3rd".
+    /// Same agreement decoupling as [`NumeralStyle::Ordinal`].
+    OrdinalDigits,
 }
 
 impl From<placeholder::NumeralKind> for NumeralStyle {
@@ -1689,6 +2021,8 @@ impl From<placeholder::NumeralKind> for NumeralStyle {
         match kind {
             placeholder::NumeralKind::Words => NumeralStyle::Words,
             placeholder::NumeralKind::Digits => NumeralStyle::Digits,
+            placeholder::NumeralKind::Ordinal => NumeralStyle::Ordinal,
+            placeholder::NumeralKind::OrdinalDigits => NumeralStyle::OrdinalDigits,
         }
     }
 }
@@ -1896,6 +2230,20 @@ pub trait Ranting: std::fmt::Display {
     /// the display string. See [`NounClass`] for why the label is open-ended.
     fn noun_class(&self) -> NounClass {
         NounClass::UNSET
+    }
+
+    /// Whether the entity is a mass noun ("information", "water") rather than a count noun
+    /// ("item", "boot") -- orthogonal to [`NounClass`]: a word can be both, since many languages
+    /// have a lexical gender for their mass nouns too (German *das Wasser* is neuter and mass).
+    ///
+    /// `false` by default, so no existing entity's rendering changes. Set it with
+    /// `#[ranting(mass)]`, or on a [`Noun`] with [`Noun::with_mass`]. `ranting` reads it in
+    /// exactly two places: the `a`/`an`/`some` article slot renders `some` on a mass noun's
+    /// singular instead of guessing `a`/`an` (`` {a 0} `` on "information" would otherwise render
+    /// "An information"), and the `much`/`many` and `less`/`fewer` quantifier pairs pick their
+    /// mass-noun member.
+    fn is_mass(&self) -> bool {
+        false
     }
 
     /// Whether `subject` counts as first-person (the narrator) for
@@ -2424,7 +2772,9 @@ pub trait Ranting: std::fmt::Display {
     /// * `numeral` - The number as English renders it, i.e. what is used if this returns `None`:
     ///   the spelled-out word for [`NumeralStyle::Words`], or the already-formatted digits
     ///   (`:fmt` spec applied) for [`NumeralStyle::Digits`]. A digit-mapping fork can transcribe
-    ///   this directly; a fork that spells numbers wants `count` instead.
+    ///   this directly; a fork that spells numbers wants `count` instead. A negative count
+    ///   arrives with its sign spelled as a word — `-1` is `"minus one"` — in this one string,
+    ///   which a returned `Some` replaces whole, sign included.
     /// * `count` - The number itself, when it is available. Always `Some` for
     ///   [`NumeralStyle::Words`], where the macro bakes the same `as i64` cast it always applied
     ///   before spelling. For [`NumeralStyle::Digits`] it is recovered by parsing `numeral`, so
@@ -2438,11 +2788,16 @@ pub trait Ranting: std::fmt::Display {
     /// * `as_plural` - As for every hook, but decided *before* this hook runs, from the count
     ///   rather than from the rendered word, so a custom numeral can never flip it.
     ///
-    /// There is deliberately no `uc` parameter: `handle_placeholder` never capitalizes the
-    /// numeral (a placeholder that starts a sentence spends its `uc` on the article, verb or
-    /// noun), so there would be nothing for the hook to decide. Note also that a returned string
-    /// replaces the rendered numeral outright, so a `:fmt` width/fill spec on `$var` is *not*
-    /// re-applied to it — a fork that wants padding pads its own output.
+    /// There is deliberately no `uc` parameter: capitalization stays entirely on the crate side
+    /// of this hook, applied to whatever it returns (or to the English fallback) rather than
+    /// delegated to it. A sentence-initial placeholder with no preceding article or verb spends
+    /// its capital on the numeral — [`NumeralStyle::Words`] gets it capitalized
+    /// (`"Two items fell."`), [`NumeralStyle::Digits`] simply drops it, since a digit can't be
+    /// capitalized (`"2 items fell."`, not `"2 Items fell."`). A fork's returned string is
+    /// capitalized the same way an unmodified English one would be, so it never needs its own
+    /// case logic for this. Note also that a returned string replaces the rendered numeral
+    /// outright, so a `:fmt` width/fill spec on `$var` is *not* re-applied to it — a fork that
+    /// wants padding pads its own output.
     ///
     /// Not called at all when nothing numeric renders: a placeholder without a `#var`/`$var`
     /// marker, or with a hidden one (`` {?$n nouns} ``, where the number governs agreement but is
@@ -2474,6 +2829,8 @@ pub trait Ranting: std::fmt::Display {
     ///             '0'..='9' => char::from_u32(c as u32 - '0' as u32 + 0x966).unwrap_or(c),
     ///             other => other,
     ///         }).collect()),
+    ///         // Ordinals: keep the English rendering for this sketch.
+    ///         NumeralStyle::Ordinal | NumeralStyle::OrdinalDigits => None,
     ///     }
     /// }
     /// ```

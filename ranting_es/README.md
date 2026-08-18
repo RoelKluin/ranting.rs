@@ -145,16 +145,19 @@ to be inside the placeholder at all.
   `an_unknown_verb_falls_through_to_english_rather_than_being_guessed`,
   `an_unknown_adjective_falls_through_to_the_english_degree_table`, and
   `a_numeral_outside_the_closed_range_falls_through_to_english` pin it.
+- **ROADMAP.md Phase 8 item 4's `##var` ordinal channel is the second constituency it was built
+  for.** `lexicon::ordinal` spells `1..=12` fully agreeing in gender (`primero`/`primera`) and
+  apocopating `primero`/`tercero` before a masculine singular noun (`primer gato`, `tercer gato`)
+  — genuinely load-bearing use of `class`, unlike the cardinals above, where it matters only at
+  `1`. The digit-ordinal channel (`$$var`, English "3rd") has no Spanish notation modeled by this
+  closed lexicon and falls through to English the same honest way an out-of-range cardinal does.
 - **A numeral placeholder with no preceding article spends its sentence-initial capital on the
-  noun, not the numeral.** `inflect_numeral_custom` deliberately has no `uc` parameter (the main
-  crate's docs say the placeholder's `uc` is "spent on the article, verb or noun"); when nothing
-  else in the placeholder claims it, it falls through to the noun. `say!("{#0 1}", 1, gato)`
-  therefore renders `"un Gato"`, not `"Un gato"` — the *second* word capitalized, not the first.
-  This is not new to Spanish: `ranting_i18n`'s own `spelled_numerals_agree_like_an_article_at_one`
-  test asserts the identical shape for German (`"ein Hund"`) without comment, because it's a
-  property of the shared engine's `uc`-allocation order, not a per-language gap. `tests/spanish.rs`
-  avoids the artifact entirely by testing numerals with a preceding literal word (`"Veo {#0 1}."`),
-  the same way real usage would.
+  numeral, not the noun.** `inflect_numeral_custom` deliberately has no `uc` parameter — the main
+  crate applies capitalization on the crate side, to whatever the hook returns, rather than
+  delegating the decision to it. `say!("{#0 1}", 1, gato)` renders `"Un gato"`. This was a
+  documented defect (`docs/architecture-review-2026-08-15.md` §1.11 in the main crate) until it
+  was fixed there; `ranting_i18n`'s `spelled_numerals_agree_like_an_article_at_one` test was
+  updated the same way, since it is a property of the shared engine, not a per-language gap.
 - **Adjective apocope (`bueno`→`buen`, `grande`→`gran`) is not modeled, and structurally can't
   come up.** Apocope — a short adjective form used immediately before a masculine singular noun —
   is a *prenominal*-only phenomenon in Spanish. The only position `inflect_adjective_custom` can

@@ -188,6 +188,44 @@ fn spelled_numerals_agree_like_the_indefinite_article_at_one() {
     );
 }
 
+/// ROADMAP.md Phase 8 item 4's "second constituency": Spanish ordinals fully agree in gender,
+/// unlike the cardinals above, and `primero`/`tercero` apocopate before a masculine singular
+/// noun.
+#[test]
+fn ordinal_numerals_agree_in_gender_and_apocopate() {
+    assert_eq!(
+        say!("Veo {the ##0 1}.", 1, SpanishNoun::gato()),
+        "Veo el primer gato."
+    );
+    assert_eq!(
+        say!("Veo {the ##0 1}.", 1, SpanishNoun::casa()),
+        "Veo la primera casa."
+    );
+    assert_eq!(
+        say!("Veo {the ##0 1}.", 3, SpanishNoun::gato()),
+        "Veo el tercer gato."
+    );
+    assert_eq!(
+        say!("Veo {the ##0 1}.", 3, SpanishNoun::casa()),
+        "Veo la tercera casa."
+    );
+    // No apocope for a noun that isn't masculine-singular, and no apocope past `tercero`.
+    assert_eq!(
+        say!("Veo {the ##0 1}.", 2, SpanishNoun::gato()),
+        "Veo el segundo gato."
+    );
+}
+
+#[test]
+fn sentence_initial_numeral_takes_the_capital_not_the_noun() {
+    // The main crate's engine spends a sentence-initial placeholder's capital on the
+    // spelled numeral rather than the noun (docs/architecture-review-2026-08-15.md
+    // §1.11); the same fix German's `spelled_numerals_agree_like_an_article_at_one`
+    // pins, exercised here against a hook that returns `Some` rather than falling
+    // through to English.
+    assert_eq!(say!("{#0 1}.", 1, SpanishNoun::gato()), "Un gato.");
+}
+
 #[test]
 fn a_numeral_outside_the_closed_range_falls_through_to_english() {
     assert_eq!(

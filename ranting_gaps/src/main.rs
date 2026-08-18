@@ -41,6 +41,12 @@ OPTIONS:
     --unattested           Also report corrections the corpus never writes. Off by
                            default: attestation is what keeps non-nouns out of the
                            plural findings without needing a POS tagger.
+    --all-files            Recurse directories without filtering to prose extensions
+                           (md/markdown/mdx/txt/rst) or skipping .git/target/
+                           node_modules/.jj. A path named directly is always read
+                           regardless of this flag. Off by default: pointing the
+                           tool at a whole repository otherwise silently ingests
+                           source, logs and build output as if they were prose.
     -h, --help             Print this message
 ";
 
@@ -50,6 +56,7 @@ struct Args {
     min_occurrences: usize,
     limit: usize,
     unattested: bool,
+    all_files: bool,
 }
 
 fn parse_args() -> Result<Option<Args>, String> {
@@ -58,6 +65,7 @@ fn parse_args() -> Result<Option<Args>, String> {
     let mut min_occurrences = 2usize;
     let mut limit = 40usize;
     let mut unattested = false;
+    let mut all_files = false;
 
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -72,6 +80,7 @@ fn parse_args() -> Result<Option<Args>, String> {
             "--min-occurrences" => min_occurrences = value("--min-occurrences")?,
             "--limit" => limit = value("--limit")?,
             "--unattested" => unattested = true,
+            "--all-files" => all_files = true,
             other if other.starts_with('-') => return Err(format!("unknown option {other}")),
             other => paths.push(PathBuf::from(other)),
         }
@@ -85,6 +94,7 @@ fn parse_args() -> Result<Option<Args>, String> {
         min_occurrences,
         limit,
         unattested,
+        all_files,
     }))
 }
 
@@ -101,7 +111,7 @@ fn main() -> ExitCode {
         }
     };
 
-    let corpus = match corpus::read(&args.paths) {
+    let corpus = match corpus::read(&args.paths, args.all_files) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("ranting-gaps: reading input: {e}");

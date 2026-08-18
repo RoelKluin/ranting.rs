@@ -2,7 +2,7 @@
 
 **Kind:** boundary — measured, not actionable  
 **Distinct words:** 40  
-**Corpus occurrences:** 1250
+**Corpus occurrences:** 1799
 
 ## Cause
 
@@ -20,286 +20,286 @@ Nothing. This is a decision on record, not an unfilled gap, and the count below 
 
 | Word | ranting renders | English requires | Occurrences | Confidence |
 |---|---|---|---|---|
-| `same` | `literal text outside the placeholder: `the same {noun}`` | `agreeing with the noun, as `{noun !same}` does post-noun` | 280 | heuristic |
-| `own` | `literal text outside the placeholder: `the own {noun}`` | `agreeing with the noun, as `{noun !own}` does post-noun` | 170 | heuristic |
-| `english` | `literal text outside the placeholder: `the english {noun}`` | `agreeing with the noun, as `{noun !english}` does post-noun` | 87 | heuristic |
-| `new` | `literal text outside the placeholder: `the new {noun}`` | `agreeing with the noun, as `{noun !new}` does post-noun` | 75 | heuristic |
-| `other` | `literal text outside the placeholder: `the other {noun}`` | `agreeing with the noun, as `{noun !other}` does post-noun` | 69 | heuristic |
-| `first` | `literal text outside the placeholder: `the first {noun}`` | `agreeing with the noun, as `{noun !first}` does post-noun` | 48 | heuristic |
-| `numeral` | `literal text outside the placeholder: `the numeral {noun}`` | `agreeing with the noun, as `{noun !numeral}` does post-noun` | 45 | heuristic |
-| `literal` | `literal text outside the placeholder: `the literal {noun}`` | `agreeing with the noun, as `{noun !literal}` does post-noun` | 42 | heuristic |
-| `five` | `literal text outside the placeholder: `the five {noun}`` | `agreeing with the noun, as `{noun !five}` does post-noun` | 33 | heuristic |
+| `same` | `literal text outside the placeholder: `the same {noun}`` | `agreeing with the noun, as `{noun !same}` does post-noun` | 444 | heuristic |
+| `own` | `literal text outside the placeholder: `the own {noun}`` | `agreeing with the noun, as `{noun !own}` does post-noun` | 208 | heuristic |
+| `new` | `literal text outside the placeholder: `the new {noun}`` | `agreeing with the noun, as `{noun !new}` does post-noun` | 116 | heuristic |
+| `english` | `literal text outside the placeholder: `the english {noun}`` | `agreeing with the noun, as `{noun !english}` does post-noun` | 106 | heuristic |
+| `first` | `literal text outside the placeholder: `the first {noun}`` | `agreeing with the noun, as `{noun !first}` does post-noun` | 99 | heuristic |
+| `other` | `literal text outside the placeholder: `the other {noun}`` | `agreeing with the noun, as `{noun !other}` does post-noun` | 98 | heuristic |
+| `numeral` | `literal text outside the placeholder: `the numeral {noun}`` | `agreeing with the noun, as `{noun !numeral}` does post-noun` | 82 | heuristic |
+| `literal` | `literal text outside the placeholder: `the literal {noun}`` | `agreeing with the noun, as `{noun !literal}` does post-noun` | 46 | heuristic |
+| `whole` | `literal text outside the placeholder: `the whole {noun}`` | `agreeing with the noun, as `{noun !whole}` does post-noun` | 38 | heuristic |
+| `five` | `literal text outside the placeholder: `the five {noun}`` | `agreeing with the noun, as `{noun !five}` does post-noun` | 37 | heuristic |
+| `real` | `literal text outside the placeholder: `the real {noun}`` | `agreeing with the noun, as `{noun !real}` does post-noun` | 37 | heuristic |
+| `single` | `literal text outside the placeholder: `the single {noun}`` | `agreeing with the noun, as `{noun !single}` does post-noun` | 34 | heuristic |
 | `full` | `literal text outside the placeholder: `the full {noun}`` | `agreeing with the noun, as `{noun !full}` does post-noun` | 33 | heuristic |
-| `single` | `literal text outside the placeholder: `the single {noun}`` | `agreeing with the noun, as `{noun !single}` does post-noun` | 32 | heuristic |
-| `whole` | `literal text outside the placeholder: `the whole {noun}`` | `agreeing with the noun, as `{noun !whole}` does post-noun` | 28 | heuristic |
-| `adjective` | `literal text outside the placeholder: `the adjective {noun}`` | `agreeing with the noun, as `{noun !adjective}` does post-noun` | 26 | heuristic |
-| `public` | `literal text outside the placeholder: `the public {noun}`` | `agreeing with the noun, as `{noun !public}` does post-noun` | 26 | heuristic |
-| `next` | `literal text outside the placeholder: `the next {noun}`` | `agreeing with the noun, as `{noun !next}` does post-noun` | 25 | heuristic |
-| `derive` | `literal text outside the placeholder: `the derive {noun}`` | `agreeing with the noun, as `{noun !derive}` does post-noun` | 21 | heuristic |
-| `real` | `literal text outside the placeholder: `the real {noun}`` | `agreeing with the noun, as `{noun !real}` does post-noun` | 20 | heuristic |
-| `ordinary` | `literal text outside the placeholder: `the ordinary {noun}`` | `agreeing with the noun, as `{noun !ordinary}` does post-noun` | 18 | heuristic |
-| `boundary` | `literal text outside the placeholder: `the boundary {noun}`` | `agreeing with the noun, as `{noun !boundary}` does post-noun` | 16 | heuristic |
-| `actual` | `literal text outside the placeholder: `the actual {noun}`` | `agreeing with the noun, as `{noun !actual}` does post-noun` | 15 | heuristic |
-| `old` | `literal text outside the placeholder: `the old {noun}`` | `agreeing with the noun, as `{noun !old}` does post-noun` | 14 | heuristic |
-| `last` | `literal text outside the placeholder: `the last {noun}`` | `agreeing with the noun, as `{noun !last}` does post-noun` | 11 | heuristic |
-| `plural` | `literal text outside the placeholder: `the plural {noun}`` | `agreeing with the noun, as `{noun !plural}` does post-noun` | 10 | heuristic |
-| `identical` | `literal text outside the placeholder: `the identical {noun}`` | `agreeing with the noun, as `{noun !identical}` does post-noun` | 9 | heuristic |
-| `library` | `literal text outside the placeholder: `the library {noun}`` | `agreeing with the noun, as `{noun !library}` does post-noun` | 9 | heuristic |
-| `original` | `literal text outside the placeholder: `the original {noun}`` | `agreeing with the noun, as `{noun !original}` does post-noun` | 9 | heuristic |
-| `dative` | `literal text outside the placeholder: `the dative {noun}`` | `agreeing with the noun, as `{noun !dative}` does post-noun` | 7 | heuristic |
-| `runnable` | `literal text outside the placeholder: `the runnable {noun}`` | `agreeing with the noun, as `{noun !runnable}` does post-noun` | 7 | heuristic |
-| `table` | `literal text outside the placeholder: `the table {noun}`` | `agreeing with the noun, as `{noun !table}` does post-noun` | 7 | heuristic |
-| `differential` | `literal text outside the placeholder: `the differential {noun}`` | `agreeing with the noun, as `{noun !differential}` does post-noun` | 6 | heuristic |
-| `external` | `literal text outside the placeholder: `the external {noun}`` | `agreeing with the noun, as `{noun !external}` does post-noun` | 6 | heuristic |
-| `numeric` | `literal text outside the placeholder: `the numeric {noun}`` | `agreeing with the noun, as `{noun !numeric}` does post-noun` | 6 | heuristic |
-| `signal` | `literal text outside the placeholder: `the signal {noun}`` | `agreeing with the noun, as `{noun !signal}` does post-noun` | 6 | heuristic |
-| `spanish` | `literal text outside the placeholder: `the spanish {noun}`` | `agreeing with the noun, as `{noun !spanish}` does post-noun` | 6 | heuristic |
-| `local` | `literal text outside the placeholder: `the local {noun}`` | `agreeing with the noun, as `{noun !local}` does post-noun` | 5 | heuristic |
-| `main` | `literal text outside the placeholder: `the main {noun}`` | `agreeing with the noun, as `{noun !main}` does post-noun` | 5 | heuristic |
-| `tutorial` | `literal text outside the placeholder: `the tutorial {noun}`` | `agreeing with the noun, as `{noun !tutorial}` does post-noun` | 5 | heuristic |
-| `vocabulary` | `literal text outside the placeholder: `the vocabulary {noun}`` | `agreeing with the noun, as `{noun !vocabulary}` does post-noun` | 5 | heuristic |
-| `alternative` | `literal text outside the placeholder: `the alternative {noun}`` | `agreeing with the noun, as `{noun !alternative}` does post-noun` | 4 | heuristic |
-| `authoritative` | `literal text outside the placeholder: `the authoritative {noun}`` | `agreeing with the noun, as `{noun !authoritative}` does post-noun` | 4 | heuristic |
+| `last` | `literal text outside the placeholder: `the last {noun}`` | `agreeing with the noun, as `{noun !last}` does post-noun` | 31 | heuristic |
+| `derive` | `literal text outside the placeholder: `the derive {noun}`` | `agreeing with the noun, as `{noun !derive}` does post-noun` | 28 | heuristic |
+| `public` | `literal text outside the placeholder: `the public {noun}`` | `agreeing with the noun, as `{noun !public}` does post-noun` | 28 | heuristic |
+| `ordinal` | `literal text outside the placeholder: `the ordinal {noun}`` | `agreeing with the noun, as `{noun !ordinal}` does post-noun` | 25 | heuristic |
+| `plural` | `literal text outside the placeholder: `the plural {noun}`` | `agreeing with the noun, as `{noun !plural}` does post-noun` | 24 | heuristic |
+| `next` | `literal text outside the placeholder: `the next {noun}`` | `agreeing with the noun, as `{noun !next}` does post-noun` | 23 | heuristic |
+| `ordinary` | `literal text outside the placeholder: `the ordinary {noun}`` | `agreeing with the noun, as `{noun !ordinary}` does post-noun` | 23 | heuristic |
+| `adjective` | `literal text outside the placeholder: `the adjective {noun}`` | `agreeing with the noun, as `{noun !adjective}` does post-noun` | 22 | heuristic |
+| `dual` | `literal text outside the placeholder: `the dual {noun}`` | `agreeing with the noun, as `{noun !dual}` does post-noun` | 22 | heuristic |
+| `boundary` | `literal text outside the placeholder: `the boundary {noun}`` | `agreeing with the noun, as `{noun !boundary}` does post-noun` | 21 | heuristic |
+| `actual` | `literal text outside the placeholder: `the actual {noun}`` | `agreeing with the noun, as `{noun !actual}` does post-noun` | 17 | heuristic |
+| `identical` | `literal text outside the placeholder: `the identical {noun}`` | `agreeing with the noun, as `{noun !identical}` does post-noun` | 16 | heuristic |
+| `old` | `literal text outside the placeholder: `the old {noun}`` | `agreeing with the noun, as `{noun !old}` does post-noun` | 16 | heuristic |
+| `arabic` | `literal text outside the placeholder: `the arabic {noun}`` | `agreeing with the noun, as `{noun !arabic}` does post-noun` | 12 | heuristic |
+| `auxiliary` | `literal text outside the placeholder: `the auxiliary {noun}`` | `agreeing with the noun, as `{noun !auxiliary}` does post-noun` | 11 | heuristic |
+| `table` | `literal text outside the placeholder: `the table {noun}`` | `agreeing with the noun, as `{noun !table}` does post-noun` | 11 | heuristic |
+| `external` | `literal text outside the placeholder: `the external {noun}`` | `agreeing with the noun, as `{noun !external}` does post-noun` | 10 | heuristic |
+| `capital` | `literal text outside the placeholder: `the capital {noun}`` | `agreeing with the noun, as `{noun !capital}` does post-noun` | 9 | heuristic |
+| `subjunctive` | `literal text outside the placeholder: `the subjunctive {noun}`` | `agreeing with the noun, as `{noun !subjunctive}` does post-noun` | 9 | heuristic |
+| `vocabulary` | `literal text outside the placeholder: `the vocabulary {noun}`` | `agreeing with the noun, as `{noun !vocabulary}` does post-noun` | 9 | heuristic |
+| `grammatical` | `literal text outside the placeholder: `the grammatical {noun}`` | `agreeing with the noun, as `{noun !grammatical}` does post-noun` | 8 | heuristic |
+| `natural` | `literal text outside the placeholder: `the natural {noun}`` | `agreeing with the noun, as `{noun !natural}` does post-noun` | 8 | heuristic |
+| `passive` | `literal text outside the placeholder: `the passive {noun}`` | `agreeing with the noun, as `{noun !passive}` does post-noun` | 8 | heuristic |
+| `runnable` | `literal text outside the placeholder: `the runnable {noun}`` | `agreeing with the noun, as `{noun !runnable}` does post-noun` | 8 | heuristic |
+| `signal` | `literal text outside the placeholder: `the signal {noun}`` | `agreeing with the noun, as `{noun !signal}` does post-noun` | 8 | heuristic |
+| `free` | `literal text outside the placeholder: `the free {noun}`` | `agreeing with the noun, as `{noun !free}` does post-noun` | 7 | heuristic |
+| `main` | `literal text outside the placeholder: `the main {noun}`` | `agreeing with the noun, as `{noun !main}` does post-noun` | 7 | heuristic |
 
 ## Evidence
 
 ### `same`
 
-- README.md:136 — override still sees the same grammatical role), but keeps displaying the noun's name instead
-- README.md:267 — "{item}, take" matches "sword, take" , and the same holds for non-ASCII
-- docs/API.md:22 — nay!(fmt, args...) Expands to Err(say!(fmt, args...)) — same shape as ack!() .
+- README.md:40 — - ranting es gaps (ranting es gaps/README.md) — the same idea one level down:
+- README.md:170 — override still sees the same grammatical role), but keeps displaying the noun's name instead
+- README.md:240 — ranting(plural end = "s") is a real opt-out and is not the same as leaving it off:
 
 ### `own`
 
-- README.md:145 — the items' own names as "a, b and c" ;
-- README.md:178 — - A non-English template may write its own article word instead.
-- README.md:202 — Setting either one instead declares your own rule,
-
-### `english`
-
-- README.md:179 — recognise as an English article is handed to inflect article custom , so a Spanish
-- README.md:180 — implementation can accept el / la / los / las and inflect them like the English keywords:
-- README.md:185 — an unmarked two-word placeholder keeps its English "noun + post-noun verb" reading.
+- README.md:21 — This repository is not a Cargo workspace — each crate below has its own Cargo.toml / Cargo.lock
+- README.md:22 — and its own cargo test .
+- README.md:179 — the items' own names as "a, b and c" ;
 
 ### `new`
 
 - README.md:10 — New to Ranting?
-- README.md:34 — let title = Noun::new("name", "it");
-- README.md:36 — say this(Noun::new("Jane", "I"), &title),
+- README.md:64 — let title = Noun::new("name", "it");
+- README.md:66 — say this(Noun::new("Jane", "I"), &title),
 
-### `other`
+### `english`
 
-- README.md:114 — Other words within the
-- docs/API.md:373 — Other languages need
-- docs/CHEATSHEET.md:49 — composes with other markers, e.g.
+- README.md:39 — arbitrary English text and reports what ranting fails to inflect, ranked by corpus frequency.
+- README.md:42 — against open-vocabulary English.
+- README.md:213 — recognise as an English article is handed to inflect article custom , so a Spanish
 
 ### `first`
 
-- README.md:82 — Also an article or verb with an uppercase causess an uppercase for the first character.
-- docs/API.md:54 — is first person subject custom(&self, subject:
-- docs/API.md:54 — &str) - bool whether subject counts as first-person defaults to ranting core::grammar::is first person subject ( subject == "I" subject =...
+- README.md:33 — the first non-Indo-European fork, exercising a
+- README.md:35 — the first fork whose decisive finding is a
+- README.md:112 — Also an article or verb with an uppercase causess an uppercase for the first character.
+
+### `other`
+
+- README.md:144 — Other words within the
+- docs/API.md:413 — Other languages need
+- docs/CHEATSHEET.md:51 — composes with other markers, e.g.
 
 ### `numeral`
 
-- docs/API.md:69 — inflect numeral custom / with context how a placeholder's var / $var number is written, keyed by NumeralStyle ( numeralstyle), Grammatica...
-- docs/API.md:69 — inflect numeral custom / with context how a placeholder's var / $var number is written, keyed by NumeralStyle ( numeralstyle), Grammatica...
-- docs/API.md:71 — The pronoun, article, adjective, elision, preposition-fusion and numeral hooks
+- README.md:36 — confirmation rather than a gap, plus a numeral/counter-noun separator defect it surfaced and
+- docs/API.md:46 — count is the placeholder's own numeral, None when it wrote none (which is not a count of one), so a language with a third morphological n...
+- docs/API.md:68 — elide numeral custom / with context the same, for a rendered numeral and the noun after it (Japanese 一匹の猫) — see Elision ( elision-elide ...
 
 ### `literal`
 
-- README.md:252 — {name...} captures greedily (multiple words) up to the next literal word or the end of input;
-- README.md:255 — - heed!() doesn't understand say!() 's grammar markers ( = , @ , , ~ , tense markers, articles) — it matches plain input text against lit...
-- README.md:265 — {$name} a run of digits, and {name...} runs up to the next whitespace-separated literal.
+- README.md:291 — {name...} captures greedily (multiple words) up to the next literal word or the end of input;
+- README.md:294 — - heed!() doesn't understand say!() 's grammar markers ( = , @ , , ~ , tense markers, articles) — it matches plain input text against lit...
+- README.md:304 — {$name} a run of digits, and {name...} runs up to the next whitespace-separated literal.
+
+### `whole`
+
+- README.md:318 — - The supported approach for such input is to capture the unsegmented run whole and segment it
+- docs/EXTENSIBILITY.md:415 — is improved is where the error points — at the template literal rather than the whole
+- docs/EXTENSIBILITY.md:895 — the one string a returned Some replaces whole.
 
 ### `five`
 
-- docs/EXTENSIBILITY.md:318 — from the five placeholder markers ( = , @ , , ~ , % ) plus the markerless Name / Hidden
-- docs/EXTENSIBILITY.md:319 — they answer which of five English-shaped display forms did this placeholder marker
-- docs/EXTENSIBILITY.md:327 — accusative, dative, genitive) and English's five markers are different taxonomies that cross-cut
+- docs/EXTENSIBILITY.md:324 — from the five placeholder markers ( = , @ , , ~ , % ) plus the markerless Name / Hidden
+- docs/EXTENSIBILITY.md:325 — they answer which of five English-shaped display forms did this placeholder marker
+- docs/EXTENSIBILITY.md:333 — accusative, dative, genitive) and English's five markers are different taxonomies that cross-cut
+
+### `real`
+
+- README.md:41 — ranting es 's closed Spanish lexicon against real Spanish text instead of inspecting ranting
+- README.md:172 — always returns a real pronoun still get a case-correct article with the name shown, without a
+- README.md:240 — ranting(plural end = "s") is a real opt-out and is not the same as leaving it off:
+
+### `single`
+
+- README.md:100 — Singular "they" conjugates as plural in form (they are, they have, they do) while referring to a single individual.
+- README.md:182 — single item when there is exactly one.
+- README.md:291 — - {name} captures a single word;
 
 ### `full`
 
 - README.md:10 — Keep the Cheatsheet (docs/CHEATSHEET.md) open while you write, or browse the API Reference (docs/API.md) for the full public surface.
+- README.md:44 — See .claude/rules/crate-layout.md for the full rationale behind each crate's role, and
 - docs/API.md:6 — public item here has full rustdoc (including runnable examples) there.
-- docs/API.md:83 — length as the count" entries for the full history (ROADMAP.md Phase 6 items
 
-### `single`
+### `last`
 
-- README.md:70 — Singular "they" conjugates as plural in form (they are, they have, they do) while referring to a single individual.
-- README.md:148 — single item when there is exactly one.
-- README.md:252 — - {name} captures a single word;
+- docs/EXTENSIBILITY.md:780 — any article whose last character is multibyte — Arabic ال , Cyrillic этот , Greek τό alike —
+- docs/architecture-review-2026-08-14.md:137 — the post-assembly elision splice sliced mid-codepoint whenever the rendered article's last
+- docs/architecture-review-2026-08-14.md:169 — / Heed /trait-object helpers ranting derive/README.md Last touched 2023-02-22;
 
-### `whole`
+### `derive`
 
-- README.md:279 — - The supported approach for such input is to capture the unsegmented run whole and segment it
-- docs/EXTENSIBILITY.md:409 — is improved is where the error points — at the template literal rather than the whole
-- docs/EXTENSIBILITY.md:1295 — Unlike following in §2.7 (which can be a whole rendered phrase
-
-### `adjective`
-
-- README.md:122 — ~ - adjective
-- docs/API.md:66 — inflect adjective custom / with context the post-noun !
-- docs/API.md:66 — adjective, keyed by AdjectiveDegree ( adjectivedegree), GrammaticalCase and NounClass
+- README.md:8 — This library provides Ranting (https://docs.rs/ranting/1.3.1/ranting/trait.Ranting.html), a trait for inflection within say!() (https://d...
+- README.md:8 — This library provides Ranting (https://docs.rs/ranting/1.3.1/ranting/trait.Ranting.html), a trait for inflection within say!() (https://d...
+- README.md:22 — ranting core and ranting derive are internal crates ranting itself
 
 ### `public`
 
 - README.md:10 — Keep the Cheatsheet (docs/CHEATSHEET.md) open while you write, or browse the API Reference (docs/API.md) for the full public surface.
-- docs/API.md:3 — A structured overview of Ranting's public surface — what's exported, what it's
-- docs/API.md:6 — public item here has full rustdoc (including runnable examples) there.
+- README.md:24 — falsify (or, for the two dev tools, inspect) the claim that ranting 's public API gives a
+- README.md:45 — docs/EXTENSIBILITY.md for what a non-English fork can and can't reach through the public API.
 
-### `next`
+### `ordinal`
 
-- README.md:252 — {name...} captures greedily (multiple words) up to the next literal word or the end of input;
-- README.md:254 — - Two placeholders directly adjacent, with no text at all between them ( {a}{b} ), is a compile-time error — there would be no way to kno...
-- README.md:265 — {$name} a run of digits, and {name...} runs up to the next whitespace-separated literal.
-
-### `derive`
-
-- README.md:8 — This library provides Ranting (https://docs.rs/ranting/0.2.1/ranting/trait.Ranting.html), a trait for inflection within say!() (https://d...
-- README.md:8 — This library provides Ranting (https://docs.rs/ranting/0.2.1/ranting/trait.Ranting.html), a trait for inflection within say!() (https://d...
-- README.md:26 — use ranting derive::
-
-### `real`
-
-- README.md:138 — always returns a real pronoun still get a case-correct article with the name shown, without a
-- README.md:280 — yourself with a real tokenizer:
-- docs/CHEATSHEET.md:9 — copy-pasted from real say!() calls, not hand-typed.
-
-### `ordinary`
-
-- README.md:270 — "{item}、取る" ), since a literal that mixes punctuation with word characters is an ordinary
-- docs/EXTENSIBILITY.md:405 — parse runs only when the ordinary English parse fails , and an unmarked two-word placeholder
-- docs/EXTENSIBILITY.md:444 — Which label a given entity carries is ordinary per-value data,
-
-### `boundary`
-
-- README.md:168 — - Word order is a permanent boundary, not a gap :
-- README.md:257 — Whitespace is the only word boundary heed!() / ask!() know
-- README.md:263 — - Every boundary between a template's segments — literal-to-capture, capture-to-literal,
-
-### `actual`
-
-- docs/EXTENSIBILITY.md:1672 — - The actual output you got
-- docs/architecture-review-2026-08-13.md:30 — actual noun-inflection path ( Noun::inflect() doesn't use them).
-- docs/architecture-review-2026-08-13.md:78 — actual diff against the fixed baseline showed all 12 build and pass tests
-
-### `old`
-
-- docs/EXTENSIBILITY.md:854 — the old test
-- docs/EXTENSIBILITY.md:908 — exactly the old hard-coded check ( ranting core::grammar::is first person subject ), so English
-- docs/EXTENSIBILITY.md:936 — declining language that wants "Der Hund bellt." , the only way to reach that with the old grammar
-
-### `last`
-
-- docs/architecture-review-2026-08-14.md:89 — / Heed /trait-object helpers ranting derive/README.md Last touched 2023-02-22;
-- docs/superpowers/plans/2026-08-12-heed-input-parsing-impl.md:283 — if matches!(segments.last(), Some(HeedSegment::Capture( ))) {
-- docs/superpowers/plans/2026-08-12-heed-input-parsing-impl.md:716 — be the prior count (202, per the last session's work) plus these 9 = 211.
+- docs/superpowers/specs/2026-08-15-ordinal-numerals.md:1 — an ordinal channel for the numeral slot
+- docs/superpowers/specs/2026-08-15-ordinal-numerals.md:4 — var , baked as a new NumeralKind::Ordinal and mirrored into a new public
+- docs/superpowers/specs/2026-08-15-ordinal-numerals.md:5 — NumeralStyle::Ordinal variant — not implemented by this document .
 
 ### `plural`
 
-- README.md:22 — A verb alongside, always specified in plural, inflects accordingly.
-- README.md:70 — Singular "they" conjugates as plural in form (they are, they have, they do) while referring to a single individual.
-- README.md:112 — - A given Ranting Enum or Struct can also be inflected to plural or singular.
+- README.md:52 — A verb alongside, always specified in plural, inflects accordingly.
+- README.md:100 — Singular "they" conjugates as plural in form (they are, they have, they do) while referring to a single individual.
+- README.md:142 — - A given Ranting Enum or Struct can also be inflected to plural or singular.
+
+### `next`
+
+- README.md:291 — {name...} captures greedily (multiple words) up to the next literal word or the end of input;
+- README.md:293 — - Two placeholders directly adjacent, with no text at all between them ( {a}{b} ), is a compile-time error — there would be no way to kno...
+- README.md:304 — {$name} a run of digits, and {name...} runs up to the next whitespace-separated literal.
+
+### `ordinary`
+
+- README.md:309 — "{item}、取る" ), since a literal that mixes punctuation with word characters is an ordinary
+- docs/EXTENSIBILITY.md:411 — parse runs only when the ordinary English parse fails , and an unmarked two-word placeholder
+- docs/EXTENSIBILITY.md:450 — Which label a given entity carries is ordinary per-value data,
+
+### `adjective`
+
+- README.md:31 — slot renders, so this is the crate that exercises adjective agreement with genuinely correct
+- README.md:152 — ~ - adjective
+- docs/API.md:66 — inflect adjective custom / with context the post-noun !
+
+### `dual`
+
+- README.md:34 — third morphological number (the dual) and preposition/article fusion.
+- docs/EXTENSIBILITY.md:868 — bool alone — so Arabic dual, Slavic paucal
+- docs/EXTENSIBILITY.md:1398 — morphological number — Arabic's dual, a Slavic paucal — the placeholder's own numeral is what
+
+### `boundary`
+
+- README.md:202 — - Word order is a permanent boundary, not a gap :
+- README.md:296 — Whitespace is the only word boundary heed!() / ask!() know
+- README.md:302 — - Every boundary between a template's segments — literal-to-capture, capture-to-literal,
+
+### `actual`
+
+- docs/EXTENSIBILITY.md:1920 — - The actual output you got
+- docs/architecture-review-2026-08-13.md:30 — actual noun-inflection path ( Noun::inflect() doesn't use them).
+- docs/architecture-review-2026-08-13.md:78 — actual diff against the fixed baseline showed all 12 build and pass tests
 
 ### `identical`
 
 - docs/API.md:20 — Without a context, output is identical to say!() .
-- docs/EXTENSIBILITY.md:944 — marker (the article/elision hooks see the identical GrammaticalCase ) but renders the noun's name
-- docs/EXTENSIBILITY.md:1184 — None (or no say with!() context at all) means no override in effect — identical
+- docs/API.md:342 — identical signature bar its first parameter ( numeral rather than article )
+- docs/API.md:343 — and the identical contract.
 
-### `library`
+### `old`
 
-- README.md:8 — This library provides Ranting (https://docs.rs/ranting/0.2.1/ranting/trait.Ranting.html), a trait for inflection within say!() (https://d...
-- README.md:48 — The library fully supports singular they/them pronouns for individuals who prefer gender-neutral language:
-- docs/EXTENSIBILITY.md:1707 — By creating these forks, you help the Ranting ecosystem support more languages and dialects while keeping the core library lean and focus...
+- docs/EXTENSIBILITY.md:873 — the old test
+- docs/EXTENSIBILITY.md:937 — exactly the old hard-coded check ( ranting core::grammar::is first person subject ), so English
+- docs/EXTENSIBILITY.md:965 — declining language that wants "Der Hund bellt." , the only way to reach that with the old grammar
 
-### `original`
+### `arabic`
 
-- docs/EXTENSIBILITY.md:978 — ( =@~% ), falling back to the original single-character class — and ranting core::
-- docs/superpowers/plans/2026-08-12-heed-input-parsing-impl.md:821 — not injective (multiple original values render to the same text), so
-- docs/superpowers/plans/2026-08-12-trait-extensibility-impl.md:1033 — All tests pass (original tests + 9 new tests = ~226 total)
+- README.md:33 — - ranting ar (ranting ar/README.md) — Arabic;
+- docs/API.md:272 — capitalizes every noun wherever it stands, Japanese/Chinese/Arabic/Hebrew have
+- docs/EXTENSIBILITY.md:641 — Japanese, Chinese, Arabic and Hebrew have no letter case, so uc is meaningless and the honest
 
-### `dative`
+### `auxiliary`
 
-- docs/EXTENSIBILITY.md:326 — Why German dative/genitive can't be named by case alone.
-- docs/EXTENSIBILITY.md:327 — accusative, dative, genitive) and English's five markers are different taxonomies that cross-cut
-- docs/EXTENSIBILITY.md:328 — @ ( Objective ) covers both accusative and dative direct/indirect objects, and a
+- docs/COOKBOOK.md:140 — Describe actions in different tenses with correct auxiliary verbs.
+- docs/TUTORIAL.md:136 — - Runtime auxiliary insertion :
+- docs/TUTORIAL.md:136 — The ranting crate inserts the correct auxiliary verb ("is", "have", "had", "will").
+
+### `table`
+
+- README.md:158 — table ( data/irregular adjectives.txt ) plus regular -er / -est (or periphrastic more / most for
+- README.md:235 — bookshelf → bookshelves , mother-in-law → mothers-in-law — after the irregular table in
+- docs/API.md:160 — gender table keyed by the display string (which breaks on homographs, names,
+
+### `external`
+
+- docs/API.md:159 — non-English implementation can pick der / die / das without an external
+- docs/superpowers/specs/2026-08-13-number-categories.md:223 — grammatical case, number , and register/dialect without an external
+- docs/superpowers/specs/2026-08-14-language-modularity.md:324 — user-supplied configuration, or an external lint reading the source.
+
+### `capital`
+
+- docs/EXTENSIBILITY.md:693 — capital can only have come from the hook.
+- docs/architecture-review-2026-08-15.md:317 — thing it can — but a numeral is not on that list, so the capital lands on the noun , several
+- docs/architecture-review-2026-08-15.md:335 — - var (spelled out) — the numeral is a word, so it should take the capital:
+
+### `subjunctive`
+
+- docs/architecture-review-2026-08-15.md:117 — 1.5 The subjunctive were is rewritten to was , in both persons — ✅ FIXED 2026-08-17
+- docs/architecture-review-2026-08-15.md:136 — subjunctive is not recoverable from the verb:
+- docs/architecture-review-2026-08-15.md:151 — tests/ranting/subjunctive verbatim.rs (rendering) and ranting derive/src/lib.rs 's
+
+### `vocabulary`
+
+- README.md:217 — itself knows no non-English vocabulary;
+- docs/EXTENSIBILITY.md:405 — vocabulary — it lives entirely in the match above, which is what keeps languages modular.
+- docs/EXTENSIBILITY.md:1123 — match wearing a struct instead of a bare arm list (no reduction, only new vocabulary) or a table
+
+### `grammatical`
+
+- README.md:170 — override still sees the same grammatical role), but keeps displaying the noun's name instead
+- docs/API.md:576 — Core attributes — determine grammatical function:
+- docs/CHEATSHEET.md:24 — which grammatical form of the noun to render —
+
+### `natural`
+
+- docs/architecture-review-2026-08-14.md:282 — A Phase 7 spike is the natural home if it is pursued.
+- docs/superpowers/specs/2026-08-12-input-parsing-feasibility.md:50 — that's also the natural default here —
+- docs/superpowers/specs/2026-08-12-input-parsing-feasibility.md:175 — say!() exists to produce natural
+
+### `passive`
+
+- docs/architecture-review-2026-08-15.md:490 — complex English needs that no placeholder can express (the participle channel and passive voice,
+- docs/superpowers/specs/2026-08-15-participle-channel.md:1 — the participle channel — passive voice, future perfect, perfect progressive
+- docs/superpowers/specs/2026-08-15-participle-channel.md:4 — spellings — =% / =% (passive), % (future perfect), %= / %= (perfect
 
 ### `runnable`
 
 - docs/API.md:6 — public item here has full rustdoc (including runnable examples) there.
-- docs/EXTENSIBILITY.md:507 — See tests/ranting/noun class.rs for the runnable version, including the accusative
-- docs/EXTENSIBILITY.md:579 — is the runnable version, including a French superlative ( le plus noir ) that uses degree .
-
-### `table`
-
-- README.md:128 — table ( data/irregular adjectives.txt ) plus regular -er / -est (or periphrastic more / most for
-- README.md:201 — bookshelf → bookshelves , mother-in-law → mothers-in-law — after the irregular table in
-- docs/API.md:131 — gender table keyed by the display string (which breaks on homographs, names,
-
-### `differential`
-
-- docs/superpowers/specs/2026-08-14-language-modularity.md:256 — — the differential fuzz comparing the hand-written parser against the PH EXT
-- docs/superpowers/specs/2026-08-14-language-modularity.md:401 — differential test checks.
-- docs/superpowers/specs/2026-08-14-language-modularity.md:405 — reference grammar for the English pass — which is what the differential fuzz was
-
-### `external`
-
-- docs/API.md:130 — non-English implementation can pick der / die / das without an external
-- docs/superpowers/specs/2026-08-13-number-categories.md:223 — grammatical case, number , and register/dialect without an external
-- docs/superpowers/specs/2026-08-14-language-modularity.md:324 — user-supplied configuration, or an external lint reading the source.
-
-### `numeric`
-
-- README.md:113 — If prependeded by $var or var , plurality of the noun is adapted to the numeric variable var.
-- README.md:173 — - If a Noun or numeric plurality has a leading question mark, it is hidden but its inferred inflection does apply.
-- README.md:219 — Positional arguments and numeric references are supported, as well as named arguments:
+- docs/EXTENSIBILITY.md:513 — See tests/ranting/noun class.rs for the runnable version, including the accusative
+- docs/EXTENSIBILITY.md:585 — is the runnable version, including a French superlative ( le plus noir ) that uses degree .
 
 ### `signal`
 
-- docs/API.md:220 — existing numeral signal made a second PlaceholderCount parameter there
-- docs/API.md:250 — sentence start (Phase 6 item 17) is uc 's underlying signal alone, without
-- docs/EXTENSIBILITY.md:648 — sentence start is the first signal alone, computed once
+- README.md:25 — non-English language enough signal to build a correct implementation on:
+- docs/API.md:250 — existing numeral signal made a second PlaceholderCount parameter there
+- docs/API.md:280 — sentence start (Phase 6 item 17) is uc 's underlying signal alone, without
 
-### `spanish`
+### `free`
 
-- README.md:179 — recognise as an English article is handed to inflect article custom , so a Spanish
-- docs/API.md:97 — build ecosystem forks (Spanish, pirate, Scottish, etc.
-- docs/API.md:314 — the article rendered right after it — German zu + dem → zum , Spanish
-
-### `local`
-
-- docs/API.md:384 — The count is local to the
-- docs/API.md:394 — Hence two local newtype wrappers ( Box T has no such problem, since std
-- docs/EXTENSIBILITY.md:848 — The count here is local to the numeral.
+- docs/EXTENSIBILITY.md:649 — self -less free function inflect noun irregular and is not routed through any hook.
+- docs/architecture-review-2026-08-13.md:226 — free:
+- docs/superpowers/specs/2026-08-12-input-parsing-feasibility.md:168 — "running" → "run" needs to know whether to undouble, "reading" → "read" doesn't) — solvable, but needs its own reverse rule set and test ...
 
 ### `main`
 
-- README.md:33 — fn main() {
-- README.md:54 — fn main() {
-- README.md:97 — fn main() {
-
-### `tutorial`
-
-- README.md:10 — Start with the Tutorial (docs/TUTORIAL.md) (30-40 min read) or jump to the Cookbook (docs/COOKBOOK.md) (10 practical recipes).
-- README.md:10 — Start with the Tutorial (docs/TUTORIAL.md) (30-40 min read) or jump to the Cookbook (docs/COOKBOOK.md) (10 practical recipes).
-- docs/API.md:7 — guided introduction, see the Tutorial (TUTORIAL.md);
-
-### `vocabulary`
-
-- README.md:183 — itself knows no non-English vocabulary;
-- docs/EXTENSIBILITY.md:399 — vocabulary — it lives entirely in the match above, which is what keeps languages modular.
-- docs/EXTENSIBILITY.md:1094 — match wearing a struct instead of a bare arm list (no reduction, only new vocabulary) or a table
-
-### `alternative`
-
-- docs/EXTENSIBILITY.md:893 — alternative count to offer, and Maybe(None) has none at all — so both keep forwarding whatever
-- docs/superpowers/specs/2026-08-14-language-modularity.md:391 — alternative in a repeated group is not local to that alternative.
-- docs/superpowers/specs/2026-08-14-language-modularity.md:391 — alternative in a repeated group is not local to that alternative.
-
-### `authoritative`
-
-- docs/superpowers/specs/2026-08-13-number-categories.md:4 — bool authoritative and
-- docs/superpowers/specs/2026-08-13-number-categories.md:203 — (b) Parallel channel alongside the bool, bool authoritative for English One parameter added to 6 (soon 8) hooks;
-- docs/superpowers/specs/2026-08-13-number-categories.md:280 — authoritative for every English fallback path, so say!() 's output is
+- README.md:63 — fn main() {
+- README.md:84 — fn main() {
+- README.md:127 — fn main() {
 

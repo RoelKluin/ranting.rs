@@ -244,16 +244,18 @@ fn spelled_numerals_agree_like_an_article_at_one() {
     let one = 1;
     let two = 2;
     let zwolf = 12;
-    assert_eq!(say!("{#0 1}", one, GermanNoun::hund()), "ein Hund");
-    assert_eq!(say!("{#0 1}", one, GermanNoun::katze()), "eine Katze");
-    assert_eq!(say!("{#0 1}", two, GermanNoun::hund()), "zwei Hunde");
-    assert_eq!(say!("{#0 1}", zwolf, GermanNoun::haus()), "zwölf Häuser");
+    // Sentence-initial: the numeral, not the noun, spends the placeholder's capital
+    // (docs/architecture-review-2026-08-15.md §1.11, fixed in the main crate).
+    assert_eq!(say!("{#0 1}", one, GermanNoun::hund()), "Ein Hund");
+    assert_eq!(say!("{#0 1}", one, GermanNoun::katze()), "Eine Katze");
+    assert_eq!(say!("{#0 1}", two, GermanNoun::hund()), "Zwei Hunde");
+    assert_eq!(say!("{#0 1}", zwolf, GermanNoun::haus()), "Zwölf Häuser");
 }
 
 #[test]
 fn a_numeral_outside_the_closed_range_falls_through_to_english() {
     let many = 40;
-    assert_eq!(say!("{#0 1}", many, GermanNoun::hund()), "forty Hunde");
+    assert_eq!(say!("{#0 1}", many, GermanNoun::hund()), "Forty Hunde");
 }
 
 #[test]

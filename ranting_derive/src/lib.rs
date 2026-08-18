@@ -281,6 +281,9 @@ fn ref_expr_ranting_trait(ref_expr: TokenStream) -> TokenStream {
             fn noun_class(&self) -> ranting::NounClass {
                 (**self).noun_class()
             }
+            fn is_mass(&self) -> bool {
+                (**self).is_mass()
+            }
         }
     }
 }
@@ -604,6 +607,79 @@ fn check_ident_path(p: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Reject a bare `-ing` participle in a verb slot that wrote no tense marker.
+///
+/// `{=0 walking}` used to compile and render "She walking": `inflect_verb`'s `detect_tense`
+/// branch correctly returns a non-present form untouched, but with no tense marker nothing ever
+/// supplies the auxiliary, so the writer error fails silently into user-visible text
+/// (`docs/architecture-review-2026-08-15.md` §1.8). The macro has the template string, so the
+/// mistake is caught here instead, with a message naming both intended spellings (`{=0 walk}` for
+/// the present, `{=0 =walk}` for the progressive).
+///
+/// Only the `-ing` form is rejected. A bare *past* in the same slot (`{=0 walked}`,
+/// `{=0 went}`) is left alone deliberately: past tense needs no auxiliary, so the untouched
+/// rendering is grammatical, and `tests/ranting/verb_tense.rs` pins it as intended output.
+///
+/// There is no lexicon here (matching the crate's spelling-only stance), so three spelling
+/// gates keep base verbs that merely *end* in "ing" out of the error:
+/// - an irregular base in `IRREGULAR_PAST` ("sing", "ring", "sting", "string", "swing",
+///   "bring") is accepted outright;
+/// - a stem shorter than two characters ("ping", "wing", "zing") cannot be a verb base;
+/// - a stem with no vowel ("cling" → "cl", likewise "fling", "sling", "spring", "wring")
+///   cannot either. `y` counts as a vowel so "flying" (stem "fly") and "dying" (stem "dy")
+///   are still caught.
+fn check_unmarked_verb_slot(word: &str) -> Result<(), String> {
+    let word_lower = word.to_lowercase();
+    let Some(stem) = word_lower.strip_suffix("ing") else {
+        return Ok(());
+    };
+    if stem.len() < 2
+        || verb_conjugate::IRREGULAR_PAST
+            .iter()
+            .any(|(base, _)| *base == word_lower)
+        || !stem
+            .chars()
+            .any(|c| matches!(c, 'a' | 'e' | 'i' | 'o' | 'u' | 'y'))
+    {
+        return Ok(());
+    }
+    // Recover the base verb for the message by undoing each of `to_continuous`'s spelling rules
+    // and keeping the first candidate that round-trips ("walk", "run" from "runn", "make" from
+    // "mak", "die" from "dy"). The undoubled form is tried before the raw stem because both
+    // round-trip for a doubled consonant ("runn" + ing is also "running") -- except when the
+    // letter is one that legitimately doubles at the end of a base ("fall", "pass", "buzz",
+    // "stuff"), where the raw stem is the real verb. The stem is only a fallback, not
+    // authoritative.
+    let mut candidates = Vec::new();
+    let stem_chars: Vec<char> = stem.chars().collect();
+    if stem_chars.len() >= 2
+        && stem_chars[stem_chars.len() - 1] == stem_chars[stem_chars.len() - 2]
+        && !matches!(stem_chars[stem_chars.len() - 1], 'l' | 's' | 'z' | 'f')
+    {
+        candidates.push(stem[..stem.len() - 1].to_string());
+    }
+    // `to_continuous`'s ie -> y rule only ever produces a two-character stem ("die" -> "dy",
+    // "lie", "tie", "vie"); a longer y-final stem ("fly", "try", "spy") is its own base, so the
+    // restored-`ie` candidate is gated on the stem length and tried first.
+    if let Some(pre_y) = stem.strip_suffix('y')
+        && stem.len() == 2
+    {
+        candidates.push(format!("{pre_y}ie"));
+    }
+    candidates.push(stem.to_string());
+    candidates.push(format!("{stem}e"));
+    let base = candidates
+        .into_iter()
+        .find(|c| verb_conjugate::to_continuous(c) == word_lower)
+        .unwrap_or_else(|| stem.to_string());
+    Err(format!(
+        "`{word}` is a continuous form, but this verb slot has no tense marker, so nothing \
+         supplies the auxiliary and the output is ungrammatical (\"She {word_lower}\"). Write \
+         `{base}` for the present tense (`{{=0 {base}}}`), or `={base}` for the progressive \
+         (`{{=0 ={base}}}`)"
+    ))
+}
+
 /// The expression for a match. if numeric, retreive the expression from the positionals
 fn get_opt_num_ph_expr(p: &str, given: &HashMap<String, Expr>, span: Span) -> Result<Expr, String> {
     match p.parse::<String>() {
@@ -697,10 +773,10 @@ fn handle_param(
         quote!(ranting::placeholder::PostSpec::PossessiveS)
     } else {
         let post_trimmed = post.trim_start();
-        // Extract marker run: take all leading <, =, >, %, ! characters
+        // Extract marker run: take all leading <, =, >, %, !, ; characters
         let marker_end = post_trimmed
             .chars()
-            .take_while(|c| matches!(c, '<' | '=' | '>' | '%' | '!'))
+            .take_while(|c| matches!(c, '<' | '=' | '>' | '%' | '!' | ';'))
             .count();
 
         if marker_end == 0 || marker_end >= post_trimmed.len() {
@@ -708,6 +784,15 @@ fn handle_param(
             // captured (the runtime still splits off the trailing word to conjugate and
             // passes leading words through verbatim -- unchanged from before this
             // refactor, see `PostSpec::Verb`'s doc comment).
+            //
+            // The head word is the one the runtime conjugates, so it is the one checked
+            // against `check_unmarked_verb_slot` -- a bare participle here would render
+            // ungrammatically ("She walking") with nothing supplying the auxiliary.
+            let head = post_trimmed.split_whitespace().next().unwrap_or("");
+            if let Err(msg) = check_unmarked_verb_slot(head) {
+                let post_span = post_span.unwrap();
+                return Err((post_span.start(), post_span.end(), msg));
+            }
             quote!(ranting::placeholder::PostSpec::Verb(#post))
         } else {
             let marker = &post_trimmed[..marker_end];
@@ -750,6 +835,24 @@ fn handle_param(
                     post_span.end(),
                     "degree marker `!`/`!!` cannot be combined with tense markers".to_string(),
                 ));
+            } else if marker == ";" {
+                // ROADMAP.md Phase 8 item 2: the verbatim escape hatch. No agreement is
+                // resolved here or at runtime -- `base_word` is baked exactly as captured,
+                // and `handle_placeholder_impl` never calls
+                // `inflect_verb_custom_with_context` for `PostSpec::Verbatim`.
+                quote!(ranting::placeholder::PostSpec::Verbatim {
+                    leading_space: #leading_space,
+                    word: #base_word,
+                    trailing: #trailing,
+                })
+            } else if marker.contains(';') {
+                let post_span = post_span.unwrap();
+                return Err((
+                    post_span.start(),
+                    post_span.end(),
+                    "verbatim marker `;` cannot be combined with tense markers, and cannot repeat"
+                        .to_string(),
+                ));
             } else {
                 // say!() bakes the fully-conjugated form (as before); say_with!()
                 // bakes the uninflected base verb so it can be re-resolved at
@@ -764,6 +867,12 @@ fn handle_param(
                         "<=" => verb_conjugate::to_continuous(base_word),
                         "%" => verb_conjugate::to_past_participle(base_word),
                         "<%" => verb_conjugate::to_past_participle(base_word),
+                        // ROADMAP.md Phase 8 item 1: the participle channel. Passive and
+                        // future-perfect main verbs are participles; perfect-progressive
+                        // main verbs are gerunds -- the auxiliary carries the
+                        // tense/voice, baked separately by `handle_tense_marker`.
+                        "=%" | "<=%" | ">%" => verb_conjugate::to_past_participle(base_word),
+                        "%=" | "<%=" => verb_conjugate::to_continuous(base_word),
                         _ => base_word.to_string(),
                     }
                 };
@@ -777,6 +886,16 @@ fn handle_param(
                     "<=" => quote!(PastContinuous),
                     "%" => quote!(PresentPerfect),
                     "<%" => quote!(PastPerfect),
+                    // ROADMAP.md Phase 8 item 1. `>=%` (future passive) and `>%=` (future
+                    // perfect progressive) are deliberately not enumerated here -- not
+                    // writable in a placeholder -- even though `narration::marker_and_form_for_tense`
+                    // synthesizes those exact marker strings internally under a `ctx.tense`
+                    // override; see docs/superpowers/specs/2026-08-15-participle-channel.md.
+                    "=%" => quote!(PresentPassive),
+                    "<=%" => quote!(PastPassive),
+                    ">%" => quote!(FuturePerfect),
+                    "%=" => quote!(PresentPerfectProgressive),
+                    "<%=" => quote!(PastPerfectProgressive),
                     _ => {
                         let post_span = post_span.unwrap();
                         return Err((
@@ -854,8 +973,17 @@ fn handle_param(
             Ok(n) => n,
             Err(s) => return Err((nr_s, nr_e, s)),
         };
-        let kind = if plurality.contains('#') {
+        // ROADMAP.md Phase 8 item 4: `##var`/`$$var` are the ordinal siblings of `#var`/`$var`,
+        // sharing the same spelled-vs-digits split -- `plurality == "##"` is checked before the
+        // `contains('#')` fallback so an ordinal isn't misclassified as a plain cardinal, and
+        // exact `"$$"`/`"?$$"` checks (rather than `contains('$')`) so a plain `$var` isn't
+        // misclassified as an ordinal.
+        let kind = if plurality == "##" {
+            quote!(Ordinal)
+        } else if plurality.contains('#') {
             quote!(Words)
+        } else if plurality == "$$" || plurality == "?$$" {
+            quote!(OrdinalDigits)
         } else {
             quote!(Digits)
         };
@@ -864,7 +992,7 @@ fn handle_param(
             leading_space: #nr_space,
             hidden: #hidden,
         }));
-        if plurality == "#" {
+        if plurality.contains('#') {
             if !nr_fmt.is_empty() {
                 return Err((
                     nr_s,
@@ -875,6 +1003,8 @@ fn handle_param(
             // Words are spelled at *runtime* now, from this count, so that a numeral hook
             // can spell them in another language; `ranting::rant_convert_numbers` (the same
             // English speller as before) is the fallback there, so the output is unchanged.
+            // `##` takes the same path -- the ordinal is spelled at runtime too, from the
+            // identical count.
             count_expr = parse_quote!(Some(#nr_ph_expr as i64));
             parse_quote!(String::new())
         } else {
@@ -883,7 +1013,7 @@ fn handle_param(
                 // rendered, so dropping it here is unobservable either way.
                 "{}".to_string()
             } else {
-                if plurality != "$" {
+                if plurality != "$" && plurality != "$$" {
                     return Err((
                         nr_s,
                         nr_e,
@@ -949,6 +1079,13 @@ fn handle_param(
                 "the" => quote!(The),
                 "a" | "an" | "some" => quote!(AAnSome),
                 "these" | "those" => quote!(TheseThose),
+                // ROADMAP.md Phase 8 item 3: the six agreeing-quantifier word/pairs.
+                "no" => quote!(No),
+                "every" | "all" => quote!(EveryAll),
+                "each" => quote!(Each),
+                "either" | "neither" => quote!(EitherNeither),
+                "much" | "many" => quote!(MuchMany),
+                "less" | "fewer" => quote!(LessFewer),
                 _ => quote!(Other),
             }
         };
@@ -960,6 +1097,43 @@ fn handle_param(
     let (pre_first_word, pre_rest) = split_at_find_start(pre_string.as_str(), char::is_whitespace)
         .unwrap_or((pre_string.as_str(), ""));
     let pre_kind_q = article_kind_tokens(&pre_first_word.to_lowercase());
+    // ROADMAP.md Phase 8 item 3: `each`/`either`/`neither` force singular agreement, baked
+    // here exactly as a written `-` marker would be -- no runtime machinery needed, since
+    // `pre`'s first word is already classified at compile time just above. A written `+`
+    // directly contradicts that and is a compile error (the repo's "don't silently guess"
+    // stance, same as a doubled `;` verbatim marker); `#`/`$`-numeral plurality is left
+    // untouched, since the actual runtime count then decides agreement and there is no
+    // static contradiction to catch.
+    let pre_first_lower = pre_first_word.to_lowercase();
+    let pre_first_trimmed = pre_first_lower.trim_start_matches(['!', '?']);
+    let forces_singular = matches!(pre_first_trimmed, "each" | "either" | "neither");
+    let plurality = if forces_singular && plurality == "+" {
+        return Err((
+            nr_s,
+            nr_e,
+            format!(
+                "quantifier `{pre_first_trimmed}` forces singular agreement; `+` contradicts it"
+            ),
+        ));
+    } else if forces_singular && plurality.is_empty() {
+        "-"
+    } else {
+        plurality
+    };
+    // ROADMAP.md Phase 8 item 4: bake the classified marker as a typed
+    // `ranting::placeholder::Plurality` variant rather than the raw `&str` this used to
+    // interpolate directly -- see that enum's docs for why the `&str` was retyped in the same
+    // change that added the ordinal markers.
+    let plurality_variant = match plurality {
+        "" => quote!(Unmarked),
+        "+" => quote!(Plus),
+        "-" => quote!(Minus),
+        "##" => quote!(OrdinalWords),
+        "$$" | "?$$" => quote!(OrdinalDigits),
+        p if p.contains('#') => quote!(CardinalWords),
+        _ => quote!(CardinalDigits),
+    };
+    let plurality_expr = quote!(ranting::placeholder::Plurality::#plurality_variant);
     let pre_chained_kind_q = if pre_string.contains('`') {
         // has_possesive: the runtime's chained (second) get_article_or_so call is
         // never reached in this case (see ArticleKind's docs), so this value is
@@ -1004,7 +1178,7 @@ fn handle_param(
         pre: #pre_string,
         pre_kind: #pre_kind_q,
         pre_chained_kind: #pre_chained_kind_q,
-        plurality: #plurality,
+        plurality: #plurality_expr,
         numeral: #numeral_expr,
         noun_space: #noun_space,
         case: #case_expr,
@@ -1030,7 +1204,94 @@ fn handle_param(
 
 #[cfg(test)]
 mod tests {
-    use super::check_ident_path;
+    use super::{Span, check_ident_path, check_unmarked_verb_slot, handle_param};
+    use std::collections::HashMap;
+
+    /// Drives `handle_param` directly against a `ph_ext`-parsed placeholder body, the same
+    /// approach `check_ident_path`/`check_unmarked_verb_slot` above use for diagnostics this
+    /// repo has no `trybuild` harness to compile-fail-test (`.claude/rules/placeholder-grammar.md`).
+    /// Returns the token stream of the baked `ranting::handle_placeholder(...)` call `handle_param`
+    /// pushes into `pos` on success (the classified `PostSpec` is embedded in there, not in the
+    /// replacement string `handle_param` itself returns).
+    fn classify_post(placeholder_body: &str) -> Result<String, String> {
+        let caps = ranting_core::ph_ext::parse(placeholder_body).expect("valid ph_ext body");
+        let mut pos = vec![];
+        handle_param(
+            &caps,
+            &HashMap::new(),
+            &mut pos,
+            false,
+            None,
+            "",
+            false,
+            Span::call_site(),
+        )
+        .map_err(|(_, _, msg)| msg)?;
+        Ok(quote::quote!(#(#pos)*).to_string())
+    }
+
+    /// ROADMAP.md Phase 8 item 2: `;` classifies as `PostSpec::Verbatim`, distinct from the
+    /// existing `PostSpec::Verb`/`Tense` shapes -- confirmed here by checking the baked-out
+    /// token stream names the right variant, since `handle_param` bakes tokens, not a value.
+    #[test]
+    fn verbatim_marker_classifies_as_verbatim_postspec() {
+        let out = classify_post("i ;were").expect("valid placeholder");
+        assert!(
+            out.contains("PostSpec :: Verbatim"),
+            "expected a Verbatim PostSpec, got: {out}"
+        );
+    }
+
+    /// Combining `;` with a real tense marker, or repeating it, is contradictory ("apply no
+    /// conjugation" and "conjugate to X") and must be a compile error, not a silent pick of one
+    /// meaning over the other -- the same stance the pre-existing tense/degree conflict takes.
+    #[test]
+    fn verbatim_marker_rejects_combination_with_tense_markers() {
+        for bad in ["who <;were", "who ;<were", "who ;;were"] {
+            let err = classify_post(bad).expect_err("combining `;` with other markers must error");
+            assert!(
+                err.contains(';'),
+                "message should name the offending marker, got: {err}"
+            );
+        }
+    }
+
+    /// ROADMAP.md Phase 8 item 1: the five composed participle-channel spellings classify
+    /// as `PostSpec::Tense` with the matching new `TenseMarker` variant. Before the arms
+    /// landed, every one of these fell into `handle_param`'s `_` arm ("unrecognized tense
+    /// marker") -- confirmed empirically at the time by running this test against the
+    /// pre-change source and observing `Err`, per CLAUDE.md's byte-identity requirement for
+    /// this change (a currently-unrecognized run becoming meaningful cannot alter any
+    /// existing template, since no existing template could compile with it).
+    #[test]
+    fn participle_channel_markers_classify_as_tense_postspec() {
+        let cases = [
+            ("who =%take", "PresentPassive"),
+            ("who <=%take", "PastPassive"),
+            ("who >%take", "FuturePerfect"),
+            ("who %=pick", "PresentPerfectProgressive"),
+            ("who <%=pick", "PastPerfectProgressive"),
+        ];
+        for (placeholder, variant) in cases {
+            let out = classify_post(placeholder).expect("valid placeholder");
+            assert!(
+                out.contains("PostSpec :: Tense") && out.contains(variant),
+                "expected a Tense PostSpec with marker {variant}, got: {out}"
+            );
+        }
+    }
+
+    /// The two internal-only marker strings `narration::marker_and_form_for_tense`
+    /// synthesizes under a `ctx.tense` override (`>=%` future passive, `>%=` future
+    /// perfect progressive) are deliberately never enumerated `tense_variant` spellings --
+    /// not writable in a placeholder, even though the family they belong to is.
+    #[test]
+    fn future_voice_spellings_are_not_writable_in_a_placeholder() {
+        for bad in ["who >=%take", "who >%=pick"] {
+            let err = classify_post(bad).expect_err("must not be a writable placeholder spelling");
+            assert!(err.contains("unrecognized tense marker"), "got: {err}");
+        }
+    }
 
     /// The guard's whole point: these used to reach `syn::Ident::new` and *panic*, which rustc
     /// reports as "proc macro panicked" with the caret on the entire `say!(...)` invocation and no
@@ -1072,5 +1333,141 @@ mod tests {
                 "{word} should be accepted as a possible variable name"
             );
         }
+    }
+
+    /// `docs/architecture-review-2026-08-15.md` §1.8: `{=0 walking}` used to render "She walking"
+    /// silently. There is no trybuild harness, so like `check_ident_path` above, the guard
+    /// function is pinned directly rather than through the rendered compile error.
+    #[test]
+    fn bare_participles_in_a_verb_slot_are_rejected() {
+        for word in [
+            "walking", "running", "talking", "playing", "making", "going", "doing", "being",
+            "flying", "dying", "eating", "Walking",
+        ] {
+            let err = check_unmarked_verb_slot(word)
+                .expect_err("a bare -ing form in an unmarked verb slot must be an error");
+            assert!(
+                err.contains("no tense marker"),
+                "message should name the rule that was broken, got: {err}"
+            );
+            assert!(
+                err.contains(word),
+                "message should quote the offending word, got: {err}"
+            );
+        }
+    }
+
+    /// The message must name both intended spellings, with the base verb recovered from the
+    /// participle -- including through consonant undoubling and restored final `e`/`ie`.
+    #[test]
+    fn rejection_message_names_both_intended_spellings() {
+        for (word, base) in [
+            ("walking", "walk"),
+            ("running", "run"),
+            ("making", "make"),
+            ("dying", "die"),
+        ] {
+            let err = check_unmarked_verb_slot(word).unwrap_err();
+            assert!(
+                err.contains(&format!("{{=0 {base}}}")) && err.contains(&format!("{{=0 ={base}}}")),
+                "message for `{word}` should name `{{=0 {base}}}` and `{{=0 ={base}}}`, got: {err}"
+            );
+        }
+    }
+
+    /// What must survive the guard. Two families:
+    /// - bare *past* forms (`{=0 walked}`, `{=0 went}`): grammatical without an auxiliary, and
+    ///   pinned as intended output throughout `tests/ranting/verb_tense.rs`;
+    /// - base verbs that merely end in "ing": the irregular bases ("sing", "bring", "swing",
+    ///   "string"), the one-letter stems ("ping", "wing"), and the vowel-less stems ("cling",
+    ///   "fling", "wring").
+    #[test]
+    fn legitimate_verb_slot_words_still_pass() {
+        for word in [
+            "walk", "walked", "went", "was", "is", "eat", "pick", "sing", "ring", "bring", "sting",
+            "string", "swing", "cling", "fling", "sling", "wring", "ping", "ding", "wing", "zing",
+            "king", "thing", "",
+        ] {
+            assert!(
+                check_unmarked_verb_slot(word).is_ok(),
+                "`{word}` should be accepted in an unmarked verb slot"
+            );
+        }
+    }
+
+    /// ROADMAP.md Phase 8 item 3: `each`/`either`/`neither` force singular agreement, baked
+    /// here exactly as a written `-` marker would be -- confirmed by checking the baked
+    /// `plurality` field renders `Plurality::Minus` even for an unmarked placeholder.
+    #[test]
+    fn quantifiers_that_force_singular_bake_a_minus_marker() {
+        for word in ["each", "either", "neither"] {
+            let out = classify_post(&format!("{word} item")).expect("valid placeholder");
+            assert!(
+                out.contains("plurality : ranting :: placeholder :: Plurality :: Minus"),
+                "expected plurality baked to Plurality::Minus for `{word}`, got: {out}"
+            );
+        }
+    }
+
+    /// A written `+` directly contradicts a quantifier that forces the singular -- a compile
+    /// error, not a silent pick of one meaning over the other (the repo's "don't silently guess"
+    /// stance, the same one the verbatim-marker conflict above takes).
+    #[test]
+    fn quantifiers_that_force_singular_reject_a_contradicting_plus_marker() {
+        for word in ["each", "either", "neither"] {
+            let err = classify_post(&format!("{word} +item"))
+                .expect_err("`+` on a singular-forcing quantifier must be a compile error");
+            assert!(
+                err.contains(word) && err.contains("singular"),
+                "message should name the quantifier and the rule, got: {err}"
+            );
+        }
+    }
+
+    /// `#`/`$`-numeral plurality is left untouched by the singular-forcing bake: the actual
+    /// runtime count decides agreement, and there is no *static* contradiction to catch.
+    #[test]
+    fn quantifiers_that_force_singular_leave_a_numeral_untouched() {
+        let out = classify_post("each $n item").expect("valid placeholder");
+        assert!(
+            !out.contains("plurality : ranting :: placeholder :: Plurality :: Minus"),
+            "a numeral's own plurality marker should not be overwritten, got: {out}"
+        );
+    }
+
+    /// ROADMAP.md Phase 8 item 4: `##var` classifies as `NumeralKind::Ordinal` /
+    /// `Plurality::OrdinalWords`, distinct from plain `#var`'s `NumeralKind::Words` /
+    /// `Plurality::CardinalWords` -- the exact silent-failure site the design spike named
+    /// (`docs/superpowers/specs/2026-08-15-ordinal-numerals.md`'s cost table, site 3/5).
+    #[test]
+    fn doubled_hash_classifies_as_ordinal_words() {
+        let out = classify_post("##n attempt").expect("valid placeholder");
+        assert!(
+            out.contains("ranting :: placeholder :: NumeralKind :: Ordinal"),
+            "expected NumeralKind::Ordinal for `##n`, got: {out}"
+        );
+        assert!(
+            out.contains("plurality : ranting :: placeholder :: Plurality :: OrdinalWords"),
+            "expected Plurality::OrdinalWords for `##n`, got: {out}"
+        );
+        assert!(
+            !out.contains("NumeralKind :: Words"),
+            "a doubled `##` must not be misclassified as plain cardinal Words, got: {out}"
+        );
+    }
+
+    /// ROADMAP.md Phase 8 item 4: `$$var` classifies as `NumeralKind::OrdinalDigits` /
+    /// `Plurality::OrdinalDigits`, distinct from plain `$var`.
+    #[test]
+    fn doubled_dollar_classifies_as_ordinal_digits() {
+        let out = classify_post("$$n attempt").expect("valid placeholder");
+        assert!(
+            out.contains("ranting :: placeholder :: NumeralKind :: OrdinalDigits"),
+            "expected NumeralKind::OrdinalDigits for `$$n`, got: {out}"
+        );
+        assert!(
+            out.contains("plurality : ranting :: placeholder :: Plurality :: OrdinalDigits"),
+            "expected Plurality::OrdinalDigits for `$$n`, got: {out}"
+        );
     }
 }

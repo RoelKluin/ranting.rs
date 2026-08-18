@@ -155,6 +155,15 @@ impl<T: Ranting> Ranting for Many<T> {
         }
     }
 
+    fn is_mass(&self) -> bool {
+        // Same one-item rule as `noun_class`: a multi-item phrase has no single mass/count
+        // verdict, and an empty one has no member to ask.
+        match self.0.len() {
+            1 => self.0[0].is_mass(),
+            _ => false,
+        }
+    }
+
     fn is_first_person_subject_custom(&self, subject: &str) -> bool {
         // Same one-item rule as `noun_class`: only a one-item `Many` has a single member whose
         // first-person override can speak for the whole phrase.
@@ -634,6 +643,13 @@ impl<T: Ranting> Ranting for Maybe<T> {
         }
     }
 
+    fn is_mass(&self) -> bool {
+        match &self.0 {
+            Some(item) => item.is_mass(),
+            None => false,
+        }
+    }
+
     fn is_first_person_subject_custom(&self, subject: &str) -> bool {
         match &self.0 {
             Some(item) => item.is_first_person_subject_custom(subject),
@@ -972,6 +988,10 @@ impl<T: Ranting> Ranting for Box<T> {
 
     fn noun_class(&self) -> NounClass {
         (**self).noun_class()
+    }
+
+    fn is_mass(&self) -> bool {
+        (**self).is_mass()
     }
 
     fn is_first_person_subject_custom(&self, subject: &str) -> bool {

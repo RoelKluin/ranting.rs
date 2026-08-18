@@ -105,16 +105,16 @@ generating `Self {}` for the braced-and-empty case. Pinned by
 `tests/ranting/heed_derive.rs::zero_captures_empty_braced_struct_still_generates_heed`
 (`struct Wait {}`). All eight crates' gates pass.
 
-**§§1.5-1.10 come from the English grammar coverage review (2026-08-15).**
+**§§1.5-1.12 come from the English grammar coverage review (2026-08-15).**
 A grammarian read the placeholder surface end to end against complex-sentence English and reported
 both *missing channels* and *wrong output today*. The missing channels are scoped as ROADMAP.md
-Phase 8; the six entries below are the half that belongs here, because each one renders something
+Phase 8; the entries below are the half that belongs here, because each one renders something
 incorrect from input a caller wrote correctly. Every code claim was re-verified against the source
-before it was recorded. **All six are English-output changes**, so each names whether fixing it is
+before it was recorded. **They are all English-output changes**, so each names whether fixing it is
 breaking under CLAUDE.md's byte-identity invariant — that is what decides which can ride a patch
 release and which cannot.
 
-### 1.5 The subjunctive `were` is rewritten to `was`, in both persons — breaking to fix
+### 1.5 The subjunctive `were` is rewritten to `was`, in both persons — ✅ **FIXED 2026-08-17**
 
 `src/language/english.rs`. `IrregularPluralVerb::Were` maps to `Some("was")` in **both**
 `first_person` (`:75`) and `third_person` (`:87`), unconditionally, so
@@ -138,30 +138,57 @@ subjunctive is *not* recoverable from the verb: it is a property of the clause (
 placeholder. So the plausible shapes are an escape-hatch marker or a `NarrationContext` flag, not
 a smarter conjugator — see Phase 8 item 2.
 
-### 1.6 Phrasal and compound verbs take the third-person `-s` on the wrong word — breaking to fix
+**Fixed** by ROADMAP.md Phase 8 item 2's verbatim-verb marker: a new post-noun `;` marker,
+`PostSpec::Verbatim { leading_space, word, trailing }`
+(`ranting_core::placeholder::PostSpec`), parsed by both `PH_EXT` (`ranting_core/src/grammar.rs`)
+and `ph_ext::match_post` (`ranting_core/src/ph_ext.rs`) in the same `post` character class as the
+tense/degree markers, and classified at compile time by `ranting_derive`'s `handle_param`.
+`{=i ;were}` renders "I were" — `handle_placeholder_impl` never calls
+`inflect_verb_custom_with_context` for `PostSpec::Verbatim`, so no person/number agreement (and
+no fork hook) ever touches the word; `{=i were}` (no `;`) is unaffected and still renders "I was",
+so this is additive, not breaking. Combining `;` with a tense or degree marker, or repeating it
+(`{who <;were}`, `{who ;;were}`), is a compile error rather than a silent pick of one meaning.
+Coverage: `tests/ranting/subjunctive_verbatim.rs` (rendering) and `ranting_derive/src/lib.rs`'s
+`tests` module (the marker-classification/error paths this repo has no `trybuild` harness to
+compile-fail-test — see `.claude/rules/placeholder-grammar.md`).
 
-`src/language/english.rs`, `inflect_verb` (`:97`), the `"he" | "she" | "it"` arm. The suffix rules
-append to the whole trimmed string, so a multi-word verb is inflected on its **last** word:
+### 1.6 Phrasal and compound verbs take the third-person `-s` on the wrong word — ✅ **FIXED 2026-08-15**
+
+`src/lib.rs`, `handle_placeholder_impl`'s `PostSpec::Verb(raw)` arm (`:1032`, previously). Not, as
+first suspected, `inflect_verb`'s suffix rules acting on a whole multi-word string — instrumenting
+the call showed `inflect_verb` was only ever handed a single word to begin with. The real split
+happens earlier: `PostSpec::Verb` carries the placeholder's post-noun text as free-form, unsplit
+text (see its own doc comment in `ranting_core/src/placeholder.rs`), and the runtime split it at
+its **last** whitespace, conjugating the trailing word and passing everything before it through
+as inert literal text:
 
 ```rust
 say!("{=0 pick up} the sword.")     // -> "He pick ups the sword."
 ```
 
-Correct is "picks up". The head is the first word, and **all three** append branches inside that
-one arm have the bug independently — the sibilant `+ "es"`, the consonant-`y` `+ "ies"` and the
-default `+ "s"` — because which one fires is decided by the spelling of the **particle**, not of
-the verb: `` {=0 stick to} `` takes the sibilant branch ("stick toes") and `` {=0 get by} `` the
-consonant-`y` branch ("get bies"). A fix that splits off the head therefore has to reach all three,
-not just the `+ "s"` one the obvious example lands in. Tense-marked forms are **not** affected —
-`` {<0 pick up} `` and friends conjugate through `ranting_core::verb_conjugate`, which the macro
-applies to the head — so the defect is specific to bare third-person-singular present, which is
-also the single most common form in generated prose.
+"pick " was pushed verbatim, and "up" — the particle, not the verb — was handed to `inflect_verb`
+and inflected as if it were the whole verb. Correct is "picks up": the **head**, not the last
+word, is what should conjugate. Every multi-word verb hit this, not just the `+ "s"` case the
+obvious example lands in — `` {=0 stick to} `` conjugated "to" on the sibilant branch ("stick
+toes") and `` {=0 get by} `` conjugated "by" on the consonant-`y` branch ("get bies"), because
+which suffix rule fired was decided by the spelling of whatever word happened to be last, not by
+the verb. Tense-marked forms are **not** affected — `` {<0 pick up} `` and friends conjugate
+through `ranting_core::verb_conjugate`, which the macro already applies to the head word at
+compile time — so the defect was specific to bare third-person-singular present, which is also the
+single most common form in generated prose.
 
 Not previously recorded anywhere: absent from ROADMAP.md, DONE.md, both earlier reviews and
-`failures/`. The fix is contained (split at the first space, conjugate the head, re-append the
-remainder) but it changes rendered output for existing templates, hence breaking.
+`failures/`.
 
-### 1.7 Plural proper names get `'s` instead of a bare apostrophe — breaking to fix
+**Fixed** by splitting `PostSpec::Verb`'s raw text at its **first** whitespace instead of its
+last: the first word is now conjugated (via the unchanged `inflect_verb`/`conjugate_verb` path)
+and everything after it — including the separating whitespace — is appended verbatim after the
+conjugated form, instead of being pushed as literal text before it. A single-word verb has no
+whitespace to split on, so it is byte-identical to before. Breaking, recorded in CHANGELOG.md
+under Changed (breaking); new coverage in `tests/ranting/verb_tense.rs` ("pick up", "stick to",
+"get by", and a single-word control, each in first, second and third person).
+
+### 1.7 Plural proper names get `'s` instead of a bare apostrophe — ✅ **FIXED 2026-08-15**
 
 `src/lib.rs:1496`. `adapt_possesive_s` picks the bare `'` only when the noun is plural *and* not a
 name, and `is_name` (`:1503`) decides "name" by looking at nothing but the first character:
@@ -175,7 +202,16 @@ ending in `s` (Myles's, which the doctest at `:1490` pins) but it fires on any c
 regardless of number, and plural proper names take the bare apostrophe like any other plural.
 Smallest and most mechanical of the six; still an output change.
 
-### 1.8 A bare participle after a subject marker renders ungrammatically, and is pinned
+**Fixed** by deleting `is_name` outright: `adapt_possesive_s` now picks the bare apostrophe
+whenever the noun is plural, full stop, and `'s` otherwise — the same rule already applied to
+plural common nouns, now applied uniformly regardless of capitalization. The singular branch was
+always reached independently of `is_name` (a singular noun took `'s` before this change too), so
+`"Myles's"` is unaffected and the doctest above `adapt_possesive_s` still pins it byte-for-byte.
+Breaking, recorded in CHANGELOG.md under Changed (breaking); new coverage in
+`tests/ranting/possessive_apostrophe.rs` (plural proper name, singular name ending in `s`, plural
+common noun).
+
+### 1.8 A bare participle after a subject marker renders ungrammatically, and is pinned — ✅ **FIXED 2026-08-15**
 
 `{=0 walking}` renders "She walking" — the third-person arm sees a non-present tense
 (`detect_tense`) and returns the word untouched, which is right for `` {<0 walked} `` and wrong
@@ -190,15 +226,61 @@ rejects other malformed placeholders, so a bare `-ing`/`-ed` word in a verb slot
 marker is detectable there. Not breaking — a warning, or an error behind the existing compile-time
 guard path.
 
-### 1.9 A negative `#var` spells "negativeone" — not breaking
+**Fixed** as a compile error through the existing `StrLitSlice::error` path:
+`check_unmarked_verb_slot` in `ranting_derive/src/lib.rs` rejects a bare `-ing` head word in a
+marker-less verb slot, naming both intended spellings in the message. Two scope decisions from
+implementing:
 
-`src/lib.rs:509` already carries the comment: `rant_convert_numbers` spells only 1 as "one", and
+- **Only `-ing` is rejected, not `-ed`.** A bare past in the same slot (`{=0 walked}`,
+  `{=0 went}`) renders *grammatically* — past tense needs no auxiliary, so "returned untouched"
+  is the correct output there, and `tests/ranting/verb_tense.rs` pins it extensively as intended.
+  Rejecting it would break correct, working templates for no defect.
+- The guard has no lexicon (the crate's spelling-only stance): base verbs that merely end in
+  "ing" survive via the irregular-verb table (`sing`, `bring`, `swing`), a minimum stem length
+  (`ping`, `wing`), and a stem-must-contain-a-vowel check (`cling`, `fling`, `wring`) — with `y`
+  counting as a vowel so `flying`/`dying` are still caught. `{0 sing}` is live in
+  `ranting_ar`/`ranting_ja` and still compiles.
+
+The pinning tests `test_continuous_form_walking`/`test_continuous_form_other` were retired (the
+templates no longer compile) and replaced with a note plus a test of the intended spellings; the
+guard itself is unit-tested directly in `ranting_derive`, the `check_ident_path` arrangement,
+since there is no trybuild harness. See CHANGELOG.md's Changed entry.
+
+### 1.9 A negative `#var` spells "negativeone" — ✅ **FIXED 2026-08-15**
+
+`src/lib.rs:509` already carried the comment: `rant_convert_numbers` spells only 1 as "one", and
 `-1` comes back as "negativeone", a single unhyphenated non-word. It is upstream
 (`english_numbers::convert_no_fmt`) rather than ours, and no caller is likely to have pinned it,
-so guarding it (reject, or render digits) is not a byte-identity break in any realistic sense.
-Recorded here so it stops being only a source comment.
+so guarding it is not a byte-identity break in any realistic sense.
 
-### 1.10 Space-separated compound nouns pluralize on the tail — breaking to fix
+**Fixed** in `ranting`'s own code rather than upstream, by a private `spell_count` helper that
+`#var` renders through: for a negative count it spells the *magnitude* and prefixes `"minus "`, so
+`-1` is "minus one" and `-21` is "minus twentyone". Three things about the shape:
+
+- The sign word is built into the **same string** the numeral hook is handed, never pushed into
+  `res` separately, so `inflect_numeral_custom`'s replace-wholesale contract and
+  `NumeralSpec::leading_space` are both untouched. Pinned from the hook side by
+  `numeral::a_negative_numeral_reaches_the_hook_as_one_replaceable_string`.
+- **"minus twentyone", not "minus twenty-one"**, because `convert_no_fmt` runs with
+  `Formatting::none()` and already renders positive 21 as "twentyone" — pinned since Phase 6 by
+  `numeral::english_words_numerals_are_unchanged`. Hyphenating the negative alone would make the
+  two signs disagree; hyphenating both is an output change to non-negative counts, which this fix
+  deliberately is not. Upstream's missing hyphen/space in *any* multi-word cardinal is a separate,
+  unfiled, non-breaking-to-record observation.
+- `i64::MIN` is **unchanged**: its magnitude is not representable, upstream panics on it (it takes
+  `abs()` internally) and did so before this guard, so `spell_count`'s `checked_neg` falls through
+  to the same upstream call rather than inventing an output shape for an input that never worked.
+
+`{$var}` (digits) is not routed through the helper — its argument's own `Display` already writes
+the sign. Tests: `numeral::a_negative_words_numeral_spells_the_sign_as_a_word`.
+
+The fix also invalidated the *premise* of the `as_pl` comment at `src/lib.rs:509`, which cited
+"negativeone" as the reason deciding agreement from the count is equivalent to sniffing the
+rendered word. It no longer is — "minus one" contains "one" — so the comment now states that
+agreement is decided from the count and never from the spelling. `-1` renders "minus one boots",
+which is correct English ("minus one degrees") and is asserted deliberately.
+
+### 1.10 Space-separated compound nouns pluralize on the tail — ✅ **FIXED 2026-08-15**
 
 `src/language/plurals.rs:121`, `compound_plural` opens with `word.split('-')` and returns `None`
 for anything without a hyphen, so head-first compounds written with hyphens work — `mother-in-law`
@@ -214,6 +296,104 @@ since a space-separated noun phrase in a placeholder is far more likely to be an
 modifier + head (`red house` → "red houses", correct today) than a postposed-head compound. The
 closed lists bound that risk, and bounding it is the design question the fix has to answer. See
 `.claude/rules/pluralization.md` point 6 — adding a rule means auditing what it now gets wrong.
+
+**Fixed** by widening `compound_plural` to also split on a single space, behind the same closed
+`PREPOSITIONS`/`POSTPOSED_ADJECTIVES` lists the hyphenated form already used, rebuilding with
+whichever separator the input used (a space stays a space, a hyphen stays a hyphen). Audited
+against the risk named above: `"red house"`, `"post office"` and `"fire engine"` all still return
+`None` from `compound_plural` (second word not in either list) and fall through to
+`regular_plural`'s tail pluralization, unchanged. Breaking, recorded in CHANGELOG.md under Changed
+(breaking); new coverage in `src/language/plurals.rs`'s own tests and
+`tests/ranting/regular_plurals.rs`. `ranting_gaps/src/english.rs::compound_plural` is the
+differential oracle for this rule and was deliberately left splitting on `-` only, per
+`.claude/rules/crate-layout.md`; re-running the `ranting-gaps` binary after this fix produced no
+change to the `compound-head-plural`/`regular-plural-rules` findings, since the corpus these docs
+are scanned from contains no space-separated instance of the fixture words.
+
+### 1.11 A sentence-initial numeral spends the placeholder's `uc` on the noun — ✅ **FIXED 2026-08-15**
+
+Found 2026-08-15 while spot-checking §1.9's fix; not caused by it, and it predates the whole
+grammar review. When a placeholder starts a sentence, `handle_placeholder` capitalizes the first
+thing it can — but a numeral is not on that list, so the capital lands on the *noun*, several
+words in:
+
+```rust
+say!("{#n item} fell.", n = 2)      // -> "two Items fell."     want "Two items fell."
+say!("{$n item} fell.", n = 2)      // -> "2 Items fell."       want "2 items fell."
+say!("{the #n item} fell.", n = 2)  // -> "The two items fell." correct — the article takes it
+```
+
+The article case is right, which is what makes the other two look like an oversight rather than a
+policy. It is neither: `src/lib.rs:2454` documents the behavior in
+`inflect_numeral_custom`'s own doc — "`handle_placeholder` never capitalizes the numeral (a
+placeholder that starts a sentence spends its `uc` on the article, verb or noun)" — and offers
+that as the reason the hook takes no `uc`. So the decision was made and written down; what was
+never checked is what it *renders* when there is no article to spend the `uc` on.
+
+Two different fixes, because the two channels differ:
+
+- `#var` (spelled out) — the numeral is a word, so it should take the capital: "Two items fell."
+  That means either capitalizing before the hook runs, or giving the hook the `uc` the doc
+  currently explains away.
+- `$var` (digits) — a digit cannot be capitalized, so the `uc` should be **dropped**, not passed
+  along. "2 items fell." is correct English and "2 Items fell." is not.
+
+Breaking either way, and the hook's doc has to change with it.
+
+**Fixed** on the crate side of the hook rather than by adding a `uc` parameter to it: giving
+`inflect_numeral_custom` a `uc` parameter would have meant re-signing a hook four falsifier crates
+already override (`ranting_i18n`, `ranting_es`, `ranting_ar`, `ranting_ja`), for a decision the
+crate can make without their input — whether a spelled word or a digit was written is known before
+the hook runs, so the crate applies the capital to whatever the hook returns (or to the English
+fallback) rather than delegating the decision to it. The `hidden: false` numeral branch in
+`handle_placeholder_impl` now capitalizes the rendered numeral, or drops `uc` outright, exactly
+when `uc && sentence_start && !rendered.is_empty()`:
+
+- `#var` gets `capitalize_if(&rendered, true)` — "Two items fell.".
+- `$var` is left as rendered, with `uc` simply consumed — "2 items fell.".
+
+Two things about the gate:
+
+- **`sentence_start`, not `uc` alone.** `` {^#n item} `` forces `uc == true` mid-sentence
+  (`.claude/rules/extension-hooks.md`'s `` {The 0} `` shape), and that case must stay
+  byte-identical — the numeral is not capitalized and the capital still falls through to the noun,
+  exactly as before this fix. Pinned by
+  `numeral::mid_sentence_forced_uc_numeral_is_byte_identical`.
+- **`hidden: false` only.** A hidden numeral (`` {?$n item} ``) renders nothing, so it cannot claim
+  the capital either way; `uc` still falls through to whatever comes next, unchanged.
+
+`inflect_numeral_custom`'s own doc at `src/lib.rs` no longer states "the crate never capitalizes
+the numeral" as policy — it now says capitalization stays on the crate side of the hook, and why.
+`ranting_i18n`'s `spelled_numerals_agree_like_an_article_at_one` test asserted the identical
+pre-fix shape for German (`"ein Hund"`) and is updated to `"Ein Hund"`; `ranting_es/README.md`'s
+"Also observed, not holes" bullet documenting the same shape for Spanish is corrected rather than
+left stale. Neither Arabic nor Japanese has a comparable test to update: both render numerals and
+nouns in scripts with no case distinction, so `capitalize_if` is a no-op on their output either
+way. Tests: `tests/ranting/numeral.rs`.
+
+### 1.12 A negative count agrees plural — recorded as a decision, not filed as a defect
+
+§1.9's fix introduced the "minus one" spelling, which made a pre-existing agreement rule visible
+for the first time: `as_pl` for `#var` is `count != Some(1)` (`src/lib.rs:520`), so `-1` is not
+`1` and takes the plural.
+
+```rust
+say!("I see {#n item}.", n = -1)   // -> "I see minus one items."
+```
+
+The fix's author defended this in a source comment at the match arm — "minus one degrees" is what
+English actually says for a measure, and deciding agreement from the *count* rather than from the
+rendered word is also what stops a fork's `inflect_numeral_custom` from flipping agreement by
+returning a string containing "one". Both halves of that are right.
+
+What it does not settle is the countable case: "minus one item" is what a native speaker writes
+for a discrete thing, and the same rule renders "minus one items". English genuinely splits here
+along measure-versus-count, which is the mass/count distinction ROADMAP.md Phase 8 item 3 part (b)
+would supply and nothing in the crate has today. So this is recorded rather than scheduled — a
+maintainer's call on whether `-1` should be treated as `1` for agreement (fixing countables,
+breaking measures), left alone (the reverse), or deferred until the mass/count flag exists and
+can decide per entity. Sniffing the spelled form is not an option, for the reason the source
+comment gives.
 
 ## 2. Documentation defects found and fixed on 2026-08-15
 
@@ -305,7 +485,8 @@ still hasn't fired on this corner of the hook surface.
 
 ### 4.2 The grammar review's other half is scoped, not fixed (added 2026-08-15)
 
-§§1.5-1.10 are the defect half of the English coverage review. The other half — constructions
+§§1.5-1.12 are the defect half of the English coverage review (§§1.11-1.12 were added on
+2026-08-15 while spot-checking §1.9's fix; both predate the review). The other half — constructions
 complex English needs that no placeholder can express (the participle channel and passive voice,
 agreeing quantifiers, the mass/count distinction, ordinals, adverb derivation) — is scoped as
 **ROADMAP.md Phase 8** rather than recorded here, since none of it is a defect: what renders today

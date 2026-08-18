@@ -416,10 +416,13 @@ their own speller, several agree the numeral with the noun's gender (Russian
 therefore spelled at runtime now, from a count the macro bakes, with the same
 English speller as the fallback — so the hook can replace it wholesale.
 
-There is no `uc` parameter: the numeral is never capitalized (a sentence-initial
-placeholder spends its `uc` on the article, verb or noun). A returned string
-replaces the rendering outright, so a `:fmt` width/fill spec on `$var` is not
-re-applied to it. Not called when nothing numeric renders — no `#var`/`$var`
+There is no `uc` parameter: capitalization stays on the crate side, applied to
+whatever the hook returns (or to the English fallback). A sentence-initial
+placeholder with nothing else before the numeral spends its `uc` there —
+spelled-out (`#var`) gets capitalized, digits (`$var`) simply drop it, since a
+digit can't be capitalized. A returned string replaces the rendering outright,
+so a `:fmt` width/fill spec on `$var` is not re-applied to it. Not called when
+nothing numeric renders — no `#var`/`$var`
 marker, or a hidden one (`` {?$n boots} ``); `heed!()`/`ask!()`'s `{$name}` is
 input parsing and does not route here either. The `count` is local to the
 numeral and does not discharge the count channel still owed on the `as_plural`

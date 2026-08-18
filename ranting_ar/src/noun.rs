@@ -255,6 +255,11 @@ impl Ranting for ArabicNoun {
             // `$n`: Arabic-Indic digits, transcribed from whatever English rendered so a `:fmt`
             // width spec survives.
             NumeralStyle::Digits => Some(lexicon::to_arabic_digits(numeral)),
+            // `##n`: ROADMAP.md Phase 8 item 4's "second constituency" — ordinals agree normally
+            // (not polarity-reversed) with the counted noun's gender, unlike the cardinals above.
+            NumeralStyle::Ordinal => lexicon::ordinal(count?, class.as_str()),
+            // `$$n`: no Arabic digit-ordinal notation is modeled by this closed lexicon.
+            NumeralStyle::OrdinalDigits => None,
         }
     }
 

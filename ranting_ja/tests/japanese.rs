@@ -113,8 +113,11 @@ fn a_count_past_the_table_declines_and_english_shows_through() {
     // contract being *visibly* wrong rather than plausibly wrong, exactly as an unmodelled verb
     // is. Asserted rather than left to chance, since a fork extending the vocabulary needs to
     // know what the boundary looks like.
+    // Sentence-initial: the English fallback speller is a word, so it takes the
+    // placeholder's capital, same as `ranting_i18n`'s `"ein Hund"` -> `"Ein Hund"`
+    // (docs/architecture-review-2026-08-15.md §1.11, fixed in the main crate).
     let neko = JapaneseNoun::neko();
-    assert_eq!(say!("{#0 1}", 6, neko), "six猫");
+    assert_eq!(say!("{#0 1}", 6, neko), "Six猫");
     assert_eq!(say!("{$0 1}", 6, neko), "6猫");
 }
 

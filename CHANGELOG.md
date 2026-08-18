@@ -13,7 +13,140 @@
   falsifier crates included, and `docs/EXTENSIBILITY.md` now use
   `capitalize_if`. Behavior is identical.
 
+### Changed
+
+- **Five new composed post-noun tense markers add passive voice, future perfect and perfect
+  progressive: `=%` (present passive), `<=%` (past passive), `>%` (future perfect), `%=`
+  (present perfect progressive), `<%=` (past perfect progressive).** `say!("{The sword =%take}.")`
+  now renders "The sword is taken." — previously a compile error ("unrecognized tense marker"),
+  since the only markers reaching `verb_conjugate::to_past_participle` were `%`/`<%`. Closes
+  ROADMAP.md Phase 8 item 1 (`docs/superpowers/specs/2026-08-15-participle-channel.md`). Each
+  spelling composes already-taken `post` characters — no grammar/parser change, and every
+  existing template is byte-identical, since all five were compile errors before this change.
+  Baked as five new `ranting_core::placeholder::TenseMarker` variants; auxiliary agreement reuses
+  `AuxiliaryVerb::IsAre`/`WasWere`/`HaveHas` unchanged. Under `say_with!()`, a `NarrationContext`
+  `tense` override on one of these five moves only the tense axis (present/past/future) — the
+  marker's voice/aspect is preserved, so `{=%take}` overridden to `Tense::Past` renders "was
+  taken", never active "took"; the six pre-existing markers keep their unchanged full-table
+  override behavior.
+
+- **A new post-noun marker, `;`, renders a verb exactly as written, bypassing person/number
+  agreement entirely.** `say!("If {=i were} rich, …")` still renders "If I was rich, …" —
+  unchanged, since indicative `were` → `was` agreement is correct and stays pinned — but a
+  caller who wants the subjunctive can now write `say!("If {=i ;were} rich, …")` to get
+  "If I were rich, …". Closes `docs/architecture-review-2026-08-15.md` §1.5 (ROADMAP.md Phase 8
+  item 2): mood is a property of the surrounding clause, not recoverable from the verb, so the
+  fix is an escape hatch rather than a smarter conjugator. Baked as a new
+  `ranting_core::placeholder::PostSpec::Verbatim` variant; `Ranting::inflect_verb_custom_with_context`
+  is never called for it. `;` is new grammar (parsed by both `PH_EXT` and `ph_ext::parse`, in
+  lockstep — `.claude/rules/placeholder-grammar.md`) but every existing template is
+  byte-identical, since it was previously a syntax error to write `;` inside a placeholder.
+  Combining `;` with a tense or degree marker, or repeating it, is a compile error.
+
+- **A bare `-ing` form in an unmarked verb slot is now a compile error instead
+  of rendering ungrammatical text.** `say!("{=0 walking}")` used to compile and
+  render `"She walking"` — the runtime correctly leaves a non-present form
+  untouched, but nothing ever supplies the auxiliary, so the writer error
+  failed silently into user-visible output
+  (`docs/architecture-review-2026-08-15.md` §1.8, ROADMAP.md Phase 8 item 6).
+  The macro now rejects the template with a message naming both intended
+  spellings: `{=0 walk}` for the present, `{=0 =walk}` for the progressive.
+  No grammatical template changes meaning or output — this only turns a
+  previously-accepted malformed template into an error at compile time.
+  - Bare *past* forms are untouched: `{=0 walked}` and `{=0 went}` render
+    grammatically without an auxiliary and stay pinned as intended output in
+    `tests/ranting/verb_tense.rs`.
+  - Base verbs that merely end in "ing" (`{0 sing}`, `{0 bring}`, `{0 ping}`,
+    `{0 cling}`) still compile — the guard checks irregular-table bases and
+    stem shape, not the raw suffix. Live in `ranting_ar`/`ranting_ja`, which
+    both use `{0 sing}`.
+  - Pinned by unit tests on `check_unmarked_verb_slot` in
+    `ranting_derive/src/lib.rs` (this repo has no trybuild harness — same
+    arrangement as `check_ident_path`).
+
 ### Changed (breaking)
+
+- **`pre`'s closed article vocabulary gains ten more reserved words: `no`, `every`, `all`,
+  `each`, `either`, `neither`, `much`, `many`, `less`, `fewer`** (ROADMAP.md Phase 8 item 3,
+  `docs/superpowers/specs/2026-08-15-quantifier-determiners.md`). Six new `ArticleKind`
+  variants — `No`, `EveryAll`, `Each`, `EitherNeither`, `MuchMany`, `LessFewer` — reach
+  `inflect_article_custom_with_context` through new `get_article_or_so` arms carrying the
+  identical `GrammaticalCase`/`NounClass`/`count`/`uc`/`ctx` signal set the pre-existing article
+  arms already pass, so a fork overrides a quantifier with zero new hook surface. **This is the
+  same reservation class `the`/`some`/the fourteen modal words already occupy**: a placeholder
+  whose only variable named one of these ten words (`{no ...}` reading `no` as a noun) now
+  reparses as the quantifier instead — the same hazard a variable named `some` or `the` already
+  carries, not a new kind of one.
+  - `` {no item} ``-shaped templates that used to be `E0425` (no vocabulary slot for `no`) now
+    compile. `` {no +item} ``/`` {no $n item} `` (the pre-existing open-pass accident) render
+    differently: plural spellings are byte-identical ("No items"), but the singular spelling
+    changes from **"Noes 1 item"** to **"No 1 item"** — a defect fix
+    (`docs/superpowers/specs/2026-08-15-quantifier-determiners.md` recorded the "no" falling
+    through to the pre-noun *verb* path and getting conjugated), but formally an output change
+    for input that already compiled, so it is called out here rather than folded into
+    byte-identity.
+  - Resolving the word list's cut line (left open by the spike): ship exactly the six named
+    pairs now; `both`, `all`-as-a-keyword-beyond-`every`'s-pair, `such`, `enough`, `several`,
+    `most` and `any` stay out — `any` in particular interacts with polarity and needs its own
+    look, per the spike's own recommendation.
+  - `much`/`many` and `less`/`fewer` select on `Ranting::is_mass()` (see `### Added` below), not
+    on number agreement — landing them required the mass/count flag to exist first, since the
+    only available proxy before it (`as_pl`) guesses wrong on exactly the nouns these words exist
+    for.
+  - `each`/`either`/`neither` force singular agreement, baked at compile time by
+    `ranting_derive`'s `article_kind_tokens` exactly as a written `-` marker would be. A written
+    `+` directly contradicts that and is now a **compile error** naming the quantifier
+    (`` {each +item} ``) — the repo's "don't silently guess" stance, the same one a doubled `;`
+    verbatim marker or a tense/degree conflict already takes. A `#`/`$`-numeral's own plurality is
+    left untouched by this bake: the runtime count decides agreement there, and there is no
+    *static* contradiction for the macro to catch.
+  - `` {are no ?$n item} `` (the zero-count idiom already documented in ROADMAP.md item 3, and the
+    idiom-spelling correction the spike made: `` {?#n +items} `` never parsed) keeps rendering
+    "There are no items."/"There is no item." exactly as before — but only because
+    `ranting_core::ph_ext`'s `match_nested_article_candidates` (the modal's "nested article"
+    matcher, already used for `` {do the thing} ``-shaped chains) gained the same ten words.
+    Without that, reserving `no` as an independent top-level `pre` atom made `star_candidates`'
+    greedy "more repetitions first" search prefer a second, competing repetition starting at
+    `no` over the correct single-repetition "are no " capture — silently dropping "are"/"is"
+    from the output. Exactly the "a new alternative in a repeated group is not local to that
+    alternative" trap `.claude/rules/placeholder-grammar.md` already names for the
+    language-modularity change; caught here before release, not after.
+
+- **Two new numeral markers, `##var` (spelled ordinal, "third") and `$$var` (digit ordinal,
+  "3rd"), and `NumeralStyle`/`NumeralKind` each gain two new variants, `Ordinal`/`OrdinalDigits`,
+  for them.** `say!("This is {the ##n attempt}.", 3, attempt)` now renders "This is the third
+  attempt." — previously a compile error, since `match_nr` required a word character directly
+  after `#`/`$` and rejected a second one (ROADMAP.md Phase 8 item 4,
+  `docs/superpowers/specs/2026-08-15-ordinal-numerals.md`). Every existing template is
+  byte-identical: `##`/`$$` could not parse before this change. **`NumeralStyle` is public,
+  re-exported, and not `#[non_exhaustive]`, so this is a semver-major break** — every downstream
+  `match style { ... }` on it, with no wildcard arm, now needs the two new arms; all four
+  falsifier crates in this repo (`ranting_i18n`, `ranting_es`, `ranting_ar`, `ranting_ja`) needed
+  exactly that fix, which is what the falsifier contract is for.
+  - Agreement decouples from the ordinal itself: an ordinal says *which* one, not *how many*, so
+    `as_pl` falls through to `noun.is_plural()` — "the third attempt", never "attempts", no
+    matter how large the count. `placeholder_count` still carries the real value through to
+    `inflect_numeral_custom`, which is what gender-agreeing ordinals (Spanish, Arabic) need.
+  - `ranting_core::placeholder::PlaceholderSpec::plurality` is retyped from `&'static str` to a
+    new `Plurality` enum in the same change, closing two sites the design spike found that failed
+    *silently* rather than refusing to compile (a `contains('#')` check that could not tell `##`
+    from `#`, and an exact `== "#"` check that could not tell "cardinal" from "no marker at all").
+  - `##`/`$$` inherit the ordinal speller's English rules verbatim: suppletive `one`/`two`/`three`
+    → `first`/`second`/`third`, stem-change `five`/`eight`/`nine`/`twelve`, `-y` → `-ieth`,
+    otherwise `+th`; the digit suffix is chosen from the last *two* digits, so 11-13 (and
+    111-113, ...) take `"th"` regardless of the last digit alone. Both inherit
+    `english_numbers`' unhyphenated compound spelling verbatim ("twentyone", not "twenty-one").
+  - `nr`'s alternation gained a one-repetition restriction in the same change, mirroring the open
+    `pre` pass's existing one — `ph_ext::parse`'s generic repeated-group engine otherwise allows a
+    second numeral-shaped run to silently displace the first, the same trap that already bit the
+    open-pass `pre` widening.
+  - `ranting_es::lexicon::ordinal`/`ranting_ar::lexicon::ordinal` spell `##var` with real gender
+    agreement (Spanish additionally apocopating `primero`/`tercero` before a masculine singular
+    noun) — the "second constituency" the ROADMAP item named. `ranting_i18n`/`ranting_ja` fall
+    through to English for both new variants, an honest gap recorded in each README.
+  - `ranting`/`ranting_core`/`ranting_derive` bumped to `2.0.0` (version-locked, per CLAUDE.md).
+  - See `tests/ranting/ordinal_numerals.rs`, `ranting_es/tests/spanish.rs`, and
+    `ranting_ar/tests/arabic.rs`.
 
 - **`Ranting::inflect` takes a fifth parameter,
   `count: Option<PlaceholderCount>`** (ROADMAP.md Phase 7 item 11). Every
@@ -32,7 +165,129 @@
     supplied none, never overriding an explicit numeral.
   - See `docs/EXTENSIBILITY.md` §2.16 and `tests/ranting/third_number.rs`.
 
+- **A plural proper name now takes the bare possessive apostrophe instead of
+  `'s`.** `say!("{the 0's} house", joneses)` on a `Noun` named `"Joneses"` with
+  subject `"they"` used to render `"the Joneses's house"`; it now renders
+  `"the Joneses' house"` (`docs/architecture-review-2026-08-15.md` §1.7,
+  ROADMAP.md Phase 8 item 6). **This changes `say!()`'s rendered output for
+  every plural proper name run through `{noun's}`/`{noun'}`** — the one case
+  CLAUDE.md's byte-identity invariant requires calling out explicitly.
+  - `adapt_possesive_s` used to pick `'s` for any capitalized noun regardless
+    of number (`is_name`, keyed off the first character alone), which is only
+    correct for a *singular* name ending in `s`. It now picks the bare
+    apostrophe whenever the noun is plural — matching the same rule already
+    applied to plural common nouns — and `'s` otherwise, with no name check at
+    all.
+  - `"Myles's"` (a singular name ending in `s`) is unaffected: singular nouns
+    always took `'s` before this change, independent of `is_name`, and still
+    do. Pinned by the doctest above `adapt_possesive_s` in `src/lib.rs` and by
+    `tests/ranting/possessive_apostrophe.rs`.
+  - See `tests/ranting/possessive_apostrophe.rs` for the plural-proper-name,
+    singular-name-ending-in-`s`, and plural-common-noun cases side by side.
+
+- **A phrasal or compound verb now takes the third-person `-s` on its head
+  word, not its last word.** `say!("{=0 pick up} the sword.")` used to render
+  `"He pick ups the sword."`; it now renders `"He picks up the sword."`
+  (`docs/architecture-review-2026-08-15.md` §1.6, ROADMAP.md Phase 8 item 6).
+  **This changes `say!()`'s rendered output for every bare-present-tense
+  phrasal or compound verb placeholder** — the case CLAUDE.md's byte-identity
+  invariant requires calling out explicitly.
+  - The split was in `src/lib.rs`'s `PostSpec::Verb` handling, not in
+    `inflect_verb` itself: it used to cut the placeholder's post-noun text at
+    its *last* whitespace, push everything before that as literal text, and
+    hand only the trailing word to `inflect_verb` — so which suffix branch
+    fired was decided by the spelling of whatever word happened to be last,
+    not by the verb: `` {=0 stick to} `` conjugated "to" on the sibilant
+    branch ("stick toes") and `` {=0 get by} `` conjugated "by" on the
+    consonant-`y` branch ("get bies"). It now splits at the *first*
+    whitespace instead, conjugating the head word through the unchanged
+    `inflect_verb`/`conjugate_verb` path and appending the remainder
+    (including the separating whitespace) after the conjugated form instead
+    of before it.
+  - A single-word verb has no whitespace to split on, so it is byte-identical
+    to before — this only changes multi-word verbs.
+  - Tense-marked forms (`` {<0 pick up} `` and friends) were already correct
+    and are untouched: they conjugate through
+    `ranting_core::verb_conjugate`, which the macro already applies to the
+    head word only.
+  - See `tests/ranting/verb_tense.rs` ("pick up", "stick to", "get by", and a
+    single-word control, each in first, second and third person).
+
+- **A space-separated head-first compound noun now pluralizes on its head, not
+  its tail.** `say!("{,+0}", Noun::new("attorney general", "it"))` used to
+  render `"attorney generals"`, and `"court martial"` rendered
+  `"court martials"` (`docs/architecture-review-2026-08-15.md` §1.10,
+  ROADMAP.md Phase 8 item 6); they now render `"attorneys general"` and
+  `"courts martial"`, matching the hyphenated spellings `attorney-general` and
+  `court-martial`, which were already correct. **This changes `say!()`'s
+  rendered output for any space-separated noun whose second word is in the
+  closed `PREPOSITIONS`/`POSTPOSED_ADJECTIVES` list** in
+  `src/language/plurals.rs::compound_plural` — the case CLAUDE.md's
+  byte-identity invariant requires calling out explicitly.
+  - `compound_plural` used to split on `-` only and return `None` for anything
+    without a hyphen, so a head-first compound written with a space fell
+    through to `regular_plural` and pluralized its last word like an ordinary
+    noun. It now also splits on a single space, gated behind the same closed
+    lists the hyphenated form already used — an ordinary modifier + head
+    phrase (`"red house"` → `"red houses"`, `"post office"` →
+    `"post offices"`, `"fire engine"` → `"fire engines"`) is far more common
+    than a postposed-head compound written with a space, so the split only
+    fires when the second word is a known preposition or postposed adjective.
+  - See `tests/ranting/regular_plurals.rs` and
+    `src/language/plurals.rs`'s own tests.
+
+- **A sentence-initial numeral now takes the placeholder's capital, instead of
+  the noun several words later.** `say!("{#n item} fell.", n = 2)` used to
+  render `"two Items fell."`; it now renders `"Two items fell."`.
+  `say!("{$n item} fell.", n = 2)` used to render `"2 Items fell."`; it now
+  renders `"2 items fell."` (`docs/architecture-review-2026-08-15.md` §1.11,
+  ROADMAP.md Phase 8 item 6). **This changes `say!()`'s rendered output for any
+  sentence-initial `#var`/`$var` placeholder with no preceding article or
+  verb** — the case CLAUDE.md's byte-identity invariant requires calling out
+  explicitly. A placeholder with a preceding article (`` {the #n item} ``) or
+  not at sentence start is unaffected.
+  - The two channels differ, so the fix does too: a spelled `#var` is a word
+    and can be capitalized (`capitalize_if`), so it now claims the capital and
+    stops it reaching the noun; a digit `$var` can't be capitalized, so the
+    capital is dropped outright rather than carried on.
+  - `inflect_numeral_custom` still takes no `uc` parameter — capitalization
+    stays entirely on the crate side, applied to whatever the hook returns (or
+    to the English fallback), rather than delegated to the hook. Its own doc
+    is corrected to say so; it used to cite "the crate never capitalizes the
+    numeral" as the reason for the missing parameter, which was the bug
+    described as policy.
+  - Gated on `uc && sentence_start`, not `uc` alone, so a mid-sentence
+    forced-uppercase placeholder (`` {^#n item} ``, the same shape
+    `.claude/rules/extension-hooks.md` gives for `` {The 0} ``) is
+    byte-identical to before.
+  - `ranting_i18n`'s `spelled_numerals_agree_like_an_article_at_one` test
+    pinned the identical pre-fix shape for German (`"ein Hund"`) and is
+    updated to `"Ein Hund"`, since it is a property of the shared engine, not
+    a per-language gap.
+  - See `tests/ranting/numeral.rs`.
+
 ### Fixed
+
+- **A negative `#var` spelled the non-word "negativeone".**
+  `say!("I see {#0 boot}", -1)` rendered `"I see negativeone boots"`
+  (`docs/architecture-review-2026-08-15.md` §1.9, ROADMAP.md Phase 8 item 6):
+  `english_numbers::convert_no_fmt` writes a negative as one unbroken run. The
+  sign is now a word of its own — `-1` is `"minus one"`, `-21` is
+  `"minus twentyone"` — spelled by a guard in `ranting`'s own code rather than
+  upstream. Non-negative counts are byte-identical, so this is not a breaking
+  change. Three notes:
+  - The magnitude keeps upstream's spelling exactly: positive 21 renders
+    `"twentyone"` today, so the negative is `"minus twentyone"` and not
+    `"minus twenty-one"` — hyphenating would change what non-negative counts
+    render.
+  - `"minus "` is part of the single numeral string handed to
+    `inflect_numeral_custom`, so the hook still replaces the whole numeral
+    wholesale and `NumeralSpec::leading_space` is untouched.
+  - `i64::MIN` is unchanged: its magnitude is not representable and upstream
+    already panicked on it.
+  - Agreement is unaffected — it is decided from the count, never from the
+    spelled word, so `-1` still takes the plural (`"minus one boots"`, as in
+    "minus one degrees").
 
 - **`{?$n noun}` left a stray space.** `say!("I see {?$0 boot}", 2)` rendered
   `"I see  boots"` (ROADMAP.md Phase 7 item 13). A hidden numeral sits between
@@ -105,6 +360,24 @@
   not called for a hidden numeral. English output is unchanged — the default
   returns `None`. First and only user: `ranting_ar`'s sibling `ranting_ja`.
 
+- **`Ranting::is_mass() -> bool`, declared via `#[ranting(mass)]` or `Noun::with_mass()`**
+  (ROADMAP.md Phase 8 item 3, part (b)). Defaulted `false`, so no existing type's rendering
+  changes. Orthogonal to `NounClass` by design — a word can be both mass and gendered (German
+  *das Wasser* is neuter and mass) — so `ranting` never folds it into the class label.
+  `ranting` itself reads it in exactly two places: the `a`/`an`/`some` article slot renders the
+  unstressed `some` on a mass noun's singular instead of guessing `a`/`an` from the noun's first
+  letter/sound (`` {a 0} `` on "information" used to render **"An information"**; now renders
+  "Some information" for any noun declaring itself mass — mass-`some` was previously unreachable
+  even though the word was already in the vocabulary, since `adapt_article` discarded it in favor
+  of the computed a/an), and the new `much`/`many`/`less`/`fewer` quantifier pair (see
+  `### Changed (breaking)` above) picks its mass-noun member. `#[ranting(mass)]` mirrors
+  `gender`'s attribute-present-or-not contract but is bare-boolean-shaped like `no_article`
+  rather than string-shaped like `gender`, since there is no open-ended label to carry; a
+  private `MassAttr` type in `ranting_derive` gives it both the bare-word shape (`bool`'s own
+  `FromMeta`) and `gender`'s `"$"` field-read sentinel, which is what lets `Noun` (which has no
+  attribute value of its own to declare) read a real `mass: bool` field via
+  `#[ranting(mass = "$")]` and offer `Noun::with_mass()`. `Many`/`Maybe`/`Box`/`&dyn Trait`
+  delegate it the same one-item-or-single-value rule `noun_class()` already uses.
 - `ranting::inflect_noun_regular`, the public entry point derive-generated
   `inflect()` impls use once the irregular table misses. Its `singular_end`/
   `plural_end` parameters are `Option<&str>`, `None` meaning "no rule declared".

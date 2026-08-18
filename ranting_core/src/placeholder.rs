@@ -76,7 +76,7 @@ impl CaseKind {
 }
 
 /// A tense marker attached to a post-noun verb (`<`, `=`, `>`, `<=`, `%`,
-/// `<%`).
+/// `<%`, `=%`, `<=%`, `>%`, `%=`, `<%=`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TenseMarker {
     /// `<` -- simple past, no auxiliary.
@@ -91,6 +91,18 @@ pub enum TenseMarker {
     PresentPerfect,
     /// `<%` -- past perfect ("had run").
     PastPerfect,
+    /// `=%` -- present passive ("is taken"). ROADMAP.md Phase 8 item 1.
+    PresentPassive,
+    /// `<=%` -- past passive ("was taken"). ROADMAP.md Phase 8 item 1.
+    PastPassive,
+    /// `>%` -- future perfect ("will have taken"). ROADMAP.md Phase 8 item 1.
+    FuturePerfect,
+    /// `%=` -- present perfect progressive ("has been picking"). ROADMAP.md
+    /// Phase 8 item 1.
+    PresentPerfectProgressive,
+    /// `<%=` -- past perfect progressive ("had been picking"). ROADMAP.md
+    /// Phase 8 item 1.
+    PastPerfectProgressive,
 }
 
 impl TenseMarker {
@@ -104,6 +116,11 @@ impl TenseMarker {
             b"<=" => Some(TenseMarker::PastContinuous),
             b"%" => Some(TenseMarker::PresentPerfect),
             b"<%" => Some(TenseMarker::PastPerfect),
+            b"=%" => Some(TenseMarker::PresentPassive),
+            b"<=%" => Some(TenseMarker::PastPassive),
+            b">%" => Some(TenseMarker::FuturePerfect),
+            b"%=" => Some(TenseMarker::PresentPerfectProgressive),
+            b"<%=" => Some(TenseMarker::PastPerfectProgressive),
             _ => None,
         }
     }
@@ -122,6 +139,11 @@ impl TenseMarker {
             TenseMarker::PastContinuous => "<=",
             TenseMarker::PresentPerfect => "%",
             TenseMarker::PastPerfect => "<%",
+            TenseMarker::PresentPassive => "=%",
+            TenseMarker::PastPassive => "<=%",
+            TenseMarker::FuturePerfect => ">%",
+            TenseMarker::PresentPerfectProgressive => "%=",
+            TenseMarker::PastPerfectProgressive => "<%=",
         }
     }
 }
@@ -153,10 +175,12 @@ pub enum PostSpec {
     PossessiveS,
     /// A verb with no tense marker, exactly as captured (including its
     /// leading whitespace, and possibly more than one word -- e.g. a
-    /// modal phrase). `ranting_derive` doesn't split this one down further
-    /// at compile time; the runtime's last-word conjugation + leading-word
-    /// passthrough logic is unchanged from before this refactor. `say!()`
-    /// bakes it fully conjugated; `say_with!()` bakes the base form.
+    /// phrasal verb or modal phrase). `ranting_derive` doesn't split this
+    /// one down further at compile time; the runtime conjugates the head
+    /// word and passes the rest through verbatim (until 2026-08-15 it
+    /// conjugated the *last* word instead -- docs/architecture-review-2026-08-15.md
+    /// §1.6). `say!()` bakes it fully conjugated; `say_with!()` bakes the
+    /// base form.
     Verb(&'static str),
     /// A tense-marked verb (`<`, `=`, `>`, `<=`, `%`, `<%`). `word` is the
     /// compile-time-conjugated form for `say!()` or the uninflected base
@@ -187,6 +211,18 @@ pub enum PostSpec {
         word: &'static str,
         trailing: &'static str,
     },
+    // ROADMAP.md Phase 8 item 2: the subjunctive escape hatch.
+    /// A `;`-marked verb: rendered exactly as written, with no
+    /// person/number agreement and no call to
+    /// `Ranting::inflect_verb_custom_with_context` at all -- the escape
+    /// hatch for a caller-written form no conjugator should touch, e.g. the
+    /// subjunctive `{=i ;were}` -> "I were". `trailing` is any words after
+    /// it, passed through unchanged like `Tense`/`Degree`'s.
+    Verbatim {
+        leading_space: &'static str,
+        word: &'static str,
+        trailing: &'static str,
+    },
 }
 
 /// Which numeral notation a placeholder's `#var`/`$var` marker asked for.
@@ -205,6 +241,14 @@ pub enum NumeralKind {
     /// `$var` -- the number as the argument's own `Display` output, with
     /// any `:fmt` spec applied. ASCII digits in English.
     Digits,
+    /// `##var` -- ROADMAP.md Phase 8 item 4: the ordinal, spelled out
+    /// ("third"). Carries the same real `count` the cardinal `Words` channel
+    /// does, but does not itself decide the noun's number agreement -- an
+    /// ordinal says *which* one, not *how many*; see [`Plurality::OrdinalWords`].
+    Ordinal,
+    /// `$$var` -- the ordinal, as digits with an English suffix ("3rd").
+    /// Same agreement decoupling as [`NumeralKind::Ordinal`].
+    OrdinalDigits,
 }
 
 /// The numeral slot of a placeholder: which notation was asked for, and the
@@ -231,6 +275,43 @@ pub struct NumeralSpec {
     /// the same "nothing rendered, nothing to customize" gate a hidden noun
     /// gives `elide_article_custom`.
     pub hidden: bool,
+}
+
+/// Which agreement rule a placeholder's `+`/`-`/`#var`/`$var`/`##var`/`$$var` marker (or its
+/// absence) selects, baked by `ranting_derive` from the same `nr` capture [`NumeralSpec`] is
+/// built from. Replaces a `&'static str` that used to carry this classification as one of
+/// `""`/`"+"`/`"-"`/`"#"`/`"$"`/`"?$"` (ROADMAP.md Phase 8 item 4) -- retyped in the same change
+/// that added the ordinal markers because two of the four sites the old `&str` needed (an exact
+/// `==` here, a `contains` there) failed *silently* rather than refusing to compile: `"##"`
+/// contains `'#'`, so a `contains('#')` check could not tell a cardinal from an ordinal, and
+/// `"##"` is not `== "#"`, so an exact-match check could not tell "has a marker" from "has no
+/// marker" either -- see `docs/superpowers/specs/2026-08-15-ordinal-numerals.md`'s cost table,
+/// sites 3-6.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Plurality {
+    /// No `+`/`-`/`#var`/`$var`/`##var`/`$$var` marker written: agreement comes from the
+    /// entity's own declared plurality (`Ranting::is_plural`) -- the same read a bare `{noun}`
+    /// takes.
+    Unmarked,
+    /// `+` -- forced plural, regardless of the noun's own declared plurality.
+    Plus,
+    /// `-` -- forced singular.
+    Minus,
+    /// `#var` -- cardinal, spelled at runtime from the placeholder's `count`. Agreement:
+    /// `count != Some(1)`.
+    CardinalWords,
+    /// `$var` (visible or hidden, `?$var`) -- cardinal, rendered as the argument's own
+    /// `Display` output. Agreement is parsed back out of that rendered text.
+    CardinalDigits,
+    /// `##var` -- ROADMAP.md Phase 8 item 4: the ordinal, spelled ("the third attempt").
+    /// Agreement decouples from the marker itself and falls through to [`Plurality::Unmarked`]'s
+    /// rule (`noun.is_plural()`) -- an ordinal says *which* one, not *how many*, so "the third
+    /// attempt" stays singular even though `count` is 3. `count` still flows to
+    /// `inflect_numeral_custom`, which is what Spanish/Arabic ordinal gender agreement needs.
+    OrdinalWords,
+    /// `$$var` (visible or hidden, `?$$var`) -- the ordinal as digits with an English suffix
+    /// ("3rd"). Same agreement decoupling as [`Plurality::OrdinalWords`].
+    OrdinalDigits,
 }
 
 /// Which article keyword (if any) a word in the `pre` slot represents --
@@ -264,6 +345,28 @@ pub enum ArticleKind {
     AAnSome,
     /// `these` or `those`.
     TheseThose,
+    /// `no` -- number-transparent (ROADMAP.md Phase 8 item 3): renders itself
+    /// unchanged on both singular and plural agreement, unlike every other
+    /// variant here.
+    No,
+    /// `every` or `all` -- swaps to the suppletive plural on plural agreement
+    /// (`every` -> `all`), the same mechanism [`TheseThose`](Self::TheseThose)
+    /// uses for `this`/`that`.
+    EveryAll,
+    /// `each` -- forces singular agreement, baked at compile time
+    /// (`ranting_derive`'s `article_kind_tokens`) exactly as a written `-`
+    /// marker does.
+    Each,
+    /// `either` or `neither` -- forces singular agreement, same shape as
+    /// [`Each`](Self::Each).
+    EitherNeither,
+    /// `much` or `many` -- picked by [`Ranting::is_mass`](../trait.Ranting.html)
+    /// (`much` for a mass noun, `many` for a count noun), not by number
+    /// agreement.
+    MuchMany,
+    /// `less` or `fewer` -- same mass/count selection as
+    /// [`MuchMany`](Self::MuchMany).
+    LessFewer,
     /// Not a recognized article keyword -- render as a verb, or (for a
     /// possessive-substituted word) as the runtime-substituted text as-is.
     Other,
@@ -305,6 +408,12 @@ impl ArticleKind {
             b"the" => ArticleKind::The,
             b"a" | b"an" | b"some" => ArticleKind::AAnSome,
             b"these" | b"those" => ArticleKind::TheseThose,
+            b"no" => ArticleKind::No,
+            b"every" | b"all" => ArticleKind::EveryAll,
+            b"each" => ArticleKind::Each,
+            b"either" | b"neither" => ArticleKind::EitherNeither,
+            b"much" | b"many" => ArticleKind::MuchMany,
+            b"less" | b"fewer" => ArticleKind::LessFewer,
             _ => ArticleKind::Other,
         }
     }
@@ -336,6 +445,21 @@ mod article_kind_tests {
     fn classifies_non_keyword_as_other() {
         assert_eq!(ArticleKind::classify("can"), ArticleKind::Other);
         assert_eq!(ArticleKind::classify(""), ArticleKind::Other);
+    }
+
+    /// ROADMAP.md Phase 8 item 3: the six agreeing-quantifier word/pairs.
+    #[test]
+    fn classifies_quantifiers() {
+        assert_eq!(ArticleKind::classify("no"), ArticleKind::No);
+        assert_eq!(ArticleKind::classify("every"), ArticleKind::EveryAll);
+        assert_eq!(ArticleKind::classify("all"), ArticleKind::EveryAll);
+        assert_eq!(ArticleKind::classify("each"), ArticleKind::Each);
+        assert_eq!(ArticleKind::classify("either"), ArticleKind::EitherNeither);
+        assert_eq!(ArticleKind::classify("neither"), ArticleKind::EitherNeither);
+        assert_eq!(ArticleKind::classify("much"), ArticleKind::MuchMany);
+        assert_eq!(ArticleKind::classify("many"), ArticleKind::MuchMany);
+        assert_eq!(ArticleKind::classify("less"), ArticleKind::LessFewer);
+        assert_eq!(ArticleKind::classify("fewer"), ArticleKind::LessFewer);
     }
 
     #[test]
@@ -407,7 +531,7 @@ pub struct PlaceholderSpec {
     /// case-sensitive second call site; when the second call is never
     /// reached this is unobserved and its value doesn't matter.
     pub pre_chained_kind: ArticleKind,
-    pub plurality: &'static str,
+    pub plurality: Plurality,
     /// The numeral slot, or `None` when nothing numeric renders here (no
     /// `#var`/`$var` marker). A *hidden* one (`` {?$n noun} ``) is `Some` with
     /// [`NumeralSpec::hidden`] set -- the slot exists, the count is used for

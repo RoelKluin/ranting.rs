@@ -4,7 +4,13 @@ ranting_derive/tags
 tags
 .aider*
 .worktrees/
-.claude/
+# .claude/ holds local session state (worktrees/, settings.local.json,
+# scheduled_tasks.lock) that must stay untracked, but .claude/rules/ is
+# checked-in project documentation (see CLAUDE.md's "Task-specific rules"
+# table) — it was accidentally caught by the blanket ignore below and had
+# never actually been in git history until this fix.
+.claude/*
+!.claude/rules/
 .repo-map/
 tasks_done.txt
 .cargo-home/
@@ -33,3 +39,8 @@ tasks_done.txt
 # and an unrelated Inform 7 extensions library) — not part of the project.
 /docs/Ranting Cheatsheet Design.zip
 /examples/
+
+# Session handoff scratch notes (babysitting/overnight-loop state) — not repo
+# documentation; would otherwise get auto-staged by overnight_loop.sh's
+# STAGE_EXTENSIONS since it matches *.md.
+/mem.md

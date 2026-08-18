@@ -264,3 +264,33 @@ pub fn spell(count: i64, class: &str) -> Option<String> {
     };
     Some(word.to_string())
 }
+
+/// Ordinal numerals `1..=10` — ROADMAP.md Phase 8 item 4's "second constituency": unlike
+/// [`spell`]'s gender *polarity*, ordinals agree normally with the counted noun's gender
+/// (أوّل/أولى "first", ثالث/ثالثة "third", …), which `count` + `NounClass` together are again
+/// sufficient for.
+pub fn ordinal(count: i64, class: &str) -> Option<String> {
+    let feminine_noun = class == FEMININE;
+    let masculine = [
+        "أول", "ثاني", "ثالث", "رابع", "خامس", "سادس", "سابع", "ثامن", "تاسع", "عاشر",
+    ];
+    let feminine = [
+        "أولى",
+        "ثانية",
+        "ثالثة",
+        "رابعة",
+        "خامسة",
+        "سادسة",
+        "سابعة",
+        "ثامنة",
+        "تاسعة",
+        "عاشرة",
+    ];
+    let index = usize::try_from(count - 1).ok()?;
+    let word = if feminine_noun {
+        feminine.get(index)?
+    } else {
+        masculine.get(index)?
+    };
+    Some(word.to_string())
+}

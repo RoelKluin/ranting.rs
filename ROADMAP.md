@@ -25,10 +25,13 @@ lives in [DONE.md](DONE.md). This file is the forward-looking roadmap only.
 (item 11), **both** reference lexicons (items 5 and 6) and the two items they
 scheduled (12 and 13) all landed on 2026-08-14.
 
-📋 **Phase 8 (English grammar depth) is scoped, not started** — six recorded defects
+📋 **Phase 8 (English grammar depth) is scoped, partly landed** — seven recorded defects
 plus five missing channels, from a grammarian's end-to-end review of the placeholder
 surface against complex-sentence English (2026-08-15). See its section below; the
-defect half is `docs/architecture-review-2026-08-15.md` §§1.5-1.10.
+defect half is `docs/architecture-review-2026-08-15.md` §§1.5-1.12; §§1.6, 1.7 and 1.9
+landed on 2026-08-15. Items 1-4's design spikes were ruled on 2026-08-17 (implement,
+in full, per each item's DECIDED block below); item 5 was declined 2026-08-15. Items
+1-4 all landed on 2026-08-17.
 
 **Shipping today**:
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
@@ -946,7 +949,7 @@ building, its build item is dropped rather than executed anyway.
 
 ---
 
-## Phase 8 — English grammar depth (scoped 2026-08-15, not started)
+## Phase 8 — English grammar depth (scoped 2026-08-15, ✅ landed 2026-08-17 — v2.0.0)
 
 *Goal: Phases 6 and 7 spent four falsifier crates asking whether the hook surface
 carries enough signal for a **non-English** implementation. This phase asks the
@@ -954,14 +957,14 @@ question that was never asked in the other direction: whether the English the cr
 ships can carry a **complex sentence**. A grammarian reviewed the placeholder surface
 end to end for that and found two distinct kinds of answer — constructions with no
 channel at all (below), and six places where `ranting` renders something wrong from
-input the caller wrote correctly (`docs/architecture-review-2026-08-15.md` §§1.5-1.10).
+input the caller wrote correctly (`docs/architecture-review-2026-08-15.md` §§1.5-1.12).
 The defects are item 6; items 1-5 are the missing channels, ordered by how often a
 writer of ordinary prose hits them.*
 
-**No version number yet.** Items 1-3 each change what an existing template can render
-and item 6 changes what existing templates *do* render, so how this phase slices into
-releases depends on which items are taken — that is a decision for whoever schedules
-it, not a number to guess now.
+**Landed as v2.0.0.** Items 1-3 and 6 were each additive or English-preserving on their own
+(no version bump forced); item 4 (ordinals) is the one that broke `NumeralStyle`'s exhaustive
+match, so the whole phase's landing carries the major bump it required. Item 5 was declined
+(design spike only, no code change).
 
 **What this phase is not**: a re-opening of the word-order boundary. Two candidates
 the review raised are declined for that reason and are named under Non-goals below;
@@ -980,6 +983,48 @@ literal template").
    family the `*=`/`*@` work established (`=%verb` → "is/are seen", `>%verb` → "will
    have seen"), which reuses `PH_EXT`'s existing fused-marker precedent rather than
    adding a grammar level. Agreement on the auxiliary is already correct machinery.
+
+   **PROPOSED (2026-08-15 spike — NOT implemented; maintainer decision needed).**
+   `docs/superpowers/specs/2026-08-15-participle-channel.md` recommends five
+   enumerated fused spellings as new `TenseMarker` variants — `=%` (present
+   passive, "is taken"), `<=%` (past passive), `>%` (future perfect), `%=`
+   (present perfect progressive, "has been picking"), `<%=` (past perfect
+   progressive) — all composed from already-taken `post` characters, so
+   `PH_EXT`/`ph_ext` need **no** grammar or parser edits (each spelling is a
+   compile error today, making English byte-identity hold by construction), and
+   the passive's auxiliary agreement reuses `AuxiliaryVerb::IsAre`/`WasWere`
+   unchanged. Three decisions are left for sign-off, per the spike: the spellings
+   themselves; the `ctx.tense` × voice interaction under `say_with!()` (the spike
+   recommends tense-axis-only overrides that preserve voice — the naive extension
+   silently renders a passive placeholder active); and whether all five land
+   together (recommended) or the passive pair first. The sigil grammar is Locked,
+   so nothing ships until a maintainer rules.
+
+   **DECIDED (2026-08-17, maintainer ruling — implement).** All five spellings
+   land together (`=%`, `<=%`, `>%`, `%=`, `<%=`), per the spike's recommendation.
+   `ctx.tense` × voice under `say_with!()` takes the tense-axis-only override —
+   the marker's voice is preserved, only tense moves. Ready for an implementation
+   task; not yet started.
+
+   ✅ **LANDED (2026-08-17).** Five new `TenseMarker` variants (`ranting_core::placeholder`):
+   `PresentPassive` (`=%`), `PastPassive` (`<=%`), `FuturePerfect` (`>%`),
+   `PresentPerfectProgressive` (`%=`), `PastPerfectProgressive` (`<%=`) — no grammar/parser
+   edit, since the `post` marker run already matched these spellings and `handle_param`'s `_`
+   arm was rejecting all five as "unrecognized tense marker" before this change. Compile-time
+   forms (`say!()`) via the existing `verb_conjugate::to_past_participle`/`to_continuous`;
+   runtime auxiliary composition (`handle_tense_marker`, `src/lib.rs`) reuses
+   `AuxiliaryVerb::IsAre`/`WasWere`/`HaveHas` unchanged, plus the invariant chains "will
+   have"/"had been"/"will be"/"will have been". `say_with!()`'s `ctx.tense` override
+   (`narration::marker_and_form_for_tense`) now takes the compile-time `TenseMarker` and moves
+   only the tense axis (present/past/future) for the three new construction families, preserving
+   voice/aspect — the six pre-existing markers keep their unchanged full-table override. `>=%`
+   (future passive) and `>%=` (future perfect progressive) are reachable only through that
+   override, never as a writable placeholder spelling — deliberately not enumerated in
+   `handle_param`'s `tense_variant` match, per the spike's scoping. Tests:
+   `tests/ranting/passive_voice.rs` (rendering, all-pronouns agreement, `say_with!()`
+   byte-identity, and the `ctx.tense`-preserves-voice cases) and
+   `ranting_derive/src/lib.rs`'s `tests` module (marker classification and the
+   not-writable-as-placeholder check for `>=%`/`>%=`).
 2. **A subjunctive escape hatch** *(fixes the one place the crate damages correct
    input)* — the defect is §1.5; the *feature* question is what the fix should be.
    Indicative-vs-subjunctive is a property of the clause (`if`, `wish`, mandative
@@ -991,6 +1036,34 @@ literal template").
    call. Retires the "Subjunctive mood and hypotheticals" bullet from
    *v1.4+: Advanced Features* below, which named the gap without knowing the crate
    actively overwrites it.
+
+   **PROPOSED (2026-08-15, not decided, not implemented)** — design spike at
+   `docs/superpowers/specs/2026-08-15-verbatim-verb-marker.md` recommends the
+   verbatim-marker shape: a new post-noun marker character (shortlisted `;`/`|`/
+   `&`/`/`, tiebreak favors `;`) baked as a new `PostSpec::Verbatim(&'static str)`
+   variant that bypasses person/number agreement for the marked word, e.g.
+   `{=i ;were}` → `"I were"`. The spike rejects the `NarrationContext` mood-flag
+   shape outright (mood is per-clause; `NarrationContext` is per call, and one
+   `say_with!()` invocation can mix clauses of different mood). It leaves two
+   things for a maintainer to actually decide, since the sigil grammar is Locked
+   and this spike does not change any code: the exact character, and whether
+   `PostSpec::Verbatim` bypasses `inflect_verb_custom_with_context` entirely or
+   still calls it with a "don't touch" signal (the latter is a hook-signature
+   break). Until one is chosen and implemented, §1.5 stays open.
+
+   **DECIDED (2026-08-17, maintainer ruling — implement).** Character: `;`
+   (`{=i ;were}` → `"I were"`). `PostSpec::Verbatim` bypasses
+   `inflect_verb_custom_with_context` entirely — no hook-signature change.
+
+   ✅ **LANDED (2026-08-17).** `PostSpec::Verbatim { leading_space, word, trailing }`
+   (`ranting_core::placeholder`), parsed by `PH_EXT` and `ph_ext::match_post` in lockstep
+   and classified at compile time by `ranting_derive`'s `handle_param`; `handle_placeholder_impl`
+   renders it via `capitalize_with_context` alone, with no `inflect_verb_custom_with_context`
+   call. `{=i were}` (no `;`) is unchanged. `;` combined with a tense/degree marker, or repeated,
+   is a compile error. See CHANGELOG.md's Changed entry and
+   `docs/architecture-review-2026-08-15.md` §1.5, now fixed. Tests:
+   `tests/ranting/subjunctive_verbatim.rs` (rendering) and `ranting_derive/src/lib.rs`'s `tests`
+   module (marker-classification/error paths, no trybuild harness in this repo).
 3. **Agreeing quantifiers, and the mass/count distinction** — `ArticleOrSo` stops at
    a/an/some/the/these/those, so *no*, *every*, *each*, *either*, *much*/*many* and
    *less*/*fewer* have no channel and a quantified noun phrase is hand-assembled.
@@ -1002,14 +1075,182 @@ literal template").
    can pick *much* over *many*. (b) is what makes (a) correct rather than merely
    available. Zero-count idiom ("there are **no** items") is expressible today via
    `` {?#n +items} `` but is undiscoverable; (a) is also its ergonomic fix.
+
+   **PROPOSED (2026-08-15, not decided, not implemented)** — design spike at
+   `docs/superpowers/specs/2026-08-15-quantifier-determiners.md`. For (a) it
+   recommends six word/pair variants (`no`, `every`↔`all`, `each`,
+   `either`/`neither`, `much`/`many`, `less`/`fewer`) on the existing
+   `ArticleKind`/`ArticleOrSo` pair — no sibling type, which would duplicate
+   `get_article_or_so`'s whole hook-offer protocol — with new arms that offer
+   every word to `inflect_article_custom_with_context` carrying the identical
+   `GrammaticalCase`/`NounClass`/`count` signals the article arms pass today,
+   so forks override quantifiers with zero new hook surface. For (b) it
+   recommends a defaulted `Ranting::is_mass() -> bool` trait method declared
+   via `#[ranting(mass)]` (the `gender`→`noun_class()` mechanism exactly) plus
+   `Noun::with_mass()`, and rejects encoding mass in `NounClass` (orthogonal
+   axes: *das Wasser* is neuter *and* mass). Ordering: (b) first —
+   `much`/`many` and `less`/`fewer` select on countability and are
+   unimplementable before it. The spike also corrects this item's idiom
+   spelling: `` {?#n +items} `` does not parse (`?` is legal only before `$`,
+   and `?#n` plus `+` would double-occupy the `nr` slot); the working idiom is
+   `` {are no ?$n item} `` ("There are no items." / "There is no item.",
+   verified), with `no` as an inert extra pre word and the hidden numeral
+   carrying agreement. Recorded hazards, verified against the built crate:
+   `{no $n item}` at `n = 1` renders "Noes 1 item" today (the open-pass word
+   falls through to the pre-noun *verb* path), and `{Some info}` on a singular
+   renders "An information" (`adapt_article` discards `some` for a/an), so
+   mass-`some` is unreachable even inside the current vocabulary. Left for a
+   maintainer, since the sigil grammar is Locked, (a) reserves new pre-slot
+   words (the same reservation class `the`/`some`/the modals already occupy,
+   but a reparse for same-named variables all the same) and `ArticleKind` is
+   nominally public: the word list's cut line, the mass-`AAnSome` rendering
+   (`some` vs. elision), error-vs-override for `{each +item}`-style marker
+   contradictions, and the enum's semver posture (`#[non_exhaustive]`
+   recommended against).
+
+   **DECIDED (2026-08-17, maintainer ruling — implement).** Adopt the spike's
+   full recommended package: (b) `is_mass()`/`#[ranting(mass)]`/`Noun::with_mass()`
+   first, then (a) the six quantifier word/pairs on `ArticleKind`/`ArticleOrSo`,
+   not `#[non_exhaustive]`. The word-list cut line, mass-`AAnSome` rendering, and
+   error-vs-override behavior for marker contradictions are left to whoever
+   implements it, resolved consistently with the spike's stated rationale rather
+   than re-litigated. Ready for an implementation task; not yet started.
+
+   ✅ **LANDED (2026-08-17).** Both halves, in the recommended order. Part (b):
+   `Ranting::is_mass() -> bool` (defaulted `false`, the `skip_article()` shape),
+   declared via `#[ranting(mass)]` or `Noun::with_mass()`; `Many`/`Maybe`/`Box`/
+   `&dyn Trait` delegate it the same rule `noun_class()` uses. Part (a): `ArticleKind`
+   gains `No`/`EveryAll`/`Each`/`EitherNeither`/`MuchMany`/`LessFewer`, each reaching
+   `inflect_article_custom_with_context` through a new `get_article_or_so` arm with the
+   unchanged case/class/count/uc/ctx signal set; `ArticleOrSo` gains one new variant
+   (`EveryAll`, reusing the `these`/`those` → `this`/`that` swap machinery for
+   `every`↔`all`) since `no`/`each`/`either`/`neither` render invariant text and
+   `much`/`many`/`less`/`fewer` select on `is_mass()` rather than through
+   `ArticleOrSo` at all. `ArticleKind` is not `#[non_exhaustive]`, per the spike.
+
+   The three sub-decisions the spike left open, resolved and recorded here per this
+   item's own instruction not to leave them implicit in code alone:
+   1. **Word-list cut line**: exactly the six named pairs. `both`, a bare `all`
+      keyword beyond `every`'s pair, `such`, `enough`, `several`, `most` and `any`
+      are still out — `any` interacts with polarity and needs its own look, per the
+      spike's own recommendation.
+   2. **Mass-`AAnSome` rendering**: `some`, not elision — a mass noun's singular
+      `` {a 0} ``/`` {an 0} ``/`` {some 0} `` all render "Some …" instead of guessing
+      a/an. Elision was rejected for the reason the spike gave: that story belongs to
+      `skip_article`/`no_article`, not to a mass-noun-only special case in the
+      `AAnSome` arm.
+   3. **`{each +item}`-style marker contradictions**: compile error, naming the
+      quantifier, baked at the same site `ranting_derive` already bakes a written `-`
+      marker. A `#`/`$`-numeral's own plurality is left untouched — the runtime count
+      decides agreement there, and there is no *static* contradiction to catch.
+
+   One hazard neither the spike nor this item's own text anticipated, found while
+   implementing: reserving `no` (and the other nine words) as an independent
+   top-level `pre` atom broke the zero-count idiom, `` {are no ?$n item} `` —
+   `star_candidates`' greedy "more repetitions first" search started preferring a
+   second, competing repetition starting at `no` over the correct single-repetition
+   "are no " capture, silently dropping "are"/"is" from the output. Fixed by adding
+   the same ten words to `ranting_core::ph_ext`'s `match_nested_article_candidates`
+   (the modal's "nested article" matcher `` {do the thing} ``-shaped chains already
+   use), which lets the correct single-repetition interpretation win the
+   depth-first search before the competing one is ever explored. Exactly the "a new
+   alternative in a repeated group is not local to that alternative" trap
+   `.claude/rules/placeholder-grammar.md` already names. Both hazards this item's
+   PROPOSED section recorded against the built crate are fixed and pinned:
+   `` {no $n item} `` at `n = 1` now renders "No 1 item" (was "Noes 1 item"), and
+   `` {Some info} ``/`` {a info} ``/`` {an info} `` on a mass-declared noun now
+   render "Some information" (was "An information").
+
+   See CHANGELOG.md's Unreleased `### Added`/`### Changed (breaking)` entries. Tests:
+   `tests/ranting/mass_count.rs` (part (b): trait default, derive attribute,
+   `Noun::with_mass`, wrapper delegation, the `some`-vs-a/an fix, hook-first-offer),
+   `tests/ranting/quantifier_determiners.rs` (part (a): all six words singular and
+   plural, the zero-count idiom, hook-first-offer, pre-existing-article
+   byte-identity), and `ranting_derive/src/lib.rs`'s `tests` module (the
+   `+`-contradiction compile error and the numeral-untouched case — no trybuild
+   harness in this repo, same arrangement as the verbatim-marker tests).
 4. **Ordinals** — `#var` spells cardinals only, so "the **third** attempt" cannot come
    out of a placeholder. Pure word-form inflection with no word movement, i.e. squarely
    inside the boundary. Cheapest of the five and it has a second constituency: ordinals
    agree in gender in Spanish and Arabic, so an `ord` variant of `#` handed to
    `inflect_numeral_custom` (which already carries `NumeralStyle` and a real `count`)
    gives `ranting_es`/`ranting_ar` something to override, against the never-exercised
-   surface §4.1 records. Note `english_numbers::convert_no_fmt`'s behavior on negatives
-   while here — see item 6's §1.9.
+   surface §4.1 records. `english_numbers::convert_no_fmt`'s behavior on negatives is
+   already guarded (item 6's §1.9), but its unhyphenated "twentyone" is not — an
+   ordinal speller inherits that spelling question.
+
+   **PROPOSED (2026-08-15, not decided, not implemented)** — design spike at
+   `docs/superpowers/specs/2026-08-15-ordinal-numerals.md` recommends a doubled
+   numeral marker, `` {the ##n attempt} ``, baked as a new `NumeralKind::Ordinal`
+   and mirrored into a new public `NumeralStyle::Ordinal` carrying the same real
+   `count: Option<i64>` the cardinal channel already carries. `##` cannot parse
+   today (`match_nr` requires `\w` after `#`), so no existing template changes.
+   The spike states plainly that the enum is public, re-exported and not
+   `#[non_exhaustive]`, so the variant is a **major-version break**: all four
+   falsifiers match it exhaustively with no wildcard and would stop compiling,
+   as would any downstream `match`; `#[non_exhaustive]` is itself breaking and
+   trades the error for a silently-swallowing `_` arm. Agreement decouples —
+   `as_pl` falls through to `noun.is_plural()` ("the third attempt", not
+   "attempts") while the count still flows, which is what Spanish/Arabic ordinal
+   gender agreement needs. Rejected: a standalone free character (spends one of
+   eight for a variant of an existing marker) and a `:fmt`-style `ord` suffix
+   (structurally impossible — `PH_START` splits `:fmt` off before `PH_EXT`).
+   Three things are left for a maintainer to decide, since the sigil grammar is
+   Locked and this spike does not change any code: whether the digit ordinal
+   (`$$var` → `"3rd"`) is taken in the *same* break rather than a later second
+   one; whether the stringly-typed `plurality` dispatch is retyped alongside it
+   (four of the ten change sites exist only because it is a `&str`, and two of
+   those fail silently — `` {##n attempt} `` would otherwise render a cardinal,
+   and agree plural); and whether `nr` gains a one-repetition restriction while
+   its alternation is widened.
+
+   **DECIDED (2026-08-17, maintainer ruling — implement).** `$$var` → `"3rd"`
+   lands in the same break as `##var`. The stringly-typed `plurality` dispatch is
+   retyped alongside it, fixing the two silent-failure sites. `nr`'s alternation
+   gains a one-repetition restriction at the same time it's widened, mirroring
+   the open-pass `pre` precedent. Accepted as a major-version break; falsifiers'
+   exhaustive matches get fixed as part of the same work. Ready for an
+   implementation task; not yet started.
+
+   ✅ **LANDED (2026-08-17), v2.0.0.** Both markers landed together, per the ruling.
+   `##var` bakes `ranting_core::placeholder::NumeralKind::Ordinal`, mirrored into public
+   `ranting::NumeralStyle::Ordinal`; `$$var` bakes `NumeralKind::OrdinalDigits` /
+   `NumeralStyle::OrdinalDigits`. Both carry the same real `count: Option<i64>` the cardinal
+   channel does. `PH_EXT`'s `nr` group widened to
+   `` (?:\#\#?|\??\${1,2})\w+\s+ `` and `ph_ext::match_nr` mirrors it by hand; `nr` also gained
+   the one-repetition restriction in `ph_ext::parse_pass`, the same shape the open `pre` pass
+   already had, bringing `ph_ext::parse` back into parity with `PH_EXT`'s own single-alternation
+   `nr` group (`parity_fuzzed` covers the four new marker shapes).
+   `ranting_core::placeholder::PlaceholderSpec::plurality` is now the typed
+   `Plurality` enum (`Unmarked`/`Plus`/`Minus`/`CardinalWords`/`CardinalDigits`/`OrdinalWords`/
+   `OrdinalDigits`) rather than a `&'static str`, closing the spike's two silent-failure sites:
+   `##`'s `contains('#')` no longer collides with plain `#`, and an exact `"##"`/`"$$"` match
+   replaces the string comparisons that used to fall through to the cardinal-digits catch-all
+   arm. `as_pl` decouples from the ordinal's own count and falls through to `noun.is_plural()`
+   (`Plurality::OrdinalWords | Plurality::OrdinalDigits` share `Unmarked`'s arm); `placeholder_count`
+   still carries the real value through to `inflect_numeral_custom`. English rendering: `spell_ordinal`
+   (`src/lib.rs`) rewrites the spelled cardinal's last word (suppletive `one`/`two`/`three`,
+   stem-change `five`/`eight`/`nine`/`twelve`, `-y`→`-ieth`, else `+th`), inheriting
+   `english_numbers`' unhyphenated compound spelling verbatim (`"twentyone"` → `"twentyfirst"`,
+   not `"twenty-first"`); `ordinal_suffix` picks `$$var`'s digit suffix from the last *two*
+   digits, so 11-13 (and 111-113, ...) take `"th"` regardless of the last digit alone. Verified
+   against `ranting_es`/`ranting_ar`: `ranting_es::lexicon::ordinal` spells `1..=12` fully
+   agreeing in gender (`primero`/`primera`) and apocopating `primero`/`tercero` before a
+   masculine singular noun (`primer gato`); `ranting_ar::lexicon::ordinal` spells `1..=10`
+   agreeing *normally* with the noun's gender, unlike its cardinals' gender-polarity agreement —
+   the "second constituency" the item named, now exercised for real rather than only at cardinal
+   `1`. `ranting_i18n`/`ranting_ja` fall through to English for both new variants (a documented,
+   honest gap in each README, not a guess). All four falsifiers' `inflect_numeral_custom`
+   matches, previously exhaustive with no wildcard, now cover the two new `NumeralStyle`
+   variants explicitly — the major-version break's blast radius, exactly as the spike predicted.
+   `ranting`/`ranting_core`/`ranting_derive` bumped to `2.0.0` (version-locked). Tests:
+   `tests/ranting/ordinal_numerals.rs` (both markers at 1, 2, 3, 11-13, plus 21/100/101/111 for
+   the digit suffix and the unhyphenated-compound quirk; the agreement-decoupling case at a
+   singular- and a plural-declared noun; a custom hook spy confirming `count`/`style` arrive
+   correctly), `ranting_derive/src/lib.rs`'s `tests` module (compile-time classification, pinning
+   that `##`/`$$` are never misclassified as plain `#`/`$`), `ranting_es/tests/spanish.rs`'s
+   `ordinal_numerals_agree_in_gender_and_apocopate`, and
+   `ranting_ar/tests/arabic.rs`'s `ordinal_numerals_agree_normally_and_do_not_pluralize_the_noun`.
 5. **Adverb derivation** — quick→quickly, happy→happily, is in-place word inflection of
    exactly the kind the crate already does for degree (`!`/`!!`), and has no channel.
    Lowest priority of the five: the adjective slot is post-noun only, so the sentence
@@ -1017,23 +1258,102 @@ literal template").
    literal text anyway. Scoped here to be *decided*, possibly declined — it may be a
    channel that exists and is rarely reachable, which is the same shape as
    `ranting_i18n`'s prenominal-adjective hole.
-6. **The six recorded defects** — `docs/architecture-review-2026-08-15.md` §§1.5-1.10,
-   each verified against the source. Four change rendered English and are therefore
-   **breaking** under the byte-identity invariant, so they want one release between
-   them rather than four:
+
+   **DECLINED (2026-08-15 spike — decided, no code change)** — design spike at
+   `docs/superpowers/specs/2026-08-15-adverb-derivation.md`. The reachability
+   inventory found the shape *adjacent to* the prenominal hole but terminal where
+   that one was a loss: the reachable positions carry no runtime value rather than
+   the valuable channel being unreachable. Every grammatical adverb position is
+   either literal-text by construction (sentence-initial; clause-final after an
+   in-placeholder verb, which the single post slot means no marker could share) or
+   expressible today with the adverb as literal text and agreement intact —
+   mid-position via `{=w} quickly {?w run}` → "She quickly runs.", verified against
+   the built crate. The derived form is a compile-time constant from a compile-time
+   literal, invariant in English and in all four falsifiers' languages, so a marker
+   (spending a scarce character), a tenth hook pair (born never-overridden) and a
+   degree-family graft are each rejected in the spike. The `-ly` orthographic rules
+   and their irregular-table audit (good→well, public→publicly, the flat-adverb
+   pairs spelling can't decide) are recorded there should a runtime-variable source
+   word or an agreeing-adverb language ever re-open this on new evidence.
+6. **The recorded defects** — `docs/architecture-review-2026-08-15.md` §§1.5-1.12,
+   each verified against the source: seven defects plus one agreement question left
+   as a maintainer's call (§1.12). Five were expected to change rendered English and
+   therefore be **breaking** under the byte-identity invariant, so they want one
+   release between them rather than five — §1.5 turned out to land additively
+   instead (an opt-in `;` marker, not a change to existing output), leaving four:
    - §1.5 subjunctive `were`→`was`, both persons, pinned by a regression test at
-     `english.rs:555` (**breaking**; the fix is item 2, the two are the same work)
+     `english.rs:555` (the fix is item 2, the two are the same work)
+     — ✅ **done 2026-08-17**: landed as item 2's `;` verbatim-verb marker, an
+     **additive** fix rather than the breaking change this bullet anticipated —
+     `{=i were}` (no `;`) keeps rendering "I was", pinned unchanged at
+     `english.rs:555`; only the new `{=i ;were}` spelling (a compile error before
+     this landed) escapes agreement. See item 2's own entry and CHANGELOG.md.
    - §1.6 phrasal verbs take third-person `-s` on the last word — "He pick ups"
      (**breaking**; bare present only, tense-marked forms are already correct)
+     — ✅ **done 2026-08-15**: the real split was in `src/lib.rs`'s `PostSpec::Verb`
+     handling, not `inflect_verb` itself — it cut the placeholder's post-noun text at
+     its *last* whitespace and conjugated the trailing particle instead of the verb.
+     It now splits at the *first* whitespace, conjugating the head word and
+     re-appending the remainder unchanged; a single-word verb is byte-identical to
+     before. See CHANGELOG.md's Changed (breaking) entry and
+     `tests/ranting/verb_tense.rs`.
    - §1.7 plural proper names get `'s` — "the Joneses's", because `is_name` looks at
      the first character and nothing else (**breaking**; smallest of the six)
+     — ✅ **done 2026-08-15**: `adapt_possesive_s` no longer consults `is_name` at
+     all — the bare apostrophe now fires whenever the noun is plural, name or not,
+     and `'s` otherwise, so `"Myles's"` (a singular name) is unaffected. `is_name`
+     was deleted as dead code. See CHANGELOG.md's Changed (breaking) entry and
+     `tests/ranting/possessive_apostrophe.rs`.
    - §1.10 space-separated compound nouns pluralize on the tail — "attorney generals",
      where the hyphenated spelling is already correct (**breaking**; the head-detection
      lists exist, the risk to bound is ordinary modifier + head)
+     — ✅ **done 2026-08-15**: `compound_plural` now also splits on a single space, gated
+     behind the same closed `PREPOSITIONS`/`POSTPOSED_ADJECTIVES` lists the hyphenated
+     form already used, rebuilding with whichever separator the input used. "red house",
+     "post office" and "fire engine" are pinned as still tail-pluralizing. See
+     CHANGELOG.md's Changed (breaking) entry, `src/language/plurals.rs`'s own tests, and
+     `tests/ranting/regular_plurals.rs`.
    - §1.8 `{=0 walking}` → "She walking", silently, and is *pinned* as a test. Nothing
      to fix at runtime — what is missing is a compile-time diagnostic, which the macro
      has the string to produce (**not breaking**)
+     — ✅ **done 2026-08-15**: `check_unmarked_verb_slot` in `ranting_derive/src/lib.rs`
+     rejects a bare `-ing` head word in a marker-less verb slot at compile time, naming
+     both intended spellings (`{=0 walk}` present, `{=0 =walk}` progressive). Bare pasts
+     (`{=0 walked}`, `{=0 went}`) stay accepted — they render grammatically and are
+     pinned as intended — and base verbs merely ending in "ing" (`sing`, `bring`,
+     `ping`, `cling`) survive via table/stem-shape checks, no lexicon. The two tests
+     that pinned the old output were retired. Guard unit-tested directly (no trybuild),
+     the `check_ident_path` arrangement. See CHANGELOG.md's Changed entry and
+     `docs/architecture-review-2026-08-15.md` §1.8
    - §1.9 a negative `#var` spells "negativeone" (**not breaking**; upstream, guard it)
+     — ✅ **done 2026-08-15**: a private `spell_count` in `src/lib.rs` spells the
+     magnitude and prefixes `"minus "`, inside the one string the numeral hook may
+     still replace wholesale. "minus twentyone", not "minus twenty-one" — upstream
+     spells positive 21 as "twentyone" and non-negative output is unchanged.
+     `i64::MIN`'s pre-existing upstream panic is deliberately left as it was.
+     Pinned by `tests/ranting/numeral.rs`
+   - §1.11 a sentence-initial numeral spends the placeholder's `uc` on the **noun** —
+     `` {#n item} `` renders "two Items fell.", `` {$n item} `` renders "2 Items fell.",
+     while `` {the #n item} `` is correct because the article takes the capital
+     (**breaking**; found 2026-08-15 spot-checking §1.9's fix, but older than the
+     review). Two fixes, not one: `#var` should capitalize the spelled numeral,
+     `$var` should drop the `uc` rather than pass it on. `inflect_numeral_custom`'s
+     doc at `src/lib.rs:2454` states the current behavior as policy and has to change
+     with it
+     — ✅ **done 2026-08-15**: capitalization stays on the crate side of the hook
+     (no new `uc` parameter) — the `hidden: false` numeral branch in
+     `handle_placeholder_impl` now spends `uc` on the rendered numeral itself when
+     `uc && sentence_start && !rendered.is_empty()`, capitalizing a spelled `#var`
+     and dropping `uc` outright for a digit `$var`. Gated on `sentence_start` (not
+     `uc` alone) so a mid-sentence forced-uppercase placeholder (`` {^#n item} ``)
+     is untouched, and only on the `hidden: false` branch so a hidden numeral
+     (`` {?$n item} ``) still lets `uc` fall through to the noun as before. See
+     CHANGELOG.md's Changed (breaking) entry and `tests/ranting/numeral.rs`.
+   - §1.12 a negative `#var` count agrees plural — "minus one items", from
+     `as_pl = count != Some(1)`. **Recorded as a maintainer's call, not scheduled**:
+     the plural is right for measures ("minus one degrees") and wrong for countables,
+     which is the mass/count split item 3 part (b) would supply. Deciding agreement
+     from the count rather than the rendered word is correct either way and must stay
 
 **Non-goals, with the decision they cite**
 - **Relative and interrogative pronoun case** (who/whom/whose). The case machinery
@@ -1052,6 +1372,165 @@ literal template").
 
 ---
 
+## Phase 9 — candidate list (scoped 2026-08-17, not decided, not started)
+
+*Goal: Phases 6-8 spent every falsifier crate and grammarian review adding surface. This phase
+proposes closing gaps already on record rather than adding a new one from scratch — every item
+below cites the doc where it was first found undone. Nothing here is decided; each item needs its
+own design spike (the Phase 8 pattern: PROPOSED → maintainer DECIDED → implementation task)
+before anything is queued. Ordered by how directly it's already scoped, cheapest/most-cited
+first, not by importance.*
+
+1. **Exercise the nine never-overridden hooks**
+   (`docs/architecture-review-2026-08-15.md` §4.1). The eight `_with_context` twins of the
+   eight `_custom` hook pairs, plus `is_first_person_subject_custom`, have never been
+   overridden by any of the four falsifier crates — every one of them is covered only by this
+   repo's own "reproduces the default" tests, never by a fork that needed different behavior
+   and got it. Candidate shape: extend one existing falsifier (`ranting_ja`'s `register` already
+   threads keigo level per §4.1's own framing, so a mid-story register *change* — different
+   politeness to two different addressees in one `say_with!()` sequence — is the most natural
+   next falsification) or add a first-person label other than `I`/`we` to a fork's lexicon to
+   exercise `is_first_person_subject_custom`. No `ranting`/`ranting_core`/`ranting_derive` code
+   change implied unless the falsification actually finds a gap — this item is about turning an
+   untested default into a tested one, in the same spirit as every other falsifier finding in
+   this repo.
+
+   **PROPOSED (2026-08-17 spike — NOT implemented; maintainer decision needed)** — design spike
+   at `docs/superpowers/specs/2026-08-17-hook-falsification-depth.md`. Corrects §4.1's own count
+   in passing: `inflect_verb_custom_with_context` is already overridden, by `ranting_ja`
+   (commit `99562a36`, which landed before §4.1 was written), so only seven `_with_context`
+   twins remain never-overridden, not eight — nine total with `is_first_person_subject_custom`
+   is still right. Also finds the ROADMAP item's own register-change suggestion already done
+   (`ranting_ja/tests/japanese.rs::register_can_vary_per_utterance_within_one_scene`). Picks the
+   item's other candidate — a non-English first-person label exercising
+   `is_first_person_subject_custom`, in `ranting_i18n` via `GermanPerson::ICH`/`WIR`'s existing
+   `"ich"`/`"wir"` labels — and, using a throwaway uncommitted fixture run against the real crate
+   (not left in the tree), finds a genuine gap rather than a "default is sufficient" result:
+   overriding `is_first_person_subject_custom` alone is necessary but not sufficient for a
+   grammatically correct retelling, because `narration::resolve_viewpoint`'s rendered subject is
+   a hardcoded English word (`"they"`/`"you"`) with no German equivalent, so a fork's own
+   pronoun hook either silently drops the retelling (when it renders from `self` like the real
+   `GermanPerson::inflect_pronoun_custom` does) or leaks the English word into an otherwise-German
+   sentence (when unoverridden). Recommends a maintainer choose between accepting this as a
+   documented `ranting_i18n` hole versus a `NarrationContext`/`resolve_viewpoint` signature change
+   handing a fork the grammatical person itself rather than a pre-rendered English string — the
+   latter being out of scope for a falsifier-crate-only fix.
+2. **Negative-count agreement, now unblocked by `is_mass()`**
+   (ROADMAP.md Phase 8 §1.12, `docs/architecture-review-2026-08-15.md` §1.12). Recorded at the
+   time as "a maintainer's call, not scheduled" because the fix needed the mass/count split —
+   Phase 8 item 3 landed that split 2026-08-17. `as_pl = count != Some(1)` still agrees plural for
+   every negative count ("minus one items"), right for measures ("minus one degrees") but wrong
+   for countables ("minus one item"). Candidate shape: gate the negative-count case on
+   `self.is_mass()` the same way `AAnSome` and `MuchMany` already do. Smallest item on this list;
+   no public API change anticipated.
+
+   **PROPOSED (2026-08-17 spike — NOT implemented; maintainer decision needed)** — design spike
+   at `docs/superpowers/specs/2026-08-17-negative-count-mass-agreement.md`. Confirms the defect
+   against the built crate and that `noun.is_mass()` is reachable at the `as_pl` call site
+   (`src/lib.rs:721`, no signature change needed), but finds "gate the whole arm on
+   `!self.is_mass()`" too broad — it would wrongly flip every mass-noun count, not just magnitude
+   one. Recommends narrowing to exactly `Some(-1)`: `Some(1) => false, Some(-1) => noun.is_mass(),
+   _ => true`, scoped to `Plurality::CardinalWords` (`#var`) only — `CardinalDigits` (`$var`) has
+   the same shape but is left explicitly out of scope. This **would break two existing pinned
+   assertions** in `tests/ranting/numeral.rs` (`"minus one boots"` → `"minus one boot"`, and the
+   `RussianNoun` fixture's plural genitive → singular), both currently pinned to the behavior this
+   item proposes to change — not incidental collateral. Also flags that reusing `is_mass()` here is
+   a proxy fit, not a clean one: "degree" (the review's own "minus one degrees" example) isn't a
+   mass noun for any other purpose, so getting that idiom would require mass-flagging it and
+   picking up `some`/`much`/`less` everywhere else in the same template too. Three questions left
+   for a maintainer's ruling: whether flipping the two pinned assertions is acceptable, whether
+   `is_mass()` is the right long-term discriminator given the "degree" tension, and whether
+   `CardinalDigits` should move in lockstep or stay out of scope.
+3. **Derive-generated `inflect()` against non-English input**
+   (`docs/architecture-review-2026-08-14.md` §4.7, narrowed but still open per
+   `.claude/rules/pluralization.md`'s "Blind spot worth knowing"). Both `ranting_i18n` and
+   `ranting_es` hand-write their `inflect()` implementations; nothing in this repo exercises the
+   *derive-generated* `inflect()` fallback a fork gets by default from `#[derive_ranting]` alone,
+   against genuinely non-English nouns. Candidate shape: either add a fifth, deliberately minimal
+   falsifier that leans on the derive default rather than a hand-written impl, or extend an
+   existing one's lexicon with entries that go through the default path instead of an override.
+   Falsifier-contract work, not a `ranting`-core change, unless it finds something.
+
+   **PROPOSED (2026-08-18 spike — NOT implemented; maintainer decision needed)** — design spike
+   at `docs/superpowers/specs/2026-08-18-derive-inflect-non-english.md`. Confirms the state one
+   notch stronger than §4.7's own framing: neither `ranting_i18n` nor `ranting_es` uses
+   `#[derive_ranting]` at all (both hand-roll `impl Ranting for ...` directly), so there is no
+   partial coverage of the derive-generated `inflect()` fallback to extend — only a clean
+   absence. Traces `src/language/plurals.rs`'s orthographic-only regular-plural rules by hand
+   against known German/Spanish plurals (`Fuchs`→`Füchse`, `Buch`→`Bücher`, `voz`→`voces`,
+   `luz`→`luces`) and finds every one would render wrong through the derive default
+   (`Fuchses`, `Buches`, `vozes`, `luzes`) — expected with near certainty, not discovered, since
+   the rules were deliberately scoped English-only and §4.7 already says suffix arithmetic
+   cannot produce these forms. Recommends candidate (a), a minimal fifth falsifier crate, over
+   (b): extending an existing lexicon turns out to mean bolting a second,
+   `#[derive_ranting]`-based implementation strategy onto a crate that has used exactly one
+   hand-rolled strategy since it was created, not adding rows to a table. States plainly that the
+   value is pinning a known gap as a regression test, not falsifying an unknown one, and leaves
+   open — for the maintainer — whether that goal is better served by a full fifth crate or a
+   lighter pinned test inside this repo's own `tests/ranting/`.
+4. **Arbitrary-phrase pluralization** (`ROADMAP.md` — *Post-v1.2: Future Directions*, "Pluralization
+   of entire phrases"). Distinct from the compound-noun defect Phase 8 item 6 §1.10 already fixed
+   (that was single-noun compound heads); this is pluralizing a whole rendered phrase. Not yet
+   scoped at all — the first spike question is whether it's in bounds given the word-order
+   boundary (Key Architecture Decisions, "Word order lives in the literal template") before any
+   mechanism is proposed.
+
+   **PROPOSED (2026-08-18 spike — NOT implemented; maintainer decision needed)** — design spike
+   at `docs/superpowers/specs/2026-08-18-arbitrary-phrase-pluralization.md`. Finds the feature in
+   bounds: pluralization never needs to reorder words, only to choose which word(s) to re-inflect,
+   so the word-order boundary was never the actual obstacle. Splits "phrase" into three shapes —
+   a multi-word compound as one noun's own name (in bounds, needs at most a small optional
+   `plural_head_index()` hook to close what `compound_plural`'s closed lists can't reach), a
+   phrase already split across placeholders (in bounds, already works via existing agreement
+   hooks, nothing to build), and unstructured free text with no placeholders (out of bounds —
+   needs a POS/syntax capability outside this crate's stated design). Leaves the maintainer to
+   choose between the new hook and continuing to extend the closed lists case-by-case.
+
+   **DECIDED (2026-08-18, maintainer ruling -- do not add `plural_head_index()` now).** Keep
+   extending `PREPOSITIONS`/`POSTPOSED_ADJECTIVES` case-by-case as new compound-noun examples
+   surface, per the crate's existing, precedented strategy (`.claude/rules/pluralization.md`
+   point 6) -- the same discipline that governs every other addition to those lists. The hook is a
+   real, small piece of mechanism, but it is speculative capability for a case (`man Friday`) that
+   is illustrative, not an attested pain point anywhere in this repo's actual usage; adding it now
+   would be designing for a hypothetical rather than a need already in evidence. Revisit only if a
+   genuine open-vocabulary compound blocks a real caller.
+5. **`ranting-if` (or similar) companion crate — Inform7-style object disambiguation**
+   (`ROADMAP.md` — *Post-v1.2: Future Directions*, proposed 2026-08-13, not scoped). Resolves
+   which candidate object free-text input refers to, using likelihood-weighted rules the way
+   Inform 7's `Understand` rulebook does. Builds on `Answerable` (Phase 5) and `heed!()`'s capture
+   parsing, but needs a candidate registry, a scoring mechanism, and rule-authoring syntax with no
+   home in `ranting` itself — `ask!()` targets one statically-known `audience` per call site, by
+   design. A new adjacent crate, not a `ranting` feature; largest and least-scoped item here.
+
+   **PROPOSED (2026-08-18 spike — NOT implemented; maintainer decision needed)** — design spike
+   at `docs/superpowers/specs/2026-08-18-ranting-if-companion-crate.md`. Narrows the item to a
+   minimal first slice: a caller-supplied flat candidate list, match-count-plus-specificity-
+   tiebreak scoring (no scope reasoning, no weighting DSL), and trait-based rule authoring
+   (`match_tokens`) rather than a new sigil grammar. Recommends dev-tool shape — depends on
+   `ranting`, optionally `ranting_core` later — like `ranting_gaps`, not falsifier-shaped like
+   `ranting_i18n`/`ranting_es`/`ranting_ar`/`ranting_ja`, since disambiguation is orthogonal to the
+   falsifier contract's "is the public API enough non-English signal" question. Sketches
+   integration as disambiguation run *before* an unmodified `ask!()` call to resolve which
+   concrete value plays `audience`, leaving `ask!()`'s one-audience-per-call-site design untouched.
+   Leaves the maintainer to decide whether to build the slice at all.
+
+   **DECLINED (2026-08-18, maintainer ruling -- do not build).** Unlike every other Phase 9 item,
+   this is not closing a gap already found in `ranting`'s own signal-sufficiency -- it is a new
+   product surface (a disambiguation library) that happens to integrate with `ask!()`. The spike's
+   own framing concedes the full feature is "a small IF parser in its own right," and nothing about
+   `ranting`'s falsifier or dev-tool contracts requires this crate to exist. With no real caller and
+   no attested need yet for even the minimal match-count-scoring slice, building it now would be
+   speculative scope growth into a new domain -- the same "don't design for hypothetical future
+   requirements" discipline this repo already applies elsewhere. Revisit only if a concrete
+   IF-style consumer of `ranting` actually wants it.
+
+**Not carried forward from Phase 8's own leftovers** (cited, not re-litigated): the
+`ranting_i18n`/hole-3 dative-genitive gap and `GrammaticalCase`'s five-marker inventory are
+Locked (Key Architecture Decisions); §1.12's *choice* of gating on `is_mass()` rather than
+reopening the count/agreement design is assumed, not re-decided, by item 2 above.
+
+---
+
 ## Post-v1.2: Future Directions
 
 ### v1.3.0+: Beyond Phase 6
@@ -1063,23 +1542,14 @@ literal template").
   itself lands as Phase 6 item 10, one German reference lexicon whose job is to
   falsify the claim that items 1-9 are sufficient. Multi-language breadth
   (French, Spanish, Japanese, …) follows only after German proves the mechanism.
-- **`ranting-if` (or similar) Companion Crate — Inform7-style object disambiguation**
-  (proposed 2026-08-13, not scoped): resolves which candidate object among
-  several free-text input refers to, using "likely"/"unlikely"-weighted rules
-  the way Inform 7's `Understand` rulebook does (e.g. a "talk to" action being
-  far more likely to target a person in scope than a stone). Builds on
-  `ranting`'s `Answerable` trait (Phase 5) and `heed!()`'s capture parsing,
-  but needs a candidate registry, a scoring/priority mechanism, and rule
-  authoring syntax that have no home in `ranting` itself — `ask!()` only ever
-  targets one statically-known `audience` expression per call site, by design.
-  A natural fit for a `ranting`-adjacent crate rather than a `ranting` feature.
+- **`ranting-if` (or similar) Companion Crate — Inform7-style object disambiguation** — now a
+  Phase 9 candidate (item 5), not scoped further here.
 
 ### v1.4+: Advanced Features (Community-Driven)
 - Dialogue formatting with automatic punctuation and breaks
-- Pluralization of entire phrases (not just nouns) — partly overtaken by Phase 8 item 6:
-  the *compound noun* half of this is a defect today (§1.10, "attorney generals"), not a
-  future feature. What remains here is pluralizing an arbitrary phrase, which is not the
-  same problem
+- Pluralization of entire phrases (not just nouns) — the *compound noun* half was a defect,
+  fixed by Phase 8 item 6 §1.10 ("attorney generals"); what remains (pluralizing an arbitrary
+  rendered phrase) is now Phase 9 candidate item 4, not scoped further here.
 - ~~Subjunctive mood and hypotheticals~~ — **superseded by Phase 8 item 2**, which
   found the crate does not merely lack the subjunctive: it rewrites `were` to `was`
   in both persons and offers no way to opt out

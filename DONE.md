@@ -1950,8 +1950,10 @@ in any order. Item 10 is the acceptance test for items 1–9 and must land last.
        placeholder, so there is something at the macro↔runtime seam to mirror.
      - The prerequisite above is **closed, not documented around**: the `#var`
        arm of the `as_pl` match tests `count != Some(1)` now. Equivalent for
-       English (`rant_convert_numbers` spells only 1 as exactly `"one"`; `-1` is
-       `"negativeone"`), and it puts the decision *before* the hook, so a custom
+       English (`rant_convert_numbers` spells only 1 as exactly `"one"`; `-1` was
+       `"negativeone"` then, and is `"minus one"` since
+       `docs/architecture-review-2026-08-15.md` §1.9 — still not `"one"`, and the
+       count is what decides either way), and it puts the decision *before* the hook, so a custom
        numeral cannot reach it. `$var`'s arm was left byte-for-byte alone on
        purpose — its `s != "1" && s.split('.').next() != Some("1")` also catches
        `"1.0"`, which a parsed `i64` would not.

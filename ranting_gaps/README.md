@@ -8,8 +8,13 @@ actually needs it.
 cargo run --manifest-path ranting_gaps/Cargo.toml -- README.md docs/ *.md --out failures
 ```
 
-Paths may be files or directories (recursed); anything that isn't UTF-8 is skipped. The result is
-a `failures/` tree — see [the report layout](#the-report) below.
+Paths may be files or directories (recursed); anything that isn't UTF-8 is skipped. A path named
+directly is always read; a directory recursion defaults to prose extensions
+(`md`/`markdown`/`mdx`/`txt`/`rst`) and always skips `.git`/`target`/`node_modules`/`.jj` — pass
+`--all-files` to recurse a directory without the extension filter (VCS/build dirs still stay
+skipped). Without it, pointing the tool at a whole repository instead of a docs path would
+silently ingest source, logs and build output as if they were prose. The result is a `failures/`
+tree — see [the report layout](#the-report) below.
 
 The point is not to list every quirk of English. It is to answer four questions per failure, with
 evidence rather than assertion:
