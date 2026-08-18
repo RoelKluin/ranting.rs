@@ -95,12 +95,37 @@ impl Corpus {
     }
 }
 
+/// Extensions treated as prose when recursing a directory. Naming a file directly on the command
+/// line always reads it regardless of extension -- this list only decides what a *directory
+/// recursion* picks up on its own, since that's the case with no per-file human judgement behind
+/// it. Pointing the tool at a whole repository (rather than the docs paths the README's own
+/// example names) would otherwise silently ingest Rust source, logs and build output as if they
+/// were prose, corrupting the noun/verb counts with identifiers no probe should ever see.
+const PROSE_EXTENSIONS: &[&str] = &["md", "markdown", "mdx", "txt", "rst"];
+
+/// Directory names skipped during recursion regardless of `--all-files`: VCS metadata and build
+/// output are never prose, and `.git`'s packed objects are large enough that walking them is pure
+/// waste even though the UTF-8 check in [`read`] would silently drop what it found there anyway.
+const SKIP_DIR_NAMES: &[&str] = &[".git", "target", "node_modules", ".jj"];
+
+fn has_prose_extension(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| PROSE_EXTENSIONS.iter().any(|p| p.eq_ignore_ascii_case(e)))
+}
+
 /// Collect every readable text file under `paths` (recursing into directories) into one corpus.
-pub fn read(paths: &[PathBuf]) -> std::io::Result<Corpus> {
+/// A path named directly on the command line is always read; a directory is recursed and, unless
+/// `all_files` is set, filtered to [`PROSE_EXTENSIONS`] and skips [`SKIP_DIR_NAMES`].
+pub fn read(paths: &[PathBuf], all_files: bool) -> std::io::Result<Corpus> {
     let mut corpus = Corpus::default();
     let mut files = Vec::new();
     for path in paths {
-        gather(path, &mut files)?;
+        if path.is_dir() {
+            gather_dir(path, all_files, &mut files)?;
+        } else if path.is_file() {
+            files.push(path.to_path_buf());
+        }
     }
     for file in files {
         let Ok(text) = std::fs::read_to_string(&file) else {
@@ -114,18 +139,25 @@ pub fn read(paths: &[PathBuf]) -> std::io::Result<Corpus> {
     Ok(corpus)
 }
 
-fn gather(path: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
-    if path.is_dir() {
-        let mut entries: Vec<_> = std::fs::read_dir(path)?
-            .filter_map(Result::ok)
-            .map(|e| e.path())
-            .collect();
-        entries.sort();
-        for entry in entries {
-            gather(&entry, out)?;
+fn gather_dir(dir: &Path, all_files: bool, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    let mut entries: Vec<_> = std::fs::read_dir(dir)?
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .collect();
+    entries.sort();
+    for entry in entries {
+        if entry.is_dir() {
+            if entry
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| SKIP_DIR_NAMES.contains(&n))
+            {
+                continue;
+            }
+            gather_dir(&entry, all_files, out)?;
+        } else if entry.is_file() && (all_files || has_prose_extension(&entry)) {
+            out.push(entry);
         }
-    } else if path.is_file() {
-        out.push(path.to_path_buf());
     }
     Ok(())
 }
@@ -297,5 +329,72 @@ mod tests {
         let c = corpus_of("The cat sat. The cat ran. The dog sat.");
         let ranked = c.nouns_by_frequency(1);
         assert_eq!(ranked.first().map(|(w, _)| *w), Some("cat"));
+    }
+
+    struct TempDir(PathBuf);
+
+    impl TempDir {
+        fn new(name: &str) -> Self {
+            let dir = std::env::temp_dir()
+                .join(format!("ranting_gaps_test_{name}_{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            TempDir(dir)
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn directory_recursion_skips_non_prose_extensions_by_default() {
+        let dir = TempDir::new("filter_default");
+        std::fs::write(dir.0.join("a.md"), "The cat sat.").unwrap();
+        std::fs::write(
+            dir.0.join("b.rs"),
+            "fn calculate_result() {} // widget helper",
+        )
+        .unwrap();
+        let corpus = read(std::slice::from_ref(&dir.0), false).unwrap();
+        assert_eq!(corpus.files, 1, "only the .md file is read");
+        assert!(corpus.attests("cat"));
+        assert!(!corpus.attests("widget"));
+    }
+
+    #[test]
+    fn all_files_flag_disables_the_extension_filter() {
+        let dir = TempDir::new("filter_all_files");
+        std::fs::write(dir.0.join("a.md"), "The cat sat.").unwrap();
+        std::fs::write(
+            dir.0.join("b.rs"),
+            "fn calculate_result() {} // widget helper",
+        )
+        .unwrap();
+        let corpus = read(std::slice::from_ref(&dir.0), true).unwrap();
+        assert_eq!(corpus.files, 2);
+        assert!(corpus.attests("widget"));
+    }
+
+    #[test]
+    fn a_path_named_directly_is_always_read_regardless_of_extension() {
+        let dir = TempDir::new("explicit_file");
+        let file = dir.0.join("b.rs");
+        std::fs::write(&file, "fn calculate_result() {} // widget helper").unwrap();
+        let corpus = read(&[file], false).unwrap();
+        assert_eq!(corpus.files, 1, "naming a file directly is explicit intent");
+        assert!(corpus.attests("widget"));
+    }
+
+    #[test]
+    fn skip_dir_names_are_never_recursed_even_with_all_files() {
+        let dir = TempDir::new("skip_dirs");
+        let git_dir = dir.0.join(".git");
+        std::fs::create_dir_all(&git_dir).unwrap();
+        std::fs::write(git_dir.join("note.md"), "The cat sat.").unwrap();
+        let corpus = read(std::slice::from_ref(&dir.0), true).unwrap();
+        assert_eq!(corpus.files, 0, ".git is skipped even under --all-files");
     }
 }
