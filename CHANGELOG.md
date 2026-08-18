@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v2.0.0 — English Grammar Depth
+
+Phase 8's goal was the reverse of Phases 6-7's: those asked whether the hook surface carries
+enough signal for a non-English implementation; this one asks whether the English the crate
+ships can carry a complex sentence. A grammarian's end-to-end review of the placeholder surface
+found five missing channels and seven defects; this release lands the participle channel and
+passive voice, a subjunctive/verbatim escape hatch, agreeing quantifiers and the mass/count
+distinction, ordinal numerals, and all seven defect fixes. The `NumeralStyle` enum gained two
+variants (`OrdinalWords`/`OrdinalDigits`), which is semver-breaking for any downstream exhaustive
+match on it — the reason this release is a major version bump rather than a minor one.
+
 ### Deprecated
 
 - **`uc_1st_if` is renamed `capitalize_if`.** The old name broke Rust naming
