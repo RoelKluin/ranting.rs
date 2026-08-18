@@ -19,19 +19,20 @@ Ranting solves the problem of writing natural-sounding, dynamic user-facing text
 ✅ **Phases 1-6 complete** — the full record for every one of them, item by item, now
 lives in [DONE.md](DONE.md). This file is the forward-looking roadmap only.
 
-✅ **Phase 7 (v1.4.0, Falsification, Round Two: Beyond Indo-European) is complete**
+✅ **Phase 7 (Falsification, Round Two: Beyond Indo-European) is complete**
 — see its section below. Its three spikes (items 1-3), the build decision they fed
 (item 4), four unrelated items (7-10), the signature change the decision blocked on
 (item 11), **both** reference lexicons (items 5 and 6) and the two items they
-scheduled (12 and 13) all landed on 2026-08-14.
+scheduled (12 and 13) all landed on 2026-08-14. No separate release shipped for it —
+it stayed unreleased alongside Phase 8's own work until both landed together as v2.0.0.
 
-📋 **Phase 8 (English grammar depth) is scoped, partly landed** — seven recorded defects
-plus five missing channels, from a grammarian's end-to-end review of the placeholder
-surface against complex-sentence English (2026-08-15). See its section below; the
-defect half is `docs/architecture-review-2026-08-15.md` §§1.5-1.12; §§1.6, 1.7 and 1.9
-landed on 2026-08-15. Items 1-4's design spikes were ruled on 2026-08-17 (implement,
-in full, per each item's DECIDED block below); item 5 was declined 2026-08-15. Items
-1-4 all landed on 2026-08-17.
+✅ **Phase 8 (English grammar depth) is complete — landed as v2.0.0.** Seven recorded
+defects plus five missing channels, from a grammarian's end-to-end review of the
+placeholder surface against complex-sentence English (2026-08-15). See its section
+below; the defect half is `docs/architecture-review-2026-08-15.md` §§1.5-1.12; §§1.6,
+1.7 and 1.9 landed on 2026-08-15. Items 1-4's design spikes were ruled on 2026-08-17
+(implement, in full, per each item's DECIDED block below); item 5 was declined
+2026-08-15. Items 1-4 all landed on 2026-08-17.
 
 **Shipping today**:
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
@@ -68,7 +69,10 @@ the roadmap forward-looking. **Cross-references elsewhere in the repo of the for
 ---
 
 
-## Phase 7 — v1.4.0 — Falsification, Round Two: Beyond Indo-European
+## Phase 7 — Falsification, Round Two: Beyond Indo-European
+
+*Landed 2026-08-14; shipped as part of v2.0.0, bundled with Phase 8 (no separate
+release).*
 
 *Goal: German and Spanish are both Indo-European and, more specifically, both
 fusional languages that decline/conjugate by affixing a closed set of endings

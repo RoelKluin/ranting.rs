@@ -1929,7 +1929,7 @@ name = "ranting-french"
 version = "0.1.0"
 
 [dependencies]
-ranting = "1.3"
+ranting = "2.0"
 ```
 
 In your crate:

@@ -12,7 +12,7 @@
         "ranting_renders": "literal text outside the placeholder: `the same {noun}`",
         "expected": "agreeing with the noun, as `{noun !same}` does post-noun",
         "confidence": "heuristic",
-        "occurrences": 444,
+        "occurrences": 454,
         "examples": [
           "README.md:40 — - ranting es gaps (ranting es gaps/README.md) — the same idea one level down:",
           "README.md:170 — override still sees the same grammatical role), but keeps displaying the noun's name instead",
@@ -24,7 +24,7 @@
         "ranting_renders": "literal text outside the placeholder: `the own {noun}`",
         "expected": "agreeing with the noun, as `{noun !own}` does post-noun",
         "confidence": "heuristic",
-        "occurrences": 208,
+        "occurrences": 211,
         "examples": [
           "README.md:21 — This repository is not a Cargo workspace — each crate below has its own Cargo.toml / Cargo.lock",
           "README.md:22 — and its own cargo test .",
@@ -36,7 +36,7 @@
         "ranting_renders": "literal text outside the placeholder: `the new {noun}`",
         "expected": "agreeing with the noun, as `{noun !new}` does post-noun",
         "confidence": "heuristic",
-        "occurrences": 116,
+        "occurrences": 121,
         "examples": [
           "README.md:10 — New to Ranting?",
           "README.md:64 — let title = Noun::new(\"name\", \"it\");",
@@ -48,11 +48,23 @@
         "ranting_renders": "literal text outside the placeholder: `the english {noun}`",
         "expected": "agreeing with the noun, as `{noun !english}` does post-noun",
         "confidence": "heuristic",
-        "occurrences": 106,
+        "occurrences": 101,
         "examples": [
           "README.md:39 — arbitrary English text and reports what ranting fails to inflect, ranked by corpus frequency.",
           "README.md:42 — against open-vocabulary English.",
           "README.md:213 — recognise as an English article is handed to inflect article custom , so a Spanish"
+        ]
+      },
+      {
+        "subject": "other",
+        "ranting_renders": "literal text outside the placeholder: `the other {noun}`",
+        "expected": "agreeing with the noun, as `{noun !other}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 101,
+        "examples": [
+          "README.md:144 — Other words within the",
+          "docs/API.md:413 — Other languages need",
+          "docs/CHEATSHEET.md:51 — composes with other markers, e.g."
         ]
       },
       {
@@ -65,18 +77,6 @@
           "README.md:33 — the first non-Indo-European fork, exercising a",
           "README.md:35 — the first fork whose decisive finding is a",
           "README.md:112 — Also an article or verb with an uppercase causess an uppercase for the first character."
-        ]
-      },
-      {
-        "subject": "other",
-        "ranting_renders": "literal text outside the placeholder: `the other {noun}`",
-        "expected": "agreeing with the noun, as `{noun !other}` does post-noun",
-        "confidence": "heuristic",
-        "occurrences": 98,
-        "examples": [
-          "README.md:144 — Other words within the",
-          "docs/API.md:413 — Other languages need",
-          "docs/CHEATSHEET.md:51 — composes with other markers, e.g."
         ]
       },
       {
@@ -96,7 +96,7 @@
         "ranting_renders": "literal text outside the placeholder: `the literal {noun}`",
         "expected": "agreeing with the noun, as `{noun !literal}` does post-noun",
         "confidence": "heuristic",
-        "occurrences": 46,
+        "occurrences": 48,
         "examples": [
           "README.md:291 — {name...} captures greedily (multiple words) up to the next literal word or the end of input;",
           "README.md:294 — - heed!() doesn't understand say!() 's grammar markers ( = , @ , , ~ , tense markers, articles) — it matches plain input text against lit...",
@@ -108,11 +108,23 @@
         "ranting_renders": "literal text outside the placeholder: `the whole {noun}`",
         "expected": "agreeing with the noun, as `{noun !whole}` does post-noun",
         "confidence": "heuristic",
-        "occurrences": 38,
+        "occurrences": 43,
         "examples": [
           "README.md:318 — - The supported approach for such input is to capture the unsegmented run whole and segment it",
           "docs/EXTENSIBILITY.md:415 — is improved is where the error points — at the template literal rather than the whole",
           "docs/EXTENSIBILITY.md:895 — the one string a returned Some replaces whole."
+        ]
+      },
+      {
+        "subject": "real",
+        "ranting_renders": "literal text outside the placeholder: `the real {noun}`",
+        "expected": "agreeing with the noun, as `{noun !real}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 39,
+        "examples": [
+          "README.md:41 — ranting es 's closed Spanish lexicon against real Spanish text instead of inspecting ranting",
+          "README.md:172 — always returns a real pronoun still get a case-correct article with the name shown, without a",
+          "README.md:240 — ranting(plural end = \"s\") is a real opt-out and is not the same as leaving it off:"
         ]
       },
       {
@@ -128,23 +140,11 @@
         ]
       },
       {
-        "subject": "real",
-        "ranting_renders": "literal text outside the placeholder: `the real {noun}`",
-        "expected": "agreeing with the noun, as `{noun !real}` does post-noun",
-        "confidence": "heuristic",
-        "occurrences": 37,
-        "examples": [
-          "README.md:41 — ranting es 's closed Spanish lexicon against real Spanish text instead of inspecting ranting",
-          "README.md:172 — always returns a real pronoun still get a case-correct article with the name shown, without a",
-          "README.md:240 — ranting(plural end = \"s\") is a real opt-out and is not the same as leaving it off:"
-        ]
-      },
-      {
         "subject": "single",
         "ranting_renders": "literal text outside the placeholder: `the single {noun}`",
         "expected": "agreeing with the noun, as `{noun !single}` does post-noun",
         "confidence": "heuristic",
-        "occurrences": 34,
+        "occurrences": 35,
         "examples": [
           "README.md:100 — Singular \"they\" conjugates as plural in form (they are, they have, they do) while referring to a single individual.",
           "README.md:182 — single item when there is exactly one.",
@@ -176,27 +176,27 @@
         ]
       },
       {
-        "subject": "derive",
-        "ranting_renders": "literal text outside the placeholder: `the derive {noun}`",
-        "expected": "agreeing with the noun, as `{noun !derive}` does post-noun",
-        "confidence": "heuristic",
-        "occurrences": 28,
-        "examples": [
-          "README.md:8 — This library provides Ranting (https://docs.rs/ranting/1.3.1/ranting/trait.Ranting.html), a trait for inflection within say!() (https://d...",
-          "README.md:8 — This library provides Ranting (https://docs.rs/ranting/1.3.1/ranting/trait.Ranting.html), a trait for inflection within say!() (https://d...",
-          "README.md:22 — ranting core and ranting derive are internal crates ranting itself"
-        ]
-      },
-      {
         "subject": "public",
         "ranting_renders": "literal text outside the placeholder: `the public {noun}`",
         "expected": "agreeing with the noun, as `{noun !public}` does post-noun",
         "confidence": "heuristic",
-        "occurrences": 28,
+        "occurrences": 29,
         "examples": [
           "README.md:10 — Keep the Cheatsheet (docs/CHEATSHEET.md) open while you write, or browse the API Reference (docs/API.md) for the full public surface.",
           "README.md:24 — falsify (or, for the two dev tools, inspect) the claim that ranting 's public API gives a",
           "README.md:45 — docs/EXTENSIBILITY.md for what a non-English fork can and can't reach through the public API."
+        ]
+      },
+      {
+        "subject": "derive",
+        "ranting_renders": "literal text outside the placeholder: `the derive {noun}`",
+        "expected": "agreeing with the noun, as `{noun !derive}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 27,
+        "examples": [
+          "README.md:8 — This library provides Ranting (https://docs.rs/ranting/2.0.0/ranting/trait.Ranting.html), a trait for inflection within say!() (https://d...",
+          "README.md:8 — This library provides Ranting (https://docs.rs/ranting/2.0.0/ranting/trait.Ranting.html), a trait for inflection within say!() (https://d...",
+          "README.md:22 — ranting core and ranting derive are internal crates ranting itself"
         ]
       },
       {
@@ -216,7 +216,7 @@
         "ranting_renders": "literal text outside the placeholder: `the plural {noun}`",
         "expected": "agreeing with the noun, as `{noun !plural}` does post-noun",
         "confidence": "heuristic",
-        "occurrences": 24,
+        "occurrences": 25,
         "examples": [
           "README.md:52 — A verb alongside, always specified in plural, inflects accordingly.",
           "README.md:100 — Singular \"they\" conjugates as plural in form (they are, they have, they do) while referring to a single individual.",
@@ -224,23 +224,11 @@
         ]
       },
       {
-        "subject": "next",
-        "ranting_renders": "literal text outside the placeholder: `the next {noun}`",
-        "expected": "agreeing with the noun, as `{noun !next}` does post-noun",
-        "confidence": "heuristic",
-        "occurrences": 23,
-        "examples": [
-          "README.md:291 — {name...} captures greedily (multiple words) up to the next literal word or the end of input;",
-          "README.md:293 — - Two placeholders directly adjacent, with no text at all between them ( {a}{b} ), is a compile-time error — there would be no way to kno...",
-          "README.md:304 — {$name} a run of digits, and {name...} runs up to the next whitespace-separated literal."
-        ]
-      },
-      {
         "subject": "ordinary",
         "ranting_renders": "literal text outside the placeholder: `the ordinary {noun}`",
         "expected": "agreeing with the noun, as `{noun !ordinary}` does post-noun",
         "confidence": "heuristic",
-        "occurrences": 23,
+        "occurrences": 24,
         "examples": [
           "README.md:309 — \"{item}、取る\" ), since a literal that mixes punctuation with word characters is an ordinary",
           "docs/EXTENSIBILITY.md:411 — parse runs only when the ordinary English parse fails , and an unmarked two-word placeholder",
@@ -260,18 +248,6 @@
         ]
       },
       {
-        "subject": "dual",
-        "ranting_renders": "literal text outside the placeholder: `the dual {noun}`",
-        "expected": "agreeing with the noun, as `{noun !dual}` does post-noun",
-        "confidence": "heuristic",
-        "occurrences": 22,
-        "examples": [
-          "README.md:34 — third morphological number (the dual) and preposition/article fusion.",
-          "docs/EXTENSIBILITY.md:868 — bool alone — so Arabic dual, Slavic paucal",
-          "docs/EXTENSIBILITY.md:1398 — morphological number — Arabic's dual, a Slavic paucal — the placeholder's own numeral is what"
-        ]
-      },
-      {
         "subject": "boundary",
         "ranting_renders": "literal text outside the placeholder: `the boundary {noun}`",
         "expected": "agreeing with the noun, as `{noun !boundary}` does post-noun",
@@ -284,11 +260,35 @@
         ]
       },
       {
+        "subject": "dual",
+        "ranting_renders": "literal text outside the placeholder: `the dual {noun}`",
+        "expected": "agreeing with the noun, as `{noun !dual}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 21,
+        "examples": [
+          "README.md:34 — third morphological number (the dual) and preposition/article fusion.",
+          "docs/EXTENSIBILITY.md:868 — bool alone — so Arabic dual, Slavic paucal",
+          "docs/EXTENSIBILITY.md:1398 — morphological number — Arabic's dual, a Slavic paucal — the placeholder's own numeral is what"
+        ]
+      },
+      {
+        "subject": "next",
+        "ranting_renders": "literal text outside the placeholder: `the next {noun}`",
+        "expected": "agreeing with the noun, as `{noun !next}` does post-noun",
+        "confidence": "heuristic",
+        "occurrences": 20,
+        "examples": [
+          "README.md:291 — {name...} captures greedily (multiple words) up to the next literal word or the end of input;",
+          "README.md:293 — - Two placeholders directly adjacent, with no text at all between them ( {a}{b} ), is a compile-time error — there would be no way to kno...",
+          "README.md:304 — {$name} a run of digits, and {name...} runs up to the next whitespace-separated literal."
+        ]
+      },
+      {
         "subject": "actual",
         "ranting_renders": "literal text outside the placeholder: `the actual {noun}`",
         "expected": "agreeing with the noun, as `{noun !actual}` does post-noun",
         "confidence": "heuristic",
-        "occurrences": 17,
+        "occurrences": 19,
         "examples": [
           "docs/EXTENSIBILITY.md:1920 — - The actual output you got",
           "docs/architecture-review-2026-08-13.md:30 — actual noun-inflection path ( Noun::inflect() doesn't use them).",
@@ -502,7 +502,7 @@
         "ranting_renders": "pre=\"are \" noun=\"hold\" post=\"\"",
         "expected": "pre=\"The \" noun=\"are\" post=\" hold\"",
         "confidence": "heuristic",
-        "occurrences": 49,
+        "occurrences": 50,
         "examples": [
           "README.md:10 — (Tutorial, Cookbook and Cheatsheet are also available en español (docs/es/TUTORIAL.md).)",
           "README.md:22 — ranting core and ranting derive are internal crates ranting itself",
@@ -526,7 +526,7 @@
         "ranting_renders": "pre=\"can \" noun=\"hold\" post=\"\"",
         "expected": "pre=\"The \" noun=\"can\" post=\" hold\"",
         "confidence": "heuristic",
-        "occurrences": 23,
+        "occurrences": 20,
         "examples": [
           "README.md:45 — docs/EXTENSIBILITY.md for what a non-English fork can and can't reach through the public API.",
           "README.md:51 — - A say!() macro produces a String similar to format!() , but with placeholder markers a pronouns can be",
@@ -538,7 +538,7 @@
         "ranting_renders": "pre=\"would \" noun=\"hold\" post=\"\"",
         "expected": "pre=\"The \" noun=\"would\" post=\" hold\"",
         "confidence": "heuristic",
-        "occurrences": 18,
+        "occurrences": 19,
         "examples": [
           "README.md:162 — Needed when a word placed before the noun would otherwise be misparsed as an article:",
           "README.md:169 — case-marks the placeholder exactly as the bare marker would (an inflect article custom",
@@ -610,7 +610,7 @@
         "ranting_renders": "pre=\"many \" noun=\"hold\" post=\"\"",
         "expected": "pre=\"The \" noun=\"many\" post=\" hold\"",
         "confidence": "heuristic",
-        "occurrences": 8,
+        "occurrences": 7,
         "examples": [
           "README.md:178 — Many T (wraps Vec T , T:",
           "README.md:182 — An empty Many skips its article rather than leaving",

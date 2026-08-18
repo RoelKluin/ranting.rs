@@ -2,7 +2,7 @@
 
 **Kind:** gap — actionable  
 **Distinct words:** 20  
-**Corpus occurrences:** 218
+**Corpus occurrences:** 216
 
 ## Cause
 
@@ -20,16 +20,16 @@ Documentation, not code -- checked by compiling, not assumed. `say!("{The *can c
 
 | Word | ranting renders | English requires | Occurrences | Confidence |
 |---|---|---|---|---|
-| `are` | `pre="are " noun="hold" post=""` | `pre="The " noun="are" post=" hold"` | 49 | heuristic |
+| `are` | `pre="are " noun="hold" post=""` | `pre="The " noun="are" post=" hold"` | 50 | heuristic |
 | `no` | `pre="no " noun="hold" post=""` | `pre="The " noun="no" post=" hold"` | 26 | heuristic |
-| `can` | `pre="can " noun="hold" post=""` | `pre="The " noun="can" post=" hold"` | 23 | heuristic |
-| `would` | `pre="would " noun="hold" post=""` | `pre="The " noun="would" post=" hold"` | 18 | heuristic |
+| `can` | `pre="can " noun="hold" post=""` | `pre="The " noun="can" post=" hold"` | 20 | heuristic |
+| `would` | `pre="would " noun="hold" post=""` | `pre="The " noun="would" post=" hold"` | 19 | heuristic |
 | `either` | `pre="either " noun="hold" post=""` | `pre="The " noun="either" post=" hold"` | 13 | heuristic |
 | `all` | `pre="all " noun="hold" post=""` | `pre="The " noun="all" post=" hold"` | 12 | heuristic |
 | `were` | `pre="were " noun="hold" post=""` | `pre="The " noun="were" post=" hold"` | 11 | heuristic |
 | `each` | `pre="each " noun="hold" post=""` | `pre="The " noun="each" post=" hold"` | 10 | heuristic |
 | `every` | `pre="every " noun="hold" post=""` | `pre="The " noun="every" post=" hold"` | 9 | heuristic |
-| `many` | `pre="many " noun="hold" post=""` | `pre="The " noun="many" post=" hold"` | 8 | heuristic |
+| `many` | `pre="many " noun="hold" post=""` | `pre="The " noun="many" post=" hold"` | 7 | heuristic |
 | `have` | `pre="have " noun="hold" post=""` | `pre="The " noun="have" post=" hold"` | 6 | heuristic |
 | `less` | `pre="less " noun="hold" post=""` | `pre="The " noun="less" post=" hold"` | 6 | heuristic |
 | `should` | `pre="should " noun="hold" post=""` | `pre="The " noun="should" post=" hold"` | 6 | heuristic |
