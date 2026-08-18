@@ -22,6 +22,18 @@
   so a runtime template already reaches it via `HeedMatcher::from_template` plus a manual call.
   `#[derive(Heed)]` has no runtime equivalent, since its generated struct is itself compile-time
   template knowledge.
+- **`Noun::with_skip_article(bool)` suppresses a `Noun`'s article per instance.**
+  `#[ranting(no_article)]` used to bake one literal `skip_article()` for an entire derived type,
+  and `Noun` — which derives without it — had no way to mark a single instance (a proper name,
+  "Alice") as article-less without making every `Noun` article-less. `no_article` now accepts the
+  same `"$"` sentinel `mass`/`gender`/`singular_end`/`plural_end` already do
+  (`#[ranting(no_article = "$")]`), reading a `no_article: bool` field at runtime instead of
+  baking a literal; `Noun` uses it behind the new builder, which chains off
+  `new`/`try_new` like `with_mass`/`with_noun_class` and defaults to `false`, unchanged for every
+  existing call site. `say!("{a alice} walked in.", alice)` with
+  `Noun::new("Alice", "she").with_skip_article(true)` now renders `"Alice walked in."` instead of
+  `"An Alice walked in."`. A derived struct's own `#[ranting(no_article)]`/`= true`/`= false`
+  literal form is unaffected.
 
 ### Fixed
 

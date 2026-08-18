@@ -16,6 +16,43 @@ fn string_it() -> String {
 /// impl) has no attribute value to declare and must be able to say "mass" per-instance via
 /// `Noun::with_mass()`. Not a plain `bool` field, unlike `no_article`, because a bare `bool`
 /// can't also carry the `"$"` sentinel.
+/// `#[ranting(no_article)]`'s value shape — the same `Literal`/`Field` split as [`MassAttr`], for
+/// the same reason: `ranting::Noun` needs to say "skip the article" per-instance via
+/// `Noun::with_skip_article(bool)`, which a plain `bool` attribute (baking one literal for the
+/// whole type) can't express. Unlike `is_mass()`, `skip_article()` is a required trait method with
+/// no default, so there's no third "unset, emit nothing" state to represent — `Literal(false)` is
+/// what an absent attribute already meant, and stays the `Default`.
+pub(crate) enum NoArticleAttr {
+    /// `#[ranting(no_article)]` absent, or `= true`/`= false` written literally.
+    Literal(bool),
+    /// `#[ranting(no_article = "$")]`: the struct has a `no_article: bool` field.
+    Field,
+}
+
+impl Default for NoArticleAttr {
+    fn default() -> Self {
+        NoArticleAttr::Literal(false)
+    }
+}
+
+impl darling::FromMeta for NoArticleAttr {
+    fn from_word() -> darling::Result<Self> {
+        Ok(NoArticleAttr::Literal(true))
+    }
+
+    fn from_bool(value: bool) -> darling::Result<Self> {
+        Ok(NoArticleAttr::Literal(value))
+    }
+
+    fn from_string(value: &str) -> darling::Result<Self> {
+        if value == "$" {
+            Ok(NoArticleAttr::Field)
+        } else {
+            Err(darling::Error::unknown_value(value))
+        }
+    }
+}
+
 #[derive(Default)]
 pub(crate) enum MassAttr {
     /// The attribute was never written: no override is generated, and the trait's own `false`
@@ -95,9 +132,10 @@ pub(crate) struct RantingOptions {
     pub(crate) uc: bool,
 
     // Whether to skip articles in most contexts (e.g., for proper nouns, sports, meals).
-    // If true, `skip_article()` returns true in the Ranting impl.
-    // Default: false (articles are displayed).
-    pub(crate) no_article: bool,
+    // Literal(true) makes `skip_article()` return true in the Ranting impl; Field reads it from
+    // the struct's own `no_article: bool` field at runtime (`#[ranting(no_article = "$")]`).
+    // Default: Literal(false) (articles are displayed).
+    pub(crate) no_article: NoArticleAttr,
 
     // Whether the entity is a mass noun ("information", "water") rather than a count noun.
     // If true, `is_mass()` returns true in the Ranting impl. Orthogonal to `gender`.
@@ -301,7 +339,18 @@ pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> To
     let noun_class_fn: TokenStream = get_noun_class_fn(&opt);
     let is_mass_fn: TokenStream = get_is_mass_fn(&opt);
 
-    let no_article = opt.no_article.to_owned();
+    let skip_article_fn: TokenStream = match &opt.no_article {
+        NoArticleAttr::Literal(value) => parse_quote! {
+            fn skip_article(&self) -> bool {
+                #value
+            }
+        },
+        NoArticleAttr::Field => parse_quote! {
+            fn skip_article(&self) -> bool {
+                self.no_article
+            }
+        },
+    };
     let name_fn_q = get_namefn_for(opt, is_enum);
 
     let display_impl = if is_enum {
@@ -318,9 +367,7 @@ pub(crate) fn ranting_q(opt: RantingOptions, is_enum: bool, ident: &Ident) -> To
     let ranting_functions: TokenStream = parse_quote! {
         #name_fn_q
         #plurality_action
-        fn skip_article(&self) -> bool {
-            #no_article
-        }
+        #skip_article_fn
         #noun_class_fn
         #is_mass_fn
     };

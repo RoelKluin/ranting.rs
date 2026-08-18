@@ -1612,7 +1612,8 @@ fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
     gender = "$",
     singular_end = "$",
     plural_end = "$",
-    mass = "$"
+    mass = "$",
+    no_article = "$"
 )]
 pub struct Noun {
     pub(crate) name: String,
@@ -1644,6 +1645,12 @@ pub struct Noun {
     // `singular_end`/`plural_end`, which need `Option` to distinguish "declared empty" from
     // "no rule declared" -- mass has only two states to begin with).
     pub(crate) mass: bool,
+    // Plain `bool`, `false` unless `with_skip_article()` is called -- same shape and same reason
+    // as `mass` above: `Noun` has no attributes to declare, so this is the runtime field
+    // `#[ranting(no_article = "$")]` reads. Distinct from the type-level `#[ranting(no_article)]`
+    // a derived struct writes for a noun class that is *always* article-less; here it's a plain
+    // per-instance flag because two `Noun`s can differ (a proper name vs. a common noun).
+    pub(crate) no_article: bool,
 }
 
 /// How the derive macro reads a `#[ranting(singular_end = "$")]` / `#[ranting(plural_end =
@@ -1739,6 +1746,7 @@ impl Noun {
             singular_end: None,
             plural_end: None,
             mass: false,
+            no_article: false,
         })
     }
 
@@ -1820,6 +1828,29 @@ impl Noun {
     /// ```
     pub fn with_mass(mut self) -> Self {
         self.mass = true;
+        self
+    }
+
+    /// Declare whether this noun's article should be suppressed — for a proper name ("Alice"
+    /// walked in, not "An Alice"), a sport, or a meal, where an article never belongs.
+    /// Consuming and returning, so it chains off [`new`](Self::new)/[`try_new`](Self::try_new).
+    /// Both constructors leave it `false`, which is what every noun that never calls this keeps.
+    ///
+    /// A `bool` parameter rather than a bare `with_skip_article()` (unlike [`with_mass`]) because
+    /// per-instance suppression is expected to be set conditionally — e.g. only for nouns a
+    /// caller has classified as proper-named — so a caller building `Noun`s from data typically
+    /// wants `with_skip_article(is_proper_name)` rather than a branch that does or doesn't call
+    /// it.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use ranting::*;
+    /// # use ranting_derive::say;
+    /// let alice = Noun::new("Alice", "she").with_skip_article(true);
+    /// assert_eq!(say!("{a alice} walked in."), "Alice walked in.".to_string());
+    /// ```
+    pub fn with_skip_article(mut self, skip: bool) -> Self {
+        self.no_article = skip;
         self
     }
 }

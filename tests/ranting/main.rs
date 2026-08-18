@@ -4,6 +4,7 @@ mod advanced;
 mod argument_edge_cases;
 mod argument_parsing;
 mod article_classification;
+mod article_suppression;
 mod ask;
 mod case_display_split;
 mod comparative_adjectives;
