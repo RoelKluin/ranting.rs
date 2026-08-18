@@ -1493,6 +1493,18 @@ first, not by importance.*
    home in `ranting` itself — `ask!()` targets one statically-known `audience` per call site, by
    design. A new adjacent crate, not a `ranting` feature; largest and least-scoped item here.
 
+   **PROPOSED (2026-08-18 spike — NOT implemented; maintainer decision needed)** — design spike
+   at `docs/superpowers/specs/2026-08-18-ranting-if-companion-crate.md`. Narrows the item to a
+   minimal first slice: a caller-supplied flat candidate list, match-count-plus-specificity-
+   tiebreak scoring (no scope reasoning, no weighting DSL), and trait-based rule authoring
+   (`match_tokens`) rather than a new sigil grammar. Recommends dev-tool shape — depends on
+   `ranting`, optionally `ranting_core` later — like `ranting_gaps`, not falsifier-shaped like
+   `ranting_i18n`/`ranting_es`/`ranting_ar`/`ranting_ja`, since disambiguation is orthogonal to the
+   falsifier contract's "is the public API enough non-English signal" question. Sketches
+   integration as disambiguation run *before* an unmodified `ask!()` call to resolve which
+   concrete value plays `audience`, leaving `ask!()`'s one-audience-per-call-site design untouched.
+   Leaves the maintainer to decide whether to build the slice at all.
+
 **Not carried forward from Phase 8's own leftovers** (cited, not re-litigated): the
 `ranting_i18n`/hole-3 dative-genitive gap and `GrammaticalCase`'s five-marker inventory are
 Locked (Key Architecture Decisions); §1.12's *choice* of gating on `is_mass()` rather than
