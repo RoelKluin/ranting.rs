@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  gate:
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - .
+          - ranting_core
+          - ranting_derive
+          - ranting_i18n
+          - ranting_es
+          - ranting_ar
+          - ranting_ja
+          - ranting_gaps
+          - ranting_es_gaps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.crate }}
+      - name: fmt
+        run: cargo fmt --manifest-path ${{ matrix.crate }}/Cargo.toml --check
+      - name: clippy
+        run: cargo clippy --manifest-path ${{ matrix.crate }}/Cargo.toml --all-targets -- -D warnings
+      - name: test
+        run: cargo test --manifest-path ${{ matrix.crate }}/Cargo.toml
