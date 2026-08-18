@@ -60,12 +60,12 @@ use ranting::*;
 let protagonist = Noun::new("Hero", "I");
 
 // Past branch: "I discovered a chamber..."
-let past = say!("{=protagonist <discover} chamber. {=protagonist =search} inside.");
-// "I discovered chamber. I am searching inside."
+let past = say!("{=protagonist <discover} a chamber. {=protagonist =search} inside.");
+// "I discovered a chamber. I am searching inside."
 
 // Future branch: "I will discover a chamber..."
-let future = say!("{=protagonist >discover} chamber. {=protagonist =search} inside.");
-// "I will discover chamber. I am searching inside."
+let future = say!("{=protagonist >discover} a chamber. {=protagonist =search} inside.");
+// "I will discover a chamber. I am searching inside."
 ```
 
 **Why it matters**: Interactive fiction often branches on game state (did the player find the treasure?). Ranting lets you write tense-aware text without duplicating the narrative.
@@ -123,7 +123,7 @@ say!("{+=cat walk}");      // "They walk" (plural forced with +)
 use ranting::*;
 
 let alex = Noun::new("Alex", "they");
-say!("{=alex have} voice.");      // "They have voice."
+say!("{=alex have} a voice.");    // "They have a voice."
 say!("{=alex walk} fast.");       // "They walk fast."
 ```
 
@@ -165,11 +165,11 @@ use ranting::*;
 let protagonist = Noun::new("Sam", "she");
 
 let story = say!(
-    "{=protagonist <arrive} gates. "
+    "{=protagonist <arrive} at the gates. "
     "{=protagonist =search} treasure. "
     "{=protagonist >find} it."
 );
-// "She arrived gates. She is searching treasure. She will find it."
+// "She arrived at the gates. She is searching treasure. She will find it."
 ```
 
 **Why it matters**: Stories often mix tenses (describe what happened, what's happening now, what will happen). Ranting keeps everything grammatical.

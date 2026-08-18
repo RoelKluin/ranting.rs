@@ -71,12 +71,12 @@ use ranting::*;
 let protagonist = Noun::new("Hero", "I");
 
 // Rama en pasado: "I discovered a chamber..."
-let past = say!("{=protagonist <discover} chamber. {=protagonist =search} inside.");
-// "I discovered chamber. I am searching inside."
+let past = say!("{=protagonist <discover} a chamber. {=protagonist =search} inside.");
+// "I discovered a chamber. I am searching inside."
 
 // Rama en futuro: "I will discover a chamber..."
-let future = say!("{=protagonist >discover} chamber. {=protagonist =search} inside.");
-// "I will discover chamber. I am searching inside."
+let future = say!("{=protagonist >discover} a chamber. {=protagonist =search} inside.");
+// "I will discover a chamber. I am searching inside."
 ```
 
 **Por qué importa**: la ficción interactiva suele ramificarse según el estado del juego (¿encontró
@@ -139,7 +139,7 @@ ej., "1 cat walks" frente a "3 cats walk"). Ranting lo gestiona automáticamente
 use ranting::*;
 
 let alex = Noun::new("Alex", "they");
-say!("{=alex have} voice.");      // "They have voice."
+say!("{=alex have} a voice.");    // "They have a voice."
 say!("{=alex walk} fast.");       // "They walk fast."
 ```
 
@@ -185,11 +185,11 @@ use ranting::*;
 let protagonist = Noun::new("Sam", "she");
 
 let story = say!(
-    "{=protagonist <arrive} gates. "
+    "{=protagonist <arrive} at the gates. "
     "{=protagonist =search} treasure. "
     "{=protagonist >find} it."
 );
-// "She arrived gates. She is searching treasure. She will find it."
+// "She arrived at the gates. She is searching treasure. She will find it."
 ```
 
 **Por qué importa**: las historias a menudo mezclan tiempos verbales (describir lo que pasó, lo

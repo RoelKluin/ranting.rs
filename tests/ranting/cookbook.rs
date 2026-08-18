@@ -40,17 +40,18 @@ fn recipe_3_interactive_fiction_branching() {
     let protagonist = Noun::new("Hero", "I");
 
     // If the treasure was already found (past action)
-    let past_narrative = say!("{=protagonist <discover} chamber. {=protagonist =search} inside.");
+    let past_narrative = say!("{=protagonist <discover} a chamber. {=protagonist =search} inside.");
     assert_eq!(
         past_narrative,
-        "I discovered chamber. I am searching inside."
+        "I discovered a chamber. I am searching inside."
     );
 
     // If the treasure will be found (future action)
-    let future_narrative = say!("{=protagonist >discover} chamber. {=protagonist =search} inside.");
+    let future_narrative =
+        say!("{=protagonist >discover} a chamber. {=protagonist =search} inside.");
     assert_eq!(
         future_narrative,
-        "I will discover chamber. I am searching inside."
+        "I will discover a chamber. I am searching inside."
     );
 }
 
@@ -89,7 +90,7 @@ fn recipe_6_gender_neutral_pronouns() {
 
     let alex = Noun::new("Alex", "they");
 
-    assert_eq!(say!("{=alex have} voice."), "They have voice.");
+    assert_eq!(say!("{=alex have} a voice."), "They have a voice.");
     assert_eq!(say!("{=alex walk} fast."), "They walk fast.");
 }
 
@@ -113,11 +114,11 @@ fn recipe_8_mixed_tense_narrative() {
     let protagonist = Noun::new("Sam", "she");
 
     let story = say!(
-        "{=protagonist <arrive} gates. {=protagonist =search} treasure. {=protagonist >find} it."
+        "{=protagonist <arrive} at the gates. {=protagonist =search} treasure. {=protagonist >find} it."
     );
     assert_eq!(
         story,
-        "She arrived gates. She is searching treasure. She will find it."
+        "She arrived at the gates. She is searching treasure. She will find it."
     );
 }
 
