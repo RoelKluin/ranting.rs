@@ -324,7 +324,7 @@ dependencies = [
 
 [[package]]
 name = "ranting"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "document-features",
  "english-numbers",
@@ -339,7 +339,7 @@ dependencies = [
 
 [[package]]
 name = "ranting_core"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "regex",
  "strum",
@@ -348,7 +348,7 @@ dependencies = [
 
 [[package]]
 name = "ranting_derive"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "darling",
  "itertools",
