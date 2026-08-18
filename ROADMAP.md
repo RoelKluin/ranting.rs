@@ -1450,6 +1450,24 @@ first, not by importance.*
    falsifier that leans on the derive default rather than a hand-written impl, or extend an
    existing one's lexicon with entries that go through the default path instead of an override.
    Falsifier-contract work, not a `ranting`-core change, unless it finds something.
+
+   **PROPOSED (2026-08-18 spike — NOT implemented; maintainer decision needed)** — design spike
+   at `docs/superpowers/specs/2026-08-18-derive-inflect-non-english.md`. Confirms the state one
+   notch stronger than §4.7's own framing: neither `ranting_i18n` nor `ranting_es` uses
+   `#[derive_ranting]` at all (both hand-roll `impl Ranting for ...` directly), so there is no
+   partial coverage of the derive-generated `inflect()` fallback to extend — only a clean
+   absence. Traces `src/language/plurals.rs`'s orthographic-only regular-plural rules by hand
+   against known German/Spanish plurals (`Fuchs`→`Füchse`, `Buch`→`Bücher`, `voz`→`voces`,
+   `luz`→`luces`) and finds every one would render wrong through the derive default
+   (`Fuchses`, `Buches`, `vozes`, `luzes`) — expected with near certainty, not discovered, since
+   the rules were deliberately scoped English-only and §4.7 already says suffix arithmetic
+   cannot produce these forms. Recommends candidate (a), a minimal fifth falsifier crate, over
+   (b): extending an existing lexicon turns out to mean bolting a second,
+   `#[derive_ranting]`-based implementation strategy onto a crate that has used exactly one
+   hand-rolled strategy since it was created, not adding rows to a table. States plainly that the
+   value is pinning a known gap as a regression test, not falsifying an unknown one, and leaves
+   open — for the maintainer — whether that goal is better served by a full fifth crate or a
+   lighter pinned test inside this repo's own `tests/ranting/`.
 4. **Arbitrary-phrase pluralization** (`ROADMAP.md` — *Post-v1.2: Future Directions*, "Pluralization
    of entire phrases"). Distinct from the compound-noun defect Phase 8 item 6 §1.10 already fixed
    (that was single-noun compound heads); this is pluralizing a whole rendered phrase. Not yet
