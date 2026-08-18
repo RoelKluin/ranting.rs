@@ -7,7 +7,7 @@ Ranting&ensp;╰(°Д°)/
 
 This library provides [`Ranting`](https://docs.rs/ranting/2.0.0/ranting/trait.Ranting.html), a trait for inflection within [`say!()`](https://docs.rs/ranting_derive/2.0.0/ranting_derive/macro.say.html) litteral string placeholders.
 
-**New to Ranting?** Start with the [**Tutorial**](docs/TUTORIAL.md) (30-40 min read) or jump to the [**Cookbook**](docs/COOKBOOK.md) (10 practical recipes). Already know the basics? Keep the [**Cheatsheet**](docs/CHEATSHEET.md) open while you write, or browse the [**API Reference**](docs/API.md) for the full public surface. (Tutorial, Cookbook and Cheatsheet are also available [**en español**](docs/es/TUTORIAL.md).)
+**New to Ranting?** Start with the [**Tutorial**](docs/TUTORIAL.md) (30-40 min read) or jump to the [**Cookbook**](docs/COOKBOOK.md) (10 practical recipes). Already know the basics? Keep the [**Cheatsheet**](docs/CHEATSHEET.md) open while you write, browse the [**API Reference**](docs/API.md) for the full public surface, or see [**Advanced Examples**](docs/ADVANCED.md) for composed, multi-feature passages showing the extent of what a single `say!()` template can do. (Tutorial, Cookbook and Cheatsheet are also available [**en español**](docs/es/TUTORIAL.md).)
 
 ```toml
 [dependencies]

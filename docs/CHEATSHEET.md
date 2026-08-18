@@ -4,7 +4,8 @@
 
 A single-page quick reference for `say!()` placeholder syntax and the crate's
 public macros/types. For a guided introduction see the [Tutorial](TUTORIAL.md);
-for worked examples see the [Cookbook](COOKBOOK.md); for the full public API
+for worked examples see the [Cookbook](COOKBOOK.md); for composed, multi-feature
+passages see [Advanced Examples](ADVANCED.md); for the full public API
 see [API.md](API.md) or [docs.rs](https://docs.rs/ranting).
 
 Every example on this page was run against the current codebase — outputs are

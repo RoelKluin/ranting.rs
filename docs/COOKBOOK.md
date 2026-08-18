@@ -318,7 +318,7 @@ say!("{=person walk}");    // "He walks"          (= shows the pronoun instead)
 
 ## What's Next?
 
-Read the [Tutorial](TUTORIAL.md) for a deeper dive into syntax and tense markers, or explore the [API docs](https://docs.rs/ranting/) for advanced features.
+Read the [Tutorial](TUTORIAL.md) for a deeper dive into syntax and tense markers, see [Advanced Examples](ADVANCED.md) for composed, multi-feature passages, or explore the [API docs](https://docs.rs/ranting/) for the full public surface.
 
 ---
 

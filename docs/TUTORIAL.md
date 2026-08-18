@@ -255,7 +255,7 @@ assert_eq!(result, "She walks");
 
 ## Next Steps
 
-Now that you understand the basics, explore the **Cookbook** for 10 practical recipes covering game dialogue, chatbots, interactive fiction, and more.
+Now that you understand the basics, explore the **[Cookbook](COOKBOOK.md)** for 10 practical recipes covering game dialogue, chatbots, interactive fiction, and more, or the **[Advanced Examples](ADVANCED.md)** for composed, multi-feature passages showing how much a single `say!()` template can express.
 
 ### Quick reference
 
