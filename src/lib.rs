@@ -64,14 +64,17 @@
 
 extern crate self as ranting;
 
+#[cfg(feature = "heed")]
 mod answerable;
 mod collections;
+#[cfg(feature = "heed")]
 mod heed;
 mod language;
 mod narration;
 use regex::Regex;
 use std::sync::LazyLock;
 
+#[cfg(feature = "heed")]
 pub use answerable::Answerable;
 pub use collections::{Many, Maybe};
 pub use narration::{NarrationContext, Person, Register, Tense};
@@ -183,6 +186,7 @@ use std::str::FromStr;
 // for anyone extending the grammar. See `.claude/rules/crate-layout.md`'s "Macro flow" section.
 pub use ranting_core::placeholder;
 
+#[cfg(feature = "heed")]
 pub use heed::{HeedMatcher, HeedTemplateError};
 
 // TODO: make this a feature:
@@ -319,10 +323,13 @@ pub use ranting_derive::say_with;
 
 // The four re-exports below carry no doc of their own on purpose: rustdoc renders the
 // re-export's `///` *above* the macro's own doc, so a summary here is read twice.
+#[cfg(feature = "heed")]
 pub use ranting_derive::heed;
 
+#[cfg(feature = "heed")]
 pub use ranting_derive::Heed;
 
+#[cfg(feature = "heed")]
 pub use ranting_derive::ask;
 
 pub use ranting_derive::derive_ranting;

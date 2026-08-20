@@ -271,7 +271,7 @@ fn main() {
 
 ## Parsing input with `heed!()`
 
-`heed!()` is the reverse direction from `say!()` — matching input text against a template to extract values, in the spirit of C's `scanf`:
+`heed!()` is the reverse direction from `say!()` — matching input text against a template to extract values, in the spirit of C's `scanf`. `heed!()`, `ask!()` and `#[derive(Heed)]` are gated behind the `heed` Cargo feature, which is on by default — pass `default-features = false` (without re-enabling `heed`) to drop this subsystem from your build:
 
 ```rust
 use ranting::heed;

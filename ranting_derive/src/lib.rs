@@ -1,6 +1,8 @@
 // (c) RoelKluin 2022 MIT
 
+#[cfg(feature = "heed")]
 mod heed;
+#[cfg(feature = "heed")]
 mod heed_derive;
 mod language;
 mod ranting_impl;
@@ -65,6 +67,7 @@ pub fn say_with(input: TokenStream1) -> TokenStream1 {
 /// exactly like `heed!()`, then forwards the captures to `audience`'s
 /// `Answerable::answer(&speaker, captures)`. Returns `Option<String>` —
 /// `None` if `input` doesn't match `template`.
+#[cfg(feature = "heed")]
 #[proc_macro]
 pub fn ask(input: TokenStream1) -> TokenStream1 {
     let output = parse_macro_input!(input as Ask);
@@ -96,6 +99,7 @@ pub fn ask(input: TokenStream1) -> TokenStream1 {
 /// matches `"剣、 取る"`.
 ///
 /// `ask!()` and `#[derive(Heed)]` compile their templates with this same grammar.
+#[cfg(feature = "heed")]
 #[proc_macro]
 pub fn heed(input: TokenStream1) -> TokenStream1 {
     let output = parse_macro_input!(input as heed::Heed);
@@ -305,6 +309,7 @@ pub fn ref_ranting_trait(input: TokenStream1) -> TokenStream1 {
 /// `heed!()`'s own grammar and matching semantics, but the resulting
 /// captures are forwarded into `audience`'s `Answerable::answer` instead of
 /// being returned directly.
+#[cfg(feature = "heed")]
 struct Ask {
     speaker: Expr,
     audience: Expr,
@@ -312,6 +317,7 @@ struct Ask {
     input: Expr,
 }
 
+#[cfg(feature = "heed")]
 impl syn::parse::Parse for Ask {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         if input.is_empty() {
@@ -339,6 +345,7 @@ impl syn::parse::Parse for Ask {
 /// Parses `input` against `template` exactly like `heed!()`, then forwards
 /// the captures to `audience.answer(&speaker, captures)` (`Answerable::answer`).
 /// Print result with `--features debug`
+#[cfg(feature = "heed")]
 impl ToTokens for Ask {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let (pattern, captures) = match heed::compile_heed_template(&self.template) {
@@ -473,6 +480,7 @@ pub fn inner_derive_ranting(input: TokenStream1) -> TokenStream1 {
 /// same name and the matching type — `String` for `{name}` and `{name...}`, `u64` for
 /// `{$name}` — and each field must have a capture. A field without one, or a capture without a
 /// field, is a compile error rather than a silently empty value.
+#[cfg(feature = "heed")]
 #[proc_macro_derive(Heed, attributes(heed))]
 pub fn derive_heed(input: TokenStream1) -> TokenStream1 {
     let input = parse_macro_input!(input);

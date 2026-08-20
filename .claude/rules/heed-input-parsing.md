@@ -5,6 +5,15 @@ Read before touching `ranting_core/src/heed_template.rs`, `ranting_derive/src/he
 compiler (`ranting_core::heed_template::compile_heed_template`), so a change to it changes all
 three.
 
+**The whole subsystem sits behind a `heed` Cargo feature, default-on** (2026-08-20) — same
+forwarding shape as the existing `debug` feature: `ranting_core`'s `heed_template` module,
+`ranting_derive`'s `heed`/`heed_derive` modules plus its `heed`/`ask`/`Heed` proc-macro entry
+points and the `Ask` type, and `ranting`'s `heed`/`answerable` modules plus their `pub use`
+re-exports, are all `#[cfg(feature = "heed")]`. Default-on because `ranting_ja`'s public
+`Shopkeeper` (`Answerable` impl) relies on it. A new `_custom` hook or template-compiler change
+under this feature needs no extra cfg work — add it inside the already-gated files/items; only a
+*new* top-level module or re-export needs its own `#[cfg(feature = "heed")]`.
+
 **The compiler itself lives in `ranting_core`, not `ranting_derive`** (2026-08-18) — moved there
 so a runtime template (see `HeedMatcher::from_template` below) can reach the same algorithm a
 `proc-macro = true` crate cannot be depended on from `ranting`, and `ranting_derive` cannot depend

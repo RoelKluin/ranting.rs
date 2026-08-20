@@ -31,6 +31,18 @@ done
 `scripts/overnight_loop.sh`'s `gate_dirs`/`run_gate` helpers do this by globbing for `Cargo.toml`,
 so a future sibling crate is gated automatically without editing the script.
 
+The `heed` feature (see `.claude/rules/heed-input-parsing.md`) gates `heed!()`/`ask!()`/
+`#[derive(Heed)]` and is default-on but opt-out.
+Since it's forwarded only to `.` and `ranting_derive`, also run the same three gates there with
+the feature off, so the off path doesn't silently bit-rot:
+
+```bash
+for d in . ranting_derive; do
+  cargo clippy --manifest-path $d/Cargo.toml --all-targets --no-default-features -- -D warnings
+  cargo test --manifest-path $d/Cargo.toml --no-default-features
+done
+```
+
 Green gates are necessary, not sufficient: they have missed real defects four times in this repo —
 three found by review (§1.5, §4.7, and the 2026-08-15 splice defect), one found only when a *new*
 crate's first `cargo test` reached a line six existing gates could not (§1.7). See

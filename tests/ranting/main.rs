@@ -5,6 +5,7 @@ mod argument_edge_cases;
 mod argument_parsing;
 mod article_classification;
 mod article_suppression;
+#[cfg(feature = "heed")]
 mod ask;
 mod case_display_split;
 mod comparative_adjectives;
@@ -16,8 +17,11 @@ mod elision;
 mod error_messages;
 mod first_person_hook;
 mod grammatical_case;
+#[cfg(feature = "heed")]
 mod heed;
+#[cfg(feature = "heed")]
 mod heed_derive;
+#[cfg(feature = "heed")]
 mod heed_dynamic;
 mod hidden_noun_spacing;
 #[cfg(feature = "inclusive-pronouns")]
@@ -45,6 +49,7 @@ mod regular_plurals;
 
 mod runtime_tense;
 mod runtime_viewpoint;
+#[cfg(feature = "heed")]
 mod script_segmentation;
 mod sentence_detection;
 mod singular_they;
