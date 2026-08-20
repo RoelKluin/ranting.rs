@@ -44,3 +44,5 @@ tasks_done.txt
 # documentation; would otherwise get auto-staged by overnight_loop.sh's
 # STAGE_EXTENSIONS since it matches *.md.
 /mem.md
+dupes.txt
+*/dupes.txt
