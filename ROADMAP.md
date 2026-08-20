@@ -44,6 +44,18 @@ See `.claude/rules/crate-layout.md`'s falsifier list and `ranting_fr/README.md` 
 actual finding (a lexically-split adjective-position hole, plus two confirmations:
 `is_mass()`/the partitive article, and `elide_article_custom`'s first negative case).
 
+✅ **`ranting_zh` (Mandarin falsifier) added 2026-08-20**, same shape as `ranting_fr`
+immediately above — an ad hoc addition, not a phase item. Rejected both of its obvious
+candidate gaps (classifiers, prenominal adjective position) as non-novel restatements of
+`ranting_ja`'s counters and `ranting_i18n`'s hole 4a, and found a genuinely new one
+instead: the tense-marker pipeline (`PostSpec::Tense` in `src/lib.rs`) unconditionally
+composes an English auxiliary word around whatever `inflect_verb_custom_with_context`
+returns, and never tells that hook which tense marker fired — so a fork's verb
+substitution can be perfect and the output is still an English/Mandarin hybrid
+(`"Will 吃"`), because Mandarin marks aspect (了/过/着) by suffixing the verb rather than
+composing an auxiliary. See `.claude/rules/crate-layout.md`'s falsifier list and
+`ranting_zh/README.md` for the full finding.
+
 **Shipping today**:
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
 - `say!()`/`say_with!()`/`ack!()`/`nay!()`/`heed!()`/`ask!()`/`#[derive(Heed)]`
@@ -52,11 +64,11 @@ actual finding (a lexically-split adjective-position hole, plus two confirmation
   `capitalize`/`capitalize_with_context` pair and one unpaired
   `is_first_person_subject_custom` — 25 `Ranting` trait methods in all, carrying
   grammatical case, noun class, count, and orthography role
-- Ten independent Cargo manifests, no workspace: three library crates
-  (`ranting`, `ranting_core`, `ranting_derive`), five downstream falsifiers
-  (`ranting_i18n` German, `ranting_es` Spanish, `ranting_ar` Arabic,
-  `ranting_ja` Japanese, `ranting_fr` French) and the `ranting_gaps`/`ranting_es_gaps` dev tools
-- A green gate in every one of the ten manifest directories; see CLAUDE.md for the loop
+- Eleven independent Cargo manifests, no workspace: three library crates
+  (`ranting`, `ranting_core`, `ranting_derive`), six downstream falsifiers
+  (`ranting_i18n` German, `ranting_es` Spanish, `ranting_ar` Arabic, `ranting_ja` Japanese,
+  `ranting_fr` French, `ranting_zh` Mandarin) and the `ranting_gaps`/`ranting_es_gaps` dev tools
+- A green gate in every one of the eleven manifest directories; see CLAUDE.md for the loop
 
 ---
 

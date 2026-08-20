@@ -1,0 +1,10 @@
+[package]
+name = "ranting-zh"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Mandarin Chinese reference lexicon for ranting: the sixth acceptance test, for the tense/aspect gap in the placeholder tense-marker pipeline"
+publish = false
+
+[dependencies]
+ranting = { path = ".." }

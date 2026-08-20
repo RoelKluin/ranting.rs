@@ -3,16 +3,16 @@
 Read before adding a crate, moving code between crates, adding a build script, or "deduplicating"
 anything.
 
-## Architecture: three library crates + five downstream falsifier crates
+## Architecture: three library crates + six downstream falsifier crates
 
 The three crates below are the library. `ranting_i18n/` (crate name `ranting-i18n`, v1.3,
 ROADMAP.md Phase 6 item 10), `ranting_es/` (crate name `ranting-es`, Phase 6 item 23),
 `ranting_ar/` (crate name `ranting-ar`, Phase 7 item 5), `ranting_ja/` (crate name
-`ranting-ja`, Phase 7 item 6) and `ranting_fr/` (crate name `ranting-fr`) are five more
-directories but *not* part of it: each is a downstream consumer that depends on `ranting`
-alone, exactly as an ecosystem fork would, and exists to falsify the claim that the public API
-gives a non-English implementation enough signal. Nothing in
-`ranting`/`ranting_core`/`ranting_derive` depends on any of them, and **none may ever gain a
+`ranting-ja`, Phase 7 item 6), `ranting_fr/` (crate name `ranting-fr`) and `ranting_zh/`
+(crate name `ranting-zh`) are six more directories but *not* part of it: each is a downstream
+consumer that depends on `ranting` alone, exactly as an ecosystem fork would, and exists to
+falsify the claim that the public API gives a non-English implementation enough signal. Nothing
+in `ranting`/`ranting_core`/`ranting_derive` depends on any of them, and **none may ever gain a
 `ranting_core` or `ranting_derive` dependency — the moment one needs it, that is the finding.**
 
 The falsifiers were chosen to exercise different, complementary gaps rather than duplicate
@@ -41,7 +41,17 @@ adjectives is prenominal in real French while the rest is postnominal, unlike ev
 whole-language categorical split), plus two confirmations: `is_mass()`/the partitive article
 (`du`/`de la`), never exercised by any prior fork, and `elide_article_custom`'s first *negative*
 elision case (`h aspiré` correctly blocking elision on a word that looks identical in shape to one
-that elides).
+that elides). `ranting_zh` implements Mandarin, and rejected both of its obvious candidate gaps as
+non-novel before settling on its actual one — classifiers would be a second working example of
+`ranting_ja`'s counter mechanism, and prenominal adjective position would be a third restatement
+of `ranting_i18n`'s hole 4a. Its real finding is a new axis entirely: the tense-marker pipeline
+(`PostSpec::Tense` in `src/lib.rs`) unconditionally pipes `inflect_verb_custom_with_context`'s
+return value through `handle_tense_marker`'s plain-English auxiliary composition — not a trait
+method call, and the hook is never even told which of the eleven `TenseMarker` variants fired.
+Mandarin marks aspect (了/过/着) by suffixing the verb, not by composing an auxiliary word, so a
+fork's verb substitution can be perfect and the output — `"Will 吃"` — is still an
+English/Mandarin hybrid no override can fix. `ranting_ja` never found this because none of its
+three live hook pairs is this one; its own tests never exercise a tense marker at all.
 
 Each crate's `README.md` is the authoritative, numbered list of what its language cannot reach through the public API, each pinned by a
 `hole_N_*` test in its own `tests/holes.rs` that asserts what the crate *actually* renders.
