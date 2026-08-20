@@ -493,3 +493,19 @@ agreeing quantifiers, the mass/count distinction, ordinals, adverb derivation) �
 is correct, there is simply no channel and the caller hand-writes the words. The review also
 declined two candidates outright as word-order-boundary matters (relative-pronoun selection,
 reciprocals); Phase 8's non-goals name them and cite the locked decision rather than re-opening it.
+
+### 4.3 No declared MSRV alongside edition 2024 — ✅ **fixed 2026-08-20**
+
+Raised by a downstream consumer (`recounting`, which pins `rust-version = "1.78"` at its own
+workspace root): all three manifests (`ranting`, `ranting_core`, `ranting_derive`) declared
+`edition = "2024"` with no `rust-version` anywhere. Cargo refuses to even parse an edition-2024
+manifest below the toolchain version that stabilized it, and that failure happens at
+manifest-load time — before any of the consumer's own code is reached, so it isn't something a
+`-p`-scoped build can dodge. A consumer pinning any MSRV below edition 2024's floor had no way to
+know what floor to pick, since nothing in the manifest said what that floor was.
+
+Fixed by adding `rust-version = "1.85"` (edition 2024's stabilization version) to all three
+manifests, rather than dropping to edition 2021 — nothing forced the drop, and declaring the true
+floor is more informative than lowering it. A consumer with a lower MSRV pin (e.g. `recounting`'s
+1.78) needs to raise its own floor to match; that is the consumer's call, not something this repo
+can absorb on their behalf.
