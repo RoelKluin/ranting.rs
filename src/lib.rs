@@ -45,6 +45,20 @@
 //!     "If I were rich, I would travel.".to_string());
 //! ```
 //!
+//! ## Article capitalization
+//!
+//! A placeholder at sentence start capitalizes its article by default, even where the template
+//! wrote it lowercase. Elsewhere, write the article capitalized to force capitalization:
+//!
+//! ```rust
+//! # use ranting::{Noun, say};
+//! let person = Noun::new("person", "she");
+//! assert_eq!(
+//!     say!("{the 0} arrived. {The 0} looked around.", person, person),
+//!     "The person arrived. The person looked around.".to_string()
+//! );
+//! ```
+//!
 //! ## Feature flags
 #![doc = document_features::document_features!()]
 
@@ -1604,7 +1618,7 @@ fn split_at_find_end(s: &str, fun: fn(char) -> bool) -> Option<(&str, &str)> {
 ///
 /// For a type of your own, `#[derive_ranting]` gives it the same placeholder support directly,
 /// and lets you override individual [`Ranting`] methods.
-#[derive(ranting_derive::Ranting)]
+#[derive(ranting_derive::Ranting, Debug, Clone, PartialEq)]
 // By setting name and subject to "$", these must come from the struct.
 #[ranting(
     name = "$",

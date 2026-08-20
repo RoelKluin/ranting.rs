@@ -164,7 +164,7 @@ pub static PH_EXT: &str = r"^(?x)
     (?P<post>\s+[<=>%!;]*(?:[\w-]+\s+)*?(?:[\w-]+')?[\w-]+|'\w*)?$";
 
 /// An enum with pronouns in subjective form.
-#[derive(EnumString, Copy, Clone, Debug, strum_macros::EnumIter)]
+#[derive(EnumString, Copy, Clone, Debug, PartialEq, Eq, strum_macros::EnumIter)]
 #[strum(serialize_all = "lowercase")]
 pub enum SubjectPronoun {
     #[strum(serialize = "I")]

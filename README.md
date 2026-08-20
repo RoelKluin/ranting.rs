@@ -109,7 +109,8 @@ All pronouns inflect correctly: subject (they), object (them), possessive determ
 <br>
 
 - With `,` and `^` lower- and uppercase are enforced, but a placeholder at sentence start is uppercase by default.
-  Also an article or verb with an uppercase causess an uppercase for the first character.
+  Also an article or verb with an uppercase causes an uppercase for the first character — see the crate docs'
+  "Article capitalization" section for a worked example.
 
 ```rust
 fn state<T: Ranting>(who: T, liberty: &str) -> String {
