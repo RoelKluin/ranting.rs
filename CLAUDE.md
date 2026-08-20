@@ -16,12 +16,12 @@ cargo fmt
 
 **A green gate at the repo root proves nothing about half the repo.** This is not a cargo
 workspace: `ranting` (root), `ranting_core`, `ranting_derive`, `ranting_i18n`, `ranting_es`,
-`ranting_ar`, `ranting_ja`, `ranting_gaps` and `ranting_es_gaps` each have their own
-`Cargo.toml`/`Cargo.lock`, and the commands above never compile or test the eight siblings. Before
+`ranting_ar`, `ranting_ja`, `ranting_fr`, `ranting_gaps` and `ranting_es_gaps` each have their own
+`Cargo.toml`/`Cargo.lock`, and the commands above never compile or test the nine siblings. Before
 reporting anything as passing, run all three gates in **every** directory that has a `Cargo.toml`:
 
 ```bash
-for d in . ranting_core ranting_derive ranting_i18n ranting_es ranting_ar ranting_ja ranting_gaps ranting_es_gaps; do
+for d in . ranting_core ranting_derive ranting_i18n ranting_es ranting_ar ranting_ja ranting_fr ranting_gaps ranting_es_gaps; do
   cargo fmt --manifest-path $d/Cargo.toml --check
   cargo clippy --manifest-path $d/Cargo.toml --all-targets -- -D warnings
   cargo test --manifest-path $d/Cargo.toml

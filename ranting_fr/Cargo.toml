@@ -1,0 +1,10 @@
+[package]
+name = "ranting-fr"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "French reference lexicon for ranting: the fifth acceptance test, for lexically-split adjective position and the mass/count article hook"
+publish = false
+
+[dependencies]
+ranting = { path = ".." }

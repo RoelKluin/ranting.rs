@@ -3,12 +3,13 @@
 Read before adding a crate, moving code between crates, adding a build script, or "deduplicating"
 anything.
 
-## Architecture: three library crates + four downstream falsifier crates
+## Architecture: three library crates + five downstream falsifier crates
 
 The three crates below are the library. `ranting_i18n/` (crate name `ranting-i18n`, v1.3,
 ROADMAP.md Phase 6 item 10), `ranting_es/` (crate name `ranting-es`, Phase 6 item 23),
-`ranting_ar/` (crate name `ranting-ar`, Phase 7 item 5) and `ranting_ja/` (crate name
-`ranting-ja`, Phase 7 item 6) are four more directories but *not* part of it: each is a downstream consumer that depends on `ranting`
+`ranting_ar/` (crate name `ranting-ar`, Phase 7 item 5), `ranting_ja/` (crate name
+`ranting-ja`, Phase 7 item 6) and `ranting_fr/` (crate name `ranting-fr`) are five more
+directories but *not* part of it: each is a downstream consumer that depends on `ranting`
 alone, exactly as an ecosystem fork would, and exists to falsify the claim that the public API
 gives a non-English implementation enough signal. Nothing in
 `ranting`/`ranting_core`/`ranting_derive` depends on any of them, and **none may ever gain a
@@ -31,7 +32,16 @@ second working example would add no falsification. `ranting_ja` is the first for
 finding is a **confirmation** rather than a gap — it is `NarrationContext::register`'s only real
 consumer, inert since Phase 3 — plus one defect (the numeral-noun separator, Phase 7 item 12).
 Only three of the eight hook pairs are live in it (verb, numeral, and the numeral elision it caused), and its README records that as a *finding* (the
-surface degrades cleanly for a low-inflection language) rather than as holes.
+surface degrades cleanly for a low-inflection language) rather than as holes. `ranting_fr`
+implements French, the first falsifier picked for adoption reach rather than purely to close a
+documented gap — its two most obvious candidate gaps (`le`/`la`→`l'` elision, `de`/`à`+`le`→
+`du`/`au` fusion) are already claimed by `ranting_ar` and `ranting_es` respectively, so it earns
+its place instead on a **lexically-split** adjective-position hole (a small closed set of common
+adjectives is prenominal in real French while the rest is postnominal, unlike every other fork's
+whole-language categorical split), plus two confirmations: `is_mass()`/the partitive article
+(`du`/`de la`), never exercised by any prior fork, and `elide_article_custom`'s first *negative*
+elision case (`h aspiré` correctly blocking elision on a word that looks identical in shape to one
+that elides).
 
 Each crate's `README.md` is the authoritative, numbered list of what its language cannot reach through the public API, each pinned by a
 `hole_N_*` test in its own `tests/holes.rs` that asserts what the crate *actually* renders.
