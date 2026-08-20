@@ -34,6 +34,16 @@ below; the defect half is `docs/architecture-review-2026-08-15.md` §§1.5-1.12;
 (implement, in full, per each item's DECIDED block below); item 5 was declined
 2026-08-15. Items 1-4 all landed on 2026-08-17.
 
+✅ **`ranting_fr` (French falsifier) added 2026-08-20**, outside the phase-numbered work
+above — not a Phase 9 candidate spike, an ad hoc addition prompted by a question about
+what would grow adoption. The first falsifier picked for adoption reach rather than
+purely to close a documented gap; it still earns its place on a new finding rather than
+duplicating one, since its two most obvious candidate gaps (`le`/`la`→`l'` elision,
+`de`/`à`+`le`→`du`/`au` fusion) were already claimed by `ranting_ar` and `ranting_es`.
+See `.claude/rules/crate-layout.md`'s falsifier list and `ranting_fr/README.md` for the
+actual finding (a lexically-split adjective-position hole, plus two confirmations:
+`is_mass()`/the partitive article, and `elide_article_custom`'s first negative case).
+
 **Shipping today**:
 - All 7 tenses, 118+ irregular verbs, irregular noun plurals, gender-neutral pronouns
 - `say!()`/`say_with!()`/`ack!()`/`nay!()`/`heed!()`/`ask!()`/`#[derive(Heed)]`
@@ -42,11 +52,11 @@ below; the defect half is `docs/architecture-review-2026-08-15.md` §§1.5-1.12;
   `capitalize`/`capitalize_with_context` pair and one unpaired
   `is_first_person_subject_custom` — 25 `Ranting` trait methods in all, carrying
   grammatical case, noun class, count, and orthography role
-- Eight independent Cargo manifests, no workspace: three library crates
-  (`ranting`, `ranting_core`, `ranting_derive`), four downstream falsifiers
+- Ten independent Cargo manifests, no workspace: three library crates
+  (`ranting`, `ranting_core`, `ranting_derive`), five downstream falsifiers
   (`ranting_i18n` German, `ranting_es` Spanish, `ranting_ar` Arabic,
-  `ranting_ja` Japanese) and the `ranting_gaps` dev tool
-- A green gate in every one of the eight manifest directories; see CLAUDE.md for the loop
+  `ranting_ja` Japanese, `ranting_fr` French) and the `ranting_gaps`/`ranting_es_gaps` dev tools
+- A green gate in every one of the ten manifest directories; see CLAUDE.md for the loop
 
 ---
 
